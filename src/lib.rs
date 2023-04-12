@@ -1,3 +1,5 @@
+pub mod assets;
+
 #[cfg(test)]
 mod tests {
 
