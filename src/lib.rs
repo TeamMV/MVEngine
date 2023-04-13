@@ -8,7 +8,7 @@ mod tests {
     #[test]
     fn it_works() {
         static DIR: Dir = include_dir!("assets/");
-        let manager = AssetManager::automatic(DIR.clone());
+        let manager = AssetManager::manual(DIR.clone());
 
     }
 }

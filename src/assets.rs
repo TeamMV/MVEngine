@@ -1,58 +1,41 @@
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use include_dir::*;
 
-pub trait ManagerType {}
-pub trait AutomaticType : ManagerType {}
-pub trait SemiAutomaticType : AutomaticType + ManualType {}
-pub trait ManualType : ManagerType {}
-struct Automatic;
-struct SemiAutomatic;
-struct Manual;
-impl ManagerType for Manual {}
-impl ManualType for Manual {}
-impl ManagerType for SemiAutomatic {}
-impl AutomaticType for SemiAutomatic {}
-impl ManualType for SemiAutomatic {}
-impl SemiAutomaticType for SemiAutomatic {}
-impl ManagerType for Automatic {}
-impl AutomaticType for Automatic {}
+pub struct AssetManager {
 
-pub struct AssetManager<T: ManagerType> {
-    phantom: PhantomData<T>,
 }
 
-impl<T> AssetManager<T> where T: ManagerType {
-    pub fn automatic(dir: Dir) -> AssetManager<Automatic> {
-        let config = dir.get_file("assets.dat").expect("Asset data file not found. Compile an assets folder!").clone();
-        let mut file_map: HashMap<String, File> = HashMap::new();
-        Self::files_deep(dir).into_iter().map(|file| (file.path().to_string(), file)).for_each(|(pair, file)| {
-            file_map.insert(pair, file);
-        });
+impl AssetManager {
+    pub fn automatic(dir: Dir) -> AutomaticAssetManager {
+        let config = dir.get_file("assets.dat").expect("Automatic asset manager requires assets.dat file!").clone();
+        let mut file_map = Self::map(dir);
         //parse config, map files to assets
         drop(file_map);
         todo!()
     }
 
-    pub fn semi_automatic(dir: Dir) -> AssetManager<SemiAutomatic> {
-        let config = dir.get_file("assets.dat").expect("Asset data file not found. Compile an assets folder!").clone();
-        let mut file_map: HashMap<String, File> = HashMap::new();
-        Self::files_deep(dir).into_iter().map(|file| (file.path().to_string(), file)).for_each(|(pair, file)| {
-            file_map.insert(pair, file);
-        });
+    pub fn new(dir: Dir) -> SemiAutomaticAssetManager {
+        let config = dir.get_file("assets.dat").map(|f| f.clone());
+        let mut file_map = Self::map(dir);
         //parse config, map files to assets
         drop(file_map);
         todo!()
     }
 
-    pub fn manual(dir: Dir) -> AssetManager<Manual> {
-        let mut file_map: HashMap<String, File> = HashMap::new();
-        Self::files_deep(dir).into_iter().map(|file| (file.path().to_string(), file)).for_each(|(pair, file)| {
-            file_map.insert(pair, file);
-        });
-        //parse config, map files to assets
+    pub fn manual(dir: Dir) -> ManualAssetManager {
+        let mut file_map = Self::map(dir);
         drop(file_map);
         todo!()
+    }
+
+    fn map(dir: Dir) -> HashMap<String, File> {
+        let mut file_map: HashMap<String, File> = HashMap::new();
+        Self::files_deep(dir).into_iter().map(|file| {
+            (file.path().to_path_buf().into_os_string().into_string().unwrap(), file)
+        }).for_each(|(pair, file)| {
+            file_map.insert(pair, file);
+        });
+        file_map
     }
 
     fn files_deep(dir: Dir) -> Vec<File> {
@@ -71,14 +54,26 @@ impl<T> AssetManager<T> where T: ManagerType {
     }
 }
 
-impl<T> AssetManager<T> where T: AutomaticType {
-    pub fn parse(&self) {
-        todo!()
-    }
+pub struct AutomaticAssetManager {
+    manager: AssetManager
 }
 
-impl<T> AssetManager<T> where T: ManualType {
-    pub fn add(&mut self) {
-        todo!()
-    }
+impl AutomaticAssetManager {
+
+}
+
+pub struct SemiAutomaticAssetManager {
+    manager: AssetManager
+}
+
+impl SemiAutomaticAssetManager {
+
+}
+
+pub struct ManualAssetManager {
+    manager: AssetManager
+}
+
+impl ManualAssetManager {
+
 }
