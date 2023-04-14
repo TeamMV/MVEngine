@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use include_dir::*;
 
 pub struct AssetManager {
@@ -76,4 +77,15 @@ pub struct ManualAssetManager {
 
 impl ManualAssetManager {
 
+}
+
+pub enum AssetType {
+    Texture,
+    Sound,
+    Model,
+    Script,
+    Shader,
+    Font,
+    Config,
+    Other
 }
