@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod render;
+pub mod parser;
 
 #[cfg(test)]
 mod tests {
