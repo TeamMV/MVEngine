@@ -63,3 +63,10 @@ impl Default for WindowCreateInfo {
         }
     }
 }
+
+pub trait Shader {
+    fn new(vertex: &str, fragment: &str) -> Self;
+    unsafe fn make(&mut self);
+    unsafe fn bind(&mut self);
+    unsafe fn take(&self);
+}

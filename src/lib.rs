@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod render;
 pub mod parser;
+pub mod math;
 
 #[cfg(test)]
 mod tests {

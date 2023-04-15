@@ -4,6 +4,8 @@ use crate::render::shared::{Window, WindowCreateInfo};
 
 pub mod shared;
 pub mod opengl;
+pub mod draw;
+pub mod color;
 
 pub struct Renderer {
     glfw: Glfw,
