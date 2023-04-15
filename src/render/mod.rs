@@ -16,14 +16,14 @@ pub enum RenderingBackend {
 
 impl Renderer {
     pub fn new(backend: RenderingBackend) -> Self {
-        let glfw = glfw::init(None).expect("Failed to initialize GLFW");
+        let glfw = glfw::init::<String>(None).expect("Failed to initialize GLFW");
         Renderer {
             glfw,
             backend
         }
     }
 
-    pub fn create_window(&mut self, info: WindowCreateInfo) -> impl Window {
+    pub fn create_window(&self, info: WindowCreateInfo) -> impl Window {
         return match self.backend {
             RenderingBackend::OpenGL => {
                 OpenGLWindow::new(self.glfw.clone(), info)

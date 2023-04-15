@@ -1,12 +1,22 @@
 use glfw::Glfw;
 
+pub trait ApplicationLoop {
+    fn start(&self, window: &mut impl Window);
+}
+
+struct DefaultApplicationLoop;
+
+impl ApplicationLoop for DefaultApplicationLoop {
+    fn start(&self, window: &mut impl Window) {}
+}
+
 pub trait Window {
     fn new(glfw: Glfw, info: WindowCreateInfo) -> Self;
 
-    fn run<F>(&mut self, start: F, update: F, draw: F) where F: FnMut(Self);
+    fn run(&mut self, application_loop: impl ApplicationLoop);
 
     fn run_default(&mut self) {
-        self.run(|w| {}, |w| {}, |w| {})
+        self.run(DefaultApplicationLoop {});
     }
 }
 

@@ -5,8 +5,8 @@ pub mod xml {
     use std::marker::PhantomData;
 
     pub struct XMLParser<S: ParserSecurity> {
-        pub to_parse: Option<String>,
-        pub result: Option<Tag>,
+        to_parse: Option<String>,
+        result: Option<Tag>,
         phantom: PhantomData<S>
     }
 
@@ -24,7 +24,7 @@ pub mod xml {
 
         fn parse_tag(&self, xml: String) -> Result<Tag, String> {
             let mut tag = Tag {
-                child_tags: Vec::new(),
+                children: Vec::new(),
                 name: String::new(),
                 namespace: None,
                 attributes: HashMap::new(),
@@ -39,7 +39,9 @@ pub mod xml {
             let mut top_comp = false;
             let mut attrib_comp = false;
             for c in xml.chars() {
-                if c == '<' {continue;}
+                if c == '<' {
+                    continue;
+                }
                 if !top_comp && !name_comp && c.is_whitespace() {
                     name_comp = true;
                     self.set_name(&mut tag, name_buf.clone());
@@ -93,16 +95,13 @@ pub mod xml {
                 tag.name = s;
             } else {
                 let mut r = s.split(":");
-                tag.name = r.next().unwrap_or("").to_string();
                 tag.namespace = Some(r.next().unwrap_or("").to_string());
+                tag.name = r.next().unwrap_or("").to_string();
             }
         }
 
         fn add_attrib(&self, tag: &mut Tag, name: String, value: String) {
-            tag.attribute_set.push(Attribute {
-                name,
-                value
-            });
+            tag.attributes.insert(name, value);
         }
     }
 
@@ -128,9 +127,9 @@ pub mod xml {
         }
     }
 
-    #[derive(Debug, Eq, PartialEq, Clone, Hash)]
+    #[derive(Debug, Eq, PartialEq, Clone)]
     pub struct Tag<> {
-        pub child_tags: Vec<Tag>,
+        pub children: Vec<Tag>,
         pub name: String,
         pub namespace: Option<String>,
         pub attributes: HashMap<String, String>
@@ -139,7 +138,7 @@ pub mod xml {
     impl Tag {
         pub fn get_tag(&self, name: &str) -> Vec<&Tag> {
             let mut tags = Vec::new();
-            for t in self.child_tags.iter() {
+            for t in self.children.iter() {
                 if t.name.as_str() == name {
                     tags.push(t);
                 }
@@ -148,7 +147,7 @@ pub mod xml {
         }
 
         pub fn has_tag(&self, name: &str) -> bool {
-            for t in self.child_tags.iter() {
+            for t in self.children.iter() {
                 if t.name.as_str() == name {
                     return true;
                 }
@@ -164,8 +163,12 @@ pub mod xml {
             self.attributes.contains_key(name)
         }
 
-        pub fn get_child_tags(&self) -> Vec<&Tag> {
-            self.child_tags.iter().collect()
+        pub fn get_attrib_keys(&self) -> Vec<&String> {
+            self.attributes.keys().collect()
+        }
+
+        pub fn get_children(&self) -> Vec<&Tag> {
+            self.children.iter().collect()
         }
 
         pub fn get_name(&self) -> &str {
