@@ -35,17 +35,21 @@ impl RenderCore {
     }
 
     pub fn create_shader(&self, vertex: &str, fragment: &str) -> Shader {
-        return match self.backend {
-            RenderingBackend::OpenGL => {
-                Shader::OpenGL(OpenGLShader::new(vertex, fragment))
-            }
-        };
+        unsafe {
+            return match self.backend {
+                RenderingBackend::OpenGL => {
+                    Shader::OpenGL(OpenGLShader::new(vertex, fragment))
+                }
+            };
+        }
     }
 
     pub fn create_texture(&self, bytes: Vec<u8>) -> Texture {
-        return match self.backend {
-            RenderingBackend::OpenGL => {
-                Texture::OpenGL(OpenGLTexture::new(bytes))
+        unsafe {
+            return match self.backend {
+                RenderingBackend::OpenGL => {
+                    Texture::OpenGL(OpenGLTexture::new(bytes))
+                }
             }
         }
     }

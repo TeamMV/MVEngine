@@ -29,12 +29,13 @@ impl AssetManager {
         todo!()
     }
 
-    pub fn manual(dir: Dir) -> ManualAssetManager {
+    pub fn manual(dir: Dir<'static>) -> ManualAssetManager {
         ManualAssetManager {
             manager: AssetManager {
                 files: Self::map(dir),
                 shaders: HashMap::new(),
                 textures: HashMap::new(),
+                texture_regions: HashMap::new(),
             },
         }
     }
@@ -110,7 +111,7 @@ crate::impl_ram!(AutomaticAssetManager, SemiAutomaticAssetManager, ManualAssetMa
 macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
-            impl ReadableAssetManager for $t {
+            impl<'a> ReadableAssetManager for $t {
                 fn get_shader(&self, id: &str) -> &Shader {
                     self.manager.shaders.get(id).unwrap()
                 }
@@ -167,7 +168,7 @@ macro_rules! impl_wam {
             impl WritableAssetManager for $t {
                 fn load_shader(&mut self, render_core: &RenderCore, id: &str, vertex_path: &str, fragment_path: &str) {
                     if let Err(e) = self.try_load_shader(render_core, id, vertex_path, fragment_path) {
-                        panic!(e);
+                        panic!("{}", e);
                     }
                 }
 
@@ -202,7 +203,7 @@ macro_rules! impl_wam {
 
                 fn load_texture(&mut self, render_core: &RenderCore, id: &str, texture_path: &str) {
                     if let Err(e) = self.try_load_texture(render_core, id, texture_path) {
-                        panic!(e);
+                        panic!("{}", e);
                     }
                 }
 
@@ -212,14 +213,14 @@ macro_rules! impl_wam {
                         return Err(format!("Texture file {} not found!", texture_path));
                     }
                     let texture = texture.unwrap();
-                    let texture = render_core.create_texture(texture.contents().into_vec());
+                    let texture = render_core.create_texture(texture.contents().to_vec());
                     self.manager.textures.insert(id.to_string(), texture);
                     Ok(())
                 }
 
                 fn prepare_texture(&mut self, tex_id: &str, id: &str) {
                     if let Err(e) = self.try_prepare_texture(tex_id, id) {
-                        panic!(e);
+                        panic!("{}", e);
                     }
                 }
 
@@ -234,7 +235,7 @@ macro_rules! impl_wam {
 
                 fn crop_texture_region(&mut self, tex_id: &str, id: &str, x: u16, y: u16, width: u16, height: u16) {
                     if let Err(e) = self.try_crop_texture_region(tex_id, id, x, y, width, height) {
-                        panic!(e);
+                        panic!("{}", e);
                     }
                 }
 

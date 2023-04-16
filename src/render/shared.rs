@@ -185,12 +185,14 @@ pub enum Texture {
 
 impl Texture {
     pub fn crop(&self, x: u16, y: u16, width: u16, height: u16) -> TextureRegion {
-        TextureRegion {
-            texture: self,
-            x,
-            y,
-            width,
-            height
+        unsafe {
+            TextureRegion {
+                texture: self,
+                x,
+                y,
+                width,
+                height
+            }
         }
     }
 
@@ -199,7 +201,7 @@ impl Texture {
     }
 
     backend_fn!(Texture, make);
-    backend_fn!(Texture, bind);
+    backend_fn!(Texture, bind, index: u8);
     backend_fn!(Texture, unbind);
 
     backend_fn!(Texture, get_width, u16, true);
@@ -207,7 +209,7 @@ impl Texture {
 }
 
 pub struct TextureRegion {
-    texture: &'static Texture,
+    texture: *const Texture,
     x: u16,
     y: u16,
     width: u16,

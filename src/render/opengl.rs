@@ -9,7 +9,7 @@ use glfw::ClientApiHint::OpenGl;
 use glfw::ffi::GLFWwindow;
 use glfw::WindowHint::{ClientApi, Decorated, Resizable, Visible};
 use glfw::WindowMode::Windowed;
-use mvutils::utils::{AsCStrPtr, TetrahedronOp, Time};
+use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 
 use crate::assets;
 use crate::render::shared::{ApplicationLoop, Shader, Window, WindowCreateInfo};
@@ -32,9 +32,11 @@ impl OpenGLWindow {
         self.glfw.window_hint(Decorated(self.info.decorated));
 
         let mut window = self.glfw
-            .create_window(self.info.width, self.info.height, self.info.title.as_str(), Windowed)
+            .create_window(self.info.width as u32, self.info.height as u32, self.info.title.as_str(), Windowed)
             .expect("Failed to create window!");
         self.window = Some(window.0);
+
+        gl::load_with(|s| self.get_mut_window().get_proc_address(s) as *const _);
 
         self.get_mut_window().show();
     }
@@ -42,8 +44,8 @@ impl OpenGLWindow {
     fn running(&mut self, application_loop: &impl ApplicationLoop) {
         let mut init_time: u128 = u128::time_nanos();
         let mut current_time = init_time;
-        let time_u = 1000000000.0 / self.info.ups;
-        let time_f = 1000000000.0 / self.info.fps;
+        let time_u = 1000000000.0 / self.info.ups as f32;
+        let time_f = 1000000000.0 / self.info.fps as f32;
         let mut delta_u: f32 = 0.0;
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
@@ -51,15 +53,15 @@ impl OpenGLWindow {
         let mut timer = u128::time_millis();
         while !self.get_mut_window().should_close() {
             current_time = u128::time_nanos();
-            delta_u += (current_time - init_time) / time_u;
-            delta_f += (current_time - init_time) / time_f;
+            delta_u += (current_time - init_time) as f32 / time_u;
+            delta_f += (current_time - init_time) as f32 / time_f;
             init_time = current_time;
             self.glfw.poll_events();
             if delta_u >= 1.0 {
                 //updates
 
                 ticks += 1;
-                delta_u -= 1;
+                delta_u -= 1.0;
             }
             if delta_f >= 1.0 {
                 unsafe {
@@ -70,7 +72,7 @@ impl OpenGLWindow {
                 self.get_mut_window().swap_buffers();
                 self.current_frame += 1;
                 frames += 1;
-                delta_f -= 1;
+                delta_f -= 1.0;
             }
             if u128::time_millis() - timer > 1000 {
                 self.current_ups = ticks;
@@ -147,7 +149,7 @@ pub struct OpenGLShader {
 
 macro_rules! shader_uniform {
     ($uni:ident, $id:expr, $name:expr, $($params:expr),*) => {
-        let loc: GLint = gl::GetUniformLocation($id, $name.as_c_ptr());
+        let loc: GLint = gl::GetUniformLocation($id, $name.as_c_str().as_ptr());
         if loc != -1 {
             gl::$uni(loc, $($params,)*);
         }
@@ -287,7 +289,7 @@ impl OpenGLTexture {
     }
 
     pub(crate) unsafe fn bind(&self, index: u8) {
-        gl::ActiveTexture(gl::TEXTURE0 + index);
+        gl::ActiveTexture(gl::TEXTURE0 + index as u32);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
     }
 

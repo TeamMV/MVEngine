@@ -13,7 +13,8 @@ mod tests {
     #[test]
     fn it_works() {
         let mut renderer = RenderCore::new(OpenGL);
-        let info = WindowCreateInfo::default();
+        let mut info = WindowCreateInfo::default();
+        info.title = "MVCore".to_string();
         let mut window = renderer.create_window(info);
         window.run_default();
     }
