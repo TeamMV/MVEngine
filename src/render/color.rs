@@ -31,6 +31,14 @@ impl<U: Fmt, T: Default> Color<U, T> {
             ignore: Default::default(),
         }
     }
+
+    pub fn copy_of(&mut self, other: &Color<U, T>) {
+        let o = other.clone();
+        self.c1 = &o.c1;
+        self.c2 = &o.c2;
+        self.c3 = &o.c3;
+        self.c4 = &o.c4;
+    }
 }
 
 pub trait Parse {

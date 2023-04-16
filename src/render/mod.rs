@@ -1,4 +1,6 @@
+use std::rc::Rc;
 use glfw::Glfw;
+use crate::assets::SemiAutomaticAssetManager;
 
 use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::shared::{Shader, Texture, Window, WindowCreateInfo};
@@ -7,10 +9,12 @@ pub mod shared;
 pub mod opengl;
 pub mod draw;
 pub mod color;
+pub mod batch;
 
 pub struct RenderCore {
     glfw: Glfw,
     backend: RenderingBackend,
+    assets: Rc<SemiAutomaticAssetManager>
 }
 
 pub enum RenderingBackend {
@@ -18,18 +22,19 @@ pub enum RenderingBackend {
 }
 
 impl RenderCore {
-    pub fn new(backend: RenderingBackend) -> Self {
+    pub(crate) fn new(backend: RenderingBackend, assets: Rc<SemiAutomaticAssetManager>) -> Self {
         let glfw = glfw::init::<String>(None).expect("Failed to initialize GLFW");
         RenderCore {
             glfw,
             backend,
+            assets
         }
     }
 
     pub fn create_window(&self, info: WindowCreateInfo) -> impl Window {
         return match self.backend {
             RenderingBackend::OpenGL => {
-                OpenGLWindow::new(self.glfw.clone(), info)
+                OpenGLWindow::new(self.glfw.clone(), info, self.assets.clone())
             }
         };
     }

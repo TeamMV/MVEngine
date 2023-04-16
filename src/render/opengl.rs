@@ -1,26 +1,33 @@
 use std::ffi::{c_void, CStr, CString};
+use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4, Array, Matrix};
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
-use gl::types::{GLint, GLsizei, GLuint};
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glfw::{Context, Glfw, WindowMode};
 use glfw::ClientApiHint::OpenGl;
 use glfw::ffi::GLFWwindow;
 use glfw::WindowHint::{ClientApi, Decorated, Resizable, Visible};
 use glfw::WindowMode::Windowed;
-use mvutils::utils::{AsCStr, TetrahedronOp, Time};
+use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
 
 use crate::assets;
-use crate::render::shared::{ApplicationLoop, Shader, Window, WindowCreateInfo};
+use crate::assets::SemiAutomaticAssetManager;
+use crate::render::batch::batch_layout_2d;
+use crate::render::draw::Draw2D;
+use crate::render::shared::{ApplicationLoop, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
 
 pub struct OpenGLWindow {
     glfw: Glfw,
     info: WindowCreateInfo,
+    assets: Rc<SemiAutomaticAssetManager>,
     window: Option<glfw::Window>,
     current_fps: u16,
     current_ups: u16,
-    current_frame: u128
+    current_frame: u128,
+
+    draw_2d: Option<Draw2D<OpenGLWindow>>
 }
 
 impl OpenGLWindow {
@@ -36,7 +43,7 @@ impl OpenGLWindow {
             .expect("Failed to create window!");
         self.window = Some(window.0);
 
-        gl::load_with(|s| self.get_mut_window().get_proc_address(s) as *const _);
+        gl::load_with(|s| self.get_window().get_proc_address(s) as *const _);
 
         self.get_mut_window().show();
     }
@@ -60,8 +67,8 @@ impl OpenGLWindow {
             if delta_u >= 1.0 {
                 //updates
 
-                ticks += 1;
-                delta_u -= 1.0;
+                ticks.inc();
+                delta_u.dec();
             }
             if delta_f >= 1.0 {
                 unsafe {
@@ -71,8 +78,8 @@ impl OpenGLWindow {
 
                 self.get_mut_window().swap_buffers();
                 self.current_frame += 1;
-                frames += 1;
-                delta_f -= 1.0;
+                frames.inc();
+                delta_f.dec();
             }
             if u128::time_millis() - timer > 1000 {
                 self.current_ups = ticks;
@@ -96,14 +103,17 @@ impl OpenGLWindow {
 }
 
 impl Window for OpenGLWindow {
-    fn new(glfw: Glfw, info: WindowCreateInfo) -> Self {
+    fn new(glfw: Glfw, info: WindowCreateInfo, assets: Rc<SemiAutomaticAssetManager>) -> Self {
         OpenGLWindow {
             glfw,
             info,
+            assets,
             window: None,
             current_fps: 0,
             current_ups: 0,
-            current_frame: 0
+            current_frame: 0,
+
+            draw_2d: None
         }
     }
 
@@ -122,8 +132,16 @@ impl Window for OpenGLWindow {
         self.info.width
     }
 
+    fn set_width(&mut self, width: u16) {
+        self.info.width = width;
+    }
+
     fn get_height(&self) -> u16 {
         self.info.height
+    }
+
+    fn set_height(&mut self, height: u16) {
+        self.info.height = height;
     }
 
     fn get_fps(&self) -> u16 {
@@ -136,6 +154,10 @@ impl Window for OpenGLWindow {
 
     fn get_frame(&self) -> u128 {
         self.current_frame
+    }
+
+    fn get_draw_2d(&self) -> &Draw2D<Self> {
+        &self.draw_2d.expect("The Draw2D is not initialized yet!")
     }
 }
 
@@ -169,7 +191,7 @@ impl OpenGLShader {
         shader
     }
 
-    pub(crate) unsafe fn create_shader(&self, id: GLuint, src: &CString) {
+    unsafe fn create_shader(&self, id: GLuint, src: &CString) {
         gl::ShaderSource(id, 1, &src.as_ptr(), std::ptr::null());
         gl::CompileShader(id);
 
@@ -187,7 +209,7 @@ impl OpenGLShader {
         }
     }
 
-    pub(crate) unsafe fn make(&mut self) {
+    unsafe fn make(&mut self) {
         self.prgm_id = gl::CreateProgram();
         self.vertex_id = gl::CreateShader(gl::VERTEX_SHADER);
         self.fragment_id = gl::CreateShader(gl::FRAGMENT_SHADER);
@@ -262,7 +284,7 @@ pub struct OpenGLTexture {
     bytes: Vec<u8>,
     width: u16,
     height: u16,
-    gl_id: GLuint
+    gl_id: u32
 }
 
 impl OpenGLTexture {
@@ -305,7 +327,79 @@ impl OpenGLTexture {
         self.height
     }
 
-    pub(crate) fn get_gl_id(&self) -> GLuint {
+    pub(crate) fn get_id(&self) -> u32 {
         self.gl_id
+    }
+}
+
+//"real rendering" coming here
+
+pub(crate) struct OpenGLRenderProcessor2D<Win: Window> {
+    window: Win
+}
+
+macro_rules! inner_vert_attrib {
+    ($idx:expr, $name:ident, $size:ident, $off:ident) => {
+        gl::VertexAttribPointer($idx, batch_layout_2d::$name$size as GLint, gl::FLOAT, 0, batch_layout_2d::VERTEX_SIZE_BYTES, batch_layout_2d::$name$off as GLint);
+        gl::EnableVertexAttribPointer($idx);
+    };
+}
+
+macro_rules! vert_attrib {
+    ($idx:expr, $name:ident) => {
+        inner_vert_attrib!($idx, $name, _SIZE, _OFFSET_BYTES);
+    };
+}
+
+impl<Win: Window> RenderProcessor2D<Win> for OpenGLRenderProcessor2D<Win> {
+    fn process_data(&self, tex: &mut [Option<Rc<Texture>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+        let mut i: u8 = 0;
+        for op in tex {
+            if let Some(t) = op {
+                t.bind(i);
+                i += 1;
+            }
+        }
+
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, vertices.len() as GLsizeiptr, vertices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, vbo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, indices.len() as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            if !tex.is_empty() {
+                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| {u as i32}).collect::<Vec<_>>());
+            }
+
+            shader.uniform_1i("uResX", self.window.get_width() as i32);
+            shader.uniform_1i("uResY", self.window.get_width() as i32);
+            //TODO: Matrices over here
+
+            vert_attrib!(0, POSITION);
+            vert_attrib!(1, ROTATION);
+            vert_attrib!(2, ROTATION_ORIGIN);
+            vert_attrib!(3, COLOR);
+            vert_attrib!(4, UV);
+            vert_attrib!(5, TEX_ID);
+            vert_attrib!(6, CANVAS_COORDS);
+            vert_attrib!(7, CANVAS_DATA);
+            vert_attrib!(8, USE_CAMERA);
+
+            let inds = 0;
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, &inds as *const _);
+        }
+    }
+
+    fn gen_buffer_id(&self) -> u32 {
+        unsafe {
+            let mut buf: GLuint = -1;
+            gl::GenBuffers(1, &mut buf);
+            buf
+        }
+    }
+
+    fn adapt_render_mode(&self, render_mode: u8) -> u8 {
+        render_mode
     }
 }

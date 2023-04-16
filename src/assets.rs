@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 use include_dir::*;
 use crate::render::RenderCore;
@@ -8,9 +9,9 @@ use crate::render::shared::{Shader, Texture, TextureRegion};
 
 pub struct AssetManager {
     files: HashMap<String, File<'static>>,
-    shaders: HashMap<String, Shader>,
-    textures: HashMap<String, Texture>,
-    texture_regions: HashMap<String, TextureRegion>,
+    shaders: HashMap<String, Rc<Shader>>,
+    textures: HashMap<String, Rc<Texture>>,
+    texture_regions: HashMap<String, Rc<TextureRegion>>,
 }
 
 impl AssetManager {
@@ -22,8 +23,8 @@ impl AssetManager {
         todo!()
     }
 
-    pub fn new(dir: Dir) -> SemiAutomaticAssetManager {
-        let config = dir.get_file("assets.dat").map(|f| f.clone());
+    pub fn semi_automatic(dir: Dir) -> SemiAutomaticAssetManager {
+        let mut config = dir.get_file("assets.dat").map(|f| f.clone());
         let mut file_map = Self::map(dir);
         //parse config, map files to assets
         todo!()
@@ -91,18 +92,10 @@ impl ManualAssetManager {
 }
 
 pub trait ReadableAssetManager {
-    fn get_shader(&self, id: &str) -> &Shader;
-    fn get_shader_mut(&mut self, id: &str) -> &mut Shader;
-    fn try_get_shader(&self, id: &str) -> Option<&Shader>;
-    fn try_get_shader_mut(&mut self, id: &str) -> Option<&mut Shader>;
-    //fn get_texture(&self, id: &str) -> &Texture;
-    //fn get_texture_mut(&mut self, id: &str) -> &mut Texture;
-    //fn try_get_texture(&self, id: &str) -> Option<&Texture>;
-    //fn try_get_texture_mut(&mut self, id: &str) -> Option<&mut Texture>;
-    fn get_texture(&self, id: &str) -> &TextureRegion;
-    fn get_texture_mut(&mut self, id: &str) -> &mut TextureRegion;
-    fn try_get_texture(&self, id: &str) -> Option<&TextureRegion>;
-    fn try_get_texture_mut(&mut self, id: &str) -> Option<&mut TextureRegion>;
+    fn get_shader(&self, id: &str) -> Rc<Shader>;
+    fn try_get_shader(&self, id: &str) -> Option<Rc<Shader>>;
+    fn get_texture(&self, id: &str) -> Rc<TextureRegion>;
+    fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
 }
 
 crate::impl_ram!(AutomaticAssetManager, SemiAutomaticAssetManager, ManualAssetManager);
@@ -111,37 +104,21 @@ crate::impl_ram!(AutomaticAssetManager, SemiAutomaticAssetManager, ManualAssetMa
 macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
-            impl<'a> ReadableAssetManager for $t {
-                fn get_shader(&self, id: &str) -> &Shader {
-                    self.manager.shaders.get(id).unwrap()
+            impl ReadableAssetManager for $t {
+                fn get_shader(&self, id: &str) -> Rc<Shader> {
+                    self.manager.shaders.get(id).unwrap().clone()
                 }
 
-                fn get_shader_mut(&mut self, id: &str) -> &mut Shader {
-                    self.manager.shaders.get_mut(id).unwrap()
+                fn try_get_shader(&self, id: &str) -> Option<Rc<Shader>> {
+                    self.manager.shaders.get(id).map(|r| r.clone())
                 }
 
-                fn try_get_shader(&self, id: &str) -> Option<&Shader> {
-                    self.manager.shaders.get(id)
+                fn get_texture(&self, id: &str) -> Rc<TextureRegion> {
+                    self.manager.texture_regions.get(id).unwrap().clone()
                 }
 
-                fn try_get_shader_mut(&mut self, id: &str) -> Option<&mut Shader> {
-                    self.manager.shaders.get_mut(id)
-                }
-
-                fn get_texture(&self, id: &str) -> &TextureRegion {
-                    self.manager.texture_regions.get(id).unwrap()
-                }
-
-                fn get_texture_mut(&mut self, id: &str) -> &mut TextureRegion {
-                    self.manager.texture_regions.get_mut(id).unwrap()
-                }
-
-                fn try_get_texture(&self, id: &str) -> Option<&TextureRegion> {
-                    self.manager.texture_regions.get(id)
-                }
-
-                fn try_get_texture_mut(&mut self, id: &str) -> Option<&mut TextureRegion> {
-                    self.manager.texture_regions.get_mut(id)
+                fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>> {
+                    self.manager.texture_regions.get(id).map(|r| r.clone())
                 }
             }
         )*
@@ -197,7 +174,7 @@ macro_rules! impl_wam {
                         return Err(format!("Illegal fragment code in file {}!", fragment_path));
                     }
                     let shader = render_core.create_shader(vertex_code.unwrap(), fragment_code.unwrap());
-                    self.manager.shaders.insert(id.to_string(), shader);
+                    self.manager.shaders.insert(id.to_string(), Rc::new(shader));
                     Ok(())
                 }
 
@@ -214,7 +191,7 @@ macro_rules! impl_wam {
                     }
                     let texture = texture.unwrap();
                     let texture = render_core.create_texture(texture.contents().to_vec());
-                    self.manager.textures.insert(id.to_string(), texture);
+                    self.manager.textures.insert(id.to_string(), Rc::new(texture);
                     Ok(())
                 }
 
@@ -229,7 +206,8 @@ macro_rules! impl_wam {
                     if texture.is_none() {
                         return Err(format!("Texture {} not found!", tex_id));
                     }
-                    self.manager.texture_regions.insert(id.to_string(), texture.unwrap().to_region());
+                    let region = TextureRegion::from(texture.unwrap().clone());
+                    self.manager.texture_regions.insert(id.to_string(), region);
                     Ok(())
                 }
 
@@ -244,7 +222,8 @@ macro_rules! impl_wam {
                     if texture.is_none() {
                         return Err(format!("Texture {} not found!", tex_id));
                     }
-                    self.manager.texture_regions.insert(id.to_string(), texture.unwrap().crop(x, y, width, height));
+                    let region = TextureRegion::new(texture.unwrap().clone(), x, y, width, height);
+                    self.manager.texture_regions.insert(id.to_string(), region);
                     Ok(())
                 }
             }

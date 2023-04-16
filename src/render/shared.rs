@@ -1,7 +1,11 @@
+use std::rc::Rc;
 use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
+use gl::types::GLuint;
 use glfw::Glfw;
 use mvutils::try_catch;
 use mvutils::utils::TetrahedronOp;
+use crate::assets::SemiAutomaticAssetManager;
+use crate::render::draw::Draw2D;
 
 use crate::render::opengl::{OpenGLShader, OpenGLTexture};
 
@@ -16,7 +20,7 @@ impl ApplicationLoop for DefaultApplicationLoop {
 }
 
 pub trait Window {
-    fn new(glfw: Glfw, info: WindowCreateInfo) -> Self;
+    fn new(glfw: Glfw, info: WindowCreateInfo, assets: Rc<SemiAutomaticAssetManager>) -> Self;
     fn run(&mut self, application_loop: impl ApplicationLoop);
     fn run_default(&mut self) {
         self.run(DefaultApplicationLoop {});
@@ -24,10 +28,14 @@ pub trait Window {
     fn stop(&mut self);
 
     fn get_width(&self) -> u16;
+    fn set_width(&mut self, width: u16);
     fn get_height(&self) -> u16;
+    fn set_height(&mut self, height: u16);
     fn get_fps(&self) -> u16;
     fn get_ups(&self) -> u16;
     fn get_frame(&self) -> u128;
+
+    fn get_draw_2d(&self) -> &Draw2D<Self>;
 }
 
 pub struct WindowCreateInfo {
@@ -184,32 +192,18 @@ pub enum Texture {
 }
 
 impl Texture {
-    pub fn crop(&self, x: u16, y: u16, width: u16, height: u16) -> TextureRegion {
-        unsafe {
-            TextureRegion {
-                texture: self,
-                x,
-                y,
-                width,
-                height
-            }
-        }
-    }
-
-    pub fn to_region(&self) -> TextureRegion {
-        self.crop(0, 0, self.get_width(), self.get_height())
-    }
-
     backend_fn!(Texture, make);
     backend_fn!(Texture, bind, index: u8);
     backend_fn!(Texture, unbind);
+
+    backend_fn!(Texture, get_id, u32, true);
 
     backend_fn!(Texture, get_width, u16, true);
     backend_fn!(Texture, get_height, u16, true);
 }
 
 pub struct TextureRegion {
-    texture: *const Texture,
+    texture: Rc<Texture>,
     x: u16,
     y: u16,
     width: u16,
@@ -217,5 +211,33 @@ pub struct TextureRegion {
 }
 
 impl TextureRegion {
+    pub(crate) fn new(texture: Rc<Texture>, x: u16, y: u16, width: u16, height: u16) -> Self {
+        TextureRegion {
+            texture,
+            x,
+            y,
+            width,
+            height
+        }
+    }
 
+    pub(crate) fn from(texture: Rc<Texture>) -> Self {
+        let width = texture.get_width();
+        let height = texture.get_height();
+        TextureRegion {
+            texture,
+            x: 0,
+            y: 0,
+            width,
+            height
+        }
+    }
+}
+
+//Assets above this comment pls, here comes the "real rendering shit"
+
+pub(crate) trait RenderProcessor2D<Win: Window> {
+    fn process_data(&self, tex: &mut [Option<Rc<Texture>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
+    fn gen_buffer_id(&self) -> u32;
+    fn adapt_render_mode(&self, render_mode: u8) -> u8;
 }
