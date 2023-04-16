@@ -1,13 +1,15 @@
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_int, c_void, CStr, CString};
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::borrow::Borrow;
+use std::cell::RefCell;
 
-use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4, Array, Matrix};
-use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
-use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
+use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4, Array, Matrix, Zero};
+use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
+use gl::types::{GLdouble, GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glfw::{Context, Glfw, WindowMode};
 use glfw::ClientApiHint::OpenGl;
-use glfw::ffi::GLFWwindow;
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwInit, glfwMakeContextCurrent, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 use glfw::WindowHint::{ClientApi, Decorated, Resizable, Visible};
 use glfw::WindowMode::Windowed;
 use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
@@ -15,117 +17,149 @@ use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
 use crate::assets;
 use crate::assets::SemiAutomaticAssetManager;
 use crate::render::batch::batch_layout_2d;
+use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE, VERTEX_SIZE_BYTES};
 use crate::render::draw::Draw2D;
+use crate::render::glfwFreeCallbacks;
 use crate::render::shared::{ApplicationLoop, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
 
 pub struct OpenGLWindow {
-    glfw: Glfw,
     info: WindowCreateInfo,
-    assets: Rc<SemiAutomaticAssetManager>,
-    window: Option<glfw::Window>,
+    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
+    window: *mut GLFWwindow,
     current_fps: u16,
     current_ups: u16,
     current_frame: u128,
 
-    draw_2d: Option<Draw2D<OpenGLWindow>>
+    size_buf: Vector4<i32>,
+
+    draw_2d: Option<Draw2D<OpenGLWindow>>,
+
+    z_near: f32,
+    z_far: f32
 }
 
 impl OpenGLWindow {
-    fn init(&mut self, application_loop: &impl ApplicationLoop) {
-        self.glfw.default_window_hints();
-        self.glfw.window_hint(Visible(false));
-        self.glfw.window_hint(ClientApi(OpenGl));
-        self.glfw.window_hint(Resizable(self.info.resizable));
-        self.glfw.window_hint(Decorated(self.info.decorated));
+    fn init(&mut self) {
+        unsafe {
+            glfwDefaultWindowHints();
+            glfwWindowHint(VISIBLE, FALSE);
+            glfwWindowHint(CLIENT_API, OPENGL_API);
+            glfwWindowHint(DECORATED, self.info.decorated.yn(TRUE, FALSE));
+            glfwWindowHint(RESIZABLE, self.info.resizable.yn(TRUE, FALSE));
 
-        let mut window = self.glfw
-            .create_window(self.info.width as u32, self.info.height as u32, self.info.title.as_str(), Windowed)
-            .expect("Failed to create window!");
-        self.window = Some(window.0);
+            self.window = glfwCreateWindow(self.info.width as i32, self.info.height as i32, self.info.title.as_c_str().as_ptr(), 0 as *mut _, 0 as *mut _);
 
-        gl::load_with(|s| self.get_window().get_proc_address(s) as *const _);
+            glfwMakeContextCurrent(self.window);
+            glfwSwapInterval(self.info.vsync.yn(1, 0));
 
-        self.get_mut_window().show();
+            gl::load_with(|s| glfwGetProcAddress(s.as_c_str().as_ptr()));
+
+            glfwShowWindow(self.window);
+
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_CONSTANT_ALPHA);
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::TRUE);
+            gl::DepthFunc(gl::LEQUAL);
+            gl::DepthRange(self.z_near as GLdouble, self.z_far as GLdouble);
+
+        }
     }
 
     fn running(&mut self, application_loop: &impl ApplicationLoop) {
-        let mut init_time: u128 = u128::time_nanos();
-        let mut current_time = init_time;
-        let time_u = 1000000000.0 / self.info.ups as f32;
-        let time_f = 1000000000.0 / self.info.fps as f32;
-        let mut delta_u: f32 = 0.0;
-        let mut delta_f: f32 = 0.0;
-        let mut frames = 0;
-        let mut ticks = 0;
-        let mut timer = u128::time_millis();
-        while !self.get_mut_window().should_close() {
-            current_time = u128::time_nanos();
-            delta_u += (current_time - init_time) as f32 / time_u;
-            delta_f += (current_time - init_time) as f32 / time_f;
-            init_time = current_time;
-            self.glfw.poll_events();
-            if delta_u >= 1.0 {
-                //updates
+        unsafe {
+            let mut init_time: u128 = u128::time_nanos();
+            let mut current_time = init_time;
+            let time_u = 1000000000.0 / self.info.ups as f32;
+            let time_f = 1000000000.0 / self.info.fps as f32;
+            let mut delta_u: f32 = 0.0;
+            let mut delta_f: f32 = 0.0;
+            let mut frames = 0;
+            let mut ticks = 0;
+            let mut timer = u128::time_millis();
+            while glfwWindowShouldClose(self.window) == FALSE {
+                current_time = u128::time_nanos();
+                delta_u += (current_time - init_time) as f32 / time_u;
+                delta_f += (current_time - init_time) as f32 / time_f;
+                init_time = current_time;
+                glfwPollEvents();
+                if delta_u >= 1.0 {
+                    //updates
 
-                ticks.inc();
-                delta_u.dec();
-            }
-            if delta_f >= 1.0 {
-                unsafe {
-                    gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+                    application_loop.update(self);
+                    ticks += 1;
+                    delta_u -= 1.0;
                 }
-                //draws
+                if delta_f >= 1.0 {
+                    unsafe {
+                        gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+                    }
+                    //draws
 
-                self.get_mut_window().swap_buffers();
-                self.current_frame += 1;
-                frames.inc();
-                delta_f.dec();
-            }
-            if u128::time_millis() - timer > 1000 {
-                self.current_ups = ticks;
-                self.current_fps = frames;
-                frames = 0;
-                ticks = 0;
-                timer += 1000;
+                    application_loop.draw(self);
+                    glfwSwapBuffers(self.window);
+                    self.current_frame += 1;
+                    frames += 1;
+                    delta_f -= 1.0;
+                }
+                if u128::time_millis() - timer > 1000 {
+                    self.current_ups = ticks;
+                    self.current_fps = frames;
+                    frames = 0;
+                    ticks = 0;
+                    timer += 1000;
+                    println!("{}", self.current_fps);
+                }
             }
         }
     }
 
-    fn terminate(&mut self) {}
-
-    fn get_window(&self) -> &glfw::Window {
-        self.window.as_ref().expect("Window not initialized!")
-    }
-
-    fn get_mut_window(&mut self) -> &mut glfw::Window {
-        self.window.as_mut().expect("Window not running!")
+    fn terminate(&mut self) {
+        unsafe {
+            glfwFreeCallbacks(self.window);
+            glfwDestroyWindow(self.window);
+        }
     }
 }
 
 impl Window for OpenGLWindow {
-    fn new(glfw: Glfw, info: WindowCreateInfo, assets: Rc<SemiAutomaticAssetManager>) -> Self {
+    fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
         OpenGLWindow {
-            glfw,
             info,
             assets,
-            window: None,
+            window: 0 as *mut _,
             current_fps: 0,
             current_ups: 0,
             current_frame: 0,
 
-            draw_2d: None
+            size_buf: Vector4::zero(),
+
+            draw_2d: None,
+            z_near: 0.01,
+            z_far: 2000.0,
         }
     }
 
     fn run(&mut self, application_loop: impl ApplicationLoop) {
-        self.init(&application_loop);
+        self.init();
+
+        if self.info.fullscreen {
+            self.set_fullscreen(true);
+        }
+
+        application_loop.start(self);
 
         self.running(&application_loop);
+        application_loop.stop(self);
         self.terminate();
     }
 
     fn stop(&mut self) {
-        self.terminate();
+        unsafe {
+            glfwSetWindowShouldClose(self.window, TRUE);
+        }
     }
 
     fn get_width(&self) -> u16 {
@@ -157,7 +191,31 @@ impl Window for OpenGLWindow {
     }
 
     fn get_draw_2d(&self) -> &Draw2D<Self> {
-        &self.draw_2d.expect("The Draw2D is not initialized yet!")
+        self.draw_2d.as_ref().expect("The Draw2D is not initialized yet!")
+    }
+
+    fn get_glfw_window(&self) -> *mut GLFWwindow {
+        self.window
+    }
+
+    fn set_fullscreen(&mut self, fullscreen: bool) {
+        unsafe {
+            self.info.fullscreen = fullscreen;
+            if fullscreen {
+                glfwGetWindowPos(self.window, &mut self.size_buf.x as *mut _, &mut self.size_buf.y as *mut _);
+                self.size_buf.z = self.info.width as i32;
+                self.size_buf.w = self.info.height as i32;
+                let monitor = glfwGetPrimaryMonitor();
+                let mode = glfwGetVideoMode(monitor);
+                glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
+                self.info.width = (*mode).width as u16;
+                self.info.height = (*mode).height as u16;
+            } else {
+                let monitor = glfwGetPrimaryMonitor();
+                let mode = glfwGetVideoMode(monitor);
+                glfwSetWindowMonitor(self.window, 0 as *mut _, self.size_buf.x, self.size_buf.y, self.size_buf.z, self.size_buf.w, (*mode).refreshRate);
+            }
+        }
     }
 }
 
@@ -180,15 +238,13 @@ macro_rules! shader_uniform {
 
 impl OpenGLShader {
     pub(crate) unsafe fn new(vertex: &str, fragment: &str) -> Self {
-        let mut shader = OpenGLShader {
+        OpenGLShader {
             vertex: CString::new(vertex).unwrap(),
             fragment: CString::new(fragment).unwrap(),
             prgm_id: 0,
             vertex_id: 0,
             fragment_id: 0,
-        };
-        shader.make();
-        shader
+        }
     }
 
     unsafe fn create_shader(&self, id: GLuint, src: &CString) {
@@ -209,7 +265,7 @@ impl OpenGLShader {
         }
     }
 
-    unsafe fn make(&mut self) {
+    pub(crate) unsafe fn make(&mut self) {
         self.prgm_id = gl::CreateProgram();
         self.vertex_id = gl::CreateShader(gl::VERTEX_SHADER);
         self.fragment_id = gl::CreateShader(gl::FRAGMENT_SHADER);
@@ -235,7 +291,7 @@ impl OpenGLShader {
         }
     }
 
-    pub(crate) unsafe fn bind(&mut self) {
+    pub(crate) unsafe fn bind(&self) {
         gl::UseProgram(self.prgm_id)
     }
 
@@ -289,14 +345,12 @@ pub struct OpenGLTexture {
 
 impl OpenGLTexture {
     pub(crate) unsafe fn new(bytes: Vec<u8>) -> Self {
-        let mut tex = OpenGLTexture {
+        OpenGLTexture {
             bytes,
             width: 0,
             height: 0,
             gl_id: 0
-        };
-        tex.make();
-        tex
+        }
     }
 
     pub(crate) unsafe fn make(&mut self) {
@@ -338,25 +392,18 @@ pub(crate) struct OpenGLRenderProcessor2D<Win: Window> {
     window: Win
 }
 
-macro_rules! inner_vert_attrib {
-    ($idx:expr, $name:ident, $size:ident, $off:ident) => {
-        gl::VertexAttribPointer($idx, batch_layout_2d::$name$size as GLint, gl::FLOAT, 0, batch_layout_2d::VERTEX_SIZE_BYTES, batch_layout_2d::$name$off as GLint);
-        gl::EnableVertexAttribPointer($idx);
-    };
-}
-
 macro_rules! vert_attrib {
-    ($idx:expr, $name:ident) => {
-        inner_vert_attrib!($idx, $name, _SIZE, _OFFSET_BYTES);
+    ($idx:expr, $size:ident, $off:ident) => {
+        gl::VertexAttribPointer($idx, batch_layout_2d::$size as GLint, gl::FLOAT, 0, batch_layout_2d::VERTEX_SIZE_BYTES as GLsizei, batch_layout_2d::$off as *const _);
     };
 }
 
 impl<Win: Window> RenderProcessor2D<Win> for OpenGLRenderProcessor2D<Win> {
-    fn process_data(&self, tex: &mut [Option<Rc<Texture>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8) {
         let mut i: u8 = 0;
-        for op in tex {
+        for op in tex.iter_mut() {
             if let Some(t) = op {
-                t.bind(i);
+                t.borrow_mut().bind(i);
                 i += 1;
             }
         }
@@ -369,31 +416,32 @@ impl<Win: Window> RenderProcessor2D<Win> for OpenGLRenderProcessor2D<Win> {
             gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, indices.len() as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
 
             if !tex.is_empty() {
-                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| {u as i32}).collect::<Vec<_>>());
+                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| {u.clone() as i32}).collect::<Vec<_>>());
             }
 
             shader.uniform_1i("uResX", self.window.get_width() as i32);
             shader.uniform_1i("uResY", self.window.get_width() as i32);
             //TODO: Matrices over here
 
-            vert_attrib!(0, POSITION);
-            vert_attrib!(1, ROTATION);
-            vert_attrib!(2, ROTATION_ORIGIN);
-            vert_attrib!(3, COLOR);
-            vert_attrib!(4, UV);
-            vert_attrib!(5, TEX_ID);
-            vert_attrib!(6, CANVAS_COORDS);
-            vert_attrib!(7, CANVAS_DATA);
-            vert_attrib!(8, USE_CAMERA);
+            //gl::VertexAttribPointer(0, POSITION_SIZE as GLint, FLOAT, 0, VERTEX_SIZE_BYTES as GLsizei, POSITION_OFFSET_BYTES as *const _);
 
-            let inds = 0;
-            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, &inds as *const _);
+            vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
+            vert_attrib!(1, ROTATION_SIZE, ROTATION_OFFSET_BYTES);
+            vert_attrib!(2, ROTATION_ORIGIN_SIZE, ROTATION_ORIGIN_OFFSET_BYTES);
+            vert_attrib!(3, COLOR_SIZE, COLOR_OFFSET_BYTES);
+            vert_attrib!(4, UV_SIZE, UV_OFFSET_BYTES);
+            vert_attrib!(5, TEX_ID_SIZE, TEX_ID_OFFSET);
+            vert_attrib!(6, CANVAS_COORDS_SIZE, CANVAS_COORDS_OFFSET);
+            vert_attrib!(7, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET);
+            vert_attrib!(8, USE_CAMERA_SIZE, USE_CAMERA_OFFSET);
+
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
 
     fn gen_buffer_id(&self) -> u32 {
         unsafe {
-            let mut buf: GLuint = -1;
+            let mut buf: GLuint = 0;
             gl::GenBuffers(1, &mut buf);
             buf
         }

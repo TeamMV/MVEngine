@@ -13,7 +13,7 @@ impl Fmt for RGB {}
 impl Fmt for HSV {}
 
 #[derive(Clone, Debug)]
-pub struct Color<F: Fmt, T> {
+pub struct Color<F: Fmt, T: Default + Clone> {
     c1: T,
     c2: T,
     c3: T,
@@ -21,7 +21,7 @@ pub struct Color<F: Fmt, T> {
     ignore: PhantomData<F>,
 }
 
-impl<U: Fmt, T: Default> Color<U, T> {
+impl<U: Fmt, T: Default + Clone> Color<U, T> {
     pub fn new() -> Self {
         Color {
             c1: T::default(),
@@ -33,11 +33,10 @@ impl<U: Fmt, T: Default> Color<U, T> {
     }
 
     pub fn copy_of(&mut self, other: &Color<U, T>) {
-        let o = other.clone();
-        self.c1 = &o.c1;
-        self.c2 = &o.c2;
-        self.c3 = &o.c3;
-        self.c4 = &o.c4;
+        self.c1 = other.c1.clone();
+        self.c2 = other.c2.clone();
+        self.c3 = other.c3.clone();
+        self.c4 = other.c4.clone();
     }
 }
 

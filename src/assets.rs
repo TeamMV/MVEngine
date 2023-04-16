@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -9,13 +10,13 @@ use crate::render::shared::{Shader, Texture, TextureRegion};
 
 pub struct AssetManager {
     files: HashMap<String, File<'static>>,
-    shaders: HashMap<String, Rc<Shader>>,
-    textures: HashMap<String, Rc<Texture>>,
+    shaders: HashMap<String, Rc<RefCell<Shader>>>,
+    textures: HashMap<String, Rc<RefCell<Texture>>>,
     texture_regions: HashMap<String, Rc<TextureRegion>>,
 }
 
 impl AssetManager {
-    pub fn automatic(dir: Dir) -> AutomaticAssetManager {
+    pub fn automatic(dir: Dir<'static>) -> AutomaticAssetManager {
         let config = dir.get_file("assets.dat").expect("Automatic asset manager requires assets.dat file!").clone();
         let mut file_map = Self::map(dir);
         //parse config, map files to assets
@@ -23,11 +24,19 @@ impl AssetManager {
         todo!()
     }
 
-    pub fn semi_automatic(dir: Dir) -> SemiAutomaticAssetManager {
+    pub fn semi_automatic(dir: Dir<'static>) -> SemiAutomaticAssetManager {
         let mut config = dir.get_file("assets.dat").map(|f| f.clone());
         let mut file_map = Self::map(dir);
         //parse config, map files to assets
-        todo!()
+        //todo!()
+        SemiAutomaticAssetManager {
+            manager: AssetManager {
+                files: file_map,
+                shaders: HashMap::new(),
+                textures: HashMap::new(),
+                texture_regions: HashMap::new(),
+            },
+        }
     }
 
     pub fn manual(dir: Dir<'static>) -> ManualAssetManager {
@@ -71,29 +80,17 @@ pub struct AutomaticAssetManager {
     manager: AssetManager,
 }
 
-impl AutomaticAssetManager {
-
-}
-
 pub struct SemiAutomaticAssetManager {
     manager: AssetManager,
-}
-
-impl SemiAutomaticAssetManager {
-
 }
 
 pub struct ManualAssetManager {
     manager: AssetManager,
 }
 
-impl ManualAssetManager {
-
-}
-
 pub trait ReadableAssetManager {
-    fn get_shader(&self, id: &str) -> Rc<Shader>;
-    fn try_get_shader(&self, id: &str) -> Option<Rc<Shader>>;
+    fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
+    fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
     fn get_texture(&self, id: &str) -> Rc<TextureRegion>;
     fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
 }
@@ -105,11 +102,11 @@ macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
             impl ReadableAssetManager for $t {
-                fn get_shader(&self, id: &str) -> Rc<Shader> {
+                fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>> {
                     self.manager.shaders.get(id).unwrap().clone()
                 }
 
-                fn try_get_shader(&self, id: &str) -> Option<Rc<Shader>> {
+                fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>> {
                     self.manager.shaders.get(id).map(|r| r.clone())
                 }
 
@@ -174,7 +171,7 @@ macro_rules! impl_wam {
                         return Err(format!("Illegal fragment code in file {}!", fragment_path));
                     }
                     let shader = render_core.create_shader(vertex_code.unwrap(), fragment_code.unwrap());
-                    self.manager.shaders.insert(id.to_string(), Rc::new(shader));
+                    self.manager.shaders.insert(id.to_string(), Rc::new(RefCell::new(shader)));
                     Ok(())
                 }
 
@@ -191,7 +188,7 @@ macro_rules! impl_wam {
                     }
                     let texture = texture.unwrap();
                     let texture = render_core.create_texture(texture.contents().to_vec());
-                    self.manager.textures.insert(id.to_string(), Rc::new(texture);
+                    self.manager.textures.insert(id.to_string(), Rc::new(RefCell::new(texture)));
                     Ok(())
                 }
 
@@ -207,7 +204,7 @@ macro_rules! impl_wam {
                         return Err(format!("Texture {} not found!", tex_id));
                     }
                     let region = TextureRegion::from(texture.unwrap().clone());
-                    self.manager.texture_regions.insert(id.to_string(), region);
+                    self.manager.texture_regions.insert(id.to_string(), Rc::new(region));
                     Ok(())
                 }
 
@@ -223,7 +220,7 @@ macro_rules! impl_wam {
                         return Err(format!("Texture {} not found!", tex_id));
                     }
                     let region = TextureRegion::new(texture.unwrap().clone(), x, y, width, height);
-                    self.manager.texture_regions.insert(id.to_string(), region);
+                    self.manager.texture_regions.insert(id.to_string(), Rc::new(region));
                     Ok(())
                 }
             }

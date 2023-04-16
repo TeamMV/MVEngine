@@ -1,0 +1,8 @@
+{
+  "shaders": {
+    "default": {
+      "vert": "shaders/default.vert",
+      "frag": "shaders/default.frag"
+    }
+  }
+}

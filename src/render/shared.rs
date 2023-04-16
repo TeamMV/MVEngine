@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
 use gl::types::GLuint;
+use glfw::ffi::{glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwSetWindowMonitor, GLFWwindow};
 use glfw::Glfw;
 use mvutils::try_catch;
 use mvutils::utils::TetrahedronOp;
@@ -11,16 +13,25 @@ use crate::render::opengl::{OpenGLShader, OpenGLTexture};
 
 pub trait ApplicationLoop {
     fn start(&self, window: &mut impl Window);
+    fn update(&self, window: &mut impl Window);
+    fn draw(&self, window: &mut impl Window);
+    fn stop(&self, window: &mut impl Window);
 }
 
 struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
     fn start(&self, window: &mut impl Window) {}
+
+    fn update(&self, window: &mut impl Window) {}
+
+    fn draw(&self, window: &mut impl Window) {}
+
+    fn stop(&self, window: &mut impl Window) {}
 }
 
 pub trait Window {
-    fn new(glfw: Glfw, info: WindowCreateInfo, assets: Rc<SemiAutomaticAssetManager>) -> Self;
+    fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self;
     fn run(&mut self, application_loop: impl ApplicationLoop);
     fn run_default(&mut self) {
         self.run(DefaultApplicationLoop {});
@@ -35,7 +46,9 @@ pub trait Window {
     fn get_ups(&self) -> u16;
     fn get_frame(&self) -> u128;
 
-    fn get_draw_2d(&self) -> &Draw2D<Self>;
+    fn get_draw_2d(&self) -> &Draw2D<Self> where Self: Sized;
+    fn set_fullscreen(&mut self, fullscreen: bool);
+    fn get_glfw_window(&self) -> *mut GLFWwindow;
 }
 
 pub struct WindowCreateInfo {
@@ -165,26 +178,26 @@ pub enum Shader {
 
 impl Shader {
     backend_fn!(Shader, make);
-    backend_fn!(Shader, bind);
+    backend_fn!(Shader, bind, true);
 
-    backend_fn!(Shader, uniform_1f, name: &str, value: f32);
-    backend_fn!(Shader, uniform_1i, name: &str, value: i32);
-    pub fn uniform_1b(&mut self, name: &str, value: bool) {
+    backend_fn!(Shader, uniform_1f, true, name: &str, value: f32);
+    backend_fn!(Shader, uniform_1i, true, name: &str, value: i32);
+    pub fn uniform_1b(&self, name: &str, value: bool) {
         self.uniform_1i(name, value.yn(1, 0));
     }
 
-    backend_fn!(Shader, uniform_fv, name: &str, value: &Vec<f32>);
-    backend_fn!(Shader, uniform_iv, name: &str, value: &Vec<i32>);
-    pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
+    backend_fn!(Shader, uniform_fv, true, name: &str, value: &Vec<f32>);
+    backend_fn!(Shader, uniform_iv, true, name: &str, value: &Vec<i32>);
+    pub fn uniform_bv(&self, name: &str, value: &Vec<bool>) {
         self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
     }
 
-    backend_fn!(Shader, uniform_2fv, name: &str, value: Vector2<f32>);
-    backend_fn!(Shader, uniform_3fv, name: &str, value: Vector3<f32>);
-    backend_fn!(Shader, uniform_4fv, name: &str, value: Vector4<f32>);
-    backend_fn!(Shader, uniform_2fm, name: &str, value: Matrix2<f32>);
-    backend_fn!(Shader, uniform_3fm, name: &str, value: Matrix3<f32>);
-    backend_fn!(Shader, uniform_4fm, name: &str, value: Matrix4<f32>);
+    backend_fn!(Shader, uniform_2fv, true, name: &str, value: Vector2<f32>);
+    backend_fn!(Shader, uniform_3fv, true, name: &str, value: Vector3<f32>);
+    backend_fn!(Shader, uniform_4fv, true, name: &str, value: Vector4<f32>);
+    backend_fn!(Shader, uniform_2fm, true, name: &str, value: Matrix2<f32>);
+    backend_fn!(Shader, uniform_3fm, true, name: &str, value: Matrix3<f32>);
+    backend_fn!(Shader, uniform_4fm, true, name: &str, value: Matrix4<f32>);
 }
 
 pub enum Texture {
@@ -193,8 +206,8 @@ pub enum Texture {
 
 impl Texture {
     backend_fn!(Texture, make);
-    backend_fn!(Texture, bind, index: u8);
-    backend_fn!(Texture, unbind);
+    backend_fn!(Texture, bind, true, index: u8);
+    backend_fn!(Texture, unbind, true);
 
     backend_fn!(Texture, get_id, u32, true);
 
@@ -203,7 +216,7 @@ impl Texture {
 }
 
 pub struct TextureRegion {
-    texture: Rc<Texture>,
+    texture: Rc<RefCell<Texture>>,
     x: u16,
     y: u16,
     width: u16,
@@ -211,7 +224,7 @@ pub struct TextureRegion {
 }
 
 impl TextureRegion {
-    pub(crate) fn new(texture: Rc<Texture>, x: u16, y: u16, width: u16, height: u16) -> Self {
+    pub(crate) fn new(texture: Rc<RefCell<Texture>>, x: u16, y: u16, width: u16, height: u16) -> Self {
         TextureRegion {
             texture,
             x,
@@ -221,9 +234,9 @@ impl TextureRegion {
         }
     }
 
-    pub(crate) fn from(texture: Rc<Texture>) -> Self {
-        let width = texture.get_width();
-        let height = texture.get_height();
+    pub(crate) fn from(texture: Rc<RefCell<Texture>>) -> Self {
+        let width = texture.borrow().get_width();
+        let height = texture.borrow().get_height();
         TextureRegion {
             texture,
             x: 0,
@@ -237,7 +250,7 @@ impl TextureRegion {
 //Assets above this comment pls, here comes the "real rendering shit"
 
 pub(crate) trait RenderProcessor2D<Win: Window> {
-    fn process_data(&self, tex: &mut [Option<Rc<Texture>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8);
     fn gen_buffer_id(&self) -> u32;
     fn adapt_render_mode(&self, render_mode: u8) -> u8;
 }
