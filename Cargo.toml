@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mvutils = { path = "../MVUtils"}
+mvutils = { path = "../MVUtils" }
 include_dir = "0.7.3"
 glfw = "0.51.0"
 gl = "0.14.0"
 regex = "1.7.3"
+cgmath = "0.18.0"

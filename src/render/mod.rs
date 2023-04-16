@@ -1,27 +1,28 @@
 use glfw::Glfw;
-use crate::render::opengl::OpenGLWindow;
-use crate::render::shared::{Window, WindowCreateInfo};
+
+use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
+use crate::render::shared::{Shader, Texture, Window, WindowCreateInfo};
 
 pub mod shared;
 pub mod opengl;
 pub mod draw;
 pub mod color;
 
-pub struct Renderer {
+pub struct RenderCore {
     glfw: Glfw,
-    backend: RenderingBackend
+    backend: RenderingBackend,
 }
 
 pub enum RenderingBackend {
     OpenGL
 }
 
-impl Renderer {
+impl RenderCore {
     pub fn new(backend: RenderingBackend) -> Self {
         let glfw = glfw::init::<String>(None).expect("Failed to initialize GLFW");
-        Renderer {
+        RenderCore {
             glfw,
-            backend
+            backend,
         }
     }
 
@@ -29,6 +30,22 @@ impl Renderer {
         return match self.backend {
             RenderingBackend::OpenGL => {
                 OpenGLWindow::new(self.glfw.clone(), info)
+            }
+        };
+    }
+
+    pub fn create_shader(&self, vertex: &str, fragment: &str) -> Shader {
+        return match self.backend {
+            RenderingBackend::OpenGL => {
+                Shader::OpenGL(OpenGLShader::new(vertex, fragment))
+            }
+        };
+    }
+
+    pub fn create_texture(&self, bytes: Vec<u8>) -> Texture {
+        return match self.backend {
+            RenderingBackend::OpenGL => {
+                Texture::OpenGL(OpenGLTexture::new(bytes))
             }
         }
     }
