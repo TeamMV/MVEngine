@@ -8,7 +8,7 @@ use crate::render::color::{Color, RGB};
 use crate::render::shared::{RenderProcessor2D, Shader, Window};
 
 pub struct Draw2D {
-    canvas_coords: [u16; 4],
+    canvas_coords: [f32; 4],
     color: Color<RGB, u8>,
     batch: BatchController2D,
     vertices: VertexGroup<Vertex2D>
@@ -17,7 +17,7 @@ pub struct Draw2D {
 impl Draw2D {
     pub(crate) fn new(shader: Rc<RefCell<Shader>>, width: u16, height: u16) -> Self {
         Draw2D {
-            canvas_coords: [0, 0, width, height],
+            canvas_coords: [0.0, 0.0, width as f32, height as f32],
             color: Color::<RGB, u8>::white(),
             batch: BatchController2D::new(shader, 10000),
             vertices: VertexGroup::new()
@@ -38,8 +38,8 @@ impl Draw2D {
 
     pub fn tri(&mut self) {
         self.vertices.get_mut(0).set([100.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
-        self.vertices.get_mut(1).set([200.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
-        self.vertices.get_mut(2).set([150.0, 200.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
+        self.vertices.get_mut(1).set([200.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
+        self.vertices.get_mut(2).set([150.0, 200.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
         self.vertices.set_len(3);
         self.batch.add_vertices(&self.vertices);
     }

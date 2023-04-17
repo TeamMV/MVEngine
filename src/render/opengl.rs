@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::ops::Deref;
 
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
@@ -408,31 +409,27 @@ impl OpenGLShader {
     }
 
     pub(crate) unsafe fn uniform_2fv(&self, name: &str, value: Vec2) {
-        shader_uniform!(Uniform2fv, self.prgm_id, name, 2, &value.to_array() as *const f32);
+        shader_uniform!(Uniform2fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
     pub(crate) unsafe fn uniform_3fv(&self, name: &str, value: Vec3) {
-        shader_uniform!(Uniform3fv, self.prgm_id, name, 3, &value.to_array() as *const f32);
+        shader_uniform!(Uniform3fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
     pub(crate) unsafe fn uniform_4fv(&self, name: &str, value: Vec4) {
-        shader_uniform!(Uniform4fv, self.prgm_id, name, 4, &value.to_array() as *const f32);
+        shader_uniform!(Uniform4fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
     pub(crate) unsafe fn uniform_2fm(&self, name: &str, value: Mat2) {
-        shader_uniform!(UniformMatrix2fv, self.prgm_id, name, 4, 0, &value.to_cols_array() as *const f32);
+        shader_uniform!(UniformMatrix2fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
     pub(crate) unsafe fn uniform_3fm(&self, name: &str, value: Mat3) {
-        shader_uniform!(UniformMatrix3fv, self.prgm_id, name, 9, 0, &value.to_cols_array() as *const f32);
+        shader_uniform!(UniformMatrix3fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
     pub(crate) unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {
-        //shader_uniform!(UniformMatrix4fv, self.prgm_id, name, 16, 0, value.as_ptr());
-        let loc: GLint = gl::GetUniformLocation(self.prgm_id, name.as_c_str().as_ptr());
-        if loc != -1 {
-            gl::UniformMatrix4fv(loc, 16 as GLsizei, 0 as GLboolean, &value.to_cols_array() as *const f32);
-        }
+        shader_uniform!(UniformMatrix4fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 }
 
@@ -527,7 +524,7 @@ macro_rules! vert_attrib {
 }
 
 impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8) {
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
         let mut i: u8 = 0;
         for op in tex.iter_mut() {
             if let Some(t) = op {
@@ -564,8 +561,7 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             vert_attrib!(7, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET);
             vert_attrib!(8, USE_CAMERA_SIZE, USE_CAMERA_OFFSET);
 
-            //gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, 0 as *const _);
-            gl::DrawArrays(render_mode as GLenum, 0, 3);
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
 

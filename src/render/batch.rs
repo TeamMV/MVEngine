@@ -3,7 +3,7 @@ use glfw::Key::N;
 use mvutils::utils::{IncDec, TetrahedronOp};
 use crate::render::shared::{RenderProcessor2D, Shader, Texture, TextureRegion, Window};
 use std::cell::RefCell;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use mvutils::init_arr;
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
@@ -107,7 +107,6 @@ struct Batch2D {
     indices: Vec<u32>,
     textures: [Option<Rc<RefCell<Texture>>>; 17],
     tex_ids: [u32; 17],
-    shader: Rc<RefCell<Shader>>,
     vbo: u32,
     ibo: u32,
     size: u32,
@@ -119,14 +118,13 @@ struct Batch2D {
 }
 
 impl Batch2D {
-    pub(crate) fn new<T: BatchGen + 'static>(size: u32, shader: Rc<RefCell<Shader>>, generator: T) -> Self {
+    pub(crate) fn new<T: BatchGen + 'static>(size: u32, generator: T) -> Self {
         Batch2D {
             generator: Box::new(generator),
             data: Vec::with_capacity(size as usize * batch_layout_2d::VERTEX_SIZE_FLOATS as usize),
             indices: Vec::with_capacity(size as usize * 6),
             textures: [0; 17].map(|n| None),
             tex_ids: [0; 17],
-            shader,
             vbo: 0,
             ibo: 0,
             size,
@@ -220,19 +218,15 @@ impl Batch2D {
         return self.next_tex;
     }
 
-    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D, shader: &mut Shader) {
         if self.vbo == 0 {
             self.vbo = processor.gen_buffer_id();
         }
         if self.ibo == 0 {
             self.ibo = processor.gen_buffer_id();
         }
-        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, self.vbo, self.ibo, self.shader.borrow().deref(), processor.adapt_render_mode(self.generator.get_render_mode()));
+        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, self.vbo, self.ibo, shader, processor.adapt_render_mode(self.generator.get_render_mode()));
         self.force_clear();
-    }
-
-    pub(crate) fn set_shader(&mut self, shader: Rc<RefCell<Shader>>) {
-        self.shader = shader;
     }
 
     pub(crate) fn is_stripped(&self) -> bool {
@@ -315,7 +309,7 @@ impl BatchController2D {
     }
 
     pub(crate) fn start(&mut self) {
-        self.batches.push(Batch2D::new(self.batch_limit, self.shader.clone(), RegularBatch));
+        self.batches.push(Batch2D::new(self.batch_limit, RegularBatch));
     }
 
     fn next_batch(&mut self, stripped: bool) {
@@ -331,8 +325,8 @@ impl BatchController2D {
     }
 
     fn gen_batch(&self, stripped: bool) -> Batch2D {
-        stripped.yn(Batch2D::new(self.batch_limit, self.shader.clone(), StrippedBatch),
-                    Batch2D::new(self.batch_limit, self.shader.clone(), RegularBatch))
+        stripped.yn(Batch2D::new(self.batch_limit, StrippedBatch),
+                    Batch2D::new(self.batch_limit, RegularBatch))
     }
 
     pub(crate) fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
@@ -381,7 +375,7 @@ impl BatchController2D {
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         for i in 0..self.current + 1 {
-            self.batches[i as usize].render(processor);
+            self.batches[i as usize].render(processor, self.shader.borrow_mut().deref_mut());
         }
         self.current = 0;
     }
@@ -389,9 +383,6 @@ impl BatchController2D {
     pub(crate) fn set_shader(&mut self, shader: Rc<RefCell<Shader>>) {
         self.shader = shader;
         self.shader.borrow_mut().make();
-        for batch in self.batches.iter_mut() {
-            batch.set_shader(self.shader.clone());
-        }
     }
 
     pub(crate) fn reset_shader(&mut self) {

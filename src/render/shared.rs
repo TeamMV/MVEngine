@@ -185,26 +185,26 @@ pub enum Shader {
 
 impl Shader {
     backend_fn!(Shader, make);
-    backend_fn!(Shader, bind, true);
+    backend_fn!(Shader, bind);
 
-    backend_fn!(Shader, uniform_1f, true, name: &str, value: f32);
-    backend_fn!(Shader, uniform_1i, true, name: &str, value: i32);
-    pub fn uniform_1b(&self, name: &str, value: bool) {
+    backend_fn!(Shader, uniform_1f, name: &str, value: f32);
+    backend_fn!(Shader, uniform_1i, name: &str, value: i32);
+    pub fn uniform_1b(&mut self, name: &str, value: bool) {
         self.uniform_1i(name, value.yn(1, 0));
     }
 
-    backend_fn!(Shader, uniform_fv, true, name: &str, value: &Vec<f32>);
-    backend_fn!(Shader, uniform_iv, true, name: &str, value: &Vec<i32>);
-    pub fn uniform_bv(&self, name: &str, value: &Vec<bool>) {
+    backend_fn!(Shader, uniform_fv, name: &str, value: &Vec<f32>);
+    backend_fn!(Shader, uniform_iv, name: &str, value: &Vec<i32>);
+    pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
         self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
     }
 
-    backend_fn!(Shader, uniform_2fv, true, name: &str, value: Vec2);
-    backend_fn!(Shader, uniform_3fv, true, name: &str, value: Vec3);
-    backend_fn!(Shader, uniform_4fv, true, name: &str, value: Vec4);
-    backend_fn!(Shader, uniform_2fm, true, name: &str, value: Mat2);
-    backend_fn!(Shader, uniform_3fm, true, name: &str, value: Mat3);
-    backend_fn!(Shader, uniform_4fm, true, name: &str, value: Mat4);
+    backend_fn!(Shader, uniform_2fv, name: &str, value: Vec2);
+    backend_fn!(Shader, uniform_3fv, name: &str, value: Vec3);
+    backend_fn!(Shader, uniform_4fv, name: &str, value: Vec4);
+    backend_fn!(Shader, uniform_2fm, name: &str, value: Mat2);
+    backend_fn!(Shader, uniform_3fm, name: &str, value: Mat3);
+    backend_fn!(Shader, uniform_4fm, name: &str, value: Mat4);
 }
 
 pub enum Texture {
@@ -257,7 +257,7 @@ impl TextureRegion {
 //Assets above this comment pls, here comes the "real rendering shit"
 
 pub(crate) trait RenderProcessor2D {
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8);
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
     fn gen_buffer_id(&self) -> u32;
     fn adapt_render_mode(&self, render_mode: u8) -> u8;
 }
