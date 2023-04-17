@@ -37,7 +37,6 @@ impl MVCore {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::{Vector4, Zero};
     use crate::MVCore;
 
     use crate::render::{RenderCore, RenderingBackend};

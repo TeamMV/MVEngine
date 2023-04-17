@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use cgmath::{Vector4, Zero};
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::batch::{BatchController2D, Vertex2D, VertexGroup};
 
@@ -9,16 +8,16 @@ use crate::render::color::{Color, RGB};
 use crate::render::shared::{RenderProcessor2D, Shader, Window};
 
 pub struct Draw2D {
-    canvas_coords: Vector4<u16>,
+    canvas_coords: [u16; 4],
     color: Color<RGB, u8>,
     batch: BatchController2D,
     vertices: VertexGroup<Vertex2D>
 }
 
 impl Draw2D {
-    pub(crate) fn new(shader: Rc<RefCell<Shader>>) -> Self {
+    pub(crate) fn new(shader: Rc<RefCell<Shader>>, width: u16, height: u16) -> Self {
         Draw2D {
-            canvas_coords: Vector4::zero(),
+            canvas_coords: [0, 0, width, height],
             color: Color::<RGB, u8>::white(),
             batch: BatchController2D::new(shader, 10000),
             vertices: VertexGroup::new()
@@ -38,9 +37,9 @@ impl Draw2D {
     }
 
     pub fn tri(&mut self) {
-        self.vertices.get_mut(0).set([100.0, 100.0, 100.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
-        self.vertices.get_mut(1).set([200.0, 100.0, 100.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
-        self.vertices.get_mut(2).set([150.0, 200.0, 100.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
+        self.vertices.get_mut(0).set([100.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
+        self.vertices.get_mut(1).set([200.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
+        self.vertices.get_mut(2).set([150.0, 200.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0]);
         self.vertices.set_len(3);
         self.batch.add_vertices(&self.vertices);
     }

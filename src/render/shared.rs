@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
 use gl::types::GLuint;
+use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwSetWindowMonitor, GLFWwindow};
 use glfw::Glfw;
 use mvutils::try_catch;
@@ -199,12 +199,12 @@ impl Shader {
         self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
     }
 
-    backend_fn!(Shader, uniform_2fv, true, name: &str, value: Vector2<f32>);
-    backend_fn!(Shader, uniform_3fv, true, name: &str, value: Vector3<f32>);
-    backend_fn!(Shader, uniform_4fv, true, name: &str, value: Vector4<f32>);
-    backend_fn!(Shader, uniform_2fm, true, name: &str, value: Matrix2<f32>);
-    backend_fn!(Shader, uniform_3fm, true, name: &str, value: Matrix3<f32>);
-    backend_fn!(Shader, uniform_4fm, true, name: &str, value: Matrix4<f32>);
+    backend_fn!(Shader, uniform_2fv, true, name: &str, value: Vec2);
+    backend_fn!(Shader, uniform_3fv, true, name: &str, value: Vec3);
+    backend_fn!(Shader, uniform_4fv, true, name: &str, value: Vec4);
+    backend_fn!(Shader, uniform_2fm, true, name: &str, value: Mat2);
+    backend_fn!(Shader, uniform_3fm, true, name: &str, value: Mat3);
+    backend_fn!(Shader, uniform_4fm, true, name: &str, value: Mat4);
 }
 
 pub enum Texture {

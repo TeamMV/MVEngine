@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use cgmath::num_traits::clamp;
 use glfw::Key::N;
 use mvutils::utils::{IncDec, TetrahedronOp};
 use crate::render::shared::{RenderProcessor2D, Shader, Texture, TextureRegion, Window};
