@@ -108,12 +108,7 @@ impl OpenGLWindow {
 
                     application_loop.draw(self);
 
-                    if self.enabled_shaders.len() > 0 {
-                        self.render_2d.set_framebuffer(self.frame_buf);
-                    }
-                    else {
-                        self.render_2d.set_framebuffer(0);
-                    }
+                    self.render_2d.set_framebuffer((self.shaders.len() > 0).yn(self.frame_buf, 0));
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
 
