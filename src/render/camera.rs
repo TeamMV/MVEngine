@@ -45,7 +45,7 @@ impl Camera {
         cam_fn_call!(get_projection_mat, self);
     }
 
-    pub fn update_projection_mat(&self, width: u16, height: u16) {
+    pub fn update_projection_mat(&mut self, width: u16, height: u16) {
         cam_fn_call!(update_projection_mat, self, width, height);
     }
 }
