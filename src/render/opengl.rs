@@ -1,9 +1,11 @@
-use std::ffi::{c_int, c_void, CStr, CString};
+use alloc::ffi::CString;
+use std::ffi::{c_int, c_void, CStr};
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 
 use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4, Array, Matrix, Zero};
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
@@ -19,6 +21,7 @@ use crate::assets;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::batch::batch_layout_2d;
 use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE, VERTEX_SIZE_BYTES};
+use crate::render::camera::{Camera, Camera2D};
 use crate::render::draw::Draw2D;
 use crate::render::glfwFreeCallbacks;
 use crate::render::shared::{ApplicationLoop, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
@@ -41,8 +44,7 @@ pub struct OpenGLWindow {
     render_buf: u32,
     texture_buf: u32,
 
-    z_near: f32,
-    z_far: f32
+    camera: Camera
 }
 
 impl OpenGLWindow {
@@ -70,7 +72,6 @@ impl OpenGLWindow {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthMask(gl::TRUE);
             gl::DepthFunc(gl::LEQUAL);
-            gl::DepthRange(self.z_near as GLdouble, self.z_far as GLdouble);
 
             self.gen_render_buffer();
         }
@@ -108,9 +109,24 @@ impl OpenGLWindow {
 
                     application_loop.draw(self);
 
-                    self.render_2d.set_framebuffer((self.shaders.len() > 0).yn(self.frame_buf, 0));
+                    self.render_2d.set_framebuffer((self.enabled_shaders.len() > 0).yn(self.frame_buf, 0));
+                    self.render_2d.set_camera(self.camera.clone());
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
+
+                    for shader in self.enabled_shaders.iter() {
+                        let shader = self.shaders.get(shader);
+                        if shader.is_none() {
+                            continue;
+                        }
+                        let shader = shader.unwrap();
+                        //there
+                        //then u can apply to each one
+                        //and finally at the end
+                        //draw texture to screen
+                        //if len was > 0
+                        //cya
+                    }
 
                     glfwSwapBuffers(self.window);
                     self.current_frame += 1;
@@ -154,7 +170,7 @@ impl OpenGLWindow {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
-            //gl::BindTexture(gl::TEXTURE_2D, 0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
 
             if self.render_buf != 0 {
                 gl::DeleteRenderbuffers(1, &mut self.render_buf);
@@ -164,7 +180,7 @@ impl OpenGLWindow {
             gl::BindRenderbuffer(gl::RENDERBUFFER, self.render_buf);
             gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT32, self.info.width as i32, self.info.height as i32);
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, self.render_buf);
-            //gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
 
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 panic!("Incomplete Framebuffer");
@@ -196,8 +212,7 @@ impl Window for OpenGLWindow {
             texture_buf: 0,
 
             draw_2d: None,
-            z_near: 0.01,
-            z_far: 2000.0,
+            camera: Camera::new_2d(),
         }
     }
 
@@ -213,6 +228,7 @@ impl Window for OpenGLWindow {
         shader.borrow_mut().make();
         self.draw_2d = Some(Draw2D::new(shader));
 
+        self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(self);
 
         self.running(&application_loop);
@@ -292,6 +308,10 @@ impl Window for OpenGLWindow {
 
     fn disable_shader(&mut self, id: &str) {
         self.enabled_shaders.remove(id);
+    }
+
+    fn get_camera(&self) -> &Camera {
+        &self.camera
     }
 }
 
@@ -467,7 +487,8 @@ impl OpenGLTexture {
 pub(crate) struct OpenGLRenderProcessor2D {
     framebuffer: u32,
     width: i32,
-    height: i32
+    height: i32,
+    camera: Option<Camera>
 }
 
 impl OpenGLRenderProcessor2D {
@@ -475,7 +496,8 @@ impl OpenGLRenderProcessor2D {
         OpenGLRenderProcessor2D {
             framebuffer: 0,
             width: 0,
-            height: 0
+            height: 0,
+            camera: None
         }
     }
 
@@ -487,6 +509,10 @@ impl OpenGLRenderProcessor2D {
     fn set_framebuffer(&mut self, framebuffer: u32) {
         self.framebuffer = framebuffer;
     }
+
+    fn set_camera(&mut self, cam: Camera) {
+        self.camera = Some(cam);
+    }
 }
 
 macro_rules! vert_attrib {
@@ -496,7 +522,7 @@ macro_rules! vert_attrib {
     };
 }
 
-impl RenderProcessor2D for OpenGLRenderProcessor2D {
+impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8) {
         let mut i: u8 = 0;
         for op in tex.iter_mut() {
@@ -521,7 +547,8 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D {
 
             shader.uniform_1i("uResX", self.width);
             shader.uniform_1i("uResY", self.height);
-            //TODO: Matrices over here
+            shader.uniform_4fm("uProjection", self.camera.as_ref().unwrap().get_projection_mat().clone());
+            shader.uniform_4fm("uView", self.camera.as_ref().unwrap().get_view_mat().clone());
 
             vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
             vert_attrib!(1, ROTATION_SIZE, ROTATION_OFFSET_BYTES);

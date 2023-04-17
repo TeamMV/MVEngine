@@ -12,6 +12,7 @@ pub mod opengl;
 pub mod draw;
 pub mod color;
 pub mod batch;
+pub mod camera;
 
 pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetWindowPosCallback(window, None);

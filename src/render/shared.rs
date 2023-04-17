@@ -7,6 +7,7 @@ use glfw::Glfw;
 use mvutils::try_catch;
 use mvutils::utils::TetrahedronOp;
 use crate::assets::SemiAutomaticAssetManager;
+use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
 
 use crate::render::opengl::{OpenGLShader, OpenGLTexture};
@@ -53,6 +54,8 @@ pub trait Window {
     fn add_shader(&mut self, id: &str, shader: Rc<RefCell<Shader>>);
     fn enable_shader(&mut self, id: &str);
     fn disable_shader(&mut self, id: &str);
+
+    fn get_camera(&self) -> &Camera;
 }
 
 pub struct WindowCreateInfo {

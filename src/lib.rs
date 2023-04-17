@@ -1,3 +1,5 @@
+extern crate alloc;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use include_dir::{Dir, include_dir};
