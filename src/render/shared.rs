@@ -46,9 +46,13 @@ pub trait Window {
     fn get_ups(&self) -> u16;
     fn get_frame(&self) -> u128;
 
-    fn get_draw_2d(&self) -> &Draw2D<Self> where Self: Sized;
+    fn get_draw_2d(&mut self) -> &mut Draw2D;
     fn set_fullscreen(&mut self, fullscreen: bool);
     fn get_glfw_window(&self) -> *mut GLFWwindow;
+
+    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<Shader>>);
+    fn enable_shader(&mut self, id: &str);
+    fn disable_shader(&mut self, id: &str);
 }
 
 pub struct WindowCreateInfo {
@@ -249,7 +253,7 @@ impl TextureRegion {
 
 //Assets above this comment pls, here comes the "real rendering shit"
 
-pub(crate) trait RenderProcessor2D<Win: Window> {
+pub(crate) trait RenderProcessor2D {
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8);
     fn gen_buffer_id(&self) -> u32;
     fn adapt_render_mode(&self, render_mode: u8) -> u8;

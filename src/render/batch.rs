@@ -66,9 +66,9 @@ impl BatchGen for RegularBatch {
             indices[(offset * 6 + 4) as usize] = 2 + offset * 4;
             indices[(offset * 6 + 5) as usize] = 3 + offset * 4;
         } else {
-            indices[(offset * 6 + 0) as usize] = 0 + offset * 4;
-            indices[(offset * 6 + 1) as usize] = 1 + offset * 4;
-            indices[(offset * 6 + 2) as usize] = 2 + offset * 4;
+            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
+            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
         }
     }
 
@@ -167,7 +167,7 @@ impl Batch2D {
 
     fn add_vertex(&mut self, vertex: &Vertex2D) {
         for i in 0..batch_layout_2d::VERTEX_SIZE_FLOATS {
-            self.data[i as usize + (self.vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) as usize] = vertex.data[i as usize + (self.vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) as usize];
+            self.data.insert(i as usize + (self.vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) as usize, vertex.data[i as usize]);
         }
         self.vert_count += 1;
     }
@@ -221,7 +221,7 @@ impl Batch2D {
         return self.next_tex;
     }
 
-    pub(crate) fn render<T: Window>(&mut self, processor: &impl RenderProcessor2D<T>) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         if self.vbo == 0 {
             self.vbo = processor.gen_buffer_id();
         }
@@ -271,12 +271,12 @@ impl VertexGroup<Vertex2D> {
     }
 
     pub(crate) fn get(&self, index: u8) -> &Vertex2D {
-        assert!(index >= 3 && index <= 4);
+        assert!(index <= 4);
         &self.vertices[index as usize]
     }
 
     pub(crate) fn get_mut(&mut self, index: u8) -> &mut Vertex2D {
-        assert!(index >= 3 && index <= 4);
+        assert!(index <= 4);
         &mut self.vertices[index as usize]
     }
 
@@ -304,13 +304,15 @@ impl BatchController2D {
         assert!(batch_limit >= 14);
         shader.borrow_mut().make();
         shader.borrow_mut().bind();
-        BatchController2D {
-            batches: Vec::<Batch2D>::new(),
+        let mut batch = BatchController2D {
+            batches: Vec::new(),
             batch_limit,
             default_shader: shader.clone(),
             shader,
             current: 0
-        }
+        };
+        batch.start();
+        batch
     }
 
     pub(crate) fn start(&mut self) {
@@ -378,7 +380,7 @@ impl BatchController2D {
         self.batches[self.current as usize].add_texture(texture)
     }
 
-    pub(crate) fn render<T: Window>(&mut self, processor: &impl RenderProcessor2D<T>) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         for i in 0..self.current + 1 {
             self.batches[i as usize].render(processor);
         }

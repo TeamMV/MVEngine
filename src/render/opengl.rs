@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 
 use cgmath::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4, Array, Matrix, Zero};
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
@@ -15,7 +16,7 @@ use glfw::WindowMode::Windowed;
 use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
 
 use crate::assets;
-use crate::assets::SemiAutomaticAssetManager;
+use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::batch::batch_layout_2d;
 use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE, VERTEX_SIZE_BYTES};
 use crate::render::draw::Draw2D;
@@ -32,7 +33,11 @@ pub struct OpenGLWindow {
 
     size_buf: Vector4<i32>,
 
-    draw_2d: Option<Draw2D<OpenGLWindow>>,
+    draw_2d: Option<Draw2D>,
+    render_2d: OpenGLRenderProcessor2D,
+    shaders: HashMap<String, Rc<RefCell<Shader>>>,
+    enabled_shaders: HashSet<String>,
+    render_buf: u32,
 
     z_near: f32,
     z_far: f32
@@ -65,6 +70,7 @@ impl OpenGLWindow {
             gl::DepthFunc(gl::LEQUAL);
             gl::DepthRange(self.z_near as GLdouble, self.z_far as GLdouble);
 
+            self.gen_render_buffer();
         }
     }
 
@@ -99,6 +105,16 @@ impl OpenGLWindow {
                     //draws
 
                     application_loop.draw(self);
+
+                    if self.enabled_shaders.len() > 0 {
+                        self.render_2d.set_framebuffer(self.render_buf);
+                    }
+                    else {
+                        self.render_2d.set_framebuffer(0);
+                    }
+
+                    self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
+
                     glfwSwapBuffers(self.window);
                     self.current_frame += 1;
                     frames += 1;
@@ -110,7 +126,6 @@ impl OpenGLWindow {
                     frames = 0;
                     ticks = 0;
                     timer += 1000;
-                    println!("{}", self.current_fps);
                 }
             }
         }
@@ -120,6 +135,19 @@ impl OpenGLWindow {
         unsafe {
             glfwFreeCallbacks(self.window);
             glfwDestroyWindow(self.window);
+        }
+    }
+
+    fn gen_render_buffer(&mut self) {
+        unsafe {
+            if self.render_buf != 0 {
+                gl::DeleteTextures(1, &mut self.render_buf);
+            }
+            gl::GenTextures(1, &mut self.render_buf);
+            gl::BindTexture(gl::TEXTURE_2D, self.render_buf);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA16F as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGBA, gl::FLOAT, 0 as *const _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
         }
     }
 }
@@ -135,6 +163,10 @@ impl Window for OpenGLWindow {
             current_frame: 0,
 
             size_buf: Vector4::zero(),
+            render_2d: OpenGLRenderProcessor2D::new(),
+            shaders: HashMap::new(),
+            enabled_shaders: HashSet::new(),
+            render_buf: 0,
 
             draw_2d: None,
             z_near: 0.01,
@@ -148,6 +180,11 @@ impl Window for OpenGLWindow {
         if self.info.fullscreen {
             self.set_fullscreen(true);
         }
+
+        self.render_2d.resize(self.info.width as i32, self.info.height as i32);
+        let shader = self.assets.borrow_mut().get_shader("default");
+        shader.borrow_mut().make();
+        self.draw_2d = Some(Draw2D::new(shader));
 
         application_loop.start(self);
 
@@ -190,12 +227,8 @@ impl Window for OpenGLWindow {
         self.current_frame
     }
 
-    fn get_draw_2d(&self) -> &Draw2D<Self> {
-        self.draw_2d.as_ref().expect("The Draw2D is not initialized yet!")
-    }
-
-    fn get_glfw_window(&self) -> *mut GLFWwindow {
-        self.window
+    fn get_draw_2d(&mut self) -> &mut Draw2D {
+        self.draw_2d.as_mut().expect("The Draw2D is not initialized yet!")
     }
 
     fn set_fullscreen(&mut self, fullscreen: bool) {
@@ -216,6 +249,22 @@ impl Window for OpenGLWindow {
                 glfwSetWindowMonitor(self.window, 0 as *mut _, self.size_buf.x, self.size_buf.y, self.size_buf.z, self.size_buf.w, (*mode).refreshRate);
             }
         }
+    }
+
+    fn get_glfw_window(&self) -> *mut GLFWwindow {
+        self.window
+    }
+
+    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<Shader>>) {
+        self.shaders.insert(id.to_string(), shader);
+    }
+
+    fn enable_shader(&mut self, id: &str) {
+        self.enabled_shaders.insert(id.to_string());
+    }
+
+    fn disable_shader(&mut self, id: &str) {
+        self.enabled_shaders.remove(id);
     }
 }
 
@@ -388,17 +437,39 @@ impl OpenGLTexture {
 
 //"real rendering" coming here
 
-pub(crate) struct OpenGLRenderProcessor2D<Win: Window> {
-    window: Win
+pub(crate) struct OpenGLRenderProcessor2D {
+    framebuffer: u32,
+    width: i32,
+    height: i32
+}
+
+impl OpenGLRenderProcessor2D {
+    fn new() -> Self {
+        OpenGLRenderProcessor2D {
+            framebuffer: 0,
+            width: 0,
+            height: 0
+        }
+    }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    fn set_framebuffer(&mut self, framebuffer: u32) {
+        self.framebuffer = framebuffer;
+    }
 }
 
 macro_rules! vert_attrib {
     ($idx:expr, $size:ident, $off:ident) => {
         gl::VertexAttribPointer($idx, batch_layout_2d::$size as GLint, gl::FLOAT, 0, batch_layout_2d::VERTEX_SIZE_BYTES as GLsizei, batch_layout_2d::$off as *const _);
+        gl::EnableVertexAttribArray($idx);
     };
 }
 
-impl<Win: Window> RenderProcessor2D<Win> for OpenGLRenderProcessor2D<Win> {
+impl RenderProcessor2D for OpenGLRenderProcessor2D {
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &Shader, render_mode: u8) {
         let mut i: u8 = 0;
         for op in tex.iter_mut() {
@@ -419,11 +490,11 @@ impl<Win: Window> RenderProcessor2D<Win> for OpenGLRenderProcessor2D<Win> {
                 shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| {u.clone() as i32}).collect::<Vec<_>>());
             }
 
-            shader.uniform_1i("uResX", self.window.get_width() as i32);
-            shader.uniform_1i("uResY", self.window.get_width() as i32);
-            //TODO: Matrices over here
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer);
 
-            //gl::VertexAttribPointer(0, POSITION_SIZE as GLint, FLOAT, 0, VERTEX_SIZE_BYTES as GLsizei, POSITION_OFFSET_BYTES as *const _);
+            shader.uniform_1i("uResX", self.width);
+            shader.uniform_1i("uResY", self.height);
+            //TODO: Matrices over here
 
             vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
             vert_attrib!(1, ROTATION_SIZE, ROTATION_OFFSET_BYTES);

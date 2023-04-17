@@ -51,6 +51,26 @@ mod tests {
         info.fps = 10000;
         info.title = "MVCore".to_string();
         let mut window = render.create_window(info);
-        window.run_default();
+        window.run(Test);
+    }
+
+    struct Test;
+
+    impl ApplicationLoop for Test {
+        fn start(&self, window: &mut impl Window) {
+
+        }
+
+        fn update(&self, window: &mut impl Window) {
+
+        }
+
+        fn draw(&self, window: &mut impl Window) {
+            window.get_draw_2d().tri();
+        }
+
+        fn stop(&self, window: &mut impl Window) {
+
+        }
     }
 }
