@@ -30,6 +30,7 @@ impl MVCore {
         self.render = Some(RenderCore::new(backend, self.assets.clone()));
         self.assets.borrow_mut().load_shader(self.get_render(), "default", "shaders/default.vert", "shaders/default.frag");
         self.assets.borrow_mut().load_effect_shader(self.get_render(), "dumb","shaders/dumb.frag");
+        self.assets.borrow_mut().load_effect_shader(self.get_render(), "second","shaders/second.frag");
     }
 
     pub fn get_render(&self) -> &RenderCore {
@@ -60,7 +61,9 @@ mod tests {
         info.title = "MVCore".to_string();
         let mut window = render.create_window(info);
         window.add_shader("dumb", core.get_asset_manager().get_effect_shader("dumb"));
+        window.add_shader("second", core.get_asset_manager().get_effect_shader("second"));
         window.enable_shader("dumb");
+        window.enable_shader("second");
         window.run(Test);
     }
 

@@ -70,7 +70,7 @@ impl OpenGLWindow {
             gl::Enable(gl::CULL_FACE);
             gl::CullFace(gl::BACK);
             gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_CONSTANT_ALPHA);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthMask(gl::TRUE);
             gl::DepthFunc(gl::LEQUAL);
@@ -167,27 +167,31 @@ impl OpenGLWindow {
 
             gl::GenTextures(1, &mut self.texture_buf);
             gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA32F as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGBA, gl::FLOAT, 0 as *const _);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::FLOAT, 0 as *const _);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
+            //gl::BindTexture(gl::TEXTURE_2D, 0);
 
             if self.render_buf != 0 {
                 gl::DeleteRenderbuffers(1, &mut self.render_buf);
             }
+
             gl::GenRenderbuffers(1, &mut self.render_buf);
             gl::BindRenderbuffer(gl::RENDERBUFFER, self.render_buf);
             gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT32, self.info.width as i32, self.info.height as i32);
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, self.render_buf);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+            //gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
+
+            let attachments = [gl::COLOR_ATTACHMENT0];
+            gl::DrawBuffers(1, attachments.as_ptr());
+
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 panic!("Incomplete Framebuffer");
             }
 
-            gl::DrawBuffers(1, &gl::COLOR_ATTACHMENT0);
-
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            //gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
     }
 }
@@ -223,6 +227,7 @@ impl Window for OpenGLWindow {
             self.set_fullscreen(true);
         }
 
+        self.shader_pass.resize(self.info.width as i32, self.info.height as i32);
         self.render_2d.resize(self.info.width as i32, self.info.height as i32);
         let shader = self.assets.borrow_mut().get_shader("default");
         self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
@@ -316,19 +321,28 @@ impl Window for OpenGLWindow {
 
 struct OpenGLShaderPass {
     ibo: u32,
-    indices: [u32; 6]
+    indices: [u32; 6],
+    width: i32,
+    height: i32
 }
 
 impl OpenGLShaderPass {
     pub fn new() -> Self {
         Self {
             ibo: 0,
-            indices: [0, 2, 1, 1, 2, 3]
+            indices: [0, 2, 1, 1, 2, 3],
+            width: 0,
+            height: 0
         }
     }
 
     pub fn set_ibo(&mut self, ibo: u32) {
         self.ibo = ibo;
+    }
+
+    pub fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
     }
 
     pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32) {
@@ -343,7 +357,7 @@ impl OpenGLShaderPass {
             gl::BindFramebuffer(gl::FRAMEBUFFER, f_buf);
 
             //TODO: shader uniforms
-            shader.uniform_1i("tex", t_buf as i32);
+            shader.uniform_1i("tex", gl::TEXTURE0 as i32);
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
 
