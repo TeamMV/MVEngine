@@ -39,10 +39,8 @@ pub trait Window {
     }
     fn stop(&mut self);
 
-    fn get_width(&self) -> u16;
-    fn set_width(&mut self, width: u16);
-    fn get_height(&self) -> u16;
-    fn set_height(&mut self, height: u16);
+    fn get_width(&self) -> i32;
+    fn get_height(&self) -> i32;
     fn get_fps(&self) -> u16;
     fn get_ups(&self) -> u16;
     fn get_frame(&self) -> u128;
@@ -84,8 +82,8 @@ impl ShaderPassInfo {
 }
 
 pub struct WindowCreateInfo {
-    pub width: u16,
-    pub height: u16,
+    pub width: i32,
+    pub height: i32,
     pub fps: u16,
     pub ups: u16,
     pub fullscreen: bool,
@@ -96,7 +94,7 @@ pub struct WindowCreateInfo {
 }
 
 impl WindowCreateInfo {
-    pub fn new(width: u16, height: u16, fullscreen: bool, title: &str) -> Self {
+    pub fn new(width: i32, height: i32, fullscreen: bool, title: &str) -> Self {
         WindowCreateInfo {
             width,
             height,

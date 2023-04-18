@@ -15,7 +15,7 @@ pub struct Draw2D {
 }
 
 impl Draw2D {
-    pub(crate) fn new(shader: Rc<RefCell<Shader>>, width: u16, height: u16) -> Self {
+    pub(crate) fn new(shader: Rc<RefCell<Shader>>, width: i32, height: i32) -> Self {
         Draw2D {
             canvas_coords: [0.0, 0.0, width as f32, height as f32],
             color: Color::<RGB, u8>::white(),
@@ -26,6 +26,10 @@ impl Draw2D {
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         self.batch.render(processor)
+    }
+
+    pub(crate) fn reset_canvas(&mut self, width: i32, height: i32) {
+        self.canvas_coords = [0.0, 0.0, width as f32, height as f32];
     }
 
     pub fn color(&mut self, color: &Color<RGB, u8>) {

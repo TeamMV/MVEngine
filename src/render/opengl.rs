@@ -13,10 +13,11 @@ use gl::types::{GLboolean, GLdouble, GLenum, GLint, GLsizei, GLsizeiptr, GLuint}
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::{Context, Glfw, WindowMode};
 use glfw::ClientApiHint::OpenGl;
-use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwInit, glfwMakeContextCurrent, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwInit, glfwMakeContextCurrent, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, GLFWwindowsizefun, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 use glfw::WindowHint::{ClientApi, Decorated, Resizable, Visible};
 use glfw::WindowMode::Windowed;
 use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
+use once_cell::unsync::Lazy;
 
 use crate::assets;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
@@ -26,6 +27,23 @@ use crate::render::camera::{Camera, Camera2D};
 use crate::render::draw::Draw2D;
 use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks};
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
+
+static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(|| HashMap::new());
+
+macro_rules! static_listener {
+    ($name:ident, $inner:ident, $($params:ident: $types:ty),+) => {
+        extern "C" fn $name(window: *mut GLFWwindow, $($params: $types),+) {
+            unsafe {
+                let window = GL_WINDOWS.get_mut(&window);
+                if let Some(window) = window {
+                    window.as_mut().unwrap().$inner($($params),+);
+                }
+            }
+        }
+    };
+}
+
+static_listener!(res, resize, w: i32, h: i32);
 
 pub struct OpenGLWindow {
     info: WindowCreateInfo,
@@ -58,6 +76,7 @@ impl OpenGLWindow {
             glfwWindowHint(RESIZABLE, self.info.resizable.yn(TRUE, FALSE));
 
             self.window = glfwCreateWindow(self.info.width as i32, self.info.height as i32, self.info.title.as_c_str().as_ptr(), 0 as *mut _, 0 as *mut _);
+            GL_WINDOWS.insert(self.window, self);
 
             glfwMakeContextCurrent(self.window);
             glfwSwapInterval(self.info.vsync.yn(1, 0));
@@ -75,6 +94,8 @@ impl OpenGLWindow {
             gl::DepthFunc(gl::LEQUAL);
 
             self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
+
+            glfwSetWindowSizeCallback(self.window, Some(res));
         }
     }
 
@@ -108,6 +129,7 @@ impl OpenGLWindow {
                         gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                     }
                     //draws
+                    self.draw_2d.as_mut().unwrap().reset_canvas(self.info.width, self.info.height);
 
                     application_loop.draw(self);
 
@@ -201,6 +223,18 @@ impl OpenGLWindow {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
     }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        unsafe {
+            self.info.width = width;
+            self.info.height = height;
+            gl::Viewport(0, 0, width, height);
+            self.gen_render_buffer();
+            self.render_2d.resize(width, height);
+            self.shader_pass.resize(width, height);
+            self.camera.update_projection_mat(width, height);
+        }
+    }
 }
 
 impl Window for OpenGLWindow {
@@ -257,20 +291,12 @@ impl Window for OpenGLWindow {
         }
     }
 
-    fn get_width(&self) -> u16 {
+    fn get_width(&self) -> i32 {
         self.info.width
     }
 
-    fn set_width(&mut self, width: u16) {
-        self.info.width = width;
-    }
-
-    fn get_height(&self) -> u16 {
+    fn get_height(&self) -> i32 {
         self.info.height
-    }
-
-    fn set_height(&mut self, height: u16) {
-        self.info.height = height;
     }
 
     fn get_fps(&self) -> u16 {
@@ -299,8 +325,9 @@ impl Window for OpenGLWindow {
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
                 glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
-                self.info.width = (*mode).width as u16;
-                self.info.height = (*mode).height as u16;
+                //self.info.width = (*mode).width as u16;
+                //self.info.height = (*mode).height as u16;
+                //gl::Viewport(0, 0, (*mode).width, (*mode).height);
             } else {
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
@@ -329,8 +356,8 @@ impl Window for OpenGLWindow {
 struct OpenGLShaderPass {
     ibo: u32,
     indices: [u32; 6],
-    width: u16,
-    height: u16
+    width: i32,
+    height: i32
 }
 
 impl OpenGLShaderPass {
@@ -347,7 +374,7 @@ impl OpenGLShaderPass {
         self.ibo = ibo;
     }
 
-    pub fn resize(&mut self, width: u16, height: u16) {
+    pub fn resize(&mut self, width: i32, height: i32) {
         self.width = width;
         self.height = height;
     }

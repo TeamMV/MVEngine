@@ -44,7 +44,7 @@ impl Camera {
         cam_fn_call!(get_projection_mat, self);
     }
 
-    pub fn update_projection_mat(&mut self, width: u16, height: u16) {
+    pub fn update_projection_mat(&mut self, width: i32, height: i32) {
         cam_fn_call!(update_projection_mat, self, width, height);
     }
 }
@@ -86,7 +86,7 @@ impl Camera2D {
         &self.projection
     }
 
-    pub(crate) fn update_projection_mat(&mut self, width: u16, height: u16) {
+    pub(crate) fn update_projection_mat(&mut self, width: i32, height: i32) {
         self.projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, self.z_near, self.z_far);
     }
 }

@@ -57,11 +57,9 @@ mod tests {
         core.init_render(OpenGL);
         let mut render = core.get_render();
         let mut info = WindowCreateInfo::default();
-        info.fps = 10000;
+        info.fps = 60;
         info.title = "MVCore".to_string();
-        info.fullscreen = false;
-        info.width = 1920;
-        info.height = 1080;
+        info.fullscreen = !true;
         let mut window = render.create_window(info);
         window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
         window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
