@@ -52,10 +52,35 @@ pub trait Window {
     fn get_glfw_window(&self) -> *mut GLFWwindow;
 
     fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>);
-    fn enable_shader(&mut self, id: &str);
-    fn disable_shader(&mut self, id: &str);
+    fn queue_shader_pass(&mut self, info: ShaderPassInfo);
 
     fn get_camera(&self) -> &Camera;
+}
+
+pub struct ShaderPassInfo {
+    id: String,
+    applier: Box<dyn Fn(&mut EffectShader)>
+}
+
+impl ShaderPassInfo {
+    pub fn new(id: &str, applier: impl Fn(&mut EffectShader) + 'static) -> Self {
+        ShaderPassInfo {
+            id: id.to_string(),
+            applier: Box::new(applier)
+        }
+    }
+
+    pub fn id(id: &str) -> Self {
+        Self::new(id, |s| {})
+    }
+
+    pub(crate) fn apply(&self, shader: &mut EffectShader) {
+        (self.applier)(shader);
+    }
+
+    pub(crate) fn get_id(&self) -> &str {
+        &self.id
+    }
 }
 
 pub struct WindowCreateInfo {

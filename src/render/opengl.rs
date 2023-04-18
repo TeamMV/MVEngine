@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 
-use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
+use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT, FRAMEBUFFER_BARRIER_BIT};
 use gl::types::{GLboolean, GLdouble, GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::{Context, Glfw, WindowMode};
@@ -25,7 +25,7 @@ use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE
 use crate::render::camera::{Camera, Camera2D};
 use crate::render::draw::Draw2D;
 use crate::render::glfwFreeCallbacks;
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 
 pub struct OpenGLWindow {
     info: WindowCreateInfo,
@@ -40,7 +40,7 @@ pub struct OpenGLWindow {
     draw_2d: Option<Draw2D>,
     render_2d: OpenGLRenderProcessor2D,
     shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
-    enabled_shaders: HashSet<String>,
+    enabled_shaders: Vec<ShaderPassInfo>,
     shader_pass: OpenGLShaderPass,
     frame_buf: u32,
     render_buf: u32,
@@ -107,25 +107,29 @@ impl OpenGLWindow {
                 if delta_f >= 1.0 {
                     unsafe {
                         gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+                        gl::ClearTexImage(self.texture_buf, 0, gl::RGB, gl::FLOAT, 0 as *const c_void);
                     }
                     //draws
 
                     application_loop.draw(self);
 
-                    self.render_2d.set_framebuffer((self.enabled_shaders.len() > 0).yn(self.frame_buf, 0));
+                    let len = self.enabled_shaders.len();
+
+                    self.render_2d.set_framebuffer((len > 0).yn(self.frame_buf, 0));
                     self.render_2d.set_camera(self.camera.clone());
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
 
-                    if self.enabled_shaders.len() > 0 {
-                        for (i, shader) in self.enabled_shaders.iter().enumerate() {
-                            let shader = self.shaders.get(shader);
+                    if len > 0 {
+                        for (i, info) in self.enabled_shaders.drain(0..).into_iter().enumerate() {
+                            let shader = self.shaders.get(info.get_id());
                             if shader.is_none() {
                                 continue;
                             }
                             let shader = shader.unwrap();
-                            let f_buf = (self.shaders.len() - i == 1).yn(0, self.frame_buf);
-                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf);
+                            info.apply(shader.borrow_mut().deref_mut());
+                            let f_buf = (len - i == 1).yn(0, self.frame_buf);
+                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
                         }
                     }
 
@@ -209,7 +213,7 @@ impl Window for OpenGLWindow {
             size_buf: [0; 4],
             render_2d: OpenGLRenderProcessor2D::new(),
             shaders: HashMap::new(),
-            enabled_shaders: HashSet::new(),
+            enabled_shaders: Vec::with_capacity(10),
             shader_pass: OpenGLShaderPass::new(),
             frame_buf: 0,
             render_buf: 0,
@@ -227,7 +231,7 @@ impl Window for OpenGLWindow {
             self.set_fullscreen(true);
         }
 
-        self.shader_pass.resize(self.info.width as i32, self.info.height as i32);
+        self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.resize(self.info.width as i32, self.info.height as i32);
         let shader = self.assets.borrow_mut().get_shader("default");
         self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
@@ -306,12 +310,8 @@ impl Window for OpenGLWindow {
         self.shaders.insert(id.to_string(), shader);
     }
 
-    fn enable_shader(&mut self, id: &str) {
-        self.enabled_shaders.insert(id.to_string());
-    }
-
-    fn disable_shader(&mut self, id: &str) {
-        self.enabled_shaders.remove(id);
+    fn queue_shader_pass(&mut self, info: ShaderPassInfo) {
+        self.enabled_shaders.push(info);
     }
 
     fn get_camera(&self) -> &Camera {
@@ -322,8 +322,8 @@ impl Window for OpenGLWindow {
 struct OpenGLShaderPass {
     ibo: u32,
     indices: [u32; 6],
-    width: i32,
-    height: i32
+    width: u16,
+    height: u16
 }
 
 impl OpenGLShaderPass {
@@ -340,12 +340,12 @@ impl OpenGLShaderPass {
         self.ibo = ibo;
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) {
+    pub fn resize(&mut self, width: u16, height: u16) {
         self.width = width;
         self.height = height;
     }
 
-    pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32) {
+    pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32, frame: i32) {
         shader.bind();
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
@@ -358,6 +358,8 @@ impl OpenGLShaderPass {
 
             //TODO: shader uniforms
             shader.uniform_1i("tex", gl::TEXTURE0 as i32);
+            shader.uniform_2fv("res", Vec2::new(self.width as f32, self.height as f32));
+            shader.uniform_1f("time", frame as f32);
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
 

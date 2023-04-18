@@ -29,8 +29,8 @@ impl MVCore {
     pub fn init_render(&mut self, backend: RenderingBackend) {
         self.render = Some(RenderCore::new(backend, self.assets.clone()));
         self.assets.borrow_mut().load_shader(self.get_render(), "default", "shaders/default.vert", "shaders/default.frag");
-        self.assets.borrow_mut().load_effect_shader(self.get_render(), "dumb","shaders/dumb.frag");
-        self.assets.borrow_mut().load_effect_shader(self.get_render(), "second","shaders/second.frag");
+        self.assets.borrow_mut().load_effect_shader(self.get_render(), "blur","shaders/blur.frag");
+        self.assets.borrow_mut().load_effect_shader(self.get_render(), "pixelate","shaders/pixelate.frag");
     }
 
     pub fn get_render(&self) -> &RenderCore {
@@ -57,14 +57,13 @@ mod tests {
         core.init_render(OpenGL);
         let mut render = core.get_render();
         let mut info = WindowCreateInfo::default();
-        info.fps = 10000;
+        info.fps = 60;
         info.title = "MVCore".to_string();
         let mut window = render.create_window(info);
-        window.add_shader("dumb", core.get_asset_manager().get_effect_shader("dumb"));
-        window.add_shader("second", core.get_asset_manager().get_effect_shader("second"));
-        window.enable_shader("dumb");
-        window.enable_shader("second");
+        window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
+        window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
         window.run(Test);
+        let a = vec![1];
     }
 
     struct Test;
@@ -80,6 +79,10 @@ mod tests {
 
         fn draw(&self, window: &mut impl Window) {
             window.get_draw_2d().tri();
+            window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
+                //shader.uniform_1f("pixelSize", 10.0);
+            }));
+            window.queue_shader_pass(ShaderPassInfo::id("blur"));
         }
 
         fn stop(&self, window: &mut impl Window) {

@@ -14,6 +14,7 @@ pub mod color;
 pub mod batch;
 pub mod camera;
 
+#[allow(non_snake_case)]
 pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetWindowPosCallback(window, None);
     glfwSetWindowSizeCallback(window, None);
@@ -72,7 +73,7 @@ impl RenderCore {
         unsafe {
             return match self.backend {
                 RenderingBackend::OpenGL => {
-                    EffectShader::OpenGL(OpenGLShader::new("#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4] = vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}", source))
+                    EffectShader::OpenGL(OpenGLShader::new("#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}", source))
                 }
             };
         }
