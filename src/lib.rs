@@ -57,8 +57,11 @@ mod tests {
         core.init_render(OpenGL);
         let mut render = core.get_render();
         let mut info = WindowCreateInfo::default();
-        info.fps = 60;
+        info.fps = 10000;
         info.title = "MVCore".to_string();
+        info.fullscreen = false;
+        info.width = 1920;
+        info.height = 1080;
         let mut window = render.create_window(info);
         window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
         window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
@@ -79,10 +82,14 @@ mod tests {
 
         fn draw(&self, window: &mut impl Window) {
             window.get_draw_2d().tri();
-            //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
-              //shader.uniform_1f("pixelSize", 10.0);
-            //}));
-            window.queue_shader_pass(ShaderPassInfo::id("blur"));
+            window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
+              shader.uniform_1f("size", 10.0);
+            }));
+            window.queue_shader_pass(ShaderPassInfo::new("blur", |shader| {
+                shader.uniform_1f("dir", 16.0);
+                shader.uniform_1f("quality", 4.0);
+                shader.uniform_1f("size", 8.0);
+            }));
         }
 
         fn stop(&self, window: &mut impl Window) {

@@ -24,7 +24,7 @@ use crate::render::batch::batch_layout_2d;
 use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE, VERTEX_SIZE_BYTES};
 use crate::render::camera::{Camera, Camera2D};
 use crate::render::draw::Draw2D;
-use crate::render::glfwFreeCallbacks;
+use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks};
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 
 pub struct OpenGLWindow {
@@ -43,9 +43,7 @@ pub struct OpenGLWindow {
     enabled_shaders: Vec<ShaderPassInfo>,
     shader_pass: OpenGLShaderPass,
     frame_buf: u32,
-    render_buf: u32,
     texture_buf: u32,
-    texture_buf_2: u32,
 
     camera: Camera
 }
@@ -77,7 +75,6 @@ impl OpenGLWindow {
             gl::DepthFunc(gl::LEQUAL);
 
             self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
-            self.gen_render_buffer();
         }
     }
 
@@ -107,9 +104,8 @@ impl OpenGLWindow {
                 }
                 if delta_f >= 1.0 {
                     unsafe {
+                        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
                         gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
-                        gl::ClearTexImage(self.texture_buf, 0, gl::RGB, gl::FLOAT, 0 as *const c_void);
-                        gl::ClearTexImage(self.texture_buf_2, 0, gl::RGB, gl::FLOAT, 0 as *const c_void);
                     }
                     //draws
 
@@ -118,45 +114,37 @@ impl OpenGLWindow {
                     let len = self.enabled_shaders.len();
 
                     if len > 0 {
+                        unsafe {
+                            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buf);
+                            gl::Clear(COLOR_BUFFER_BIT);
+                        }
                         self.render_2d.set_framebuffer(self.frame_buf);
-                        gl::BindFramebuffer(gl::FRAMEBUFFER, self.frame_buf);
-                        gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
-                        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
-                        gl::BindTexture(gl::TEXTURE_2D, 0);
                     }
                     else {
                         self.render_2d.set_framebuffer(0);
                     }
 
+                    //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
                     self.render_2d.set_camera(self.camera.clone());
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
 
                     if len > 0 {
-                        let mut tex_1 = false;
-                        for (i, info) in self.enabled_shaders.drain(0..).into_iter().enumerate() {
-                            let shader = self.shaders.get(info.get_id());
+                        for (i, info) in self.enabled_shaders.drain(..).enumerate() {
+                            let mut shader = self.shaders.get(info.get_id());
                             if shader.is_none() {
-                                continue;
+                                if len == i + 1 {
+                                    shader = self.shaders.get("empty");
+                                }
+                                else {
+                                    continue;
+                                }
                             }
-                            gl::Finish();
                             let shader = shader.unwrap();
+                            shader.borrow_mut().bind();
                             info.apply(shader.borrow_mut().deref_mut());
-                            let tex = tex_1.yn(self.texture_buf_2, self.texture_buf);
-                            let buf = tex_1.yn(self.texture_buf, self.texture_buf_2);
-                            gl::BindTexture(gl::TEXTURE_2D, buf);
-                            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, buf, 0);
-                            gl::BindTexture(gl::TEXTURE_2D, 0);
-                            if len - i == 1 {
-                                self.shader_pass.render(shader.borrow_mut().deref_mut(), 0, tex, self.current_frame as i32);
-                            }
-                            else {
-                                //let attachments = [gl::COLOR_ATTACHMENT0];
-                                //gl::DrawBuffers(1, attachments.as_ptr());
-                                self.shader_pass.render(shader.borrow_mut().deref_mut(), self.frame_buf, tex, self.current_frame as i32);
-                                tex_1 = !tex_1;
-                            }
-                            //gl::CopyImageSubData(self.texture_buf, gl::TEXTURE_2D, 0, 0, 0, 0, self.texture_buf_2, gl::TEXTURE_2D, 0, 0, 0, 0, self.info.width as i32, self.info.height as i32, 24);
+                            let f_buf = (len == i + 1).yn(0, self.frame_buf);
+                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf,  self.texture_buf, self.current_frame as i32);
                         }
                     }
 
@@ -171,6 +159,7 @@ impl OpenGLWindow {
                     frames = 0;
                     ticks = 0;
                     timer += 1000;
+                    println!("{}", self.current_fps);
                 }
             }
         }
@@ -185,54 +174,31 @@ impl OpenGLWindow {
 
     fn gen_render_buffer(&mut self) {
         unsafe {
-            if self.texture_buf_2 != 0 {
-                gl::DeleteTextures(1, &mut self.texture_buf_2);
-            }
-
-            gl::GenTextures(1, &mut self.texture_buf_2);
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_buf_2);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::FLOAT, 0 as *const _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-
             if self.frame_buf != 0 {
-                gl::DeleteFramebuffers(1, &mut self.frame_buf);
+                gl::DeleteBuffers(1, &mut self.frame_buf);
             }
 
-            gl::GenFramebuffers(1, &mut self.frame_buf);
+            gl::CreateFramebuffers(1, &mut self.frame_buf);
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.frame_buf);
-
-            if self.texture_buf != 0 {
-                gl::DeleteTextures(1, &mut self.texture_buf);
-            }
 
             gl::GenTextures(1, &mut self.texture_buf);
             gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::FLOAT, 0 as *const _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::UNSIGNED_BYTE, 0 as *const _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
-            if self.render_buf != 0 {
-                gl::DeleteRenderbuffers(1, &mut self.render_buf);
-            }
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.frame_buf);
 
-            gl::GenRenderbuffers(1, &mut self.render_buf);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, self.render_buf);
-            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT32, self.info.width as i32, self.info.height as i32);
-            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, self.render_buf);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+            gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, self.texture_buf, 0);
 
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-
-            let attachments = [gl::COLOR_ATTACHMENT0];
-            gl::DrawBuffers(1, attachments.as_ptr());
+            let attach = [gl::COLOR_ATTACHMENT0];
+            gl::DrawBuffers(1, attach.as_ptr());
 
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 panic!("Incomplete Framebuffer");
             }
 
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
         }
     }
 }
@@ -253,9 +219,7 @@ impl Window for OpenGLWindow {
             enabled_shaders: Vec::with_capacity(10),
             shader_pass: OpenGLShaderPass::new(),
             frame_buf: 0,
-            render_buf: 0,
             texture_buf: 0,
-            texture_buf_2: 0,
 
             draw_2d: None,
             camera: Camera::new_2d(),
@@ -269,10 +233,15 @@ impl Window for OpenGLWindow {
             self.set_fullscreen(true);
         }
 
+        self.gen_render_buffer();
         self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.resize(self.info.width as i32, self.info.height as i32);
         let shader = self.assets.borrow_mut().get_shader("default");
         self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
+
+        unsafe {
+            self.shaders.insert("empty".to_string(), Rc::new(RefCell::new(EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, EMPTY_EFFECT_FRAG)))));
+        }
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(self);
@@ -325,8 +294,8 @@ impl Window for OpenGLWindow {
             self.info.fullscreen = fullscreen;
             if fullscreen {
                 glfwGetWindowPos(self.window, &mut self.size_buf[0] as *mut _, &mut self.size_buf[1] as *mut _);
-                self.size_buf[3] = self.info.width as i32;
-                self.size_buf[4] = self.info.height as i32;
+                self.size_buf[2] = self.info.width as i32;
+                self.size_buf[3] = self.info.height as i32;
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
                 glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
@@ -384,7 +353,6 @@ impl OpenGLShaderPass {
     }
 
     pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32, frame: i32) {
-        shader.bind();
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, t_buf);
@@ -401,8 +369,6 @@ impl OpenGLShaderPass {
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-
-            gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
     }
