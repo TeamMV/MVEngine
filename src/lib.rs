@@ -79,9 +79,9 @@ mod tests {
 
         fn draw(&self, window: &mut impl Window) {
             window.get_draw_2d().tri();
-            window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
-                //shader.uniform_1f("pixelSize", 10.0);
-            }));
+            //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
+              //shader.uniform_1f("pixelSize", 10.0);
+            //}));
             window.queue_shader_pass(ShaderPassInfo::id("blur"));
         }
 

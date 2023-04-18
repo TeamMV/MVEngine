@@ -15,6 +15,8 @@ float sq(float x) {
 }
 
 void main() {
+    outColor = texture(tex, fTexCoord);
+    return;
     float Pi = 6.28318530718; // Pi*2
 
     // GAUSSIAN BLUR SETTINGS {{{
