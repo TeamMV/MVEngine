@@ -45,6 +45,7 @@ pub struct OpenGLWindow {
     frame_buf: u32,
     render_buf: u32,
     texture_buf: u32,
+    texture_buf_2: u32,
 
     camera: Camera
 }
@@ -108,6 +109,7 @@ impl OpenGLWindow {
                     unsafe {
                         gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                         gl::ClearTexImage(self.texture_buf, 0, gl::RGB, gl::FLOAT, 0 as *const c_void);
+                        gl::ClearTexImage(self.texture_buf_2, 0, gl::RGB, gl::FLOAT, 0 as *const c_void);
                     }
                     //draws
 
@@ -115,12 +117,23 @@ impl OpenGLWindow {
 
                     let len = self.enabled_shaders.len();
 
-                    self.render_2d.set_framebuffer((len > 0).yn(self.frame_buf, 0));
+                    if len > 0 {
+                        self.render_2d.set_framebuffer(self.frame_buf);
+                        gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
+                        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
+                    }
+                    else {
+                        self.render_2d.set_framebuffer(0);
+                    }
+
                     self.render_2d.set_camera(self.camera.clone());
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
 
                     if len > 0 {
+                        let mut tex_1 = false;
+                        gl::BindTexture(gl::TEXTURE_2D, self.texture_buf_2);
+                        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf_2, 0);
                         for (i, info) in self.enabled_shaders.drain(0..).into_iter().enumerate() {
                             let shader = self.shaders.get(info.get_id());
                             if shader.is_none() {
@@ -128,8 +141,17 @@ impl OpenGLWindow {
                             }
                             let shader = shader.unwrap();
                             info.apply(shader.borrow_mut().deref_mut());
-                            let f_buf = (len - i == 1).yn(0, self.frame_buf);
-                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
+                            let tex = tex_1.yn(self.texture_buf_2, self.texture_buf);
+                            if len - i == 1 {
+                                self.shader_pass.render(shader.borrow_mut().deref_mut(), 0, tex, self.current_frame as i32);
+                            }
+                            else {
+                                self.shader_pass.render(shader.borrow_mut().deref_mut(), self.frame_buf, tex, self.current_frame as i32);
+                                gl::BindTexture(gl::TEXTURE_2D, tex);
+                                gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
+                                tex_1 = !tex_1;
+                            }
+                            //gl::CopyImageSubData(self.texture_buf, gl::TEXTURE_2D, 0, 0, 0, 0, self.texture_buf_2, gl::TEXTURE_2D, 0, 0, 0, 0, self.info.width as i32, self.info.height as i32, 24);
                         }
                     }
 
@@ -158,6 +180,16 @@ impl OpenGLWindow {
 
     fn gen_render_buffer(&mut self) {
         unsafe {
+            if self.texture_buf_2 != 0 {
+                gl::DeleteTextures(1, &mut self.texture_buf_2);
+            }
+
+            gl::GenTextures(1, &mut self.texture_buf_2);
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_buf_2);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::FLOAT, 0 as *const _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+
             if self.frame_buf != 0 {
                 gl::DeleteFramebuffers(1, &mut self.frame_buf);
             }
@@ -218,6 +250,7 @@ impl Window for OpenGLWindow {
             frame_buf: 0,
             render_buf: 0,
             texture_buf: 0,
+            texture_buf_2: 0,
 
             draw_2d: None,
             camera: Camera::new_2d(),
@@ -356,7 +389,6 @@ impl OpenGLShaderPass {
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, f_buf);
 
-            //TODO: shader uniforms
             shader.uniform_1i("tex", gl::TEXTURE0 as i32);
             shader.uniform_2fv("res", Vec2::new(self.width as f32, self.height as f32));
             shader.uniform_1f("time", frame as f32);
