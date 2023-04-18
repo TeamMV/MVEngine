@@ -38,7 +38,7 @@ pub mod batch_layout_2d {
     pub(crate) const CANVAS_COORDS_OFFSET_BYTES: u16 = CANVAS_COORDS_OFFSET * FLOAT_BYTES;
     pub(crate) const CANVAS_DATA_OFFSET: u16 = CANVAS_COORDS_OFFSET + CANVAS_COORDS_SIZE;
     pub(crate) const CANVAS_DATA_OFFSET_BYTES: u16 = CANVAS_DATA_OFFSET * FLOAT_BYTES;
-    pub(crate) const USE_CAMERA_OFFSET: u16 = CANVAS_DATA_OFFSET + CANVAS_DATA_OFFSET_BYTES;
+    pub(crate) const USE_CAMERA_OFFSET: u16 = CANVAS_DATA_OFFSET + CANVAS_DATA_SIZE;
     pub(crate) const USE_CAMERA_OFFSET_BYTES: u16 = USE_CAMERA_OFFSET * FLOAT_BYTES;
 }
 
@@ -295,8 +295,6 @@ pub(crate) struct BatchController2D {
 impl BatchController2D {
     pub(crate) fn new(shader: Rc<RefCell<Shader>>, batch_limit: u32) -> Self {
         assert!(batch_limit >= 14);
-        shader.borrow_mut().make();
-        shader.borrow_mut().bind();
         let mut batch = BatchController2D {
             batches: Vec::new(),
             batch_limit,
@@ -374,6 +372,7 @@ impl BatchController2D {
     }
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
+        self.shader.borrow_mut().bind();
         for i in 0..self.current + 1 {
             self.batches[i as usize].render(processor, self.shader.borrow_mut().deref_mut());
         }
@@ -382,7 +381,6 @@ impl BatchController2D {
 
     pub(crate) fn set_shader(&mut self, shader: Rc<RefCell<Shader>>) {
         self.shader = shader;
-        self.shader.borrow_mut().make();
     }
 
     pub(crate) fn reset_shader(&mut self) {

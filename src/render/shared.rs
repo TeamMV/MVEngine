@@ -51,7 +51,7 @@ pub trait Window {
     fn set_fullscreen(&mut self, fullscreen: bool);
     fn get_glfw_window(&self) -> *mut GLFWwindow;
 
-    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<Shader>>);
+    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>);
     fn enable_shader(&mut self, id: &str);
     fn disable_shader(&mut self, id: &str);
 
@@ -184,7 +184,6 @@ pub enum Shader {
 }
 
 impl Shader {
-    backend_fn!(Shader, make);
     backend_fn!(Shader, bind);
 
     backend_fn!(Shader, uniform_1f, name: &str, value: f32);
@@ -207,14 +206,40 @@ impl Shader {
     backend_fn!(Shader, uniform_4fm, name: &str, value: Mat4);
 }
 
+pub enum EffectShader {
+    OpenGL(OpenGLShader)
+}
+
+impl EffectShader {
+    backend_fn!(EffectShader, bind);
+
+    backend_fn!(EffectShader, uniform_1f, name: &str, value: f32);
+    backend_fn!(EffectShader, uniform_1i, name: &str, value: i32);
+    pub fn uniform_1b(&mut self, name: &str, value: bool) {
+        self.uniform_1i(name, value.yn(1, 0));
+    }
+
+    backend_fn!(EffectShader, uniform_fv, name: &str, value: &Vec<f32>);
+    backend_fn!(EffectShader, uniform_iv, name: &str, value: &Vec<i32>);
+    pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
+        self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
+    }
+
+    backend_fn!(EffectShader, uniform_2fv, name: &str, value: Vec2);
+    backend_fn!(EffectShader, uniform_3fv, name: &str, value: Vec3);
+    backend_fn!(EffectShader, uniform_4fv, name: &str, value: Vec4);
+    backend_fn!(EffectShader, uniform_2fm, name: &str, value: Mat2);
+    backend_fn!(EffectShader, uniform_3fm, name: &str, value: Mat3);
+    backend_fn!(EffectShader, uniform_4fm, name: &str, value: Mat4);
+}
+
 pub enum Texture {
     OpenGL(OpenGLTexture)
 }
 
 impl Texture {
-    backend_fn!(Texture, make);
-    backend_fn!(Texture, bind, true, index: u8);
-    backend_fn!(Texture, unbind, true);
+    backend_fn!(Texture, bind, index: u8);
+    backend_fn!(Texture, unbind);
 
     backend_fn!(Texture, get_id, u32, true);
 

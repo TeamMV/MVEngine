@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::mem;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT};
 use gl::types::{GLboolean, GLdouble, GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
@@ -25,7 +25,7 @@ use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE
 use crate::render::camera::{Camera, Camera2D};
 use crate::render::draw::Draw2D;
 use crate::render::glfwFreeCallbacks;
-use crate::render::shared::{ApplicationLoop, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, Texture, Window, WindowCreateInfo};
 
 pub struct OpenGLWindow {
     info: WindowCreateInfo,
@@ -39,8 +39,9 @@ pub struct OpenGLWindow {
 
     draw_2d: Option<Draw2D>,
     render_2d: OpenGLRenderProcessor2D,
-    shaders: HashMap<String, Rc<RefCell<Shader>>>,
+    shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     enabled_shaders: HashSet<String>,
+    shader_pass: OpenGLShaderPass,
     frame_buf: u32,
     render_buf: u32,
     texture_buf: u32,
@@ -74,6 +75,7 @@ impl OpenGLWindow {
             gl::DepthMask(gl::TRUE);
             gl::DepthFunc(gl::LEQUAL);
 
+            self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
             self.gen_render_buffer();
         }
     }
@@ -115,18 +117,16 @@ impl OpenGLWindow {
 
                     self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
 
-                    for shader in self.enabled_shaders.iter() {
-                        let shader = self.shaders.get(shader);
-                        if shader.is_none() {
-                            continue;
+                    if self.enabled_shaders.len() > 0 {
+                        for (i, shader) in self.enabled_shaders.iter().enumerate() {
+                            let shader = self.shaders.get(shader);
+                            if shader.is_none() {
+                                continue;
+                            }
+                            let shader = shader.unwrap();
+                            let f_buf = (self.shaders.len() - i == 1).yn(0, self.frame_buf);
+                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf);
                         }
-                        let shader = shader.unwrap();
-                        //there
-                        //then u can apply to each one
-                        //and finally at the end
-                        //draw texture to screen
-                        //if len was > 0
-                        //cya
                     }
 
                     glfwSwapBuffers(self.window);
@@ -167,7 +167,7 @@ impl OpenGLWindow {
 
             gl::GenTextures(1, &mut self.texture_buf);
             gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA16F as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGBA, gl::FLOAT, 0 as *const _);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA32F as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGBA, gl::FLOAT, 0 as *const _);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.texture_buf, 0);
@@ -176,13 +176,11 @@ impl OpenGLWindow {
             if self.render_buf != 0 {
                 gl::DeleteRenderbuffers(1, &mut self.render_buf);
             }
-
             gl::GenRenderbuffers(1, &mut self.render_buf);
             gl::BindRenderbuffer(gl::RENDERBUFFER, self.render_buf);
             gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT32, self.info.width as i32, self.info.height as i32);
             gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, self.render_buf);
             gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
-
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 panic!("Incomplete Framebuffer");
             }
@@ -208,6 +206,7 @@ impl Window for OpenGLWindow {
             render_2d: OpenGLRenderProcessor2D::new(),
             shaders: HashMap::new(),
             enabled_shaders: HashSet::new(),
+            shader_pass: OpenGLShaderPass::new(),
             frame_buf: 0,
             render_buf: 0,
             texture_buf: 0,
@@ -226,7 +225,6 @@ impl Window for OpenGLWindow {
 
         self.render_2d.resize(self.info.width as i32, self.info.height as i32);
         let shader = self.assets.borrow_mut().get_shader("default");
-        shader.borrow_mut().make();
         self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
@@ -299,7 +297,7 @@ impl Window for OpenGLWindow {
         self.window
     }
 
-    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<Shader>>) {
+    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>) {
         self.shaders.insert(id.to_string(), shader);
     }
 
@@ -313,6 +311,47 @@ impl Window for OpenGLWindow {
 
     fn get_camera(&self) -> &Camera {
         &self.camera
+    }
+}
+
+struct OpenGLShaderPass {
+    ibo: u32,
+    indices: [u32; 6]
+}
+
+impl OpenGLShaderPass {
+    pub fn new() -> Self {
+        Self {
+            ibo: 0,
+            indices: [0, 2, 1, 1, 2, 3]
+        }
+    }
+
+    pub fn set_ibo(&mut self, ibo: u32) {
+        self.ibo = ibo;
+    }
+
+    pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32) {
+        shader.bind();
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, t_buf);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, 24, self.indices.as_ptr() as *const _, gl::STATIC_DRAW);
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, f_buf);
+
+            //TODO: shader uniforms
+            shader.uniform_1i("tex", t_buf as i32);
+
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
     }
 }
 
@@ -363,6 +402,9 @@ impl OpenGLShader {
     }
 
     pub(crate) unsafe fn make(&mut self) {
+        if self.prgm_id != 0 {
+            return;
+        }
         self.prgm_id = gl::CreateProgram();
         self.vertex_id = gl::CreateShader(gl::VERTEX_SHADER);
         self.fragment_id = gl::CreateShader(gl::FRAGMENT_SHADER);
@@ -388,7 +430,10 @@ impl OpenGLShader {
         }
     }
 
-    pub(crate) unsafe fn bind(&self) {
+    pub(crate) unsafe fn bind(&mut self) {
+        if self.prgm_id == 0 {
+            self.make();
+        }
         gl::UseProgram(self.prgm_id)
     }
 
@@ -451,6 +496,9 @@ impl OpenGLTexture {
     }
 
     pub(crate) unsafe fn make(&mut self) {
+        if self.gl_id != 0 {
+            return;
+        }
         gl::GenTextures(1, &mut self.gl_id);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::NEAREST as GLint);
@@ -461,12 +509,15 @@ impl OpenGLTexture {
         gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
-    pub(crate) unsafe fn bind(&self, index: u8) {
+    pub(crate) unsafe fn bind(&mut self, index: u8) {
+        if self.gl_id == 0 {
+            self.make();
+        }
         gl::ActiveTexture(gl::TEXTURE0 + index as u32);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
     }
 
-    pub(crate) unsafe fn unbind(&self) {
+    pub(crate) unsafe fn unbind(&mut self) {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
@@ -556,12 +607,21 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             vert_attrib!(2, ROTATION_ORIGIN_SIZE, ROTATION_ORIGIN_OFFSET_BYTES);
             vert_attrib!(3, COLOR_SIZE, COLOR_OFFSET_BYTES);
             vert_attrib!(4, UV_SIZE, UV_OFFSET_BYTES);
-            vert_attrib!(5, TEX_ID_SIZE, TEX_ID_OFFSET);
-            vert_attrib!(6, CANVAS_COORDS_SIZE, CANVAS_COORDS_OFFSET);
-            vert_attrib!(7, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET);
-            vert_attrib!(8, USE_CAMERA_SIZE, USE_CAMERA_OFFSET);
+            vert_attrib!(5, TEX_ID_SIZE, TEX_ID_OFFSET_BYTES);
+            vert_attrib!(6, CANVAS_COORDS_SIZE, CANVAS_COORDS_OFFSET_BYTES);
+            vert_attrib!(7, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET_BYTES);
+            vert_attrib!(8, USE_CAMERA_SIZE, USE_CAMERA_OFFSET_BYTES);
 
             gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, 0 as *const _);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+        }
+
+        for op in tex.iter_mut() {
+            if let Some(t) = op {
+                t.borrow_mut().unbind();
+            }
         }
     }
 

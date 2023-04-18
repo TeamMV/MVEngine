@@ -20,7 +20,6 @@ float sq(float x) {
 void main() {
     float type = fCanvasData.x;
     float r = fCanvasData.y;
-    /*
     if (fCanvasCoords.x > gl_FragCoord.x || fCanvasCoords.x + fCanvasCoords.z < gl_FragCoord.x || fCanvasCoords.y > gl_FragCoord.y || fCanvasCoords.y + fCanvasCoords.w < gl_FragCoord.y) {
         discard;
     }
@@ -53,7 +52,7 @@ void main() {
                 discard;
             }
         }
-    }*/
+    }
     if (fTexID > 0) {
         vec4 c = texture(TEX_SAMPLER[int(fTexID) - 1], fTexCoords);
 

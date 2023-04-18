@@ -5,7 +5,7 @@ use crate::assets::SemiAutomaticAssetManager;
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwWindowHint, glfwWindowShouldClose, glfwInit, glfwTerminate, GLFWwindow, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 
 use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
-use crate::render::shared::{Shader, Texture, Window, WindowCreateInfo};
+use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
 
 pub mod shared;
 pub mod opengl;
@@ -66,6 +66,16 @@ impl RenderCore {
                 OpenGLWindow::new(info, self.assets.clone())
             }
         };
+    }
+
+    pub fn create_effect_shader(&self, source: &str) -> EffectShader {
+        unsafe {
+            return match self.backend {
+                RenderingBackend::OpenGL => {
+                    EffectShader::OpenGL(OpenGLShader::new("#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));void main(){fTexCoord=positions[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}", source))
+                }
+            };
+        }
     }
 
     pub fn create_shader(&self, vertex: &str, fragment: &str) -> Shader {

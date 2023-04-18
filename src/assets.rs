@@ -6,11 +6,12 @@ use std::rc::Rc;
 use include_dir::*;
 use crate::render::RenderCore;
 
-use crate::render::shared::{Shader, Texture, TextureRegion};
+use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};
 
 pub struct AssetManager {
     files: HashMap<String, File<'static>>,
     shaders: HashMap<String, Rc<RefCell<Shader>>>,
+    effect_shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     textures: HashMap<String, Rc<RefCell<Texture>>>,
     texture_regions: HashMap<String, Rc<TextureRegion>>,
 }
@@ -33,6 +34,7 @@ impl AssetManager {
             manager: AssetManager {
                 files: file_map,
                 shaders: HashMap::new(),
+                effect_shaders: HashMap::new(),
                 textures: HashMap::new(),
                 texture_regions: HashMap::new(),
             },
@@ -44,6 +46,7 @@ impl AssetManager {
             manager: AssetManager {
                 files: Self::map(dir),
                 shaders: HashMap::new(),
+                effect_shaders: HashMap::new(),
                 textures: HashMap::new(),
                 texture_regions: HashMap::new(),
             },
@@ -91,6 +94,8 @@ pub struct ManualAssetManager {
 pub trait ReadableAssetManager {
     fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
     fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
+    fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
+    fn try_get_effect_shader(&self, id: &str) -> Option<Rc<RefCell<EffectShader>>>;
     fn get_texture(&self, id: &str) -> Rc<TextureRegion>;
     fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
 }
@@ -110,6 +115,14 @@ macro_rules! impl_ram {
                     self.manager.shaders.get(id).map(|r| r.clone())
                 }
 
+                fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>> {
+                    self.manager.effect_shaders.get(id).unwrap().clone()
+                }
+
+                fn try_get_effect_shader(&self, id: &str) -> Option<Rc<RefCell<EffectShader>>> {
+                    self.manager.effect_shaders.get(id).map(|r| r.clone())
+                }
+
                 fn get_texture(&self, id: &str) -> Rc<TextureRegion> {
                     self.manager.texture_regions.get(id).unwrap().clone()
                 }
@@ -125,6 +138,8 @@ macro_rules! impl_ram {
 pub trait WritableAssetManager {
     fn load_shader(&mut self, render_core: &RenderCore, id: &str, vertex_path: &str, fragment_path: &str);
     fn try_load_shader(&mut self, render_core: &RenderCore, id: &str, vertex_path: &str, fragment_path: &str) -> Result<(), String>;
+    fn load_effect_shader(&mut self, render_core: &RenderCore, id: &str, fragment_path: &str);
+    fn try_load_effect_shader(&mut self, render_core: &RenderCore, id: &str, fragment_path: &str) -> Result<(), String>;
     fn load_texture(&mut self, render_core: &RenderCore, id: &str, texture_path: &str);
     fn try_load_texture(&mut self, render_core: &RenderCore, id: &str, texture_path: &str) -> Result<(), String>;
     fn prepare_texture(&mut self, id: &str, tex_id: &str);
@@ -172,6 +187,28 @@ macro_rules! impl_wam {
                     }
                     let shader = render_core.create_shader(vertex_code.unwrap(), fragment_code.unwrap());
                     self.manager.shaders.insert(id.to_string(), Rc::new(RefCell::new(shader)));
+                    Ok(())
+                }
+
+                fn load_effect_shader(&mut self, render_core: &RenderCore, id: &str, fragment_path: &str) {
+                    if let Err(e) = self.try_load_effect_shader(render_core, id, fragment_path) {
+                        panic!("{}", e);
+                    }
+                }
+
+                fn try_load_effect_shader(&mut self, render_core: &RenderCore, id: &str, fragment_path: &str) -> Result<(), String> {
+                    let fragment = self.manager.files.remove(fragment_path);
+                    if fragment.is_none() {
+                        return Err(format!("Fragment file {} not found!", fragment_path));
+                    }
+                    let fragment = fragment.unwrap();
+                    let fragment_code = fragment.contents_utf8();
+                    if fragment_code.is_none() {
+                        self.manager.files.insert(fragment_path.to_string(), fragment);
+                        return Err(format!("Illegal fragment code in file {}!", fragment_path));
+                    }
+                    let shader = render_core.create_effect_shader(fragment_code.unwrap());
+                    self.manager.effect_shaders.insert(id.to_string(), Rc::new(RefCell::new(shader)));
                     Ok(())
                 }
 
