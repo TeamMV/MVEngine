@@ -127,7 +127,7 @@ impl Parse for Color<RGB, u8> {
                 return Err("Color xml: # and 0x colors must be hexadecimal characters!");
             }
             let colors = Regex::new("(?<=\\G.{2})").unwrap().split(&*s).map(str::to_string).collect::<Vec<_>>();
-            Self::pv(colors).map_err(|e| "Color xml: # colors must contain 6 or 8 characters!")
+            Self::pv(colors).map_err(|_| "Color xml: # colors must contain 6 or 8 characters!")
         } else {
             let colors = if s.contains(",") {
                 let string = s.replace(" ", "");
@@ -137,7 +137,7 @@ impl Parse for Color<RGB, u8> {
             } else {
                 return Err("Color xml: color values must be separated by space or comma!");
             };
-            Self::pv(colors).map_err(|e| "Color must have 3 or 4 parts!")
+            Self::pv(colors).map_err(|_| "Color must have 3 or 4 parts!")
         }
     }
 }

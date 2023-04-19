@@ -1,31 +1,22 @@
 use alloc::ffi::CString;
-use std::ffi::{c_int, c_void, CStr};
-use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::collections::HashMap;
+use std::ffi::c_void;
+use std::ops::DerefMut;
+use std::rc::Rc;
 
-use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, FLOAT, FRAMEBUFFER_BARRIER_BIT};
-use gl::types::{GLboolean, GLdouble, GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::{Context, Glfw, WindowMode};
-use glfw::ClientApiHint::OpenGl;
-use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwInit, glfwMakeContextCurrent, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, GLFWwindowsizefun, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
-use glfw::WindowHint::{ClientApi, Decorated, Resizable, Visible};
-use glfw::WindowMode::Windowed;
-use mvutils::utils::{AsCStr, IncDec, TetrahedronOp, Time};
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, GLFWwindowsizefun, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
+use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::unsync::Lazy;
 
-use crate::assets;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::batch::batch_layout_2d;
-use crate::render::batch::batch_layout_2d::{POSITION_OFFSET_BYTES, POSITION_SIZE, VERTEX_SIZE_BYTES};
-use crate::render::camera::{Camera, Camera2D};
-use crate::render::draw::Draw2D;
 use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks};
+use crate::render::batch::batch_layout_2d;
+use crate::render::camera::{Camera};
+use crate::render::draw::Draw2D;
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(|| HashMap::new());
@@ -63,7 +54,7 @@ pub struct OpenGLWindow {
     frame_buf: u32,
     texture_buf: u32,
 
-    camera: Camera
+    camera: Camera,
 }
 
 impl OpenGLWindow {
@@ -102,7 +93,7 @@ impl OpenGLWindow {
     fn running(&mut self, application_loop: &impl ApplicationLoop) {
         unsafe {
             let mut init_time: u128 = u128::time_nanos();
-            let mut current_time = init_time;
+            let mut current_time: u128;
             let time_u = 1000000000.0 / self.info.ups as f32;
             let time_f = 1000000000.0 / self.info.fps as f32;
             let mut delta_u: f32 = 0.0;
@@ -124,10 +115,8 @@ impl OpenGLWindow {
                     delta_u -= 1.0;
                 }
                 if delta_f >= 1.0 {
-                    unsafe {
-                        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-                        gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
-                    }
+                    gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+                    gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                     //draws
                     self.draw_2d.as_mut().unwrap().reset_canvas(self.info.width, self.info.height);
 
@@ -136,13 +125,10 @@ impl OpenGLWindow {
                     let len = self.enabled_shaders.len();
 
                     if len > 0 {
-                        unsafe {
-                            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buf);
-                            gl::Clear(COLOR_BUFFER_BIT);
-                        }
+                        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buf);
+                        gl::Clear(COLOR_BUFFER_BIT);
                         self.render_2d.set_framebuffer(self.frame_buf);
-                    }
-                    else {
+                    } else {
                         self.render_2d.set_framebuffer(0);
                     }
 
@@ -157,8 +143,7 @@ impl OpenGLWindow {
                             if shader.is_none() {
                                 if len == i + 1 {
                                     shader = self.shaders.get("empty");
-                                }
-                                else {
+                                } else {
                                     continue;
                                 }
                             }
@@ -166,7 +151,7 @@ impl OpenGLWindow {
                             shader.borrow_mut().bind();
                             info.apply(shader.borrow_mut().deref_mut());
                             let f_buf = (len == i + 1).yn(0, self.frame_buf);
-                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf,  self.texture_buf, self.current_frame as i32);
+                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
                         }
                     }
 
@@ -357,7 +342,7 @@ struct OpenGLShaderPass {
     ibo: u32,
     indices: [u32; 6],
     width: i32,
-    height: i32
+    height: i32,
 }
 
 impl OpenGLShaderPass {
@@ -366,7 +351,7 @@ impl OpenGLShaderPass {
             ibo: 0,
             indices: [0, 2, 1, 1, 2, 3],
             width: 0,
-            height: 0
+            height: 0,
         }
     }
 
@@ -528,7 +513,7 @@ pub struct OpenGLTexture {
     bytes: Vec<u8>,
     width: u16,
     height: u16,
-    gl_id: u32
+    gl_id: u32,
 }
 
 impl OpenGLTexture {
@@ -537,7 +522,7 @@ impl OpenGLTexture {
             bytes,
             width: 0,
             height: 0,
-            gl_id: 0
+            gl_id: 0,
         }
     }
 
@@ -586,7 +571,7 @@ pub(crate) struct OpenGLRenderProcessor2D {
     framebuffer: u32,
     width: i32,
     height: i32,
-    camera: Option<Camera>
+    camera: Option<Camera>,
 }
 
 impl OpenGLRenderProcessor2D {
@@ -595,7 +580,7 @@ impl OpenGLRenderProcessor2D {
             framebuffer: 0,
             width: 0,
             height: 0,
-            camera: None
+            camera: None,
         }
     }
 
@@ -638,7 +623,7 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (indices.len() * 4) as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
 
             if !tex.is_empty() {
-                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| {u.clone() as i32}).collect::<Vec<_>>());
+                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| { u.clone() as i32 }).collect::<Vec<_>>());
             }
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);

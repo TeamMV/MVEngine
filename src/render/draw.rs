@@ -1,17 +1,15 @@
 use std::cell::RefCell;
-use std::ops::Deref;
 use std::rc::Rc;
-use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::batch::{BatchController2D, Vertex2D, VertexGroup};
 
+use crate::render::batch::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
-use crate::render::shared::{RenderProcessor2D, Shader, Window};
+use crate::render::shared::{RenderProcessor2D, Shader};
 
 pub struct Draw2D {
     canvas_coords: [f32; 4],
     color: Color<RGB, u8>,
     batch: BatchController2D,
-    vertices: VertexGroup<Vertex2D>
+    vertices: VertexGroup<Vertex2D>,
 }
 
 impl Draw2D {
@@ -20,7 +18,7 @@ impl Draw2D {
             canvas_coords: [0.0, 0.0, width as f32, height as f32],
             color: Color::<RGB, u8>::white(),
             batch: BatchController2D::new(shader, 10000),
-            vertices: VertexGroup::new()
+            vertices: VertexGroup::new(),
         }
     }
 

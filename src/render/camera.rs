@@ -1,11 +1,9 @@
-use std::convert::identity;
-use std::ops::Mul;
-use glam::{Mat2, Mat3, Mat4, Quat, Vec2, Vec3};
+use glam::{Mat4, Quat, Vec2, Vec3};
 
 #[derive(Clone)]
-pub enum Camera{
+pub enum Camera {
     Is2d(Camera2D),
-    Is3d(Camera2D)
+    Is3d(Camera2D),
 }
 
 macro_rules! cam_fn_call {

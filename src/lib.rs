@@ -1,9 +1,10 @@
 extern crate alloc;
 
 use std::cell::{Ref, RefCell};
-use std::ops::Deref;
 use std::rc::Rc;
+
 use include_dir::{Dir, include_dir};
+
 use crate::assets::{AssetManager, SemiAutomaticAssetManager, WritableAssetManager};
 use crate::render::{RenderCore, RenderingBackend};
 
@@ -13,24 +14,24 @@ pub mod parser;
 
 pub struct MVCore {
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
-    render: Option<RenderCore>
+    render: Option<RenderCore>,
 }
 
 impl MVCore {
     pub fn new() -> MVCore {
         static DIR: Dir = include_dir!("assets");
         let assets = Rc::new(RefCell::new(AssetManager::semi_automatic(DIR.clone())));
-        assets.borrow_mut().load_shader(self.get_render(), "default", "shaders/default.vert", "shaders/default.frag");
-        assets.borrow_mut().load_effect_shader(self.get_render(), "blur","shaders/blur.frag");
-        assets.borrow_mut().load_effect_shader(self.get_render(), "pixelate","shaders/pixelate.frag");
-        MVCore{
+        MVCore {
             assets,
-            render: None
+            render: None,
         }
     }
 
     pub fn init_render(&mut self, backend: RenderingBackend) {
         self.render = Some(RenderCore::new(backend, self.assets.clone()));
+        self.assets.borrow_mut().load_shader(self.get_render(), "default", "shaders/default.vert", "shaders/default.frag");
+        self.assets.borrow_mut().load_effect_shader(self.get_render(), "blur", "shaders/blur.frag");
+        self.assets.borrow_mut().load_effect_shader(self.get_render(), "pixelate", "shaders/pixelate.frag");
     }
 
     pub fn get_render(&self) -> &RenderCore {
@@ -46,8 +47,6 @@ impl MVCore {
 mod tests {
     use crate::assets::ReadableAssetManager;
     use crate::MVCore;
-
-    use crate::render::{RenderCore, RenderingBackend};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
 
@@ -55,7 +54,7 @@ mod tests {
     fn it_works() {
         let mut core = MVCore::new();
         core.init_render(OpenGL);
-        let mut render = core.get_render();
+        let render = core.get_render();
         let mut info = WindowCreateInfo::default();
         info.fps = 60;
         info.title = "MVCore".to_string();
@@ -64,34 +63,27 @@ mod tests {
         window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
         window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
         window.run(Test);
-        let a = vec![1];
     }
 
     struct Test;
 
     impl ApplicationLoop for Test {
-        fn start(&self, window: &mut impl Window) {
+        fn start(&self, window: &mut impl Window) {}
 
-        }
-
-        fn update(&self, window: &mut impl Window) {
-
-        }
+        fn update(&self, window: &mut impl Window) {}
 
         fn draw(&self, window: &mut impl Window) {
             window.get_draw_2d().tri();
-            window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
-              shader.uniform_1f("size", 10.0);
-            }));
-            window.queue_shader_pass(ShaderPassInfo::new("blur", |shader| {
-                shader.uniform_1f("dir", 16.0);
-                shader.uniform_1f("quality", 4.0);
-                shader.uniform_1f("size", 8.0);
-            }));
+            //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
+            //  shader.uniform_1f("size", 10.0);
+            //}));
+            //window.queue_shader_pass(ShaderPassInfo::new("blur", |shader| {
+            //    shader.uniform_1f("dir", 16.0);
+            //    shader.uniform_1f("quality", 4.0);
+            //    shader.uniform_1f("size", 8.0);
+            //}));
         }
 
-        fn stop(&self, window: &mut impl Window) {
-
-        }
+        fn stop(&self, window: &mut impl Window) {}
     }
 }

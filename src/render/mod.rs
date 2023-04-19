@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use glfw::Glfw;
-use crate::assets::SemiAutomaticAssetManager;
-use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwPollEvents, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowMonitor, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwWindowHint, glfwWindowShouldClose, glfwInit, glfwTerminate, GLFWwindow, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 
+use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
+
+use crate::assets::SemiAutomaticAssetManager;
 use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
 
@@ -40,7 +40,7 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
 
 pub struct RenderCore {
     backend: RenderingBackend,
-    assets: Rc<RefCell<SemiAutomaticAssetManager>>
+    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
 }
 
 pub enum RenderingBackend {
@@ -54,7 +54,7 @@ impl RenderCore {
         }
         RenderCore {
             backend,
-            assets
+            assets,
         }
     }
 
@@ -98,7 +98,7 @@ impl RenderCore {
                 RenderingBackend::OpenGL => {
                     Texture::OpenGL(OpenGLTexture::new(bytes))
                 }
-            }
+            };
         }
     }
 }

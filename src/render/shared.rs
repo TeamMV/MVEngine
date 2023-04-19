@@ -1,15 +1,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use gl::types::GLuint;
+
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::{glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwSetWindowMonitor, GLFWwindow};
-use glfw::Glfw;
-use mvutils::try_catch;
+use glfw::ffi::GLFWwindow;
 use mvutils::utils::TetrahedronOp;
+
 use crate::assets::SemiAutomaticAssetManager;
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
-
 use crate::render::opengl::{OpenGLShader, OpenGLTexture};
 
 pub trait ApplicationLoop {
@@ -22,13 +20,13 @@ pub trait ApplicationLoop {
 struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
-    fn start(&self, window: &mut impl Window) {}
+    fn start(&self, _: &mut impl Window) {}
 
-    fn update(&self, window: &mut impl Window) {}
+    fn update(&self, _: &mut impl Window) {}
 
-    fn draw(&self, window: &mut impl Window) {}
+    fn draw(&self, _: &mut impl Window) {}
 
-    fn stop(&self, window: &mut impl Window) {}
+    fn stop(&self, _: &mut impl Window) {}
 }
 
 pub trait Window {
@@ -57,19 +55,19 @@ pub trait Window {
 
 pub struct ShaderPassInfo {
     id: String,
-    applier: Box<dyn Fn(&mut EffectShader)>
+    applier: Box<dyn Fn(&mut EffectShader)>,
 }
 
 impl ShaderPassInfo {
     pub fn new(id: &str, applier: impl Fn(&mut EffectShader) + 'static) -> Self {
         ShaderPassInfo {
             id: id.to_string(),
-            applier: Box::new(applier)
+            applier: Box::new(applier),
         }
     }
 
     pub fn id(id: &str) -> Self {
-        Self::new(id, |s| {})
+        Self::new(id, |_| {})
     }
 
     pub(crate) fn apply(&self, shader: &mut EffectShader) {
@@ -218,7 +216,7 @@ impl Shader {
     backend_fn!(Shader, uniform_fv, name: &str, value: &Vec<f32>);
     backend_fn!(Shader, uniform_iv, name: &str, value: &Vec<i32>);
     pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
-        self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
+        self.uniform_iv(name, &value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>());
     }
 
     backend_fn!(Shader, uniform_2fv, name: &str, value: Vec2);
@@ -245,7 +243,7 @@ impl EffectShader {
     backend_fn!(EffectShader, uniform_fv, name: &str, value: &Vec<f32>);
     backend_fn!(EffectShader, uniform_iv, name: &str, value: &Vec<i32>);
     pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
-        self.uniform_iv(name, &value.iter().map(|b| {b.yn(1, 0)}).collect::<Vec<i32>>());
+        self.uniform_iv(name, &value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>());
     }
 
     backend_fn!(EffectShader, uniform_2fv, name: &str, value: Vec2);
@@ -275,7 +273,7 @@ pub struct TextureRegion {
     x: u16,
     y: u16,
     width: u16,
-    height: u16
+    height: u16,
 }
 
 impl TextureRegion {
@@ -285,7 +283,7 @@ impl TextureRegion {
             x,
             y,
             width,
-            height
+            height,
         }
     }
 
@@ -297,7 +295,7 @@ impl TextureRegion {
             x: 0,
             y: 0,
             width,
-            height
+            height,
         }
     }
 }

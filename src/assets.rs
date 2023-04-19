@@ -1,11 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use include_dir::*;
-use crate::render::RenderCore;
 
+use crate::render::RenderCore;
 use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};
 
 pub struct AssetManager {

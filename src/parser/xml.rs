@@ -1,6 +1,5 @@
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Formatter};
+use std::collections::{HashMap};
+use std::fmt::{Debug};
 use std::marker::PhantomData;
 
 pub struct XMLParser<S: ParserSecurity> {

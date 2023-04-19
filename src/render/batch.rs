@@ -1,10 +1,11 @@
-use std::rc::Rc;
-use glfw::Key::N;
-use mvutils::utils::{IncDec, TetrahedronOp};
-use crate::render::shared::{RenderProcessor2D, Shader, Texture, TextureRegion, Window};
 use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
+use std::ops::{DerefMut};
+use std::rc::Rc;
+
 use mvutils::init_arr;
+use mvutils::utils::{TetrahedronOp};
+
+use crate::render::shared::{RenderProcessor2D, Shader, Texture};
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
 
@@ -49,6 +50,7 @@ pub(crate) trait BatchGen {
 }
 
 struct RegularBatch;
+
 struct StrippedBatch;
 
 impl BatchGen for RegularBatch {
@@ -114,7 +116,7 @@ struct Batch2D {
     obj_count: u32,
     next_tex: u32,
     full: bool,
-    full_tex: bool
+    full_tex: bool,
 }
 
 impl Batch2D {
@@ -123,7 +125,7 @@ impl Batch2D {
             generator: Box::new(generator),
             data: Vec::with_capacity(size as usize * batch_layout_2d::VERTEX_SIZE_FLOATS as usize),
             indices: Vec::with_capacity(size as usize * 6),
-            textures: [0; 17].map(|n| None),
+            textures: [0; 17].map(|_| None),
             tex_ids: [0; 17],
             vbo: 0,
             ibo: 0,
@@ -132,7 +134,7 @@ impl Batch2D {
             obj_count: 0,
             next_tex: 0,
             full: false,
-            full_tex: false
+            full_tex: false,
         }
     }
 
@@ -237,7 +239,7 @@ impl Batch2D {
 //data storage
 
 pub(crate) struct Vertex2D {
-    data: [f32; batch_layout_2d::VERTEX_SIZE_FLOATS as usize]
+    data: [f32; batch_layout_2d::VERTEX_SIZE_FLOATS as usize],
 }
 
 impl Vertex2D {
@@ -252,14 +254,14 @@ impl Vertex2D {
 
 pub(crate) struct VertexGroup<T> {
     vertices: [T; 4],
-    len: u8
+    len: u8,
 }
 
 impl VertexGroup<Vertex2D> {
     pub(crate) fn new() -> Self {
         VertexGroup {
             vertices: init_arr!(4, Vertex2D::new()),
-            len: 0
+            len: 0,
         }
     }
 
@@ -289,7 +291,7 @@ pub(crate) struct BatchController2D {
     batch_limit: u32,
     shader: Rc<RefCell<Shader>>,
     default_shader: Rc<RefCell<Shader>>,
-    current: u32
+    current: u32,
 }
 
 impl BatchController2D {
@@ -300,7 +302,7 @@ impl BatchController2D {
             batch_limit,
             default_shader: shader.clone(),
             shader,
-            current: 0
+            current: 0,
         };
         batch.start();
         batch
@@ -319,7 +321,6 @@ impl BatchController2D {
         } else {
             self.batches.push(self.gen_batch(stripped));
         }
-
     }
 
     fn gen_batch(&self, stripped: bool) -> Batch2D {
@@ -331,7 +332,7 @@ impl BatchController2D {
         if self.batches[self.current as usize].is_stripped() {
             self.next_batch(false);
         }
-        if self.batches[self.current as usize ].is_full(vertices.len as u32 * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
+        if self.batches[self.current as usize].is_full(vertices.len as u32 * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
             self.next_batch(false);
         }
 
