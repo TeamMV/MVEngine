@@ -10,7 +10,7 @@ use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 use mvutils::utils::{AsCStr, TetrahedronOp, Time};
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks};
@@ -166,7 +166,6 @@ impl OpenGLWindow {
                     frames = 0;
                     ticks = 0;
                     timer += 1000;
-                    println!("{}", self.current_fps);
                 }
             }
         }

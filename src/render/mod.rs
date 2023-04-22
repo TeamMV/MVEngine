@@ -13,6 +13,8 @@ pub mod draw;
 pub mod color;
 pub mod batch;
 pub mod camera;
+#[cfg(feature = "vulkan")]
+pub mod vulkan;
 
 pub const EFFECT_VERT: &str = "#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}";
 pub const EMPTY_EFFECT_FRAG: &str = "#version 450\nin vec2 fTexCoord;out vec4 outColor;uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
@@ -44,7 +46,9 @@ pub struct RenderCore {
 }
 
 pub enum RenderingBackend {
-    OpenGL
+    OpenGL,
+    #[cfg(feature = "vulkan")]
+    Vulkan
 }
 
 impl RenderCore {
@@ -69,6 +73,10 @@ impl RenderCore {
             RenderingBackend::OpenGL => {
                 OpenGLWindow::new(info, self.assets.clone())
             }
+            #[cfg(feature = "vulkan")]
+            RenderingBackend::Vulkan => {
+                panic!()
+            }
         }
     }
 
@@ -77,6 +85,10 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, source))
+                }
+                #[cfg(feature = "vulkan")]
+                RenderingBackend::Vulkan => {
+                    panic!()
                 }
             }
         }
@@ -88,6 +100,10 @@ impl RenderCore {
                 RenderingBackend::OpenGL => {
                     Shader::OpenGL(OpenGLShader::new(vertex, fragment))
                 }
+                #[cfg(feature = "vulkan")]
+                RenderingBackend::Vulkan => {
+                    panic!()
+                }
             }
         }
     }
@@ -97,6 +113,10 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     Texture::OpenGL(OpenGLTexture::new(bytes))
+                }
+                #[cfg(feature = "vulkan")]
+                RenderingBackend::Vulkan => {
+                    panic!()
                 }
             }
         }

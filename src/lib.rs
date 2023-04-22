@@ -71,6 +71,7 @@ impl Default for MVCore {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "vulkan"))]
 mod tests {
     use crate::assets::ReadableAssetManager;
     use crate::MVCore;
@@ -79,7 +80,7 @@ mod tests {
     use crate::render::shared::*;
 
     #[test]
-    fn it_works() {
+    fn test() {
         let mut core = MVCore::new();
         core.init_render(OpenGL);
         let render = core.get_render();
@@ -114,4 +115,16 @@ mod tests {
 
         fn stop(&self, window: &mut impl Window) {}
     }
+}
+
+#[cfg(test)]
+#[cfg(feature = "vulkan")]
+mod vulkan_test {
+
+
+    #[test]
+    fn test() {
+
+    }
+
 }

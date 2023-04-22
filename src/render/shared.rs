@@ -9,6 +9,8 @@ use crate::assets::SemiAutomaticAssetManager;
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
 use crate::render::opengl::{OpenGLShader, OpenGLTexture};
+#[cfg(feature = "vulkan")]
+use crate::render::vulkan::*;
 
 pub trait ApplicationLoop {
     fn start(&self, window: &mut impl Window);
@@ -125,14 +127,22 @@ macro_rules! backend_call {
         match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.$name();
-            }
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.$name();
+            },
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*);
-            }
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.$name($($params,)*);
+            },
         }
     };
 }
@@ -142,14 +152,22 @@ macro_rules! backend_ret_call {
         return match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.$name()
-            }
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.$name()
+            },
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         return match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*)
-            }
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.$name($($params,)*)
+            },
         }
     };
 }
@@ -199,7 +217,9 @@ macro_rules! backend_fn {
 }
 
 pub enum Shader {
-    OpenGL(OpenGLShader)
+    OpenGL(OpenGLShader),
+    #[cfg(feature = "vulkan")]
+    Vulkan(VulkanShader)
 }
 
 impl Shader {
@@ -226,7 +246,9 @@ impl Shader {
 }
 
 pub enum EffectShader {
-    OpenGL(OpenGLShader)
+    OpenGL(OpenGLShader),
+    #[cfg(feature = "vulkan")]
+    Vulkan(VulkanShader)
 }
 
 impl EffectShader {
@@ -253,7 +275,9 @@ impl EffectShader {
 }
 
 pub enum Texture {
-    OpenGL(OpenGLTexture)
+    OpenGL(OpenGLTexture),
+    #[cfg(feature = "vulkan")]
+    Vulkan(VulkanTexture)
 }
 
 impl Texture {
@@ -272,16 +296,20 @@ pub struct TextureRegion {
     y: u16,
     width: u16,
     height: u16,
+    uv: [f32; 4]
 }
 
 impl TextureRegion {
     pub(crate) fn new(texture: Rc<RefCell<Texture>>, x: u16, y: u16, width: u16, height: u16) -> Self {
+        let w = texture.borrow().get_width() as f32;
+        let h = texture.borrow().get_height() as f32;
         TextureRegion {
             texture,
             x,
             y,
             width,
             height,
+            uv: [x as f32 / w, (x + width) as f32 / w, y as f32 / h, (y + height) as f32 / h]
         }
     }
 
@@ -294,7 +322,16 @@ impl TextureRegion {
             y: 0,
             width,
             height,
+            uv: [0.0, 0.0, 1.0, 1.0],
         }
+    }
+
+    pub(crate) fn get_uv(&self) -> [f32; 4] {
+        self.uv
+    }
+
+    pub(crate) fn parent(&self) -> Rc<RefCell<Texture>> {
+        self.texture.clone()
     }
 }
 
