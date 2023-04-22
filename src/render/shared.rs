@@ -21,11 +21,8 @@ struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
     fn start(&self, _: &mut impl Window) {}
-
     fn update(&self, _: &mut impl Window) {}
-
     fn draw(&self, _: &mut impl Window) {}
-
     fn stop(&self, _: &mut impl Window) {}
 }
 
@@ -157,6 +154,7 @@ macro_rules! backend_ret_call {
     };
 }
 
+#[allow(unused_unsafe)]
 macro_rules! backend_fn {
     ($ty:ident, $name:ident) => {
         pub fn $name(&mut self) {
@@ -213,10 +211,10 @@ impl Shader {
         self.uniform_1i(name, value.yn(1, 0));
     }
 
-    backend_fn!(Shader, uniform_fv, name: &str, value: &Vec<f32>);
-    backend_fn!(Shader, uniform_iv, name: &str, value: &Vec<i32>);
-    pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
-        self.uniform_iv(name, &value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>());
+    backend_fn!(Shader, uniform_fv, name: &str, value: &[f32]);
+    backend_fn!(Shader, uniform_iv, name: &str, value: &[i32]);
+    pub fn uniform_bv(&mut self, name: &str, value: &[bool]) {
+        self.uniform_iv(name, value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>().as_slice());
     }
 
     backend_fn!(Shader, uniform_2fv, name: &str, value: Vec2);
@@ -240,10 +238,10 @@ impl EffectShader {
         self.uniform_1i(name, value.yn(1, 0));
     }
 
-    backend_fn!(EffectShader, uniform_fv, name: &str, value: &Vec<f32>);
-    backend_fn!(EffectShader, uniform_iv, name: &str, value: &Vec<i32>);
-    pub fn uniform_bv(&mut self, name: &str, value: &Vec<bool>) {
-        self.uniform_iv(name, &value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>());
+    backend_fn!(EffectShader, uniform_fv, name: &str, value: &[f32]);
+    backend_fn!(EffectShader, uniform_iv, name: &str, value: &[i32]);
+    pub fn uniform_bv(&mut self, name: &str, value: &[bool]) {
+        self.uniform_iv(name, value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>().as_slice());
     }
 
     backend_fn!(EffectShader, uniform_2fv, name: &str, value: Vec2);
@@ -303,7 +301,8 @@ impl TextureRegion {
 //Assets above this comment pls, here comes the "real rendering shit"
 
 pub(crate) trait RenderProcessor2D {
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
+    #[allow(clippy::too_many_arguments)]
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
     fn gen_buffer_id(&self) -> u32;
     fn adapt_render_mode(&self, render_mode: u8) -> u8;
 }

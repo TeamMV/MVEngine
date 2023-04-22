@@ -25,7 +25,7 @@ impl AssetManager {
     }
 
     pub fn semi_automatic(dir: Dir<'static>) -> SemiAutomaticAssetManager {
-        let mut config = dir.get_file("assets.dat").map(|f| f.clone());
+        let mut config = dir.get_file("assets.dat").cloned();
         let mut file_map = Self::map(dir);
         //parse config, map files to assets
         //todo!()
@@ -71,7 +71,6 @@ impl AssetManager {
         files_deep
             .append(dir
                 .files()
-                .into_iter()
                 .map(File::to_owned)
                 .collect::<Vec<_>>().as_mut());
         files_deep

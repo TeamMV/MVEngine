@@ -19,7 +19,7 @@ use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 
-static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(|| HashMap::new());
+static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
 macro_rules! static_listener {
     ($name:ident, $inner:ident, $($params:ident: $types:ty),+) => {
@@ -66,7 +66,7 @@ impl OpenGLWindow {
             glfwWindowHint(DECORATED, self.info.decorated.yn(TRUE, FALSE));
             glfwWindowHint(RESIZABLE, self.info.resizable.yn(TRUE, FALSE));
 
-            self.window = glfwCreateWindow(self.info.width as i32, self.info.height as i32, self.info.title.as_c_str().as_ptr(), 0 as *mut _, 0 as *mut _);
+            self.window = glfwCreateWindow(self.info.width, self.info.height, self.info.title.as_c_str().as_ptr(), std::ptr::null_mut(), std::ptr::null_mut());
             GL_WINDOWS.insert(self.window, self);
 
             glfwMakeContextCurrent(self.window);
@@ -118,7 +118,7 @@ impl OpenGLWindow {
                     gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
                     gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                     //draws
-                    self.draw_2d.as_mut().unwrap().reset_canvas(self.info.width, self.info.height);
+                    self.draw_2d.as_mut().unwrap().reset_canvas();
 
                     application_loop.draw(self);
 
@@ -135,7 +135,7 @@ impl OpenGLWindow {
                     //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
                     self.render_2d.set_camera(self.camera.clone());
 
-                    self.draw_2d.as_mut().unwrap().render(&mut self.render_2d);
+                    self.draw_2d.as_mut().unwrap().render(&self.render_2d);
 
                     if len > 0 {
                         for (i, info) in self.enabled_shaders.drain(..).enumerate() {
@@ -182,7 +182,7 @@ impl OpenGLWindow {
     fn gen_render_buffer(&mut self) {
         unsafe {
             if self.frame_buf != 0 {
-                gl::DeleteBuffers(1, &mut self.frame_buf);
+                gl::DeleteBuffers(1, &self.frame_buf);
             }
 
             gl::CreateFramebuffers(1, &mut self.frame_buf);
@@ -190,7 +190,7 @@ impl OpenGLWindow {
 
             gl::GenTextures(1, &mut self.texture_buf);
             gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width as i32, self.info.height as i32, 0, gl::RGB, gl::UNSIGNED_BYTE, 0 as *const _);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width, self.info.height, 0, gl::RGB, gl::UNSIGNED_BYTE, std::ptr::null());
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
@@ -216,6 +216,7 @@ impl OpenGLWindow {
             gl::Viewport(0, 0, width, height);
             self.gen_render_buffer();
             self.render_2d.resize(width, height);
+            self.draw_2d.as_mut().unwrap().resize(width, height);
             self.shader_pass.resize(width, height);
             self.camera.update_projection_mat(width, height);
         }
@@ -227,7 +228,7 @@ impl Window for OpenGLWindow {
         OpenGLWindow {
             info,
             assets,
-            window: 0 as *mut _,
+            window: std::ptr::null_mut(),
             current_fps: 0,
             current_ups: 0,
             current_frame: 0,
@@ -254,7 +255,7 @@ impl Window for OpenGLWindow {
 
         self.gen_render_buffer();
         self.shader_pass.resize(self.info.width, self.info.height);
-        self.render_2d.resize(self.info.width as i32, self.info.height as i32);
+        self.render_2d.resize(self.info.width, self.info.height);
         let shader = self.assets.borrow_mut().get_shader("default");
         self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
 
@@ -305,8 +306,8 @@ impl Window for OpenGLWindow {
             self.info.fullscreen = fullscreen;
             if fullscreen {
                 glfwGetWindowPos(self.window, &mut self.size_buf[0] as *mut _, &mut self.size_buf[1] as *mut _);
-                self.size_buf[2] = self.info.width as i32;
-                self.size_buf[3] = self.info.height as i32;
+                self.size_buf[2] = self.info.width;
+                self.size_buf[3] = self.info.height;
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
                 glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
@@ -316,7 +317,7 @@ impl Window for OpenGLWindow {
             } else {
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
-                glfwSetWindowMonitor(self.window, 0 as *mut _, self.size_buf[0], self.size_buf[1], self.size_buf[2], self.size_buf[3], (*mode).refreshRate);
+                glfwSetWindowMonitor(self.window, std::ptr::null_mut(), self.size_buf[0], self.size_buf[1], self.size_buf[2], self.size_buf[3], (*mode).refreshRate);
             }
         }
     }
@@ -378,7 +379,7 @@ impl OpenGLShaderPass {
             shader.uniform_2fv("res", Vec2::new(self.width as f32, self.height as f32));
             shader.uniform_1f("time", frame as f32);
 
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -476,11 +477,11 @@ impl OpenGLShader {
         shader_uniform!(Uniform1i, self.prgm_id, name, value);
     }
 
-    pub(crate) unsafe fn uniform_fv(&self, name: &str, value: &Vec<f32>) {
+    pub(crate) unsafe fn uniform_fv(&self, name: &str, value: &[f32]) {
         shader_uniform!(Uniform1fv, self.prgm_id, name, value.len() as i32, value.as_ptr());
     }
 
-    pub(crate) unsafe fn uniform_iv(&self, name: &str, value: &Vec<i32>) {
+    pub(crate) unsafe fn uniform_iv(&self, name: &str, value: &[i32]) {
         shader_uniform!(Uniform1iv, self.prgm_id, name, value.len() as i32, value.as_ptr());
     }
 
@@ -606,13 +607,12 @@ macro_rules! vert_attrib {
 }
 
 impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &Vec<u32>, vertices: &Vec<f32>, vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+    #[allow(clippy::too_many_arguments)]
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
         let mut i: u8 = 0;
-        for op in tex.iter_mut() {
-            if let Some(t) = op {
-                t.borrow_mut().bind(i);
-                i += 1;
-            }
+        for t in tex.iter_mut().flatten() {
+            t.borrow_mut().bind(i);
+            i += 1;
         }
 
         unsafe {
@@ -623,15 +623,15 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (indices.len() * 4) as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
 
             if !tex.is_empty() {
-                shader.uniform_iv("TEX_SAMPLER", &tex_id.clone().into_iter().map(|u| { u.clone() as i32 }).collect::<Vec<_>>());
+                shader.uniform_iv("TEX_SAMPLER", tex_id.iter().map(|u| { *u as i32 }).collect::<Vec<_>>().as_slice());
             }
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);
 
             shader.uniform_1i("uResX", self.width);
             shader.uniform_1i("uResY", self.height);
-            shader.uniform_4fm("uProjection", self.camera.as_ref().unwrap().get_projection_mat().clone());
-            shader.uniform_4fm("uView", self.camera.as_ref().unwrap().get_view_mat().clone());
+            shader.uniform_4fm("uProjection", self.camera.as_ref().unwrap().get_projection_mat());
+            shader.uniform_4fm("uView", self.camera.as_ref().unwrap().get_view_mat());
 
             vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
             vert_attrib!(1, ROTATION_SIZE, ROTATION_OFFSET_BYTES);
@@ -643,16 +643,14 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             vert_attrib!(7, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET_BYTES);
             vert_attrib!(8, USE_CAMERA_SIZE, USE_CAMERA_OFFSET_BYTES);
 
-            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, 0 as *const _);
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, std::ptr::null());
 
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
-        for op in tex.iter_mut() {
-            if let Some(t) = op {
-                t.borrow_mut().unbind();
-            }
+        for t in tex.iter_mut().flatten() {
+            t.borrow_mut().unbind();
         }
     }
 

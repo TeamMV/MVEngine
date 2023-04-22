@@ -38,7 +38,7 @@ impl Camera {
         cam_fn_call!(get_view_mat, self);
     }
 
-    pub fn get_projection_mat(&self) -> &Mat4 {
+    pub fn get_projection_mat(&self) -> Mat4 {
         cam_fn_call!(get_projection_mat, self);
     }
 
@@ -80,8 +80,8 @@ impl Camera2D {
             Vec3::from((self.position, 0.0)))
     }
 
-    pub(crate) fn get_projection_mat(&self) -> &Mat4 {
-        &self.projection
+    pub(crate) fn get_projection_mat(&self) -> Mat4 {
+        self.projection
     }
 
     pub(crate) fn update_projection_mat(&mut self, width: i32, height: i32) {

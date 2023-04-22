@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use std::cell::{Ref, RefCell};
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use include_dir::{Dir, include_dir};
@@ -41,12 +41,40 @@ impl MVCore {
     pub fn get_asset_manager(&self) -> Ref<SemiAutomaticAssetManager> {
         self.assets.borrow()
     }
+
+    pub fn get_asset_manager_mut(&mut self) -> RefMut<SemiAutomaticAssetManager> {
+        self.assets.borrow_mut()
+    }
+
+    pub fn terminate(mut self) {
+        self.term();
+        drop(self);
+    }
+
+    fn term(&mut self) {
+        if let Some(mut render) = self.render.take() {
+            render.terminate();
+        }
+    }
+}
+
+impl Drop for MVCore {
+    fn drop(&mut self) {
+        self.term();
+    }
+}
+
+impl Default for MVCore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::assets::ReadableAssetManager;
     use crate::MVCore;
+    use crate::render::color::{Color, Parse, RGB};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
 

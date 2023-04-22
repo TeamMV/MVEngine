@@ -65,40 +65,40 @@ impl RenderCore {
     }
 
     pub fn create_window(&self, info: WindowCreateInfo) -> impl Window {
-        return match self.backend {
+        match self.backend {
             RenderingBackend::OpenGL => {
                 OpenGLWindow::new(info, self.assets.clone())
             }
-        };
+        }
     }
 
     pub fn create_effect_shader(&self, source: &str) -> EffectShader {
         unsafe {
-            return match self.backend {
+            match self.backend {
                 RenderingBackend::OpenGL => {
                     EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, source))
                 }
-            };
+            }
         }
     }
 
     pub fn create_shader(&self, vertex: &str, fragment: &str) -> Shader {
         unsafe {
-            return match self.backend {
+            match self.backend {
                 RenderingBackend::OpenGL => {
                     Shader::OpenGL(OpenGLShader::new(vertex, fragment))
                 }
-            };
+            }
         }
     }
 
     pub fn create_texture(&self, bytes: Vec<u8>) -> Texture {
         unsafe {
-            return match self.backend {
+            match self.backend {
                 RenderingBackend::OpenGL => {
                     Texture::OpenGL(OpenGLTexture::new(bytes))
                 }
-            };
+            }
         }
     }
 }
