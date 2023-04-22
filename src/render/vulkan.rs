@@ -25,7 +25,7 @@ pub struct VulkanWindow {
 
 impl VulkanWindow {
     fn resize(&mut self, width: i32, height: i32) {
-
+        
     }
 }
 

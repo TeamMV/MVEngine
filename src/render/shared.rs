@@ -40,7 +40,7 @@ pub trait Window {
     fn get_height(&self) -> i32;
     fn get_fps(&self) -> u16;
     fn get_ups(&self) -> u16;
-    fn get_frame(&self) -> u128;
+    fn get_frame(&self) -> u64;
 
     fn get_draw_2d(&mut self) -> &mut Draw2D;
     fn set_fullscreen(&mut self, fullscreen: bool);

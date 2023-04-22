@@ -42,7 +42,7 @@ pub struct OpenGLWindow {
     window: *mut GLFWwindow,
     current_fps: u16,
     current_ups: u16,
-    current_frame: u128,
+    current_frame: u64,
 
     size_buf: [i32; 4],
 
@@ -292,7 +292,7 @@ impl Window for OpenGLWindow {
         self.current_ups
     }
 
-    fn get_frame(&self) -> u128 {
+    fn get_frame(&self) -> u64 {
         self.current_frame
     }
 
@@ -310,9 +310,6 @@ impl Window for OpenGLWindow {
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);
                 glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
-                //self.info.width = (*mode).width as u16;
-                //self.info.height = (*mode).height as u16;
-                //gl::Viewport(0, 0, (*mode).width, (*mode).height);
             } else {
                 let monitor = glfwGetPrimaryMonitor();
                 let mode = glfwGetVideoMode(monitor);

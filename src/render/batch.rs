@@ -86,16 +86,16 @@ impl BatchGen for StrippedBatch {
 
     fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
         if amt == 4 {
-            indices[(offset * 6 + 0) as usize] = 0 + offset * 4;
-            indices[(offset * 6 + 1) as usize] = 1 + offset * 4;
-            indices[(offset * 6 + 2) as usize] = 2 + offset * 4;
-            indices[(offset * 6 + 3) as usize] = 0 + offset * 4;
-            indices[(offset * 6 + 4) as usize] = 2 + offset * 4;
-            indices[(offset * 6 + 5) as usize] = 3 + offset * 4;
+            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
+            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
+            indices.insert((offset * 6 + 3) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
+            indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
         } else {
-            indices[(offset * 6 + 0) as usize] = 0 + offset * 4;
-            indices[(offset * 6 + 1) as usize] = 1 + offset * 4;
-            indices[(offset * 6 + 2) as usize] = 2 + offset * 4;
+            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
+            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
         }
     }
 

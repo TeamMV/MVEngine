@@ -47,6 +47,20 @@ impl<U: Fmt, T> Color<U, T> {
     }
 }
 
+impl<U: Fmt, T: Clone> Clone for Color<U, T> {
+    fn clone(&self) -> Self {
+        Color {
+            c1: self.c1.clone(),
+            c2: self.c2.clone(),
+            c3: self.c3.clone(),
+            c4: self.c4.clone(),
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<U: Fmt, T: Copy> Copy for Color<U, T> {}
+
 impl<T: Copy> Color<RGB, T> {
     pub fn r(&self) -> T { self.c1 }
     pub fn g(&self) -> T { self.c2 }
