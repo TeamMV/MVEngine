@@ -1,7 +1,10 @@
 use std::cell::RefCell;
+use std::io::Cursor;
 use std::rc::Rc;
 
 use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
+use image::{EncodableLayout, ImageFormat};
+use image::ImageFormat::Png;
 
 use crate::assets::SemiAutomaticAssetManager;
 use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
@@ -63,7 +66,7 @@ impl RenderCore {
         }
     }
 
-    pub(crate) fn terminate(&mut self) {
+    pub(crate) fn terminate(&self) {
         unsafe {
             glfwTerminate();
         }
@@ -109,11 +112,11 @@ impl RenderCore {
         }
     }
 
-    pub fn create_texture(&self, bytes: Vec<u8>) -> Texture {
+    pub fn create_texture(&self, bytes: &[u8]) -> Texture {
         unsafe {
             match self.backend {
                 RenderingBackend::OpenGL => {
-                    Texture::OpenGL(OpenGLTexture::new(bytes))
+                    Texture::OpenGL(OpenGLTexture::new(bytes.to_vec()))
                 }
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {

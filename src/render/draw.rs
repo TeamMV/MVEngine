@@ -454,7 +454,7 @@ impl Draw2D {
                 continue;
             }
             let glyph = font.get_glyph(c);
-            let y_off = glyph.get_y_offset(height) - font.get_max_height(height) + glyph.get_height(height);
+            let y_off = glyph.get_y_offset(height) - height + glyph.get_height(height);
 
             let ax = x + char_x + glyph.get_x_offset(height);
             let ay = y - y_off;
@@ -463,10 +463,14 @@ impl Draw2D {
 
             if chroma {
                 self.reset_color();
-                self.color.get_mut(0).copy_hue(self.get_hue(ax, ay).overlap(0, 359) as f32);
-                self.color.get_mut(3).copy_hue(self.get_hue(ax2, ay).overlap(0, 359) as f32);
-                self.color.get_mut(1).copy_hue(self.get_hue(ax, ay2).overlap(0, 359) as f32);
-                self.color.get_mut(2).copy_hue(self.get_hue(ax2, ay2).overlap(0, 359) as f32);
+                let a = self.get_hue(ax, ay).overlap(0, 359) as f32;
+                let b = self.get_hue(ax2, ay).overlap(0, 359) as f32;
+                let c = self.get_hue(ax, ay2).overlap(0, 359) as f32;
+                let d = self.get_hue(ax2, ay2).overlap(0, 359) as f32;
+                self.color.get_mut(0).copy_hue(a);
+                self.color.get_mut(3).copy_hue(b);
+                self.color.get_mut(1).copy_hue(c);
+                self.color.get_mut(2).copy_hue(d);
             }
 
             char_x += glyph.get_x_advance(height);
@@ -481,6 +485,7 @@ impl Draw2D {
             self.vertices.set_len(4);
             self.batch.add_vertices(&self.vertices);
         }
+        self.reset_color();
     }
 
     fn get_hue(&self, x: i32, y: i32) -> i32 {

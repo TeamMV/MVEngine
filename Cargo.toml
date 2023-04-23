@@ -41,3 +41,4 @@ bytebuffer = "2.1.1"
 json = "0.12.4"
 roxmltree = { version = "0.18.0", optional = true }
 vulkano = { version = "0.33.0", optional = true }
+image = "0.24.6"

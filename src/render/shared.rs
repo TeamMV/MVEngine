@@ -289,25 +289,26 @@ pub enum Texture {
 
 impl Texture {
     backend_fn!(Texture, bind, index: u8);
+    backend_fn!(Texture, make);
     backend_fn!(Texture, unbind);
 
     backend_fn!(Texture, get_id, u32, true);
 
-    backend_fn!(Texture, get_width, u16, true);
-    backend_fn!(Texture, get_height, u16, true);
+    backend_fn!(Texture, get_width, u32, true);
+    backend_fn!(Texture, get_height, u32, true);
 }
 
 pub struct TextureRegion {
     texture: Rc<RefCell<Texture>>,
-    x: u16,
-    y: u16,
-    width: u16,
-    height: u16,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
     uv: [f32; 4]
 }
 
 impl TextureRegion {
-    pub fn new(texture: Rc<RefCell<Texture>>, x: u16, y: u16, width: u16, height: u16) -> Self {
+    pub fn new(texture: Rc<RefCell<Texture>>, x: u32, y: u32, width: u32, height: u32) -> Self {
         let w = texture.borrow().get_width() as f32;
         let h = texture.borrow().get_height() as f32;
         TextureRegion {

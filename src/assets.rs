@@ -108,7 +108,7 @@ macro_rules! impl_am {
             impl $t {
                 pub fn set_render_core(&mut self, core: Rc<RenderCore>) {
                     self.manager.core = Some(core);
-                    self.manager.font_loader = Some(FontLoader::new(self.manager.core.unwrap().clone()));
+                    self.manager.font_loader = Some(FontLoader::new(self.manager.core.clone().unwrap()));
                 }
             }
         )*
@@ -182,8 +182,8 @@ pub trait WritableAssetManager {
     fn try_load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str) -> Result<(), String>;
     fn prepare_texture(&mut self, id: &str, tex_id: &str);
     fn try_prepare_texture(&mut self, id: &str, tex_id: &str) -> Result<(), String>;
-    fn crop_texture_region(&mut self, id: &str, tex_id: &str, x: u16, y: u16, width: u16, height: u16);
-    fn try_crop_texture_region(&mut self, id: &str, tex_id: &str, x: u16, y: u16, width: u16, height: u16) -> Result<(), String>;
+    fn crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32);
+    fn try_crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32) -> Result<(), String>;
 }
 
 crate::impl_wam!(SemiAutomaticAssetManager, ManualAssetManager);
@@ -223,7 +223,7 @@ macro_rules! impl_wam {
                         self.manager.files.insert(fragment_path.to_string(), fragment);
                         return Err(format!("Illegal fragment code in file {}!", fragment_path));
                     }
-                    let shader = self.manager.core.expect("Core not set!").create_shader(vertex_code.unwrap(), fragment_code.unwrap());
+                    let shader = self.manager.core.clone().expect("Core not set!").create_shader(vertex_code.unwrap(), fragment_code.unwrap());
                     self.manager.shaders.insert(id.to_string(), Rc::new(RefCell::new(shader)));
                     Ok(())
                 }
@@ -245,7 +245,7 @@ macro_rules! impl_wam {
                         self.manager.files.insert(fragment_path.to_string(), fragment);
                         return Err(format!("Illegal fragment code in file {}!", fragment_path));
                     }
-                    let shader = self.manager.core.expect("Core not set!").create_effect_shader(fragment_code.unwrap());
+                    let shader = self.manager.core.clone().expect("Core not set!").create_effect_shader(fragment_code.unwrap());
                     self.manager.effect_shaders.insert(id.to_string(), Rc::new(RefCell::new(shader)));
                     Ok(())
                 }
@@ -262,7 +262,7 @@ macro_rules! impl_wam {
                         return Err(format!("Texture file {} not found!", texture_path));
                     }
                     let texture = texture.unwrap();
-                    let texture = self.manager.core.expect("Core not set!").create_texture(texture.contents().to_vec());
+                    let texture = self.manager.core.clone().expect("Core not set!").create_texture(texture.contents());
                     self.manager.textures.insert(id.to_string(), Rc::new(RefCell::new(texture)));
                     Ok(())
                 }
@@ -279,7 +279,7 @@ macro_rules! impl_wam {
                         return Err(format!("Ttf file {} not found!", ttf_path));
                     }
                     let ttf = ttf.unwrap();
-                    let font = self.manager.font_loader.expect("Core not set!").load_ttf(ttf.contents().to_vec());
+                    let font = self.manager.font_loader.clone().expect("Core not set!").load_ttf(ttf.contents().to_vec());
                     self.manager.fonts.insert(id.to_string(), Rc::new(font));
                     Ok(())
                 }
@@ -308,8 +308,7 @@ macro_rules! impl_wam {
                         self.manager.files.insert(data_path.to_string(), data);
                         return Err(format!("Illegal data in file {}!", data_path));
                     }
-
-                    let font = self.manager.font_loader.expect("Core not set!").load_bitmap(image.contents().to_vec(), data_str.unwrap());
+                    let font = self.manager.font_loader.clone().expect("Core not set!").load_bitmap(image.contents(), data_str.unwrap());
                     self.manager.fonts.insert(id.to_string(), Rc::new(font));
                     Ok(())
                 }
@@ -330,13 +329,13 @@ macro_rules! impl_wam {
                     Ok(())
                 }
 
-                fn crop_texture_region(&mut self, tex_id: &str, id: &str, x: u16, y: u16, width: u16, height: u16) {
+                fn crop_texture_region(&mut self, tex_id: &str, id: &str, x: u32, y: u32, width: u32, height: u32) {
                     if let Err(e) = self.try_crop_texture_region(tex_id, id, x, y, width, height) {
                         panic!("{}", e);
                     }
                 }
 
-                fn try_crop_texture_region(&mut self, tex_id: &str, id: &str, x: u16, y: u16, width: u16, height: u16) -> Result<(), String> {
+                fn try_crop_texture_region(&mut self, tex_id: &str, id: &str, x: u32, y: u32, width: u32, height: u32) -> Result<(), String> {
                     let texture = self.manager.textures.get(tex_id);
                     if texture.is_none() {
                         return Err(format!("Texture {} not found!", tex_id));

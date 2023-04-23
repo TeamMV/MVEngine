@@ -71,6 +71,9 @@ impl BatchGen for RegularBatch {
             indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
+            indices.insert((offset * 6 + 3) as usize, 0);
+            indices.insert((offset * 6 + 4) as usize, 0);
+            indices.insert((offset * 6 + 5) as usize, 0);
         }
     }
 
@@ -96,6 +99,9 @@ impl BatchGen for StrippedBatch {
             indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
+            indices.insert((offset * 6 + 3) as usize, 0);
+            indices.insert((offset * 6 + 4) as usize, 0);
+            indices.insert((offset * 6 + 5) as usize, 0);
         }
     }
 
@@ -109,7 +115,7 @@ struct Batch2D {
     data: Vec<f32>,
     indices: Vec<u32>,
     textures: [Option<Rc<RefCell<Texture>>>; 17],
-    tex_ids: [u32; 17],
+    tex_ids: [u32; 16],
     vbo: u32,
     ibo: u32,
     size: u32,
@@ -127,7 +133,7 @@ impl Batch2D {
             data: Vec::with_capacity(size as usize * batch_layout_2d::VERTEX_SIZE_FLOATS as usize),
             indices: Vec::with_capacity(size as usize * 6),
             textures: [0; 17].map(|_| None),
-            tex_ids: [0; 17],
+            tex_ids: [0; 16],
             vbo: 0,
             ibo: 0,
             size,
@@ -202,7 +208,7 @@ impl Batch2D {
             return 0;
         }
 
-        for i in 0..17 {
+        for i in 0..16 {
             if let Some(tex) = &self.textures[i] {
                 if tex.borrow().get_id() == texture.borrow().get_id() {
                     return i as u32 + 1;
@@ -211,7 +217,7 @@ impl Batch2D {
         }
 
         self.textures[self.next_tex as usize] = Some(texture);
-        self.tex_ids[self.next_tex as usize] = self.next_tex + 1;
+        self.tex_ids[self.next_tex as usize] = self.next_tex;
         self.next_tex += 1;
 
         if self.next_tex >= 17 {
@@ -365,6 +371,8 @@ impl BatchController2D {
     }
 
     pub(crate) fn add_texture(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
+        texture.borrow_mut().make();
+
         if self.batches[self.current as usize].is_stripped() {
             self.next_batch(false);
         }
@@ -376,6 +384,8 @@ impl BatchController2D {
     }
 
     pub(crate) fn add_texture_stripped(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
+        texture.borrow_mut().make();
+
         if !self.batches[self.current as usize].is_stripped() {
             self.next_batch(true);
         }

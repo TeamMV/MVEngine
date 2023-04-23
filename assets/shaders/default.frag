@@ -55,6 +55,7 @@ void main() {
     }
     if (fTexID > 0) {
         vec4 c = texture(TEX_SAMPLER[int(fTexID) - 1], fTexCoords);
+        outColor = c;
 
         if (fColor.w > 0.0) {
             outColor = vec4(fColor.x, fColor.y, fColor.z, c.w);

@@ -2,6 +2,7 @@ use alloc::ffi::CString;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::io::Cursor;
 use std::ops::DerefMut;
 use std::rc::Rc;
 
@@ -9,6 +10,7 @@ use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
+use image::EncodableLayout;
 use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
@@ -508,16 +510,16 @@ impl OpenGLShader {
 }
 
 pub struct OpenGLTexture {
-    bytes: Vec<u8>,
-    width: u16,
-    height: u16,
+    bytes: Option<Vec<u8>>,
+    width: u32,
+    height: u32,
     gl_id: u32,
 }
 
 impl OpenGLTexture {
     pub(crate) unsafe fn new(bytes: Vec<u8>) -> Self {
         OpenGLTexture {
-            bytes,
+            bytes: Some(bytes),
             width: 0,
             height: 0,
             gl_id: 0,
@@ -525,23 +527,25 @@ impl OpenGLTexture {
     }
 
     pub(crate) unsafe fn make(&mut self) {
-        if self.gl_id != 0 {
+        if self.gl_id != 0 || self.bytes.is_none() {
             return;
         }
+        let image = image::io::Reader::new(Cursor::new(self.bytes.take().unwrap())).with_guessed_format().unwrap();
+        let image = image.decode().unwrap().into_rgba8();
+        self.width = image.width();
+        self.height = image.height();
+
         gl::GenTextures(1, &mut self.gl_id);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as GLint, self.width as GLsizei, self.height as GLsizei, 0, gl::RGBA, gl::UNSIGNED_BYTE, self.bytes.as_ptr() as *const c_void);
+        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8 as GLint, self.width as GLsizei, self.height as GLsizei, 0, gl::RGBA, gl::UNSIGNED_BYTE, image.as_ptr() as *const c_void);
         gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
     pub(crate) unsafe fn bind(&mut self, index: u8) {
-        if self.gl_id == 0 {
-            self.make();
-        }
         gl::ActiveTexture(gl::TEXTURE0 + index as u32);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
     }
@@ -550,11 +554,11 @@ impl OpenGLTexture {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    pub(crate) fn get_width(&self) -> u16 {
+    pub(crate) fn get_width(&self) -> u32 {
         self.width
     }
 
-    pub(crate) fn get_height(&self) -> u16 {
+    pub(crate) fn get_height(&self) -> u32 {
         self.height
     }
 
