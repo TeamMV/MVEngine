@@ -255,8 +255,9 @@ impl Window for OpenGLWindow {
         self.gen_render_buffer();
         self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.resize(self.info.width, self.info.height);
-        let shader = self.assets.borrow_mut().get_shader("default");
-        self.draw_2d = Some(Draw2D::new(shader, self.info.width, self.info.height));
+        let shader = self.assets.borrow().get_shader("default");
+        let font = self.assets.borrow().get_font("default");
+        self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height));
 
         unsafe {
             self.shaders.insert("empty".to_string(), Rc::new(RefCell::new(EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, EMPTY_EFFECT_FRAG)))));

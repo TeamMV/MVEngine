@@ -1,14 +1,21 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use mvutils::utils::XTraIMath;
+
 use crate::render::batch::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
 use crate::render::shared::{RenderProcessor2D, Shader};
 
+use super::color::Gradient;
+use super::shared::TextureRegion;
+use super::text::Font;
+
 pub struct Draw2D {
     canvas: [f32; 6],
     size: [f32; 2],
-    color: Color<RGB, f32>,
+    color: Gradient<RGB, f32>,
+    font: Rc<Font>,
     batch: BatchController2D,
     vertices: VertexGroup<Vertex2D>,
     use_cam: bool,
@@ -17,12 +24,14 @@ pub struct Draw2D {
     frame: u64
 }
 
+#[allow(clippy::too_many_arguments)]
 impl Draw2D {
-    pub(crate) fn new(shader: Rc<RefCell<Shader>>, width: i32, height: i32) -> Self {
+    pub(crate) fn new(shader: Rc<RefCell<Shader>>, font: Rc<Font>, width: i32, height: i32) -> Self {
         Draw2D {
             canvas: [0.0, 0.0, width as f32, height as f32, 0.0, 0.0],
             size: [width as f32, height as f32],
-            color: Color::<RGB, f32>::white(),
+            color: Gradient::new(Color::<RGB, f32>::white()),
+            font,
             batch: BatchController2D::new(shader, 10000),
             vertices: VertexGroup::new(),
             use_cam: true,
@@ -67,16 +76,20 @@ impl Draw2D {
         self.raw_rgba(1.0, 1.0, 1.0, 1.0);
     }
 
-    pub fn color(&mut self, color: &Color<RGB, f32>) {
-        self.color.copy_of(color);
+    pub fn color(&mut self, color: Color<RGB, f32>) {
+        self.color.copy_color(color);
+    }
+
+    pub fn get_mut_gradient(&mut self) -> &mut Gradient<RGB, f32> {
+        &mut self.color
     }
 
     pub fn rgba(&mut self, r: u8, g: u8, b: u8, a: u8) {
-        self.color.normalize(r, g, b, a);
+        self.color.set_all(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0); 
     }
 
     pub fn raw_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.color.set(r, g, b, a);
+        self.color.set_all(r, g, b, a);
     }
 
     pub fn tri(&mut self) {
@@ -87,9 +100,9 @@ impl Draw2D {
         self.batch.add_vertices(&self.vertices);
     }
 
-    //pub fn font(BitmapFont font) {
-    //    this.font = font;
-    //}
+    pub fn font(&mut self, font: Rc<Font>) {
+        self.font = font;
+    }
 
     pub fn use_camera(&mut self, use_camera: bool) {
         self.use_cam = use_camera;
@@ -99,16 +112,16 @@ impl Draw2D {
         self.chroma_tilt = tilt;
     }
 
-    pub fn chromaCompress(&mut self, compress: f32) {
+    pub fn chroma_compress(&mut self, compress: f32) {
         self.chroma_compress = compress;
     }
 
-    pub fn chromaStretch(&mut self, stretch: f32) {
+    pub fn chroma_stretch(&mut self, stretch: f32) {
         self.chroma_compress = 1.0 / stretch;
     }
 
     pub fn triangle(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32) {
-        self.triangle_rotated(x1, y1, x2, y2, x3, y3, 0.0);
+        self.triangle_origin_rotated(x1, y1, x2, y2, x3, y3, 0.0, 0, 0)
     }
 
     pub fn triangle_rotated(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32, rotation: f32) {
@@ -117,212 +130,214 @@ impl Draw2D {
 
     pub fn triangle_origin_rotated(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32, rotation: f32, rx: i32, ry: i32) {
         let rad_rot = rotation.to_radians();
-        self.vertices.get_mut(0).set_data(x1 as f32, y1 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(1).set_data(x2 as f32, y2 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(2).set_data(x3 as f32, y3 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_data(x1 as f32, y1 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data(x2 as f32, y2 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data(x3 as f32, y3 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
         self.vertices.set_len(3);
         self.batch.add_vertices(&self.vertices);
     }
 
     pub fn rectangle(&mut self, x: i32, y: i32, width: i32, height: i32) {
-        self.rectangle_rotated(x, y, width, height, 0.0);
+        self.rectangle_origin_rotated(x, y, width, height, 0.0, 0, 0);
     }
 
     pub fn rectangle_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, rotation: f32) {
         self.rectangle_origin_rotated(x, y, width, height, rotation, x + width / 2, y + height / 2);
     }
 
-    pub fn rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, rotation: f32, originX: i32, originY: i32) {
-        self.vertices.get_mut(0).set_data(x as f32, y as f32, 0.0, rotation.to_radians(), originX as f32, originY as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(1).set_data(x as f32, y as f32, 0.0, rotation.to_radians(), originX as f32, originY as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(2).set_data(x as f32, y as f32, 0.0, rotation.to_radians(), originX as f32, originY as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(3).set_data(x as f32, y as f32, 0.0, rotation.to_radians(), originX as f32, originY as f32, self.color, self.canvas, self.use_cam);
+    pub fn rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, rotation: f32, rx: i32, ry: i32) {
+        let rad_rot = rotation.to_radians();
+        self.vertices.get_mut(0).set_data(x as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data((x + width) as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data((x + width) as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
     }
 
     pub fn void_rectangle(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32) {
-    self.void_rectangle_roteted(x, y, width, height, thickness, 0.0);
+        self.void_rectangle_origin_rotated(x, y, width, height, thickness, 0.0, 0, 0);
     }
 
     pub fn void_rectangle_roteted(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, rotation: f32) {
-    self.void_rectangle_origin_rotated(x, y, width, height, thickness, rotation, x + width / 2, y + height / 2);
+        self.void_rectangle_origin_rotated(x, y, width, height, thickness, rotation, x + width / 2, y + height / 2);
     }
 
-    pub fn void_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, rotation: f32, originX: i32, originY: i32) {
-    self.rectangle_origin_rotated(x, y, width, height, rotation, originX, originY);
-        self.rectangle_origin_rotated(x, y + thickness, thickness, height - 2 * thickness, rotation, originX, originY);
-    self.rectangle_origin_rotated(x, y + height - thickness, width, thickness, rotation, originX, originY);
-    self.rectangle_origin_rotated(x + width - thickness, y + thickness, thickness, height - 2 * thickness, rotation, originX, originY);
+    pub fn void_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, rotation: f32, rx: i32, ry: i32) {
+        self.rectangle_origin_rotated(x, y, width, height, rotation, rx, ry);
+        self.rectangle_origin_rotated(x, y + thickness, thickness, height - 2 * thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x, y + height - thickness, width, thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + width - thickness, y + thickness, thickness, height - 2 * thickness, rotation, rx, ry);
     }
 
-    pub fn rounded_rectangle(&mut self, x: i32, y: i32, width: i23, height: i32, radius: i32, precision: f32) {
-    self.rounded_rectangle_rotated(x, y, width, height, radius, precision, 0.0);
+    pub fn rounded_rectangle(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32, precision: f32) {
+        self.rounded_rectangle_origin_rotated(x, y, width, height, radius, precision, 0.0, 0, 0);
     }
 
-    pub fn rounded_rectangle_rotated(&mut self, int x, int y, int width, int height, int radius, float precision, float rotation) {
-    roundedRectangle(x, y, width, height, radius, precision, rotation, width / 2, height / 2);
+    pub fn rounded_rectangle_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32, precision: f32, rotation: f32) {
+        self.rounded_rectangle_origin_rotated(x, y, width, height, radius, precision, rotation, width / 2, height / 2);
     }
 
-    pub fn rounded_rectangle_origin_rotated(&mut self, int x, int y, int width, int height, int radius, float precision, float rotation, int originX, int originY) {
-    rectangle(x, y + radius, width, height - 2 * radius, rotation, originX, originY);
-    rectangle(x + radius, y, width - 2 * radius, radius, rotation, originX, originY);
-    rectangle(x + radius, y + height - radius, width - 2 * radius, radius, rotation, originX, originY);
-    arc(x + radius, y + radius, radius, 90, 180, precision, rotation, originX, originY);
-    arc(x + radius, y + height - radius, radius, 90, 90, precision, rotation, originX, originY);
-    arc(x + width - radius, y + radius, radius, 90, 270, precision, rotation, originX, originY);
-    arc(x + width - radius, y + height - radius, radius, 90, 0, precision, rotation, originX, originY);
+    pub fn rounded_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
+        self.rectangle_origin_rotated(x, y + radius, width, height - 2 * radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y, width - 2 * radius, radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y + height - radius, width - 2 * radius, radius, rotation, rx, ry);
+        self.arc_origin_rotated(x + radius, y + radius, radius, 90, 180, precision, rotation, rx, ry);
+        self.arc_origin_rotated(x + radius, y + height - radius, radius, 90, 90, precision, rotation, rx, ry);
+        self.arc_origin_rotated(x + width - radius, y + radius, radius, 90, 270, precision, rotation, rx, ry);
+        self.arc_origin_rotated(x + width - radius, y + height - radius, radius, 90, 0, precision, rotation, rx, ry);
     }
 
-    pub fn triangularRectangle(int x, int y, int width, int height, int radius) {
-    triangularRectangle(x, y, width, height, radius, 0.0f);
+    pub fn triangular_rectangle(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32) {
+        self.triangular_rectangle_origin_rotated(x, y, width, height, radius, 0.0, 0, 0);
     }
 
-    pub fn triangularRectangle(int x, int y, int width, int height, int radius, float rotation) {
-    triangularRectangle(x, y, width, height, radius, rotation, width / 2, height / 2);
+    pub fn triangular_rectangle_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32, rotation: f32) {
+        self.triangular_rectangle_origin_rotated(x, y, width, height, radius, rotation, width / 2, height / 2);
     }
 
-    pub fn triangularRectangle(int x, int y, int width, int height, int radius, float rotation, int originX, int originY) {
-    rectangle(x, y + radius, width, height - 2 * radius, rotation, originX, originY);
-    rectangle(x + radius, y, width - 2 * radius, radius, rotation, originX, originY);
-    rectangle(x + radius, y + height - radius, width - 2 * radius, radius, rotation, originX, originY);
-    triangle(x + radius, y + radius, x, y + radius, x + radius, y, rotation, originX, originY);
-    triangle(x, y + height - radius, x + radius, y + height - radius, x + radius, y + height, rotation, originX, originY);
-    triangle(x + width - radius, y + height, x + width - radius, y + height - radius, x + width, y + height - radius, rotation, originX, originY);
-    triangle(x + width, y + radius, x + width - radius, y + radius, x + width - radius, y, rotation, originX, originY);
+    pub fn triangular_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, radius: i32, rotation: f32, rx: i32, ry: i32) {
+        self.rectangle_origin_rotated(x, y + radius, width, height - 2 * radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y, width - 2 * radius, radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y + height - radius, width - 2 * radius, radius, rotation, rx, ry);
+        self.triangle_origin_rotated(x + radius, y + radius, x, y + radius, x + radius, y, rotation, rx, ry);
+        self.triangle_origin_rotated(x, y + height - radius, x + radius, y + height - radius, x + radius, y + height, rotation, rx, ry);
+        self.triangle_origin_rotated(x + width - radius, y + height, x + width - radius, y + height - radius, x + width, y + height - radius, rotation, rx, ry);
+        self.triangle_origin_rotated(x + width, y + radius, x + width - radius, y + radius, x + width - radius, y, rotation, rx, ry);
     }
 
-    pub fn fnRoundedRectangle(int x, int y, int width, int height, int thickness, int radius, float precision) {
-    fnRoundedRectangle(x, y, width, height, thickness, radius, precision, 0.0f);
+    pub fn void_rounded_rectangle(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, precision: f32) {
+        self.void_rounded_rectangle_origin_rotated(x, y, width, height, thickness, radius, precision, 0.0, 0, 0);
     }
 
-    pub fn fnRoundedRectangle(int x, int y, int width, int height, int thickness, int radius, float precision, float rotation) {
-    fnRoundedRectangle(x, y, width, height, thickness, radius, precision, rotation, width / 2, height / 2);
+    pub fn void_rounded_rectangle_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, precision: f32, rotation: f32) {
+        self.void_rounded_rectangle_origin_rotated(x, y, width, height, thickness, radius, precision, rotation, width / 2, height / 2);
     }
 
-    pub fn fnRoundedRectangle(int x, int y, int width, int height, int thickness, int radius, float precision, float rotation, int originX, int originY) {
-    rectangle(x + radius, y, width - 2 * radius, thickness, rotation, originX, originY);
-    rectangle(x + radius, y + height - thickness, width - 2 * radius, thickness, rotation, originX, originY);
-    rectangle(x, y + radius, thickness, height - 2 * radius, rotation, originX, originY);
-    rectangle(x + width - thickness, y + radius, thickness, height - 2 * radius);
-    fnArc(x + radius, y + radius, radius - thickness / 2, thickness, 90, 180, precision, rotation, originX, originY);
-    fnArc(x + radius, y + height - radius, radius - thickness / 2, thickness, 90, 90, precision, rotation, originX, originY);
-    fnArc(x + width - radius, y + radius, radius - thickness / 2, thickness, 90, 270, precision, rotation, originX, originY);
-    fnArc(x + width - radius, y + height - radius, radius - thickness / 2, thickness, 90, 0, precision, rotation, originX, originY);
+    pub fn void_rounded_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
+        self.rectangle_origin_rotated(x + radius, y, width - 2 * radius, thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y + height - thickness, width - 2 * radius, thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x, y + radius, thickness, height - 2 * radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + width - thickness, y + radius, thickness, height - 2 * radius, rotation, rx, ry);
+        self.void_arc_origin_rotated(x + radius, y + radius, radius - thickness / 2, thickness, 90, 180, precision, rotation, rx, ry);
+        self.void_arc_origin_rotated(x + radius, y + height - radius, radius - thickness / 2, thickness, 90, 90, precision, rotation, rx, ry);
+        self.void_arc_origin_rotated(x + width - radius, y + radius, radius - thickness / 2, thickness, 90, 270, precision, rotation, rx, ry);
+        self.void_arc_origin_rotated(x + width - radius, y + height - radius, radius - thickness / 2, thickness, 90, 0, precision, rotation, rx, ry);
     }
 
-    pub fn fnTriangularRectangle(int x, int y, int width, int height, int thickness, int radius) {
-    fnTriangularRectangle(x, y, width, height, thickness, radius, 0.0f);
+    pub fn void_triangular_rectangle(mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32) {
+        self.void_triangular_rectangle_origin_rotated(x, y, width, height, thickness, radius, 0.0, 0, 0);
     }
 
-    pub fn fnTriangularRectangle(int x, int y, int width, int height, int thickness, int radius, float rotation) {
-    fnTriangularRectangle(x, y, width, height, thickness, radius, rotation, width / 2, height / 2);
+    pub fn void_triangular_rectangle_rotated(&mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32) {
+        self.void_triangular_rectangle_origin_rotated(x, y, width, height, thickness, radius, rotation, width / 2, height / 2);
     }
 
-    pub fn fnTriangularRectangle(int x, int y, int width, int height, int thickness, int radius, float rotation, int originX, int originY) {
-    rectangle(x + radius, y, width - 2 * radius, thickness, rotation, originX, originY);
-    rectangle(x + radius, y + height - thickness, width - 2 * radius, thickness, rotation, originX, originY);
-    rectangle(x, y + radius, thickness, height - 2 * radius, rotation, originX, originY);
-    rectangle(x + width - thickness, y + radius, thickness, height - 2 * radius, rotation, originX, originY);
-    float radRotation = (float) Math.toRadians(rotation);
-    window.getBatchController().addVertices(verts.set(
-    v1.put(x, y + height - radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put(x + radius, y + height, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x + radius, y + height - thickness, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v4.put(x + thickness, y + height - radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
+    pub fn void_triangular_rectangle_origin_rotated(&mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32, rx: i32, ry: i32) {
+        self.rectangle_origin_rotated(x + radius, y, width - 2 * radius, thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + radius, y + height - thickness, width - 2 * radius, thickness, rotation, rx, ry);
+        self.rectangle_origin_rotated(x, y + radius, thickness, height - 2 * radius, rotation, rx, ry);
+        self.rectangle_origin_rotated(x + width - thickness, y + radius, thickness, height - 2 * radius, rotation, rx, ry);
+        let rad_rotation: f32 = rotation.to_radians();
 
-    window.getBatchController().addVertices(verts.set(
-    v1.put(x + width - radius, y + height - thickness, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put(x + width - radius, y + height, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x + width, y + height - radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v4.put(x + width - thickness, y + height - radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
+        self.vertices.get_mut(0).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
+        self.vertices.set_len(4);
+        self.batch.add_vertices(&self.vertices);
+        
+        self.vertices.get_mut(0).set_data((x + width - radius) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data((x + width - radius) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data((x + width) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data((x + width - thickness) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
+        self.batch.add_vertices(&self.vertices);
 
-    window.getBatchController().addVertices(verts.set(
-    v1.put(x + width - radius, y, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put(x + width - radius, y + thickness, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x + width - thickness, y + radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v4.put(x + width, y + radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
+        self.vertices.get_mut(0).set_data((x + width - radius) as f32, y as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data((x + width - radius) as f32, (y + thickness) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data((x + width - thickness) as f32, (y + radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data((x + width) as f32, (y + radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
+        self.batch.add_vertices(&self.vertices);
 
-    window.getBatchController().addVertices(verts.set(
-    v1.put(x, y + radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put(x + thickness, y + radius, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x + radius, y + thickness, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v4.put(x + radius, y, 0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
+        self.vertices.get_mut(0).set_data(x as f32, (y + radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data((x + thickness) as f32, (y + radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data((x + radius) as f32, (y + thickness) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data((x + radius) as f32, y as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
+        self.batch.add_vertices(&self.vertices);
     }
 
-    pub fn circle(int x, int y, int radius, float precision) {
-    circle(x, y, radius, precision, 0.0f);
+    pub fn circle(&mut self, x: i32, y: i32, radius: i32, precision: f32) {
+        self.ellipse_origin_rotated(x, y, radius, radius, precision, 0.0, 0, 0);
     }
 
-    pub fn circle(int x, int y, int radius, float precision, float rotation) {
-    circle(x, y, radius, precision, rotation, x, y);
+    pub fn circle_rotated(&mut self, x: i32, y: i32 , radius: i32, precision: f32, rotation: f32) {
+        self.ellipse_origin_rotated(x, y, radius, radius, precision, rotation, x, y);
     }
 
-    pub fn circle(int x, int y, int radius, float precision, float rotation, int originX, int originY) {
-    ellipse(x, y, radius, radius, precision, rotation, originX, originY);
+    pub fn circle_origin_rotated(&mut self, x: i32, y: i32, radius: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
+        self.ellipse_origin_rotated(x, y, radius, radius, precision, rotation, rx, ry);
     }
 
-    pub fn ellipse(int x, int y, int radiusX, int radiusY, float precision) {
-    ellipse(x, y, radiusX, radiusY, precision, 0.0f);
+    pub fn ellipse(&mut self, x: i32, y: i32, radius_x: i32, radius_y: i32, precision: f32) {
+        self.ellipse_origin_rotated(x, y, radius_x, radius_y, precision, 0.0, 0, 0);
     }
 
-    pub fn ellipse(int x, int y, int radiusX, int radiusY, float precision, float rotation) {
-    ellipse(x, y, radiusX, radiusY, precision, rotation, x, y);
+    pub fn ellipse_rotated(&mut self, x: i32, y: i32, radius_x: i32, radius_y: i32, precision: f32, rotation: f32) {
+        self.ellipse_origin_rotated(x, y, radius_x, radius_y, precision, rotation, x, y)
     }
 
-    pub fn ellipse(int x, int y, int radiusX, int radiusY, float precision, float rotation, int originX, int originY) {
-    double tau = Math.PI * 2.0;
-    double step = tau / precision;
-    float radRotation = (float) Math.toRadians(rotation);
-    for (double i = 0.0; i < tau; i += step) {
-    window.getBatchController().addVertices(verts.set(
-    v1.put((float) (x + (radiusX * Math.cos(i))), (float) (y + (radiusY * Math.sin(i))), 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put((float) (x + (radiusX * Math.cos(i + step))), (float) (y + (radiusY * Math.sin(i + step))), 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x, y, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
-    }
-    }
-
-    pub fn fnCircle(int x, int y, int radius, int thickness, float precision) {
-    fnCircle(x, y, radius, thickness, precision, 0.0f);
+    pub fn ellipse_origin_rotated(&mut self, x: i32, y: i32, radius_x: i32, radius_y: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
+        let step = std::f32::consts::TAU / precision;
+        let rad_rot = rotation.to_radians();
+        let mut i = 0.0;
+        self.vertices.set_len(3);
+        while i < std::f32::consts::TAU {
+            self.vertices.get_mut(0).set_data(x as f32 + radius_x as f32 * i.cos(), y as f32 + radius_y as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(1).set_data(x as f32 + radius_x as f32 * (i + step).cos(), y as f32 + radius_y as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(2).set_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+            self.batch.add_vertices(&self.vertices);
+            i += step;
+        }
     }
 
-    pub fn fnCircle(int x, int y, int radius, int thickness, float precision, float rotation) {
-    fnCircle(x, y, radius, thickness, precision, rotation, x, y);
+    pub fn void_circle(&mut self, x: i32, y: i32, radius: i32, thickness: i32, precision: f32) {
+        self.void_arc_origin_rotated(x, y, radius, thickness, 360, 0, precision, 0.0, 0, 0);
+    }
+    
+    pub fn void_circle_rotated(&mut self, x: i32, y: i32, radius: i32, thickness: i32, precision: f32, rotation: f32) {
+        self.void_arc_origin_rotated(x, y, radius, thickness, 360, 0, precision, rotation, x, y);
     }
 
-    pub fn fnCircle(int x, int y, int radius, int thickness, float precision, float rotation, int originX, int originY) {
-    fnArc(x, y, radius, thickness, 360, 0, precision, rotation, originX, originY);
+    pub fn void_circle_origin_rotated(&mut self, x: i32, y: i32, radius: i32, thickness: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
+        self.void_arc_origin_rotated(x, y, radius, thickness, 360, 0, precision, rotation, rx, ry);
     }
 
-    pub fn arc(int x, int y, int radius, int range, int start, float precision) {
-    arc(x, y, radius, range, start, precision, 0.0f);
+    pub fn arc(&mut self, x: i32, y: i32, radius: i32, range: i32, start: i32, precision: f32) {
+        self.arc_origin_rotated(x, y, radius, range, start, precision, 0.0, 0, 0);
     }
 
-    pub fn arc(int x, int y, int radius, int range, int start, float precision, float rotation) {
-    arc(x, y, radius, range, start, precision, rotation, x, y);
+    pub fn arc_rotated(&mut self, x: i32, y: i32, radius: i32, range: i32, start: i32, precision: f32, rotation: f32) {
+        self.arc_origin_rotated(x, y, radius, range, start, precision, rotation, x, y);
     }
 
-    pub fn arc(int x, int y, int radius, int range, int start, float precision, float rotation, int originX, int originY) {
-    double tau = Math.PI * 2.0;
-    double rRange = Math.PI * 2.0 - Math.toRadians(range);
-    double step = tau / precision;
-    float radRotation = (float) Math.toRadians(rotation);
-    for (double i = Math.toRadians(start); i < tau - rRange + Math.toRadians(start); i += step) {
-    window.getBatchController().addVertices(verts.set(
-    v1.put((float) (x + (radius * Math.cos(i))), (float) (y + (radius * Math.sin(i))), 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v2.put((float) (x + (radius * Math.cos(i + step))), (float) (y + (radius * Math.sin(i + step))), 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    v3.put(x, y, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, 0.0f, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    ), useCamera, isStripped);
-    }
+    pub fn arc_origin_rotated(&mut self, x: i32, y: i32, radius: i32, range: i32, start: i32, precision: f32, rotation: f32, rx: i32, ry: i32)  {
+        let r_range = std::f32::consts::TAU - (range as f32).to_radians();
+        let step = std::f32::consts::TAU / precision;
+        let rad_rot = rotation.to_radians();
+        let start = (start as f32).to_radians();
+        let mut i = start;
+        self.vertices.set_len(3);
+        while i < std::f32::consts::TAU - r_range + start {
+            self.vertices.get_mut(0).set_data(x as f32 + radius as f32 * i.cos(), y as f32 + radius as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(1).set_data(x as f32 + radius as f32 * (i + step).cos(), y as f32 + radius as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(2).set_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+            self.batch.add_vertices(&self.vertices);
+            i += step;
+        }
     }
 
     pub fn void_arc(&mut self, x: i32, y: i32, radius: i32, thickness: i32, range: i32, start: i32, precision: f32) {
-        self.void_arc_rotated(x, y, radius, thickness, range, start, precision, 0.0);
+        self.void_arc_origin_rotated(x, y, radius, thickness, range, start, precision, 0.0, 0, 0);
     }
 
     pub fn void_arc_rotated(&mut self, x: i32, y: i32, radius: i32, thickness: i32, range: i32, start: i32, precision: f32, rotation: f32) {
@@ -330,7 +345,7 @@ impl Draw2D {
     }
 
     pub fn void_arc_origin_rotated(&mut self, x: i32, y: i32, radius: i32, thickness: i32, range: i32, start: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
-        let r_radius = radius - (thickness / 2) - 1;
+        let r_radius = radius - (thickness as f32 / 2.0).ceil() as i32;
         let r_range = std::f32::consts::TAU - (range as f32).to_radians();
         let step = std::f32::consts::TAU / precision;
         let rad_rot = rotation.to_radians();
@@ -339,21 +354,21 @@ impl Draw2D {
         let mut i = start;
         self.vertices.set_len(4);
         while i < std::f32::consts::TAU - r_range + start {
-            self.vertices.get_mut(0).set_data(x as f32 + r_radius as f32 * i.cos(), y as f32 + r_radius as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-            self.vertices.get_mut(1).set_data(x as f32 + (r_radius + thickness) as f32 * i.cos(), y as f32 + (r_radius + thickness) as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-            self.vertices.get_mut(2).set_data(x as f32 + (r_radius + thickness) as f32 * (i + step).cos(), y as f32 + (r_radius + thickness) as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-            self.vertices.get_mut(3).set_data(x as f32 + r_radius as f32 * (i + step).cos(), y as f32 + r_radius as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
+            self.vertices.get_mut(0).set_data(x as f32 + r_radius as f32 * i.cos(), y as f32 + r_radius as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+            self.vertices.get_mut(1).set_data(x as f32 + (r_radius + thickness) as f32 * i.cos(), y as f32 + (r_radius + thickness) as f32 * i.sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(2).set_data(x as f32 + (r_radius + thickness) as f32 * (i + step).cos(), y as f32 + (r_radius + thickness) as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+            self.vertices.get_mut(3).set_data(x as f32 + r_radius as f32 * (i + step).cos(), y as f32 + r_radius as f32 * (i + step).sin(), 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
             self.batch.add_vertices(&self.vertices);
             i += step;
         }
     }
 
     pub fn line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, thickness: i32) {
-        self.line_rotated(x1, y1, x2, y2, thickness, 0.0);
+        self.line_origin_rotated(x1, y1, x2, y2, thickness, 0.0, 0, 0);
     }
 
     pub fn line_rotated(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, thickness: i32, rotation: f32) {
-        self.line_origin_rotated(x1, y1, x2, y2, thickness, rotation, (x1 + x2) / 2, (y1 + y2) / 2)
+        self.line_origin_rotated(x1, y1, x2, y2, thickness, rotation, (x1 + x2) / 2, (y1 + y2) / 2);
     }
 
     pub fn line_origin_rotated(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, thickness: i32, rotation: f32, rx: i32, ry: i32) {
@@ -362,166 +377,114 @@ impl Draw2D {
         let theta_cos = theta.cos() * (thickness as f32 / 2.0);
         let rad_rot = rotation.to_radians();
 
-        self.vertices.get_mut(0).set_data(x1 - theta_cos, y1 + theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(1).set_data(x1 + theta_cos, y1 - theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(2).set_data(x2 + theta_cos, y2 - theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
-        self.vertices.get_mut(3).set_data(x2 - theta_cos, y2 + theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_data(x1 as f32 - theta_cos, y1 as f32 + theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data(x1 as f32 + theta_cos, y1 as f32 - theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data(x2 as f32 + theta_cos, y2 as f32 - theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data(x2 as f32 - theta_cos, y2 as f32 + theta_sin, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
     }
 
-    //pub fn image(int x, int y, int width, int height, Texture texture) {
-    //image(x, y, width, height, texture, 0f, 0, 0);
-    //}
+    pub fn image(&mut self, x: i32, y: i32, width: i32, height: i32, texture: Rc<TextureRegion>) {
+        self.image_origin_rotated(x, y, width, height, texture, 0.0, 0, 0);
+    }
 
-    //pub fn image(int x, int y, int width, int height, TextureRegion texture) {
-    //image(x, y, width, height, texture, 0f, 0, 0);
-    //}
+    pub fn image_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, texture: Rc<TextureRegion>, rotation: f32) {
+        self.image_origin_rotated(x, y, width, height, texture, rotation, (x + width) / 2, (y + height) / 2);
+    }
 
-    //pub fn image(int x, int y, int width, int height, Texture texture, float rotation) {
-    //image(x, y, width, height, texture, rotation, x + width / 2, y + height / 2);
-    //}
+    pub fn image_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, texture: Rc<TextureRegion>, rotation: f32, rx: i32, ry: i32) {
+        let rad_rot = rotation.to_radians();
 
-    //pub fn image(int x, int y, int width, int height, TextureRegion texture, float rotation) {
-    //image(x, y, width, height, texture, rotation, x + width / 2, y + height / 2);
-    //}
+        let tex = self.batch.add_texture(texture.parent(), 4);
+        let uv = texture.get_uv();
 
-    //pub fn image(int x, int y, int width, int height, Texture texture, float rotation, int originX, int originY) {
-    //float ax = x;
-    //float ay = y;
-    //float ax2 = x + width;
-    //float ay2 = y + height;
+        self.vertices.get_mut(0).set_texture_data(x as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), uv[0], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_texture_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), uv[0], uv[2], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_texture_data((x + width) as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), uv[1], uv[2], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_texture_data((x + width) as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3), uv[1], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.set_len(4);
+        self.batch.add_vertices(&self.vertices);
+    }
 
-    //float radRotation = (float) (rotation * (Math.PI / 180));
+    pub fn image_line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, thickness: i32, texture: Rc<TextureRegion>) {
+        let theta = ((x2 - x1) as f32).atan2((y2 - y1) as f32);
+        let theta_sin = thickness as f32 * theta.sin();
+        let theta_cos = thickness as f32 * theta.cos();
 
-    //int texID = window.getBatchController().addTexture(texture, isStripped);
+        let tex = self.batch.add_texture(texture.parent(), 4);
+        let uv = texture.get_uv();
 
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(ax, ay2, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(ax, ay, 0.0f, radRotation, (float) originX, (float) originY, gradient.topLeft.getRed(), gradient.topLeft.getGreen(), gradient.topLeft.getBlue(), gradient.topLeft.getAlpha(), 0.0f, 1.0f, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(ax2, ay, 0.0f, radRotation, (float) originX, (float) originY, gradient.topRight.getRed(), gradient.topRight.getGreen(), gradient.topRight.getBlue(), gradient.topRight.getAlpha(), 1.0f, 1.0f, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(ax2, ay2, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomRight.getRed(), gradient.bottomRight.getGreen(), gradient.bottomRight.getBlue(), gradient.bottomRight.getAlpha(), 1.0f, 0.0f, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
+        self.vertices.get_mut(0).set_norot_texture_data(x1 as f32 - theta_cos, y1 as f32 + theta_sin, 0.0, self.color.get(0), uv[0], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_norot_texture_data(x1 as f32 + theta_cos, y1 as f32 - theta_sin, 0.0, self.color.get(1), uv[0], uv[2], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_norot_texture_data(x2 as f32 + theta_cos, y2 as f32 - theta_sin, 0.0, self.color.get(2), uv[1], uv[2], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_norot_texture_data(x2 as f32 - theta_cos, y2 as f32 + theta_sin, 0.0, self.color.get(3), uv[1], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.set_len(4);
+        self.batch.add_vertices(&self.vertices);
+    }
 
-    //pub fn image(int x, int y, int width, int height, TextureRegion texture, float rotation, int originX, int originY) {
-    //float ax = x;
-    //float ay = y;
-    //float ax2 = x + width;
-    //float ay2 = y + height;
+    pub fn text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String) {
+        self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), 0.0, 0, 0)
+    }
 
-    //float ux0 = texture.getUVCoordinates()[0];
-    //float ux1 = texture.getUVCoordinates()[1];
-    //float uy1 = texture.getUVCoordinates()[2];
-    //float uy0 = texture.getUVCoordinates()[3];
+    pub fn text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, rotation: f32) {
+        let width = self.font.get_metrics(text.as_str()).width(height);
+        self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), rotation, x + width / 4, y + height / 4)
+    }
 
-    //float radRotation = (float) (rotation * (Math.PI / 180));
+    pub fn text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, rotation: f32, rx: i32, ry: i32) {
+        self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), rotation, rx, ry)
+    }
 
-    //int texID = window.getBatchController().addTexture(texture.getParentTexture(), isStripped);
+    pub fn custom_text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>) {
+        self.custom_text_origin_rotated(chroma, x, y, height, text, font, 0.0, 0, 0);
+    }
 
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(ax, ay2, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), ux0, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(ax, ay, 0.0f, radRotation, (float) originX, (float) originY, gradient.topLeft.getRed(), gradient.topLeft.getGreen(), gradient.topLeft.getBlue(), gradient.topLeft.getAlpha(), ux0, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(ax2, ay, 0.0f, radRotation, (float) originX, (float) originY, gradient.topRight.getRed(), gradient.topRight.getGreen(), gradient.topRight.getBlue(), gradient.topRight.getAlpha(), ux1, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(ax2, ay2, 0.0f, radRotation, (float) originX, (float) originY, gradient.bottomRight.getRed(), gradient.bottomRight.getGreen(), gradient.bottomRight.getBlue(), gradient.bottomRight.getAlpha(), ux1, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
+    pub fn custom_text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>, rotation: f32) {
+        let width = font.get_metrics(&text).width(height);
+        self.custom_text_origin_rotated(chroma, x, y, height, text, font, rotation, x + width / 4, y + height / 4);
+    }
 
-    //pub fn imageFromTo(int x1, int y1, int x2, int y2, int thickness, Texture texture) {
-    //float theta = (float) Math.atan2(x2 - x1, y2 - y1);
-    //float thetaSin = (float) (Math.sin(theta) * thickness);
-    //float thetaCos = (float) (Math.cos(theta) * thickness);
+    pub fn custom_text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>, rotation: f32, rx: i32, ry: i32) {
+        let mut char_x = 0;
+        let rad_rot = rotation.to_radians();
 
-    //int texID = window.getBatchController().addTexture(texture, isStripped);
+        for c in text.chars() {
+            if !font.supports(c) {
+                continue;
+            }
+            let glyph = font.get_glyph(c);
+            let y_off = glyph.get_y_offset(height) - font.get_max_height(height) + glyph.get_height(height);
 
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(x1 - thetaCos, y1 + thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), 0.0f, 0.0f, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(x1 + thetaCos, y1 - thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.topLeft.getRed(), gradient.topLeft.getGreen(), gradient.topLeft.getBlue(), gradient.topLeft.getAlpha(), 0.0f, 1.0f, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(x2 + thetaCos, y2 - thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.topRight.getRed(), gradient.topRight.getGreen(), gradient.topRight.getBlue(), gradient.topRight.getAlpha(), 1.0f, 1.0f, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(x2 - thetaCos, y2 + thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.bottomRight.getRed(), gradient.bottomRight.getGreen(), gradient.bottomRight.getBlue(), gradient.bottomRight.getAlpha(), 1.0f, 0.0f, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
+            let ax = x + char_x + glyph.get_x_offset(height);
+            let ay = y - y_off;
+            let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);
+            let ay2 = y + glyph.get_height(height)  - y_off;
 
-    //pub fn imageFromTo(int x1, int y1, int x2, int y2, int thickness, TextureRegion texture) {
-    //float theta = (float) Math.atan2(x2 - x1, y2 - y1);
-    //float thetaSin = (float) (Math.sin(theta) * thickness);
-    //float thetaCos = (float) (Math.cos(theta) * thickness);
+            if chroma {
+                self.reset_color();
+                self.color.get_mut(0).copy_hue(self.get_hue(ax, ay).overlap(0, 359) as f32);
+                self.color.get_mut(3).copy_hue(self.get_hue(ax2, ay).overlap(0, 359) as f32);
+                self.color.get_mut(1).copy_hue(self.get_hue(ax, ay2).overlap(0, 359) as f32);
+                self.color.get_mut(2).copy_hue(self.get_hue(ax2, ay2).overlap(0, 359) as f32);
+            }
 
-    //float ux0 = texture.getUVCoordinates()[0];
-    //float ux1 = texture.getUVCoordinates()[1];
-    //float uy1 = texture.getUVCoordinates()[2];
-    //float uy0 = texture.getUVCoordinates()[3];
+            char_x += glyph.get_x_advance(height);
+            let uv = glyph.get_uv();
 
-    //int texID = window.getBatchController().addTexture(texture.getParentTexture(), isStripped);
+            let tex = self.batch.add_texture(font.get_texture(), 4);
 
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(x1 - thetaCos, y1 + thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), ux0, uy0, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(x1 + thetaCos, y1 - thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.topLeft.getRed(), gradient.topLeft.getGreen(), gradient.topLeft.getBlue(), gradient.topLeft.getAlpha(), ux0, uy1, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(x2 + thetaCos, y2 - thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.topRight.getRed(), gradient.topRight.getGreen(), gradient.topRight.getBlue(), gradient.topRight.getAlpha(), ux1, uy1, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(x2 - thetaCos, y2 + thetaSin, 0.0f, 0.0f, 0.0f, 0.0f, gradient.bottomRight.getRed(), gradient.bottomRight.getGreen(), gradient.bottomRight.getBlue(), gradient.bottomRight.getAlpha(), ux1, uy0, texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
-
-    //pub fn text(boolean textChroma, int x, int y, int height, String text) {
-    //text(textChroma, x, y, height, text, font, 0.0f, 0, 0);
-    //}
-
-    //pub fn text(boolean textChroma, int x, int y, int height, String text, BitmapFont font) {
-    //text(textChroma, x, y, height, text, font, 0.0f, 0, 0);
-    //}
-
-    //pub fn text(boolean textChroma, int x, int y, int height, String text, BitmapFont font, float rotation) {
-    //int width = font.getWidth(text, height);
-    //text(textChroma, x, y, height, text, font, rotation, x + width / 4, y + height / 4);
-    //}
-
-    //pub fn text(boolean textChroma, int x, int y, int height, String text, BitmapFont font, float rotation, int originX, int originY) {
-    //int charX = 0;
-    //float radRotation = (float) Math.toRadians(rotation);
-
-    //for (int i = 0; i < text.length(); i++) {
-    //char c = text.charAt(i);
-
-    //if (!font.contains(c)) continue;
-
-    //Glyph glyph = font.getGlyph(c);
-
-    //int yOff = glyph.getYOffset(height) - (font.getMaxHeight(height) - glyph.getHeight(height));
-
-    //float ax = x + charX + glyph.getXOffset(height);
-    //float ay = y - yOff;
-    //float ax2 = x + charX + glyph.getXOffset(height) + glyph.getWidth(height);
-    //float ay2 = y + glyph.getHeight(height) - yOff;
-
-    //if (textChroma) {
-    //gradient.resetTo(0, 0, 0, 255);
-    //gradient.bottomLeft.fromHue(Utils.overlap(getHue((int) ax, (int) ay), 0, 359));
-    //gradient.bottomRight.fromHue(Utils.overlap(getHue((int) ax2, (int) ay), 0, 359));
-    //gradient.topLeft.fromHue(Utils.overlap(getHue((int) ax, (int) ay2), 0, 359));
-    //gradient.topRight.fromHue(Utils.overlap(getHue((int) ax2, (int) ay2), 0, 359));
-    //}
-
-    //charX += glyph.getXAdvance(height);
-
-    //Vector2f[] uvs = glyph.getCoordinates();
-    //float ux0 = uvs[0].x;
-    //float ux1 = uvs[1].x;
-    //float uy1 = uvs[0].y;
-    //float uy0 = uvs[1].y;
-
-    //int texID = window.getBatchController().addTexture(font.getBitmap(), isStripped);
-
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(ax, ay2, 0.0f, radRotation, originX, originY, gradient.bottomLeft.getRed(), gradient.bottomLeft.getGreen(), gradient.bottomLeft.getBlue(), gradient.bottomLeft.getAlpha(), ux0, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(ax, ay, 0.0f, radRotation, originX, originY, gradient.topLeft.getRed(), gradient.topLeft.getGreen(), gradient.topLeft.getBlue(), gradient.topLeft.getAlpha(), ux0, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(ax2, ay, 0.0f, radRotation, originX, originY, gradient.topRight.getRed(), gradient.topRight.getGreen(), gradient.topRight.getBlue(), gradient.topRight.getAlpha(), ux1, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(ax2, ay2, 0.0f, radRotation, originX, originY, gradient.bottomRight.getRed(), gradient.bottomRight.getGreen(), gradient.bottomRight.getBlue(), gradient.bottomRight.getAlpha(), ux1, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
-    //}
+            self.vertices.get_mut(0).set_texture_data(ax as f32, ay2 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), uv[0], uv[3], tex, self.canvas, self.use_cam);
+            self.vertices.get_mut(1).set_texture_data(ax as f32, ay as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), uv[0], uv[2], tex, self.canvas, self.use_cam);
+            self.vertices.get_mut(2).set_texture_data(ax2 as f32, ay as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), uv[1], uv[2], tex, self.canvas, self.use_cam);
+            self.vertices.get_mut(3).set_texture_data(ax2 as f32, ay2 as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3), uv[1], uv[3], tex, self.canvas, self.use_cam);
+            self.vertices.set_len(4);
+            self.batch.add_vertices(&self.vertices);
+        }
+    }
 
     fn get_hue(&self, x: i32, y: i32) -> i32 {
-        (((x * 180 / self.size[0]) + ((y * 180 / self.size[1]) * self.chroma_tilt) + (self.frame)) * 5 * self.chroma_compress) as i32
+        (((x as f32 * 180.0 / self.size[0]) + ((y as f32 * 180.0 / self.size[1]) * self.chroma_tilt) + (self.frame as f32)) * 5.0 * self.chroma_compress) as i32
     }
 
     //pub fn animatedText(TextAnimator animator) {
@@ -538,7 +501,7 @@ impl Draw2D {
     //animatedText(animator, font, rotation, animator.getX() + width / 4, animator.getY() + height / 4);
     //}
 
-    //pub fn animatedText(TextAnimator animator, BitmapFont font, float rotation, int originX, int originY) {
+    //pub fn animatedText(TextAnimator animator, BitmapFont font, float rotation, int rx, int ry) {
     //int charX = 0;
     //float radRotation = (float) Math.toRadians(rotation);
 
@@ -575,10 +538,10 @@ impl Draw2D {
     //int texID = window.getBatchController().addTexture(font.getBitmap(), isStripped);
 
     //window.getBatchController().addVertices(verts.set(
-    //v1.put(ax, ay2, 0.0f, radRotation, originX, originY, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(ax, ay, 0.0f, radRotation, originX, originY, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(ax2, ay, 0.0f, radRotation, originX, originY, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(ax2, ay2, 0.0f, radRotation, originX, originY, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
+    //v1.put(ax, ay2, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
+    //v2.put(ax, ay, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
+    //v3.put(ax2, ay, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
+    //v4.put(ax2, ay2, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
     //), useCamera, isStripped);
     //}
     //}

@@ -11,7 +11,7 @@ pub struct HSV;
 impl Fmt for RGB {}
 impl Fmt for HSV {}
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Color<F: Fmt, T> {
     c1: T,
     c2: T,
@@ -71,12 +71,14 @@ impl<T: Copy> Color<RGB, T> {
     pub fn set_g(&mut self, val: T) { self.c2 = val }
     pub fn set_b(&mut self, val: T) { self.c3 = val }
     pub fn set_a(&mut self, val: T) { self.c4 = val }
+}
 
-    pub fn set(&mut self, r: T, g: T, b: T, a: T) {
-        self.c1 = r;
-        self.c2 = g;
-        self.c3 = b;
-        self.c4 = a;
+impl <F: Fmt, T: Copy> Color<F, T> {
+    pub fn set(&mut self, c1: T, c2: T, c3: T, c4: T) {
+        self.c1 = c1;
+        self.c2 = c2;
+        self.c3 = c3;
+        self.c4 = c4;
     }
 }
 
@@ -118,7 +120,7 @@ impl Color<RGB, u8> {
         Ok(Color::new(r, g, b, a))
     }
 
-    pub fn copy_hsv(&mut self, col: &Color<HSV, f32>) {
+    pub fn copy_hsv(&mut self, col: Color<HSV, f32>) {
         let c = col.c2 * col.c3;
         let h = col.c1 / 60.0;
         let x = c * (1.0 - (h % 2.0 - 1.0).abs());
@@ -140,9 +142,13 @@ impl Color<RGB, u8> {
         self.set(r, g, b, a);
     }
 
+    pub fn copy_hue(&mut self, hue: f32) {
+        self.copy_hsv(Color::<HSV, f32>::new(hue, 1.0, 1.0, 1.0));
+    }
+
     pub fn from_hsv(col: Color<HSV, f32>) -> Self {
         let mut c: Color<RGB, u8> = Color::default();
-        c.copy_hsv(&col);
+        c.copy_hsv(col);
         c
     }
 }
@@ -174,7 +180,7 @@ impl Color<RGB, f32> {
         }
     }
 
-    pub fn copy_hsv(&mut self, col: &Color<HSV, f32>) {
+    pub fn copy_hsv(&mut self, col: Color<HSV, f32>) {
         let c = col.c2 * col.c3;
         let h = col.c1 / 60.0;
         let x = c * (1.0 - (h % 2.0 - 1.0).abs());
@@ -192,9 +198,13 @@ impl Color<RGB, f32> {
         self.set(rgb[0] + m, rgb[1] + m, rgb[2] + m, col.c4)
     }
 
+    pub fn copy_hue(&mut self, hue: f32) {
+        self.copy_hsv(Color::<HSV, f32>::new(hue, 1.0, 1.0, 1.0));
+    }
+
     pub fn from_hsv(col: Color<HSV, f32>) -> Self {
         let mut c: Color<RGB, f32> = Color::default();
-        c.copy_hsv(&col);
+        c.copy_hsv(col);
         c
     }
 }
@@ -209,13 +219,6 @@ impl<T: Copy> Color<HSV, T> {
     pub fn set_s(&mut self, val: T) { self.c2 = val }
     pub fn set_v(&mut self, val: T) { self.c3 = val }
     pub fn set_a(&mut self, val: T) { self.c4 = val }
-
-    pub fn set(&mut self, h: T, s: T, v: T, a: T) {
-        self.c1 = h;
-        self.c2 = s;
-        self.c3 = v;
-        self.c4 = a;
-    }
 }
 
 impl Color<HSV, f32> {
@@ -260,3 +263,44 @@ impl Parse for Color<RGB, u8> {
         }
     }
 }
+
+pub struct Gradient<F: Fmt, T> {
+    colors: [Color<F, T>; 4]
+}
+
+impl<F: Fmt, T: Copy> Gradient<F, T> {
+    pub fn new(color: Color<F, T>) -> Self {
+        Gradient { colors: [color; 4] }
+    }
+
+    pub fn copy_color(&mut self, color: Color<F, T>) {
+        self.colors = [color; 4];
+    }
+
+    pub fn set_all(&mut self, c1: T, c2: T, c3: T, c4: T) {
+        self.colors[0].set(c1, c2, c3, c4);
+        self.colors[1].set(c1, c2, c3, c4);
+        self.colors[2].set(c1, c2, c3, c4);
+        self.colors[3].set(c1, c2, c3, c4);
+    }
+
+    pub fn get(&self, index: u8) -> Color<F, T> {
+        self.colors[index as usize]
+    }
+
+    pub fn get_mut(&mut self, index: u8) -> &mut Color<F, T> {
+        &mut self.colors[index as usize]
+    }
+
+    pub fn set(&mut self, index: u8, color: Color<F, T>) {
+        self.colors[index as usize] = color;
+    }
+}
+
+impl<F: Fmt, T: Clone> Clone for Gradient<F, T> {
+    fn clone(&self) -> Self {
+        Gradient { colors: self.colors.clone() }
+    }
+}
+
+impl<F: Fmt, T: Copy> Copy for Gradient<F, T> {}

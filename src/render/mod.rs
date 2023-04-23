@@ -13,6 +13,7 @@ pub mod draw;
 pub mod color;
 pub mod batch;
 pub mod camera;
+pub mod text;
 #[cfg(feature = "vulkan")]
 pub mod vulkan;
 

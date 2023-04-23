@@ -14,28 +14,30 @@ pub mod parser;
 
 pub struct MVCore {
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
-    render: Option<RenderCore>,
+    render: Rc<RenderCore>,
 }
 
 impl MVCore {
-    pub fn new() -> MVCore {
+    pub fn new(backend: RenderingBackend) -> MVCore {
         static DIR: Dir = include_dir!("assets");
         let assets = Rc::new(RefCell::new(AssetManager::semi_automatic(DIR.clone())));
+        let render = Rc::new(RenderCore::new(backend, assets.clone()));
+        assets.borrow_mut().set_render_core(render.clone());
         MVCore {
             assets,
-            render: None,
-        }
+            render
+        }.tmp_load()
     }
 
-    pub fn init_render(&mut self, backend: RenderingBackend) {
-        self.render = Some(RenderCore::new(backend, self.assets.clone()));
-        self.assets.borrow_mut().load_shader(self.get_render(), "default", "shaders/default.vert", "shaders/default.frag");
-        self.assets.borrow_mut().load_effect_shader(self.get_render(), "blur", "shaders/blur.frag");
-        self.assets.borrow_mut().load_effect_shader(self.get_render(), "pixelate", "shaders/pixelate.frag");
+    pub fn tmp_load(self) -> Self {
+        self.assets.borrow_mut().load_shader("default", "shaders/default.vert", "shaders/default.frag");
+        self.assets.borrow_mut().load_effect_shader("blur", "shaders/blur.frag");
+        self.assets.borrow_mut().load_effect_shader("pixelate", "shaders/pixelate.frag");
+        self
     }
 
-    pub fn get_render(&self) -> &RenderCore {
-        self.render.as_ref().expect("RenderCore not initialized!")
+    pub fn get_render(&self) -> Rc<RenderCore> {
+        self.render.clone()
     }
 
     pub fn get_asset_manager(&self) -> Ref<SemiAutomaticAssetManager> {
@@ -52,9 +54,7 @@ impl MVCore {
     }
 
     fn term(&mut self) {
-        if let Some(mut render) = self.render.take() {
-            render.terminate();
-        }
+        self.render.terminate();
     }
 }
 
@@ -66,7 +66,7 @@ impl Drop for MVCore {
 
 impl Default for MVCore {
     fn default() -> Self {
-        Self::new()
+        Self::new(RenderingBackend::OpenGL)
     }
 }
 
@@ -75,20 +75,15 @@ impl Default for MVCore {
 mod tests {
     use crate::assets::ReadableAssetManager;
     use crate::MVCore;
-    use crate::render::color::{Color, Parse, RGB};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
 
     #[test]
     fn test() {
-        let mut core = MVCore::new();
-        core.init_render(OpenGL);
-        let render = core.get_render();
+        let mut core = MVCore::new(OpenGL);
         let mut info = WindowCreateInfo::default();
-        info.fps = 60;
         info.title = "MVCore".to_string();
-        info.fullscreen = !true;
-        let mut window = render.create_window(info);
+        let mut window = core.get_render().create_window(info);
         window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
         window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
         window.run(Test);

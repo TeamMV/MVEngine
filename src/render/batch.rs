@@ -243,6 +243,7 @@ pub(crate) struct Vertex2D {
     data: [f32; batch_layout_2d::VERTEX_SIZE_FLOATS as usize],
 }
 
+#[allow(clippy::too_many_arguments)]
 impl Vertex2D {
     pub(crate) fn new() -> Self {
         Vertex2D { data: [0.0; batch_layout_2d::VERTEX_SIZE_FLOATS as usize] }
@@ -252,18 +253,16 @@ impl Vertex2D {
         self.data = data;
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn set_data(&mut self, x: f32, y: f32, z: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>, canvas: [f32; 6], cam: bool) {
         self.set([x, y, z, rot, rx, ry, col.r(), col.g(), col.b(), col.a(), 0.0, 0.0, 0.0, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn set_texture_data(&mut self, x: f32, y: f32, z: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: f32, canvas: [f32; 6], cam: bool) {
-        self.set([x, y, z, rot, rx, ry, col.r(), col.g(), col.b(), col.a(), ux, uy, tex, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    pub(crate) fn set_texture_data(&mut self, x: f32, y: f32, z: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: u32, canvas: [f32; 6], cam: bool) {
+        self.set([x, y, z, rot, rx, ry, col.r(), col.g(), col.b(), col.a(), ux, uy, tex as f32, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
     }
 
-    pub(crate) fn set_norot_data(&mut self, x: f32, y: f32, z: f32, col: Color<RGB, f32>, canvas: [f32; 6], cam: bool) {
-        self.set([x, y, z, 0.0, 0.0, 0.0, col.r(), col.g(), col.b(), col.a(), 0.0, 0.0, 0.0, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    pub(crate) fn set_norot_texture_data(&mut self, x: f32, y: f32, z: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: u32, canvas: [f32; 6], cam: bool) {
+        self.set([x, y, z, 0.0, 0.0, 0.0, col.r(), col.g(), col.b(), col.a(), ux, uy, tex as f32, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
     }
 }
 

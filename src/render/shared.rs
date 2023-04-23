@@ -125,10 +125,12 @@ impl Default for WindowCreateInfo {
 macro_rules! backend_call {
     ($ty:ident, $s:expr, $name:ident) => {
         match $s {
+            #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name();
             },
             #[cfg(feature = "vulkan")]
+            #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name();
             },
@@ -136,10 +138,12 @@ macro_rules! backend_call {
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         match $s {
+            #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*);
             },
             #[cfg(feature = "vulkan")]
+            #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name($($params,)*);
             },
@@ -150,10 +154,12 @@ macro_rules! backend_call {
 macro_rules! backend_ret_call {
     ($ty:ident, $s:expr, $name:ident) => {
         return match $s {
+            #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name()
             },
             #[cfg(feature = "vulkan")]
+            #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name()
             },
@@ -161,10 +167,12 @@ macro_rules! backend_ret_call {
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         return match $s {
+            #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*)
             },
             #[cfg(feature = "vulkan")]
+            #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name($($params,)*)
             },
@@ -172,7 +180,6 @@ macro_rules! backend_ret_call {
     };
 }
 
-#[allow(unused_unsafe)]
 macro_rules! backend_fn {
     ($ty:ident, $name:ident) => {
         pub fn $name(&mut self) {
@@ -300,7 +307,7 @@ pub struct TextureRegion {
 }
 
 impl TextureRegion {
-    pub(crate) fn new(texture: Rc<RefCell<Texture>>, x: u16, y: u16, width: u16, height: u16) -> Self {
+    pub fn new(texture: Rc<RefCell<Texture>>, x: u16, y: u16, width: u16, height: u16) -> Self {
         let w = texture.borrow().get_width() as f32;
         let h = texture.borrow().get_height() as f32;
         TextureRegion {
@@ -313,7 +320,7 @@ impl TextureRegion {
         }
     }
 
-    pub(crate) fn from(texture: Rc<RefCell<Texture>>) -> Self {
+    pub fn from(texture: Rc<RefCell<Texture>>) -> Self {
         let width = texture.borrow().get_width();
         let height = texture.borrow().get_height();
         TextureRegion {
