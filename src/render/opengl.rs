@@ -258,6 +258,7 @@ impl Window for OpenGLWindow {
         self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.resize(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
+        shader.borrow_mut().make();
         let font = self.assets.borrow().get_font("default");
         self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height));
 
@@ -326,6 +327,7 @@ impl Window for OpenGLWindow {
     }
 
     fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>) {
+        shader.borrow_mut().make();
         self.shaders.insert(id.to_string(), shader);
     }
 
@@ -387,8 +389,8 @@ impl OpenGLShaderPass {
 }
 
 pub struct OpenGLShader {
-    vertex: CString,
-    fragment: CString,
+    vertex: Option<CString>,
+    fragment: Option<CString>,
     prgm_id: GLuint,
     vertex_id: GLuint,
     fragment_id: GLuint,
@@ -406,15 +408,15 @@ macro_rules! shader_uniform {
 impl OpenGLShader {
     pub(crate) unsafe fn new(vertex: &str, fragment: &str) -> Self {
         OpenGLShader {
-            vertex: CString::new(vertex).unwrap(),
-            fragment: CString::new(fragment).unwrap(),
+            vertex: Some(CString::new(vertex).unwrap()),
+            fragment: Some(CString::new(fragment).unwrap()),
             prgm_id: 0,
             vertex_id: 0,
             fragment_id: 0,
         }
     }
 
-    unsafe fn create_shader(&self, id: GLuint, src: &CString) {
+    unsafe fn create_shader(&self, id: GLuint, src: CString) {
         gl::ShaderSource(id, 1, &src.as_ptr(), std::ptr::null());
         gl::CompileShader(id);
 
@@ -433,14 +435,14 @@ impl OpenGLShader {
     }
 
     pub(crate) unsafe fn make(&mut self) {
-        if self.prgm_id != 0 {
+        if self.prgm_id != 0 || self.vertex.is_none() || self.fragment.is_none() {
             return;
         }
         self.prgm_id = gl::CreateProgram();
         self.vertex_id = gl::CreateShader(gl::VERTEX_SHADER);
         self.fragment_id = gl::CreateShader(gl::FRAGMENT_SHADER);
-        self.create_shader(self.vertex_id, &self.vertex);
-        self.create_shader(self.fragment_id, &self.fragment);
+        self.create_shader(self.vertex_id, self.vertex.take().unwrap());
+        self.create_shader(self.fragment_id, self.fragment.take().unwrap());
 
         gl::AttachShader(self.prgm_id, self.vertex_id);
         gl::AttachShader(self.prgm_id, self.fragment_id);
@@ -462,9 +464,6 @@ impl OpenGLShader {
     }
 
     pub(crate) unsafe fn bind(&mut self) {
-        if self.prgm_id == 0 {
-            self.make();
-        }
         gl::UseProgram(self.prgm_id)
     }
 

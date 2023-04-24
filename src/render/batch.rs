@@ -406,6 +406,7 @@ impl BatchController2D {
 
     pub(crate) fn set_shader(&mut self, shader: Rc<RefCell<Shader>>) {
         self.shader = shader;
+        shader.borrow_mut().make();
     }
 
     pub(crate) fn reset_shader(&mut self) {
