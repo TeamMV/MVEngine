@@ -231,7 +231,6 @@ pub enum Shader {
 
 impl Shader {
     backend_fn!(Shader, bind);
-    backend_fn!(Shader, make);
 
     backend_fn!(Shader, uniform_1f, name: &str, value: f32);
     backend_fn!(Shader, uniform_1i, name: &str, value: i32);
@@ -261,7 +260,6 @@ pub enum EffectShader {
 
 impl EffectShader {
     backend_fn!(EffectShader, bind);
-    backend_fn!(EffectShader, make);
 
     backend_fn!(EffectShader, uniform_1f, name: &str, value: f32);
     backend_fn!(EffectShader, uniform_1i, name: &str, value: i32);

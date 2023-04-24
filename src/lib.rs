@@ -105,8 +105,8 @@ mod tests {
 
         fn draw(&self, window: &mut impl Window) {
             //window.get_draw_2d().tri();
-            window.get_draw_2d().text(true, 100, 100, 20, "Hello".to_string());
-            window.get_draw_2d().rectangle(100, 130, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(20), 30);
+            window.get_draw_2d().text(true, 100, 100, 50, "Hello".to_string());
+            window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
             //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
             //  shader.uniform_1f("size", 10.0);
             //}));
