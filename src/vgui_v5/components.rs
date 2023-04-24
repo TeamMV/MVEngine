@@ -36,8 +36,8 @@ impl GuiElementInfo {
     pub fn z_index(&self) -> u32 {
         self.z_index
     }
-    pub fn parent(&self) -> &impl GuiElement {
-        &self.parent.as_ref()
+    pub fn parent(&self) -> &Box<dyn GuiElement> {
+        &self.parent
     }
     pub fn handles(&self) -> &'static mut Vec<GuiEvent> {
         self.handles
@@ -47,8 +47,8 @@ impl GuiElementInfo {
     }
 }
 
-pub type ClickFn = dyn FnMut(i32, i32, u8);
-pub type MouseFn = dyn FnMut(i32, i32);
+pub type ClickFn = *const dyn FnMut(i32, i32, u8);
+pub type MouseFn = *const dyn FnMut(i32, i32);
 
 pub enum GuiEvent {
     OnClick(ClickFn),
@@ -66,40 +66,36 @@ pub trait GuiElement {
     }
 }
 
-macro_rules! center {
-    () => {};
-}
-
 pub(crate) fn draw_component_body(ctx: &mut Draw2D, info: &GuiElementInfo) {
-    let br = info.style.border_radius.unwrap(ctx, info, Box::new(|s| {&s.border_radius}));
-    let bs: BorderStyle = info.style.border_style.unwrap(ctx, info, Box::new(|s| {&s.border_style}));
-    let mut margins: [f32; 4] = [0.0; 4];
-    margins[0] = info.style.margin[0].unwrap(ctx, info, Box::new(|s| {&s.margin[0]}));
-    margins[1] = info.style.margin[1].unwrap(ctx, info, Box::new(|s| {&s.margin[1]}));
-    margins[2] = info.style.margin[2].unwrap(ctx, info, Box::new(|s| {&s.margin[2]}));
-    margins[3] = info.style.margin[3].unwrap(ctx, info, Box::new(|s| {&s.margin[3]}));
+    let br = info.style.border_radius.unwrap(ctx, info, |s| {&s.border_radius});
+    let bs: BorderStyle = info.style.border_style.unwrap(ctx, info, |s| {&s.border_style});
+    let mut margins: [i32; 4] = [0; 4];
+    margins[0] = info.style.margin[0].unwrap(ctx, info, |s| {&s.margin[0]});
+    margins[1] = info.style.margin[1].unwrap(ctx, info, |s| {&s.margin[1]});
+    margins[2] = info.style.margin[2].unwrap(ctx, info, |s| {&s.margin[2]});
+    margins[3] = info.style.margin[3].unwrap(ctx, info, |s| {&s.margin[3]});
     if bs == Round {
-        ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, background_color));
-        let bw: i32 = unwrap_value!(ctx, info.style, border_width);
+        ctx.get_mut_gradient().copy_of(info.style.background_color.unwrap(ctx, info, |s| {&s.background_color}));
+        let bw: i32 = info.style.border_width.unwrap(ctx, info, |s| {&s.border_width});
         ctx.rounded_rectangle_origin_rotated(info.x + bw - margins[0], info.y + bw - margins[2], info.width - bw * 2 + margins[1], info.height - bw * 2 + margins[3], br, br as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, border_color));
+            ctx.get_mut_gradient().copy_of(info.style.border_color.unwrap(ctx, info, |s| {&s.border_color}));
             ctx.void_rounded_rectangle_origin_rotated(info.x - margins[0], info.y - margins[2], info.width + margins[1], info.height + margins[3], bw, br, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else if bs == Triangle {
-        ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, background_color));
-        let bw: i32 = unwrap_value!(ctx, info.style, border_width);
+        ctx.get_mut_gradient().copy_of(info.style.background_color.unwrap(ctx, info, |s| {&s.background_color}));
+        let bw: i32 = info.style.border_width.unwrap(ctx, info, |s| {&s.border_width});
         ctx.triangular_rectangle_origin_rotated(info.x + bw - margins[0], info.y + bw - margins[2], info.width - bw * 2 + margins[1], info.height - bw * 2 + margins[3], br, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, border_color));
+            ctx.get_mut_gradient().copy_of(info.style.border_color.unwrap(ctx, info, |s| {&s.border_color}));
             ctx.void_triangular_rectangle_origin_rotated(info.x - margins[0], info.y - margins[2], info.width + margins[1], info.height + margins[3], bw, br + bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else {
-        ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, background_color));;
-        let bw: i32 = unwrap_value!(ctx, info.style, border_width);
+        ctx.get_mut_gradient().copy_of(info.style.background_color.unwrap(ctx, info, |s| {&s.background_color}));;
+        let bw: i32 = info.style.border_width.unwrap(ctx, info, |s| {&s.border_width});
         ctx.rectangle_origin_rotated(info.x + bw - margins[0], info.y + bw - margins[2], info.width - bw * 2 + margins[1], info.height - bw * 2 + margins[3], info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(unwrap_value!(ctx, info.style, border_color));
+            ctx.get_mut_gradient().copy_of(info.style.border_color.unwrap(ctx, info, |s| {&s.border_color}));
             ctx.void_rectangle_origin_rotated(info.x - margins[0], info.y - margins[2], info.width + margins[1], info.height + margins[3], bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     }

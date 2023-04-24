@@ -1,3 +1,4 @@
+use mvutils::deref;
 use mvutils::screen::{Measurement, Measurements};
 use mvutils::utils::XTraFMath;
 use crate::render::color::{Gradient, RGB};
@@ -13,8 +14,8 @@ pub struct GuiStyle {
     pub text_size: GuiValue<i32>,
     pub font: GuiValue<TypeFace>,
     //left, right, bottom, top
-    pub margin: [GuiValue<f32>; 4],
-    pub padding: [GuiValue<f32>; 4],
+    pub margin: [GuiValue<i32>; 4],
+    pub padding: [GuiValue<i32>; 4],
     pub border_width: GuiValue<i32>,
     pub border_radius: GuiValue<i32>,
     pub border_style: GuiValue<BorderStyle>,
@@ -40,9 +41,10 @@ pub enum ViewState {
 pub enum Positioning {
     Relative,
     Absolute,
-    Sticky(dyn FnMut(i32, i32, i32, i32) -> bool)
+    Sticky(*const dyn FnMut(i32, i32, i32, i32) -> bool)
 }
 
+#[derive(Ord, PartialOrd, Eq, PartialEq)]
 pub enum BorderStyle {
     Round,
     Triangle
@@ -53,17 +55,18 @@ pub enum GuiValue<T> {
     Measurement(T, Measurement),
     Percentage(T, u8),
     Inherit(),
-    Clone(GuiStyle)
+    Clone(&'static GuiStyle)
 }
 
 impl<T> GuiValue<T> {
-    pub fn unwrap(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: Box<dyn FnMut(&GuiStyle) -> &GuiValue<T>>) -> T {
-        match name_supplier(self) {
-            GuiValue::Just(t) => {t},
-            GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m)},
-            GuiValue::Percentage(v, p) => {(v as f32).value(p as f32)},
-            GuiValue::Inherit() => {name_supplier(self).unwrap(draw, element_info, name_supplier)},
-            GuiValue::Clone(other) => {name_supplier(&other).unwrap(draw, element_info, name_supplier)}
+    pub fn unwrap<F>(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: F) -> T where
+        F: FnMut(&GuiStyle) -> &GuiValue<T> {
+        match self {
+            GuiValue::Just(t) => {deref!(t)},
+            GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T}, //DUDE HOW CAN I SOLVE THIS OMG! T CAN ONLY BE F32 HERE, SO WHERE IS THE PROBLEM???
+            GuiValue::Percentage(v, p) => {(v as f32).value(p as f32) as T},
+            GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw, element_info, name_supplier)},
+            GuiValue::Clone(other) => {name_supplier(other).unwrap(draw, element_info, name_supplier)}
         }
     }
 }
