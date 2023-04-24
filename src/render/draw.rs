@@ -21,12 +21,14 @@ pub struct Draw2D {
     use_cam: bool,
     chroma_tilt: f32,
     chroma_compress: f32,
-    frame: u64
+    frame: u64,
+    screen_resolution: (i32, i32),
+    dpi: f32
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Draw2D {
-    pub(crate) fn new(shader: Rc<RefCell<Shader>>, font: Rc<Font>, width: i32, height: i32) -> Self {
+    pub(crate) fn new(shader: Rc<RefCell<Shader>>, font: Rc<Font>, width: i32, height: i32, res: (i32, i32), dpi: f32) -> Self {
         Draw2D {
             canvas: [0.0, 0.0, width as f32, height as f32, 0.0, 0.0],
             size: [width as f32, height as f32],
@@ -37,9 +39,13 @@ impl Draw2D {
             use_cam: true,
             chroma_tilt: -0.5,
             chroma_compress: 1.0,
-            frame: 0
+            frame: 0,
+            screen_resolution: res,
+            dpi
         }
     }
+
+
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         self.frame += 1;
@@ -551,6 +557,12 @@ impl Draw2D {
     //}
     //}
 
+    pub fn screen_resolution(&self) -> (i32, i32) {
+        self.screen_resolution
+    }
+    pub fn dpi(&self) -> f32 {
+        self.dpi
+    }
 }
 
 pub enum CanvasStyle {

@@ -277,6 +277,10 @@ impl<F: Fmt, T: Copy> Gradient<F, T> {
         self.colors = [color; 4];
     }
 
+    pub fn copy_of(&mut self, gradient: Gradient<F, T>) {
+        self.colors = gradient.colors;
+    }
+
     pub fn set_all(&mut self, c1: T, c2: T, c3: T, c4: T) {
         self.colors[0].set(c1, c2, c3, c4);
         self.colors[1].set(c1, c2, c3, c4);

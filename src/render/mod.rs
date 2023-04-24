@@ -5,18 +5,24 @@ use std::rc::Rc;
 use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
 use image::{EncodableLayout, ImageFormat};
 use image::ImageFormat::Png;
+use crate::ApplicationInfo;
 
 use crate::assets::SemiAutomaticAssetManager;
-use crate::render::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
+use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
 
+#[cfg(feature = "vulkan")]
+use crate::render::vulkan::internal::Vulkan;
+#[cfg(feature = "vulkan")]
+use crate::render::vulkan::vulkan::{VulkanWindow, VulkanShader, VulkanTexture};
+
 pub mod shared;
-pub mod opengl;
 pub mod draw;
 pub mod color;
 pub mod batch;
 pub mod camera;
 pub mod text;
+pub mod opengl;
 #[cfg(feature = "vulkan")]
 pub mod vulkan;
 
@@ -47,22 +53,53 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
 pub struct RenderCore {
     backend: RenderingBackend,
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
+    #[cfg(feature = "vulkan")]
+    vulkan: Option<Vulkan>,
 }
 
+#[derive(Eq, PartialEq)]
 pub enum RenderingBackend {
     OpenGL,
     #[cfg(feature = "vulkan")]
     Vulkan
 }
 
+impl Clone for RenderingBackend {
+    fn clone(&self) -> Self {
+        match self {
+            RenderingBackend::OpenGL => RenderingBackend::OpenGL,
+            #[cfg(feature = "vulkan")]
+            RenderingBackend::Vulkan => RenderingBackend::Vulkan,
+        }
+    }
+}
+
 impl RenderCore {
-    pub(crate) fn new(backend: RenderingBackend, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
+    pub(crate) fn new(info: &ApplicationInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
+        let mut backend = info.backend.clone();
         unsafe {
             glfwInit();
+            #[cfg(feature = "vulkan")]
+            if backend == RenderingBackend::Vulkan {
+                let vulkan = Vulkan::init(info);
+                if vulkan.is_err() {
+                    backend = RenderingBackend::OpenGL;
+                }
+                else {
+                    return RenderCore {
+                        backend,
+                        assets,
+                        #[cfg(feature = "vulkan")]
+                        vulkan: vulkan.ok(),
+                    };
+                }
+            }
         }
         RenderCore {
             backend,
             assets,
+            #[cfg(feature = "vulkan")]
+            vulkan: None,
         }
     }
 
@@ -72,14 +109,14 @@ impl RenderCore {
         }
     }
 
-    pub fn create_window(&self, info: WindowCreateInfo) -> impl Window {
+    pub fn create_window(&self, info: WindowCreateInfo) -> Window {
         match self.backend {
             RenderingBackend::OpenGL => {
-                OpenGLWindow::new(info, self.assets.clone())
-            }
+                Window::OpenGL(OpenGLWindow::new(info, self.assets.clone()))
+            },
             #[cfg(feature = "vulkan")]
             RenderingBackend::Vulkan => {
-                panic!()
+                Window::Vulkan(VulkanWindow::new(info, self.assets.clone()))
             }
         }
     }
@@ -89,10 +126,10 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, source))
-                }
+                },
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
-                    panic!()
+                    EffectShader::Vulkan(VulkanShader::new(EFFECT_VERT, source))
                 }
             }
         }
@@ -103,10 +140,10 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     Shader::OpenGL(OpenGLShader::new(vertex, fragment))
-                }
+                },
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
-                    panic!()
+                    Shader::Vulkan(VulkanShader::new(vertex, fragment))
                 }
             }
         }
@@ -117,10 +154,10 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     Texture::OpenGL(OpenGLTexture::new(bytes.to_vec()))
-                }
+                },
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
-                    panic!()
+                    Texture::Vulkan(VulkanTexture::new(bytes.to_vec()))
                 }
             }
         }

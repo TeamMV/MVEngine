@@ -12,23 +12,26 @@ use crate::render::{RenderCore, RenderingBackend};
 pub mod assets;
 pub mod render;
 pub mod parser;
+pub mod input;
+#[cfg(feature = "gui")]
+pub mod vgui_v5;
 
 pub struct MVCore {
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
     render: Rc<RenderCore>,
-    app_version: Version
+    info: ApplicationInfo
 }
 
 impl MVCore {
-    pub fn new(backend: RenderingBackend, app_version: Version) -> MVCore {
+    pub fn new(info: ApplicationInfo) -> MVCore {
         static DIR: Dir = include_dir!("assets");
         let assets = Rc::new(RefCell::new(AssetManager::semi_automatic(DIR.clone())));
-        let render = Rc::new(RenderCore::new(backend, assets.clone()));
+        let render = Rc::new(RenderCore::new(&info, assets.clone()));
         assets.borrow_mut().set_render_core(render.clone());
         MVCore {
             assets,
             render,
-            app_version
+            info
         }.tmp_load()
     }
 
@@ -41,7 +44,7 @@ impl MVCore {
     }
 
     pub fn get_app_version(&self) -> Version {
-        self.app_version
+        self.info.version
     }
 
     pub fn get_render(&self) -> Rc<RenderCore> {
@@ -70,22 +73,51 @@ impl Drop for MVCore {
 
 impl Default for MVCore {
     fn default() -> Self {
-        Self::new(RenderingBackend::OpenGL, Version::default())
+        Self::new(ApplicationInfo::default())
+    }
+}
+
+pub struct ApplicationInfo {
+    name: String,
+    version: Version,
+    backend: RenderingBackend
+}
+
+impl ApplicationInfo {
+    fn new(backend: RenderingBackend, name: &str, version: Version) -> ApplicationInfo {
+        ApplicationInfo {
+            name: name.to_string(),
+            version,
+            backend
+        }
+    }
+}
+
+impl Default for ApplicationInfo {
+    fn default() -> Self {
+        ApplicationInfo {
+            name: String::new(),
+            version: Version::default(),
+            backend: RenderingBackend::OpenGL
+        }
     }
 }
 
 #[cfg(test)]
-//#[cfg(not(feature = "vulkan"))]
 mod tests {
     use crate::assets::ReadableAssetManager;
-    use crate::MVCore;
+    use crate::{ApplicationInfo, MVCore};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
     use mvutils::version::Version;
 
     #[test]
     fn test() {
-        let mut core = MVCore::new(OpenGL, Version::parse("v0.1.0").unwrap());
+        let mut app = ApplicationInfo::default();
+        app.version = Version::parse("v0.1.0").unwrap();
+        app.name = "Test".to_string();
+        app.backend = OpenGL;
+        let mut core = MVCore::new(app);
         let mut info = WindowCreateInfo::default();
         info.title = "MVCore".to_string();
         let mut window = core.get_render().create_window(info);
@@ -99,11 +131,11 @@ mod tests {
     }
 
     impl ApplicationLoop for Test {
-        fn start(&self, window: &mut impl Window) {}
+        fn start(&self, mut window: RunningWindow) {}
 
-        fn update(&self, window: &mut impl Window) {}
+        fn update(&self, mut window: RunningWindow) {}
 
-        fn draw(&self, window: &mut impl Window) {
+        fn draw(&self, mut window: RunningWindow) {
             //window.get_draw_2d().tri();
             window.get_draw_2d().text(true, 100, 100, 50, "Hello".to_string());
             window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
@@ -117,18 +149,24 @@ mod tests {
             //}));
         }
 
-        fn stop(&self, window: &mut impl Window) {}
+        fn stop(&self, window: RunningWindow) {}
     }
 }
 
 #[cfg(test)]
 #[cfg(feature = "vulkan")]
-mod vulkan_test {
-
+mod vulkan_tests {
+    use mvutils::version::Version;
+    use crate::{ApplicationInfo, MVCore};
+    use crate::render::RenderingBackend::Vulkan;
 
     #[test]
     fn test() {
-
+        let mut app = ApplicationInfo::default();
+        app.version = Version::parse("v0.1.0").unwrap();
+        app.name = "Test".to_string();
+        app.backend = Vulkan;
+        let mut core = MVCore::new(app);
     }
 
 }

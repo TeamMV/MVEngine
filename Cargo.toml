@@ -39,6 +39,7 @@ glam = "0.24.0"
 once_cell = "1.17.1"
 bytebuffer = "2.1.1"
 json = "0.12.4"
-roxmltree = { version = "0.18.0", optional = true }
-vulkano = { version = "0.33.0", optional = true }
 image = "0.24.6"
+vulkano_maybe_molten = "0.30.1"
+roxmltree = { version = "0.18.0", optional = true }
+vulkano = { version = "0.33.0", optional = true, features = ["default", "document_unchecked"] }

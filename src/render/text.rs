@@ -3,6 +3,12 @@ use std::cmp::max;
 
 use super::{shared::Texture, RenderCore};
 
+pub struct TypeFace {
+    regular: Font,
+    bold: Font,
+    italic: Font,
+}
+
 pub struct Font {
     texture: Rc<RefCell<Texture>>,
     alphabet: HashMap<char, Glyph>,

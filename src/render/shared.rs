@@ -8,118 +8,24 @@ use mvutils::utils::TetrahedronOp;
 use crate::assets::SemiAutomaticAssetManager;
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
-use crate::render::opengl::{OpenGLShader, OpenGLTexture};
+use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 #[cfg(feature = "vulkan")]
-use crate::render::vulkan::*;
+use crate::render::vulkan::vulkan::*;
 
 pub trait ApplicationLoop {
-    fn start(&self, window: &mut impl Window);
-    fn update(&self, window: &mut impl Window);
-    fn draw(&self, window: &mut impl Window);
-    fn stop(&self, window: &mut impl Window);
+    fn start(&self, window: RunningWindow);
+    fn update(&self, window: RunningWindow);
+    fn draw(&self, window: RunningWindow);
+    fn stop(&self, window: RunningWindow);
 }
 
 struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
-    fn start(&self, _: &mut impl Window) {}
-    fn update(&self, _: &mut impl Window) {}
-    fn draw(&self, _: &mut impl Window) {}
-    fn stop(&self, _: &mut impl Window) {}
-}
-
-pub trait Window {
-    fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self;
-    fn run(&mut self, application_loop: impl ApplicationLoop);
-    fn run_default(&mut self) {
-        self.run(DefaultApplicationLoop {});
-    }
-    fn stop(&mut self);
-
-    fn get_width(&self) -> i32;
-    fn get_height(&self) -> i32;
-    fn get_fps(&self) -> u16;
-    fn get_ups(&self) -> u16;
-    fn get_frame(&self) -> u64;
-
-    fn get_draw_2d(&mut self) -> &mut Draw2D;
-    fn set_fullscreen(&mut self, fullscreen: bool);
-    fn get_glfw_window(&self) -> *mut GLFWwindow;
-
-    fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>);
-    fn queue_shader_pass(&mut self, info: ShaderPassInfo);
-
-    fn get_camera(&self) -> &Camera;
-}
-
-pub struct ShaderPassInfo {
-    id: String,
-    applier: Box<dyn Fn(&mut EffectShader)>,
-}
-
-impl ShaderPassInfo {
-    pub fn new(id: &str, applier: impl Fn(&mut EffectShader) + 'static) -> Self {
-        ShaderPassInfo {
-            id: id.to_string(),
-            applier: Box::new(applier),
-        }
-    }
-
-    pub fn id(id: &str) -> Self {
-        Self::new(id, |_| {})
-    }
-
-    pub(crate) fn apply(&self, shader: &mut EffectShader) {
-        (self.applier)(shader);
-    }
-
-    pub(crate) fn get_id(&self) -> &str {
-        &self.id
-    }
-}
-
-pub struct WindowCreateInfo {
-    pub width: i32,
-    pub height: i32,
-    pub fps: u16,
-    pub ups: u16,
-    pub fullscreen: bool,
-    pub vsync: bool,
-    pub resizable: bool,
-    pub decorated: bool,
-    pub title: String,
-}
-
-impl WindowCreateInfo {
-    pub fn new(width: i32, height: i32, fullscreen: bool, title: &str) -> Self {
-        WindowCreateInfo {
-            width,
-            height,
-            fps: 60,
-            ups: 20,
-            fullscreen,
-            vsync: false,
-            resizable: true,
-            decorated: true,
-            title: title.to_string(),
-        }
-    }
-}
-
-impl Default for WindowCreateInfo {
-    fn default() -> Self {
-        WindowCreateInfo {
-            width: 800,
-            height: 600,
-            fps: 60,
-            ups: 20,
-            fullscreen: false,
-            vsync: false,
-            resizable: true,
-            decorated: true,
-            title: String::new(),
-        }
-    }
+    fn start(&self, _:RunningWindow) {}
+    fn update(&self, _: RunningWindow) {}
+    fn draw(&self, _: RunningWindow) {}
+    fn stop(&self, _: RunningWindow) {}
 }
 
 macro_rules! backend_call {
@@ -221,6 +127,214 @@ macro_rules! backend_fn {
             backend_ret_call!($ty, self, $name $(,$params)+);
         }
     };
+}
+
+macro_rules! backend_ptr_call {
+    ($ty:ident, $s:expr, $name:ident) => {
+        match $s {
+            $ty::OpenGL(gl) => unsafe {
+                gl.as_mut().unwrap().$name();
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.as_mut().unwrap().$name();
+            },
+        }
+    };
+    ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
+        match $s {
+            $ty::OpenGL(gl) => unsafe {
+                gl.as_mut().unwrap().$name($($params,)*);
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.as_mut().unwrap().$name($($params,)*);
+            },
+        }
+    };
+}
+
+macro_rules! backend_ptr_ret_call {
+    ($ty:ident, $s:expr, $name:ident) => {
+        return match $s {
+            #[allow(unused_unsafe)]
+            $ty::OpenGL(gl) => unsafe {
+                gl.as_mut().unwrap().$name()
+            },
+            #[cfg(feature = "vulkan")]
+            #[allow(unused_unsafe)]
+            $ty::Vulkan(vk) => unsafe {
+                vk.as_mut().unwrap().$name()
+            },
+        }
+    };
+    ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
+        return match $s {
+            $ty::OpenGL(gl) => unsafe {
+                gl.as_mut().unwrap().$name($($params,)*)
+            },
+            #[cfg(feature = "vulkan")]
+            $ty::Vulkan(vk) => unsafe {
+                vk.as_mut().unwrap().$name($($params,)*)
+            },
+        }
+    };
+}
+
+macro_rules! backend_ptr_fn {
+    ($ty:ident, $name:ident) => {
+        pub fn $name(&mut self) {
+            backend_ptr_call!($ty, self, $name);
+        }
+    };
+    ($ty:ident, $name:ident, $($params:ident: $types:ty),+) => {
+        pub fn $name(&mut self, $($params: $types),+) {
+            backend_ptr_call!($ty, self, $name $(,$params)+);
+        }
+    };
+    ($ty:ident, $name:ident, $ret:ty) => {
+        pub fn $name(&mut self) -> $ret {
+            backend_ptr_ret_call!($ty, self, $name);
+        }
+    };
+    ($ty:ident, $name:ident, $ret:ty, $($params:ident: $types:ty),+) => {
+        pub fn $name(&mut self, $($params: $types),+) -> $ret {
+            backend_ptr_ret_call!($ty, self, $name $(,$params)+);
+        }
+    };
+    ($ty:ident, $name:ident, $i:expr) => {
+        pub fn $name(&self) {
+            backend_ptr_call!($ty, self, $name);
+        }
+    };
+    ($ty:ident, $name:ident, $i:expr, $($params:ident: $types:ty),+) => {
+        pub fn $name(&self, $($params: $types),+) {
+            backend_ptr_call!($ty, self, $name $(,$params)+);
+        }
+    };
+    ($ty:ident, $name:ident, $ret:ty, $i:expr) => {
+        pub fn $name(&self) -> $ret {
+            backend_ptr_ret_call!($ty, self, $name);
+        }
+    };
+    ($ty:ident, $name:ident, $ret:ty, $i:expr, $($params:ident: $types:ty),+) => {
+        pub fn $name(&self, $($params: $types),+) -> $ret {
+            backend_ptr_ret_call!($ty, self, $name $(,$params)+);
+        }
+    };
+}
+
+pub enum Window {
+    OpenGL(OpenGLWindow),
+    #[cfg(feature = "vulkan")]
+    Vulkan(VulkanWindow),
+}
+
+impl Window {
+    backend_fn!(Window, run, application_loop: impl ApplicationLoop);
+
+    pub fn run_default(&mut self) {
+        self.run(DefaultApplicationLoop {});
+    }
+
+    backend_fn!(Window, add_shader, id: &str, shader: Rc<RefCell<EffectShader>>);
+}
+
+pub enum RunningWindow {
+    OpenGL(*mut OpenGLWindow),
+    #[cfg(feature = "vulkan")]
+    Vulkan(*mut VulkanWindow),
+}
+
+impl RunningWindow {
+    backend_ptr_fn!(RunningWindow, stop);
+
+    backend_ptr_fn!(RunningWindow, get_width, i32, true);
+    backend_ptr_fn!(RunningWindow, get_height, i32, true);
+    backend_ptr_fn!(RunningWindow, get_resolution, (i32, i32), true);
+    backend_ptr_fn!(RunningWindow, get_dpi, f32, true);
+    backend_ptr_fn!(RunningWindow, get_fps, u16, true);
+    backend_ptr_fn!(RunningWindow, get_ups, u16, true);
+    backend_ptr_fn!(RunningWindow, get_frame, u64, true);
+
+    backend_ptr_fn!(RunningWindow, get_draw_2d, &mut Draw2D);
+    backend_ptr_fn!(RunningWindow, set_fullscreen, fullscreen : bool);
+    //backend_fn!(Window, get_glfw_window, *mut GLFWwindow, true);
+
+    backend_ptr_fn!(RunningWindow, add_shader, id: &str, shader: Rc<RefCell<EffectShader>>);
+    backend_ptr_fn!(RunningWindow, queue_shader_pass, info: ShaderPassInfo);
+
+    backend_ptr_fn!(RunningWindow, get_camera, &Camera, true);
+}
+
+pub struct ShaderPassInfo {
+    id: String,
+    applier: Box<dyn Fn(&mut EffectShader)>,
+}
+
+impl ShaderPassInfo {
+    pub fn new(id: &str, applier: impl Fn(&mut EffectShader) + 'static) -> Self {
+        ShaderPassInfo {
+            id: id.to_string(),
+            applier: Box::new(applier),
+        }
+    }
+
+    pub fn id(id: &str) -> Self {
+        Self::new(id, |_| {})
+    }
+
+    pub(crate) fn apply(&self, shader: &mut EffectShader) {
+        (self.applier)(shader);
+    }
+
+    pub(crate) fn get_id(&self) -> &str {
+        &self.id
+    }
+}
+
+pub struct WindowCreateInfo {
+    pub width: i32,
+    pub height: i32,
+    pub fps: u16,
+    pub ups: u16,
+    pub fullscreen: bool,
+    pub vsync: bool,
+    pub resizable: bool,
+    pub decorated: bool,
+    pub title: String,
+}
+
+impl WindowCreateInfo {
+    pub fn new(width: i32, height: i32, fullscreen: bool, title: &str) -> Self {
+        WindowCreateInfo {
+            width,
+            height,
+            fps: 60,
+            ups: 20,
+            fullscreen,
+            vsync: false,
+            resizable: true,
+            decorated: true,
+            title: title.to_string(),
+        }
+    }
+}
+
+impl Default for WindowCreateInfo {
+    fn default() -> Self {
+        WindowCreateInfo {
+            width: 800,
+            height: 600,
+            fps: 60,
+            ups: 20,
+            fullscreen: false,
+            vsync: false,
+            resizable: true,
+            decorated: true,
+            title: String::new(),
+        }
+    }
 }
 
 pub enum Shader {
