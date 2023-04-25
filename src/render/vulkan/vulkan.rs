@@ -35,7 +35,8 @@ static_listener!(res, resize, w: i32, h: i32);
 pub struct VulkanWindow {
     info: WindowCreateInfo,
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
-    vulkan: *mut Vulkan,
+    vulkan: Option<Vulkan>,
+    app: *const ApplicationInfo,
 
     core: *mut RenderCore,
     window: *mut GLFWwindow,
@@ -64,7 +65,8 @@ impl VulkanWindow {
         VulkanWindow {
             info,
             assets,
-            vulkan: app as *mut Vulkan,
+            vulkan: None,
+            app,
 
             core,
             window: std::ptr::null_mut(),
@@ -98,10 +100,11 @@ impl VulkanWindow {
             self.window = glfwCreateWindow(self.info.width, self.info.height, self.info.title.as_c_str().as_ptr(), std::ptr::null_mut(), std::ptr::null_mut());
             VK_WINDOWS.insert(self.window, self);
 
-            let vulkan = Vulkan::init((self.vulkan as *const ApplicationInfo).as_ref().unwrap());
+            let vulkan = Vulkan::init(self.app.as_ref().unwrap());
             if vulkan.is_err() {
                 return false;
             }
+            self.vulkan = Some(vulkan.unwrap());
 
             glfwMakeContextCurrent(self.window);
             glfwSwapInterval(self.info.vsync.yn(1, 0));
