@@ -1,6 +1,8 @@
+use alloc::rc::Rc;
+use std::cell::RefCell;
 use mvutils::deref;
 use mvutils::screen::{Measurement, Measurements};
-use mvutils::utils::XTraFMath;
+use mvutils::utils::{R, XTraFMath};
 use crate::render::color::{Gradient, RGB};
 use crate::render::draw::Draw2D;
 use crate::render::text::{Font, TypeFace};
@@ -58,21 +60,19 @@ pub enum GuiValue<T> {
     Clone(&'static GuiStyle)
 }
 
-pub(crate) trait GuiValueValue {}
-
-macro_rules! impl_gvv {
+macro_rules! impl_gv {
     ($($t:ty),*) => {
         $(
-            impl<$t> GuiValue<$t> {
-                pub fn unwrap<F>(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: F) -> T where
-                    F: FnMut(&GuiStyle) -> &GuiValue<T> {
-                    match self {
+            impl GuiValue<$t> {
+                pub fn unwrap<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, name_supplier: F) -> $t where
+                    F: FnMut(&GuiStyle) -> &GuiValue<$t> {
+                        match self {
                         GuiValue::Just(t) => {deref!(t)},
-                        GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T},
-                        GuiValue::Percentage(v, p) => {(v as f32).value(p as f32) as T},
-                        GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw, element_info, name_supplier)},
-                        GuiValue::Clone(other) => {name_supplier(other).unwrap(draw, element_info, name_supplier)}
-                    }
+                        GuiValue::Measurement(v, m) => {Measurements::compute(draw.deref().into_inner().dpi(), deref!(v) as f32, &m) as $t},
+                        GuiValue::Percentage(v, p) => {(deref!(v) as f32).value(deref!(p) as f32) as $t},
+                        GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw.clone(), element_info, name_supplier)},
+                        GuiValue::Clone(other) => {name_supplier(other).unwrap(draw.clone(), element_info, name_supplier)}
+                        }//My funny ide doenst let me fix this formatting issue loool
                 }
             }
         )*
@@ -80,14 +80,16 @@ macro_rules! impl_gvv {
 }
 
 impl<T> GuiValue<T> {
-    pub fn unwrap<F>(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: F) -> T where
+    pub fn unwrapt<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, name_supplier: F) -> T where
         F: FnMut(&GuiStyle) -> &GuiValue<T> {
         match self {
             GuiValue::Just(t) => {deref!(t)},
-            GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T},
-            GuiValue::Percentage(v, p) => {(v as f32).value(p as f32) as T},
-            GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw, element_info, name_supplier)},
-            GuiValue::Clone(other) => {name_supplier(other).unwrap(draw, element_info, name_supplier)}
+            GuiValue::Measurement(v, m) => {deref!(v)},
+            GuiValue::Percentage(v, p) => {deref!(v)},
+            GuiValue::Inherit() => {name_supplier(&element_info.style).unwrapt(draw.clone(), element_info, name_supplier)},
+            GuiValue::Clone(other) => {name_supplier(other).unwrapt(draw.clone(), element_info, name_supplier)}
         }
     }
 }
+
+impl_gv!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64);

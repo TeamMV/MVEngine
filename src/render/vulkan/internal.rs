@@ -1,25 +1,31 @@
 use std::default::Default;
 use std::ffi::c_void;
+use std::io::Read;
 use std::ptr::null_mut;
 use std::sync::Arc;
 use glam::Mat4;
 use glfw::ffi::{glfwCreateWindowSurface, glfwVulkanSupported, GLFWwindow};
+use glsl_to_spirv::ShaderType;
+use regex::internal::Input;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, Queue, QueueCreateInfo, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::{Version, VulkanLibrary, VulkanObject};
-use vulkano::buffer::{Buffer, BufferContents, BufferContentsLayout, BufferCreateInfo, BufferUsage};
+use vulkano::buffer::{Buffer, BufferContents, BufferContentsLayout, BufferCreateInfo, BufferUsage, Subbuffer};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, PrimaryAutoCommandBuffer};
 use vulkano::image::{ImageUsage, SwapchainImage};
 use vulkano::image::sys::Image;
 use vulkano::image::view::ImageView;
 use vulkano::memory::allocator::{AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, GenericMemoryAllocatorCreateInfo, MemoryAllocator, MemoryUsage, StandardMemoryAllocator};
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
-use vulkano::pipeline::graphics::vertex_input::{BuffersDefinition, VertexBufferDescription};
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use crate::ApplicationInfo;
+use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG};
 
 const device_extensions: DeviceExtensions = DeviceExtensions {
     khr_swapchain: true,
@@ -36,6 +42,9 @@ pub(crate) struct Vulkan {
     images: Vec<Arc<SwapchainImage>>,
     render_pass: Arc<RenderPass>,
     framebuffers: Vec<Arc<Framebuffer>>,
+    graphics_pipeline: Arc<GraphicsPipeline>,
+    vs: Arc<ShaderModule>,
+    fs: Arc<ShaderModule>,
     memory_allocator: StandardMemoryAllocator,
 }
 
@@ -132,6 +141,24 @@ impl Vulkan {
 
         let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
 
+        let vs = ShaderModule::from_bytes(
+            device.clone(),
+            &glsl_to_spirv::compile(EFFECT_VERT, ShaderType::Vertex)
+                .expect("Error making default shaders")
+                .bytes()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>());
+
+        let fs = ShaderModule::from_bytes(
+            device.clone(),
+            &glsl_to_spirv::compile(EMPTY_EFFECT_FRAG, ShaderType::Vertex)
+                .expect("Error making default shaders")
+                .bytes()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>());
+
         Ok(Vulkan {
             instance,
             physical_device,
@@ -176,7 +203,7 @@ impl Vulkan {
         })
     }
 
-    pub(crate) fn regen_swapchain(&mut self, width: u32, height: u32) {
+    pub(crate) fn resize(&mut self, width: u32, height: u32) {
         let caps = self.physical_device.surface_capabilities(&surface, Default::default()).map_err(|_| ())?;
 
         let composite_alpha = caps.supported_composite_alpha.into_iter().next().ok_or(())?;
@@ -190,23 +217,61 @@ impl Vulkan {
             composite_alpha,
             ..Default::default()
         }).expect("Error recreating swapchain!");
+
+        self.graphics_pipeline = Self::generate_graphics_pipeline(
+            self.device.clone(),
+            width as f32,
+            height as f32,
+            self.render_pass.clone(),
+            self.vs.clone(),
+            self.fs.clone()
+        ).expect("Error creating graphics pipeline!");
     }
 
-    fn generate_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Option<Arc<GraphicsPipeline>> {
+    fn generate_graphics_pipeline(device: Arc<Device>, width: f32, height: f32, render_pass: Arc<RenderPass>, vs: Arc<ShaderModule>, fs: Arc<ShaderModule>) -> Option<Arc<GraphicsPipeline>> {
         let mut viewport = Viewport {
             origin: [0.0, 0.0],
-            dimensions: surface.window().inner_size().into(),
+            dimensions: [width, height],
             depth_range: 0.0..1.0,
         };
 
-        let graphics_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(VertexBufferDescription::)
+        GraphicsPipeline::start()
+            .vertex_input_state(Vertex::per_instance())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(InputAssemblyState::new())
             .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
             .fragment_shader(fs.entry_point("main").unwrap(), ())
             .render_pass(Subpass::from(render_pass, 0).unwrap())
             .build(device).ok()
+    }
+
+    fn get_command_buffers(device: Arc<Device>, queue: Arc<Queue>, pipeline: Arc<GraphicsPipeline>, framebuffers: Vec<Arc<Framebuffer>>, vertex_buffer: Arc<Buffer>, index_buffer: Arc<Buffer>, draw: usize) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+        framebuffers.iter()
+            .map(|framebuffer| {
+                let mut builder = AutoCommandBufferBuilder::primary(
+                    &device,
+                    queue.queue_family_index(),
+                    CommandBufferUsage::OneTimeSubmit,
+                ).unwrap();
+
+                builder.begin_render_pass(
+                        RenderPassBeginInfo {
+                            clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
+                            ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                        },
+                        SubpassContents::Inline,
+                    )
+                    .unwrap()
+                    .bind_pipeline_graphics(pipeline.clone())
+                    .bind_vertex_buffers(0, vertex_buffer)
+                    .bind_index_buffer(Subbuffer::from(index_buffer))
+                    .draw(draw as u32, 1, 0, 0)
+                    .unwrap()
+                    .end_render_pass()
+                    .unwrap();
+
+                Arc::new(builder.build().unwrap())
+            }).collect()
     }
 
     pub(crate) fn buffer_vertices(&self, vertices: &[f32]) -> Arc<Buffer> {
