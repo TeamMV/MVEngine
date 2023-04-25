@@ -365,6 +365,14 @@ impl Shader {
     backend_fn!(Shader, uniform_2fm, name: &str, value: Mat2);
     backend_fn!(Shader, uniform_3fm, name: &str, value: Mat3);
     backend_fn!(Shader, uniform_4fm, name: &str, value: Mat4);
+
+    #[cfg(feature = "vulkan")]
+    pub(crate) fn get_vk(&mut self) -> &mut VulkanShader {
+        match self {
+            Shader::Vulkan(shader) => shader,
+            _ => panic!(),
+        }
+    }
 }
 
 pub enum EffectShader {
@@ -394,6 +402,14 @@ impl EffectShader {
     backend_fn!(EffectShader, uniform_2fm, name: &str, value: Mat2);
     backend_fn!(EffectShader, uniform_3fm, name: &str, value: Mat3);
     backend_fn!(EffectShader, uniform_4fm, name: &str, value: Mat4);
+
+    #[cfg(feature = "vulkan")]
+    pub(crate) fn get_vk(&mut self) -> &mut VulkanShader {
+        match self {
+            EffectShader::Vulkan(shader) => shader,
+            _ => panic!(),
+        }
+    }
 }
 
 pub enum Texture {

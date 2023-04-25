@@ -27,6 +27,11 @@ pub mod vulkan;
 pub const EFFECT_VERT: &str = "#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}";
 pub const EMPTY_EFFECT_FRAG: &str = "#version 450\nin vec2 fTexCoord;out vec4 outColor;uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
 
+#[cfg(feature = "vulkan")]
+pub const VK_EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
+#[cfg(feature = "vulkan")]
+pub const VK_EMPTY_EFFECT_FRAG: &str = "#version 450\nlayout(location=0)in vec2 fTexCoord;layout(location=0)out vec4 outColor;layout(binding=0)uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
+
 #[allow(non_snake_case)]
 pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetWindowPosCallback(window, None);
@@ -61,21 +66,11 @@ pub struct RenderCore {
     app: *const ApplicationInfo
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub enum RenderingBackend {
     OpenGL,
     #[cfg(feature = "vulkan")]
     Vulkan
-}
-
-impl Clone for RenderingBackend {
-    fn clone(&self) -> Self {
-        match self {
-            RenderingBackend::OpenGL => RenderingBackend::OpenGL,
-            #[cfg(feature = "vulkan")]
-            RenderingBackend::Vulkan => RenderingBackend::Vulkan,
-        }
-    }
 }
 
 impl RenderCore {
@@ -120,7 +115,7 @@ impl RenderCore {
                 },
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
-                    EffectShader::Vulkan(VulkanShader::new(EFFECT_VERT, source))
+                    EffectShader::Vulkan(VulkanShader::new(VK_EFFECT_VERT, source))
                 }
             }
         }

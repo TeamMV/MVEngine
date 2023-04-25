@@ -34,19 +34,21 @@ pub struct GuiStyle {
     pub rotation_center: GuiValue<(i32, i32)>,
 }
 
+#[derive(Copy, Clone)]
 pub enum ViewState {
     There,
     None,
     Gone
 }
 
+#[derive(Copy, Clone)]
 pub enum Positioning {
     Relative,
     Absolute,
     Sticky(*const dyn FnMut(i32, i32, i32, i32) -> bool)
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 pub enum BorderStyle {
     Round,
     Triangle
@@ -64,11 +66,11 @@ macro_rules! impl_gv {
     ($($t:ty),*) => {
         $(
             impl GuiValue<$t> {
-                pub fn unwrap<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, name_supplier: F) -> $t where
+                pub fn unwrap<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> $t where
                     F: FnMut(&GuiStyle) -> &GuiValue<$t> {
                         match self {
                         GuiValue::Just(t) => {deref!(t)},
-                        GuiValue::Measurement(v, m) => {Measurements::compute(draw.deref().into_inner().dpi(), deref!(v) as f32, &m) as $t},
+                        GuiValue::Measurement(v, m) => {Measurements::compute(draw.borrow_mut().dpi(), deref!(v) as f32, &m) as $t},
                         GuiValue::Percentage(v, p) => {(deref!(v) as f32).value(deref!(p) as f32) as $t},
                         GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw.clone(), element_info, name_supplier)},
                         GuiValue::Clone(other) => {name_supplier(other).unwrap(draw.clone(), element_info, name_supplier)}
@@ -79,8 +81,8 @@ macro_rules! impl_gv {
     };
 }
 
-impl<T> GuiValue<T> {
-    pub fn unwrapt<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, name_supplier: F) -> T where
+impl<T: Copy> GuiValue<T> {
+    pub fn unwrapt<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> T where
         F: FnMut(&GuiStyle) -> &GuiValue<T> {
         match self {
             GuiValue::Just(t) => {deref!(t)},
@@ -90,6 +92,14 @@ impl<T> GuiValue<T> {
             GuiValue::Clone(other) => {name_supplier(other).unwrapt(draw.clone(), element_info, name_supplier)}
         }
     }
+}
+
+#[macro_export]
+macro_rules! resolve {
+    ($n:ident) => {self.info.style.$n.unwrapt(ctx.clone(), self.info(), |s| {&s.$n})};
+    ($v:ident, $n:ident) => {$v.info.style.$n.unwrapt(ctx.clone(), $v.info(), |s| {&s.$n})};
+    ($n:ident, $ign:expr) => {info.style.$n.unwrapt(ctx.clone(), info, |s| {&s.$n})};
+    ($v:ident, $ign:expr, $n:ident) => {$v.style.$n.unwrapt(ctx.clone(), $v, |s| {&s.$n})};
 }
 
 impl_gv!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64);

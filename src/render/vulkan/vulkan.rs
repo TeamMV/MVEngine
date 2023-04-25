@@ -4,11 +4,13 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::Read;
 use std::ops::DerefMut;
+use std::sync::Arc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, NO_API, RESIZABLE, TRUE, VISIBLE};
 use glsl_to_spirv::ShaderType;
 use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
+use vulkano::device::Device;
 use vulkano::shader::ShaderModule;
 use crate::ApplicationInfo;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
@@ -103,7 +105,7 @@ impl VulkanWindow {
             self.window = glfwCreateWindow(self.info.width, self.info.height, self.info.title.as_c_str().as_ptr(), std::ptr::null_mut(), std::ptr::null_mut());
             VK_WINDOWS.insert(self.window, self);
 
-            let vulkan = Vulkan::init(self.app.as_ref().unwrap(),self.window);
+            let vulkan = Vulkan::init(self.app.as_ref().unwrap(), self.window, self.info.width as u32, self.info.height as u32);
             if vulkan.is_err() {
                 return false;
             }
@@ -254,7 +256,10 @@ impl VulkanWindow {
         self.render_2d.resize(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
-        self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()));
+        let mut binding = shader.borrow_mut();
+        let vk_shader = binding.get_vk();
+        self.vulkan.as_mut().unwrap().set_shader_2d(vk_shader, self.info.width as u32, self.info.height as u32);
+        self.draw_2d = Some(Draw2D::new(shader.clone(), font, self.info.width, self.info.height, self.res, self.get_dpi()));
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::Vulkan(self));
@@ -338,26 +343,59 @@ impl VulkanWindow {
 }
 
 pub struct VulkanShader {
-    vertex: Option<String>,
-    fragment: Option<String>,
+    vertex_code: Option<String>,
+    fragment_code: Option<String>,
+    vertex: Option<Arc<ShaderModule>>,
+    fragment: Option<Arc<ShaderModule>>,
 }
 
 impl VulkanShader {
     pub unsafe fn new(vertex: &str, fragment: &str) -> Self {
         VulkanShader {
-            vertex: Some(vertex.to_string()),
-            fragment: Some(fragment.to_string()),
+            vertex_code: Some(vertex.to_string()),
+            fragment_code: Some(fragment.to_string()),
+            vertex: None,
+            fragment: None,
         }
     }
 
-    pub unsafe fn make(&mut self) {
-        let vert = glsl_to_spirv::compile(self.vertex.take().unwrap().as_str(), ShaderType::Vertex).expect("Failed to compile vertex shader");
-        let frag = glsl_to_spirv::compile(self.fragment.take().unwrap().as_str(), ShaderType::Fragment).expect("Failed to compile vertex shader");
+    pub unsafe fn make(&mut self) {}
+
+    pub unsafe fn vk_make(&mut self, device: Arc<Device>) {
+        if self.vertex_code.is_none() || self.fragment_code.is_none() {
+            return;
+        }
+        let vert = self.vertex_code.take().unwrap();
+        let frag = self.fragment_code.take().unwrap();
+        self.vertex = Some(ShaderModule::from_bytes(
+            device.clone(),
+            &glsl_to_spirv::compile(vert.as_str(), ShaderType::Vertex)
+                .expect("Vertex shader failed to compile!")
+                .bytes()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+        ).expect("Vertex shader failed to compile!"));
+
+        self.fragment = Some(ShaderModule::from_bytes(
+            device,
+            &glsl_to_spirv::compile(frag.as_str(), ShaderType::Fragment)
+                .expect("Fragment shader failed to compile!")
+                .bytes()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+        ).expect("Fragment shader failed to compile!"));
     }
 
-    pub unsafe fn bind(&mut self) {
-
+    pub unsafe fn vk_get(&self, t: u8) -> Arc<ShaderModule> {
+        if t == 0 {
+            return self.vertex.clone().unwrap();
+        }
+        return self.fragment.clone().unwrap();
     }
+
+    pub unsafe fn bind(&mut self) {}
 
     pub unsafe fn uniform_1f(&self, name: &str, value: f32) {
 

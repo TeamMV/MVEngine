@@ -113,8 +113,6 @@ mod tests {
         let mut info = WindowCreateInfo::default();
         info.title = "MVCore".to_string();
         let mut window = core.get_render().create_window(info);
-        window.add_shader("blur", core.get_asset_manager().get_effect_shader("blur"));
-        window.add_shader("pixelate", core.get_asset_manager().get_effect_shader("pixelate"));
         window.run(Test { core });
     }
 
