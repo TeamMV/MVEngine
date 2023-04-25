@@ -2,11 +2,14 @@ use alloc::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::io::Read;
 use std::ops::DerefMut;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, NO_API, RESIZABLE, TRUE, VISIBLE};
+use glsl_to_spirv::ShaderType;
 use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
+use vulkano::shader::ShaderModule;
 use crate::ApplicationInfo;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::camera::Camera;
@@ -100,7 +103,7 @@ impl VulkanWindow {
             self.window = glfwCreateWindow(self.info.width, self.info.height, self.info.title.as_c_str().as_ptr(), std::ptr::null_mut(), std::ptr::null_mut());
             VK_WINDOWS.insert(self.window, self);
 
-            let vulkan = Vulkan::init(self.app.as_ref().unwrap());
+            let vulkan = Vulkan::init(self.app.as_ref().unwrap(),self.window);
             if vulkan.is_err() {
                 return false;
             }
@@ -335,20 +338,21 @@ impl VulkanWindow {
 }
 
 pub struct VulkanShader {
-    vertex: Option<CString>,
-    fragment: Option<CString>,
+    vertex: Option<String>,
+    fragment: Option<String>,
 }
 
 impl VulkanShader {
     pub unsafe fn new(vertex: &str, fragment: &str) -> Self {
         VulkanShader {
-            vertex: Some(CString::new(vertex).unwrap()),
-            fragment: Some(CString::new(fragment).unwrap()),
+            vertex: Some(vertex.to_string()),
+            fragment: Some(fragment.to_string()),
         }
     }
 
     pub unsafe fn make(&mut self) {
-
+        let vert = glsl_to_spirv::compile(self.vertex.take().unwrap().as_str(), ShaderType::Vertex).expect("Failed to compile vertex shader");
+        let frag = glsl_to_spirv::compile(self.fragment.take().unwrap().as_str(), ShaderType::Fragment).expect("Failed to compile vertex shader");
     }
 
     pub unsafe fn bind(&mut self) {

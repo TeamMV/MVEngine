@@ -58,12 +58,33 @@ pub enum GuiValue<T> {
     Clone(&'static GuiStyle)
 }
 
+pub(crate) trait GuiValueValue {}
+
+macro_rules! impl_gvv {
+    ($($t:ty),*) => {
+        $(
+            impl<$t> GuiValue<$t> {
+                pub fn unwrap<F>(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: F) -> T where
+                    F: FnMut(&GuiStyle) -> &GuiValue<T> {
+                    match self {
+                        GuiValue::Just(t) => {deref!(t)},
+                        GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T},
+                        GuiValue::Percentage(v, p) => {(v as f32).value(p as f32) as T},
+                        GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw, element_info, name_supplier)},
+                        GuiValue::Clone(other) => {name_supplier(other).unwrap(draw, element_info, name_supplier)}
+                    }
+                }
+            }
+        )*
+    };
+}
+
 impl<T> GuiValue<T> {
     pub fn unwrap<F>(&self, draw: &Draw2D, element_info: &GuiElementInfo, name_supplier: F) -> T where
         F: FnMut(&GuiStyle) -> &GuiValue<T> {
         match self {
             GuiValue::Just(t) => {deref!(t)},
-            GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T}, //DUDE HOW CAN I SOLVE THIS OMG! T CAN ONLY BE F32 HERE, SO WHERE IS THE PROBLEM???
+            GuiValue::Measurement(v, m) => {Measurements::compute(draw.dpi(), v as f32, &m) as T},
             GuiValue::Percentage(v, p) => {(v as f32).value(p as f32) as T},
             GuiValue::Inherit() => {name_supplier(&element_info.style).unwrap(draw, element_info, name_supplier)},
             GuiValue::Clone(other) => {name_supplier(other).unwrap(draw, element_info, name_supplier)}
