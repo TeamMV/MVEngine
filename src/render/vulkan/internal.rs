@@ -1,9 +1,14 @@
+use std::default::Default;
+use std::ffi::c_void;
 use std::sync::Arc;
+use glam::Mat4;
 use glfw::ffi::glfwVulkanSupported;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, Queue, QueueCreateInfo, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::{Version, VulkanLibrary};
+use vulkano::buffer::{Buffer, BufferContents, BufferContentsLayout, BufferCreateInfo, BufferUsage};
+use vulkano::memory::allocator::{AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, GenericMemoryAllocatorCreateInfo, MemoryAllocator, MemoryUsage, StandardMemoryAllocator};
 use crate::ApplicationInfo;
 
 pub(crate) struct Vulkan {
@@ -11,6 +16,7 @@ pub(crate) struct Vulkan {
     physical_device: Arc<PhysicalDevice>,
     device: Arc<Device>,
     queue: Arc<Queue>,
+    memory_allocator: StandardMemoryAllocator,
 }
 
 impl Vulkan {
@@ -50,11 +56,14 @@ impl Vulkan {
 
         let queue = queues.next().ok_or(())?;
 
+        let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
+
         Ok(Vulkan {
             instance,
             physical_device,
             device,
             queue,
+            memory_allocator,
         })
     }
 
@@ -74,4 +83,48 @@ impl Vulkan {
         }).unwrap()
     }
 
+    pub(crate) fn buffer_vertices(&self, vertices: &[f32]) -> Arc<Buffer> {
+        Buffer::from_iter(
+            &self.memory_allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
+            vertices.iter().cloned(),
+        ).expect("Failed to create vulkan buffer.").buffer().clone()
+    }
+
+    pub(crate) fn buffer_indices(&self, vertices: &[u32]) -> Arc<Buffer> {
+        Buffer::from_iter(
+            &self.memory_allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::INDEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
+            vertices.iter().cloned(),
+        ).expect("Failed to create vulkan buffer.").buffer().clone()
+    }
+
+    pub(crate) fn buffer_uniform<T: BufferContents>(&self, data: T) -> Arc<Buffer> {
+        Buffer::from_data(
+            &self.memory_allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::UNIFORM_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
+            data
+        ).expect("Failed to create vulkan buffer.").buffer().clone()
+    }
 }

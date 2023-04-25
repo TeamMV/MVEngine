@@ -158,7 +158,9 @@ mod tests {
 mod vulkan_tests {
     use mvutils::version::Version;
     use crate::{ApplicationInfo, MVCore};
+    use crate::assets::ReadableAssetManager;
     use crate::render::RenderingBackend::Vulkan;
+    use crate::render::shared::{ApplicationLoop, RunningWindow, WindowCreateInfo};
 
     #[test]
     fn test() {
@@ -167,6 +169,36 @@ mod vulkan_tests {
         app.name = "Test".to_string();
         app.backend = Vulkan;
         let mut core = MVCore::new(app);
+        let mut info = WindowCreateInfo::default();
+        info.title = "MVCore".to_string();
+        let mut window = core.get_render().create_window(info);
+        window.run(Test { core });
+    }
+
+    struct Test {
+        core: MVCore
+    }
+
+    impl ApplicationLoop for Test {
+        fn start(&self, mut window: RunningWindow) {}
+
+        fn update(&self, mut window: RunningWindow) {}
+
+        fn draw(&self, mut window: RunningWindow) {
+            //window.get_draw_2d().tri();
+            window.get_draw_2d().text(true, 100, 100, 50, "Hello".to_string());
+            window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
+            //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
+            //  shader.uniform_1f("size", 10.0);
+            //}));
+            //window.queue_shader_pass(ShaderPassInfo::new("blur", |shader| {
+            //    shader.uniform_1f("dir", 16.0);
+            //    shader.uniform_1f("quality", 4.0);
+            //    shader.uniform_1f("size", 8.0);
+            //}));
+        }
+
+        fn stop(&self, window: RunningWindow) {}
     }
 
 }

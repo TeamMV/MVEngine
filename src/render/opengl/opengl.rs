@@ -66,7 +66,9 @@ impl OpenGLWindow {
         OpenGLWindow {
             info,
             assets,
+
             window: std::ptr::null_mut(),
+
             current_fps: 0,
             current_ups: 0,
             current_frame: 0,
@@ -200,6 +202,7 @@ impl OpenGLWindow {
 
     fn terminate(&mut self) {
         unsafe {
+            GL_WINDOWS.remove(&self.window);
             glfwFreeCallbacks(self.window);
             glfwDestroyWindow(self.window);
         }
@@ -261,10 +264,6 @@ impl OpenGLWindow {
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
         self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()));
-
-        unsafe {
-            self.shaders.insert("empty".to_string(), Rc::new(RefCell::new(EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, EMPTY_EFFECT_FRAG)))));
-        }
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::OpenGL(self));

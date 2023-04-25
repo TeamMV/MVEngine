@@ -293,6 +293,7 @@ impl ShaderPassInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct WindowCreateInfo {
     pub width: i32,
     pub height: i32,

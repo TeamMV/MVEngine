@@ -12,8 +12,6 @@ use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
 
 #[cfg(feature = "vulkan")]
-use crate::render::vulkan::internal::Vulkan;
-#[cfg(feature = "vulkan")]
 use crate::render::vulkan::vulkan::{VulkanWindow, VulkanShader, VulkanTexture};
 
 pub mod shared;
@@ -53,8 +51,7 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
 pub struct RenderCore {
     backend: RenderingBackend,
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
-    #[cfg(feature = "vulkan")]
-    vulkan: Option<Vulkan>,
+    app: *const ApplicationInfo
 }
 
 #[derive(Eq, PartialEq)]
@@ -76,30 +73,13 @@ impl Clone for RenderingBackend {
 
 impl RenderCore {
     pub(crate) fn new(info: &ApplicationInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
-        let mut backend = info.backend.clone();
         unsafe {
             glfwInit();
-            #[cfg(feature = "vulkan")]
-            if backend == RenderingBackend::Vulkan {
-                let vulkan = Vulkan::init(info);
-                if vulkan.is_err() {
-                    backend = RenderingBackend::OpenGL;
-                }
-                else {
-                    return RenderCore {
-                        backend,
-                        assets,
-                        #[cfg(feature = "vulkan")]
-                        vulkan: vulkan.ok(),
-                    };
-                }
+            RenderCore {
+                backend: info.backend.clone(),
+                assets,
+                app: info
             }
-        }
-        RenderCore {
-            backend,
-            assets,
-            #[cfg(feature = "vulkan")]
-            vulkan: None,
         }
     }
 
@@ -109,14 +89,18 @@ impl RenderCore {
         }
     }
 
+    pub(crate) fn rollback(&mut self) {
+        self.backend = RenderingBackend::OpenGL;
+    }
+
     pub fn create_window(&self, info: WindowCreateInfo) -> Window {
         match self.backend {
             RenderingBackend::OpenGL => {
                 Window::OpenGL(OpenGLWindow::new(info, self.assets.clone()))
             },
             #[cfg(feature = "vulkan")]
-            RenderingBackend::Vulkan => {
-                Window::Vulkan(VulkanWindow::new(info, self.assets.clone()))
+            RenderingBackend::Vulkan => unsafe {
+                Window::Vulkan(VulkanWindow::new(info, self.assets.clone(), (self as *const _) as *mut _, self.app))
             }
         }
     }

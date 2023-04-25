@@ -1,13 +1,19 @@
 use alloc::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::CString;
+use std::ops::DerefMut;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::GLFWwindow;
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, NO_API, RESIZABLE, TRUE, VISIBLE};
+use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
-use crate::assets::SemiAutomaticAssetManager;
+use crate::ApplicationInfo;
+use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
-use crate::render::shared::{ApplicationLoop, EffectShader, ShaderPassInfo, Window, WindowCreateInfo};
+use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, RenderCore};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
+use crate::render::vulkan::internal::Vulkan;
 
 static mut VK_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut VulkanWindow>> = Lazy::new(HashMap::new);
 
@@ -27,86 +33,313 @@ macro_rules! static_listener {
 static_listener!(res, resize, w: i32, h: i32);
 
 pub struct VulkanWindow {
+    info: WindowCreateInfo,
+    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
+    vulkan: *mut Vulkan,
 
+    core: *mut RenderCore,
+    window: *mut GLFWwindow,
+
+    current_fps: u16,
+    current_ups: u16,
+    current_frame: u64,
+
+    size_buf: [i32; 4],
+
+    draw_2d: Option<Draw2D>,
+    render_2d: VulkanRenderProcessor2D,
+    shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
+    enabled_shaders: Vec<ShaderPassInfo>,
+    //shader_pass: ,
+    frame_buf: u32,
+    texture_buf: u32,
+
+    camera: Camera,
+
+    res: (i32, i32)
 }
 
 impl VulkanWindow {
-    pub(crate) fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
-        todo!()
+    pub(crate) unsafe fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>, core: *mut RenderCore, app: *const ApplicationInfo) -> Self {
+        VulkanWindow {
+            info,
+            assets,
+            vulkan: app as *mut Vulkan,
+
+            core,
+            window: std::ptr::null_mut(),
+
+            current_fps: 0,
+            current_ups: 0,
+            current_frame: 0,
+
+            size_buf: [0; 4],
+            render_2d: VulkanRenderProcessor2D::new(),
+            shaders: HashMap::new(),
+            enabled_shaders: Vec::with_capacity(10),
+            //shader_pass: ,
+            frame_buf: 0,
+            texture_buf: 0,
+
+            draw_2d: None,
+            camera: Camera::new_2d(),
+            res: (0, 0),
+        }
+    }
+
+    fn init(&mut self) -> bool {
+        unsafe {
+            glfwDefaultWindowHints();
+            glfwWindowHint(VISIBLE, FALSE);
+            glfwWindowHint(CLIENT_API, NO_API);
+            glfwWindowHint(DECORATED, self.info.decorated.yn(TRUE, FALSE));
+            glfwWindowHint(RESIZABLE, self.info.resizable.yn(TRUE, FALSE));
+
+            self.window = glfwCreateWindow(self.info.width, self.info.height, self.info.title.as_c_str().as_ptr(), std::ptr::null_mut(), std::ptr::null_mut());
+            VK_WINDOWS.insert(self.window, self);
+
+            let vulkan = Vulkan::init((self.vulkan as *const ApplicationInfo).as_ref().unwrap());
+            if vulkan.is_err() {
+                return false;
+            }
+
+            glfwMakeContextCurrent(self.window);
+            glfwSwapInterval(self.info.vsync.yn(1, 0));
+
+            glfwShowWindow(self.window);
+
+            //gl::Enable(gl::CULL_FACE);
+            //gl::CullFace(gl::BACK);
+            //gl::Enable(gl::BLEND);
+            //gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            //gl::Enable(gl::DEPTH_TEST);
+            //gl::DepthMask(gl::TRUE);
+            //gl::DepthFunc(gl::LEQUAL);
+
+            //self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
+
+            glfwSetWindowSizeCallback(self.window, Some(res));
+            true
+        }
+    }
+
+    fn running(&mut self, application_loop: &impl ApplicationLoop) {
+        unsafe {
+            let mut init_time: u128 = u128::time_nanos();
+            let mut current_time: u128;
+            let time_u = 1000000000.0 / self.info.ups as f32;
+            let time_f = 1000000000.0 / self.info.fps as f32;
+            let mut delta_u: f32 = 0.0;
+            let mut delta_f: f32 = 0.0;
+            let mut frames = 0;
+            let mut ticks = 0;
+            let mut timer = u128::time_millis();
+            while glfwWindowShouldClose(self.window) == FALSE {
+                current_time = u128::time_nanos();
+                delta_u += (current_time - init_time) as f32 / time_u;
+                delta_f += (current_time - init_time) as f32 / time_f;
+                init_time = current_time;
+                glfwPollEvents();
+                if delta_u >= 1.0 {
+                    //updates
+
+                    application_loop.update(RunningWindow::Vulkan(self));
+                    ticks += 1;
+                    delta_u -= 1.0;
+                }
+                if delta_f >= 1.0 {
+                    //gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+                    //gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+                    //draws
+                    self.draw_2d.as_mut().unwrap().reset_canvas();
+
+                    application_loop.draw(RunningWindow::Vulkan(self));
+
+                    let len = self.enabled_shaders.len();
+
+                    if len > 0 {
+                        //gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buf);
+                        //gl::Clear(COLOR_BUFFER_BIT);
+                        self.render_2d.set_framebuffer(self.frame_buf);
+                    } else {
+                        self.render_2d.set_framebuffer(0);
+                    }
+
+                    //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
+                    self.render_2d.set_camera(self.camera.clone());
+
+                    self.draw_2d.as_mut().unwrap().render(&self.render_2d);
+
+                    if len > 0 {
+                        for (i, info) in self.enabled_shaders.drain(..).enumerate() {
+                            let mut shader = self.shaders.get(info.get_id());
+                            if shader.is_none() {
+                                if len == i + 1 {
+                                    shader = self.shaders.get("empty");
+                                } else {
+                                    continue;
+                                }
+                            }
+                            let shader = shader.unwrap();
+                            shader.borrow_mut().bind();
+                            info.apply(shader.borrow_mut().deref_mut());
+                            let f_buf = (len == i + 1).yn(0, self.frame_buf);
+                            //self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
+                        }
+                    }
+
+                    glfwSwapBuffers(self.window);
+                    self.current_frame += 1;
+                    frames += 1;
+                    delta_f -= 1.0;
+                }
+                if u128::time_millis() - timer > 1000 {
+                    self.current_ups = ticks;
+                    self.current_fps = frames;
+                    frames = 0;
+                    ticks = 0;
+                    timer += 1000;
+                }
+            }
+        }
+    }
+
+    fn terminate(&mut self) {
+        unsafe {
+            VK_WINDOWS.remove(&self.window);
+            glfwFreeCallbacks(self.window);
+            glfwDestroyWindow(self.window);
+        }
     }
 
     fn resize(&mut self, width: i32, height: i32) {
-        
+        unsafe {
+            self.info.width = width;
+            self.info.height = height;
+            //viewport(width, height);
+            //self.gen_render_buffer();
+            self.render_2d.resize(width, height);
+            self.draw_2d.as_mut().unwrap().resize(width, height);
+            //self.shader_pass.resize(width, height);
+            self.camera.update_projection_mat(width, height);
+        }
     }
 
     pub(crate) fn run(&mut self, application_loop: impl ApplicationLoop) {
-        todo!()
+        if !self.init() {
+            unsafe {
+                VK_WINDOWS.remove(&self.window);
+                glfwDestroyWindow(self.window);
+                self.core.as_mut().unwrap().rollback();
+                let mut backup = self.core.as_mut().unwrap().create_window(self.info.clone());
+                backup.run(application_loop);
+                return;
+            }
+        }
+
+        if self.info.fullscreen {
+            self.set_fullscreen(true);
+        }
+
+        //self.gen_render_buffer();
+        //self.shader_pass.resize(self.info.width, self.info.height);
+        self.render_2d.resize(self.info.width, self.info.height);
+        let shader = self.assets.borrow().get_shader("default");
+        let font = self.assets.borrow().get_font("default");
+        self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()));
+
+        self.camera.update_projection_mat(self.info.width, self.info.height);
+        application_loop.start(RunningWindow::Vulkan(self));
+
+        self.running(&application_loop);
+        application_loop.stop(RunningWindow::Vulkan(self));
+        self.terminate();
     }
 
     pub(crate) fn stop(&mut self) {
-        todo!()
+        unsafe {
+            glfwSetWindowShouldClose(self.window, TRUE);
+        }
     }
 
     pub(crate) fn get_width(&self) -> i32 {
-        todo!()
+        self.info.width
     }
 
     pub(crate) fn get_height(&self) -> i32 {
-        todo!()
+        self.info.height
     }
 
     pub(crate) fn get_resolution(&self) -> (i32, i32) {
-        todo!()
+        self.res
     }
 
     pub(crate) fn get_dpi(&self) -> f32 {
-        todo!()
+        self.res.0 as f32 / self.res.1 as f32
     }
 
     pub(crate) fn get_fps(&self) -> u16 {
-        todo!()
+        self.current_fps
     }
 
     pub(crate) fn get_ups(&self) -> u16 {
-        todo!()
+        self.current_ups
     }
 
     pub(crate) fn get_frame(&self) -> u64 {
-        todo!()
+        self.current_frame
     }
 
     pub(crate) fn get_draw_2d(&mut self) -> &mut Draw2D {
-        todo!()
+        self.draw_2d.as_mut().expect("The Draw2D is not initialized yet!")
     }
 
     pub(crate) fn set_fullscreen(&mut self, fullscreen: bool) {
-        todo!()
+        unsafe {
+            self.info.fullscreen = fullscreen;
+            if fullscreen {
+                glfwGetWindowPos(self.window, &mut self.size_buf[0] as *mut _, &mut self.size_buf[1] as *mut _);
+                self.size_buf[2] = self.info.width;
+                self.size_buf[3] = self.info.height;
+                let monitor = glfwGetPrimaryMonitor();
+                let mode = glfwGetVideoMode(monitor);
+                glfwSetWindowMonitor(self.window, monitor, 0, 0, (*mode).width, (*mode).height, (*mode).refreshRate);
+            } else {
+                let monitor = glfwGetPrimaryMonitor();
+                let mode = glfwGetVideoMode(monitor);
+                glfwSetWindowMonitor(self.window, std::ptr::null_mut(), self.size_buf[0], self.size_buf[1], self.size_buf[2], self.size_buf[3], (*mode).refreshRate);
+            }
+        }
     }
 
     fn get_glfw_window(&self) -> *mut GLFWwindow {
-        todo!()
+        self.window
     }
 
     pub(crate) fn add_shader(&mut self, id: &str, shader: Rc<RefCell<EffectShader>>) {
-        todo!()
+        self.shaders.insert(id.to_string(), shader);
     }
 
     pub(crate) fn queue_shader_pass(&mut self, info: ShaderPassInfo) {
-        todo!()
+        self.enabled_shaders.push(info);
     }
 
     pub(crate) fn get_camera(&self) -> &Camera {
-        todo!()
+        &self.camera
     }
 }
 
 pub struct VulkanShader {
-
+    vertex: Option<CString>,
+    fragment: Option<CString>,
 }
 
 impl VulkanShader {
     pub unsafe fn new(vertex: &str, fragment: &str) -> Self {
-        todo!()
+        VulkanShader {
+            vertex: Some(CString::new(vertex).unwrap()),
+            fragment: Some(CString::new(fragment).unwrap()),
+        }
     }
 
     pub unsafe fn make(&mut self) {
@@ -159,12 +392,18 @@ impl VulkanShader {
 }
 
 pub struct VulkanTexture {
-
+    bytes: Option<Vec<u8>>,
+    width: u32,
+    height: u32,
 }
 
 impl VulkanTexture {
     pub unsafe fn new(bytes: Vec<u8>) -> Self {
-        todo!()
+        VulkanTexture {
+            bytes: Some(bytes),
+            width: 0,
+            height: 0,
+        }
     }
 
     pub unsafe fn make(&mut self) {
@@ -193,9 +432,47 @@ impl VulkanTexture {
 }
 
 pub struct VulkanRenderProcessor2D {
-
+    framebuffer: u32,
+    width: i32,
+    height: i32,
+    camera: Option<Camera>,
 }
 
 impl VulkanRenderProcessor2D {
+    fn new() -> Self {
+        VulkanRenderProcessor2D {
+            framebuffer: 0,
+            width: 0,
+            height: 0,
+            camera: None,
+        }
+    }
 
+    fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    fn set_framebuffer(&mut self, framebuffer: u32) {
+        self.framebuffer = framebuffer;
+    }
+
+    fn set_camera(&mut self, cam: Camera) {
+        self.camera = Some(cam);
+    }
+}
+
+impl RenderProcessor2D for VulkanRenderProcessor2D {
+    #[allow(clippy::too_many_arguments)]
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+
+    }
+
+    fn gen_buffer_id(&self) -> u32 {
+        0
+    }
+
+    fn adapt_render_mode(&self, render_mode: u8) -> u8 {
+        render_mode
+    }
 }
