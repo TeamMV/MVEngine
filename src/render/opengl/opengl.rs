@@ -15,7 +15,7 @@ use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks};
+use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets};
 use crate::render::batch::batch_layout_2d;
 use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
@@ -257,6 +257,8 @@ impl OpenGLWindow {
         if self.info.fullscreen {
             self.set_fullscreen(true);
         }
+
+        load_render_assets(self.assets.clone());
 
         self.gen_render_buffer();
         self.shader_pass.resize(self.info.width, self.info.height);

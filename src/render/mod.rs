@@ -7,7 +7,7 @@ use image::{EncodableLayout, ImageFormat};
 use image::ImageFormat::Png;
 use crate::ApplicationInfo;
 
-use crate::assets::SemiAutomaticAssetManager;
+use crate::assets::{SemiAutomaticAssetManager, WritableAssetManager};
 use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
 
@@ -46,6 +46,13 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetCursorEnterCallback(window, None);
     glfwSetScrollCallback(window, None);
     glfwSetDropCallback(window, None);
+}
+
+pub(crate) fn load_render_assets(assets: Rc<RefCell<SemiAutomaticAssetManager>>) {
+    assets.borrow_mut().load_bitmap_font("default", "fonts/font.png", "fonts/default.fnt");
+    assets.borrow_mut().load_shader("default", "shaders/default.vert", "shaders/default.frag");
+    assets.borrow_mut().load_effect_shader("blur", "shaders/blur.frag");
+    assets.borrow_mut().load_effect_shader("pixelate", "shaders/pixelate.frag");
 }
 
 pub struct RenderCore {

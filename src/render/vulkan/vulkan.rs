@@ -11,7 +11,7 @@ use crate::ApplicationInfo;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
-use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, RenderCore};
+use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 use crate::render::vulkan::internal::Vulkan;
 
@@ -240,6 +240,8 @@ impl VulkanWindow {
         if self.info.fullscreen {
             self.set_fullscreen(true);
         }
+
+        load_render_assets(self.assets.clone());
 
         //self.gen_render_buffer();
         //self.shader_pass.resize(self.info.width, self.info.height);

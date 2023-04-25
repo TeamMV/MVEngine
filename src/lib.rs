@@ -32,15 +32,7 @@ impl MVCore {
             assets,
             render,
             info
-        }.tmp_load()
-    }
-
-    pub fn tmp_load(self) -> Self {
-        self.assets.borrow_mut().load_bitmap_font("default", "fonts/font.png", "fonts/default.fnt");
-        self.assets.borrow_mut().load_shader("default", "shaders/default.vert", "shaders/default.frag");
-        self.assets.borrow_mut().load_effect_shader("blur", "shaders/blur.frag");
-        self.assets.borrow_mut().load_effect_shader("pixelate", "shaders/pixelate.frag");
-        self
+        }
     }
 
     pub fn get_app_version(&self) -> Version {
