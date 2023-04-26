@@ -20,7 +20,7 @@ use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCr
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::{Version, VulkanLibrary, VulkanObject};
 use vulkano::buffer::{Buffer, BufferContents, BufferContentsLayout, BufferCreateInfo, BufferUsage, Subbuffer};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, PrimaryAutoCommandBuffer};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract};
 use vulkano::image::{ImageUsage, SwapchainImage};
 use vulkano::image::sys::Image;
 use vulkano::image::view::ImageView;
@@ -403,7 +403,7 @@ impl Vulkan {
             .build(device).ok()
     }
 
-    fn get_command_buffers<T: Vertex>(allocator: &StandardCommandBufferAllocator, queue: Arc<Queue>, pipeline: Arc<GraphicsPipeline>, framebuffers: Vec<Arc<Framebuffer>>, vertex_buffer: Subbuffer<[T]>, index_buffer: Arc<Buffer>, draw: usize) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+    fn get_command_buffers<T: Vertex>(allocator: &StandardCommandBufferAllocator, queue: Arc<Queue>, pipeline: Arc<GraphicsPipeline>, framebuffers: Vec<Arc<Framebuffer>>, vertex_buffer: Arc<Buffer>, index_buffer: Arc<Buffer>, draw: usize) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
         framebuffers.iter()
             .map(|framebuffer| {
                 let mut builder = AutoCommandBufferBuilder::primary(
@@ -421,7 +421,7 @@ impl Vulkan {
                     )
                     .unwrap()
                     .bind_pipeline_graphics(pipeline.clone())
-                    .bind_vertex_buffers(0, vertex_buffer.clone())
+                    .bind_vertex_buffers(0, Subbuffer::from(vertex_buffer.clone()))
                     .bind_index_buffer(Subbuffer::from(index_buffer.clone()))
                     .draw(draw as u32, 1, 0, 0)
                     .unwrap()
@@ -430,6 +430,24 @@ impl Vulkan {
 
                 Arc::new(builder.build().unwrap())
             }).collect()
+    }
+
+    pub(crate) fn gen_command_buffer_2d(&self, vertices: Arc<Buffer>, indices: Arc<Buffer>, len: usize) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+        Self::get_command_buffers::<InternalVertex2D>(
+            &self.command_buffer_allocator,
+            self.queue.clone(),
+            self.graphics_pipeline_2d.clone(),
+            self.framebuffers.clone(),
+            vertices,
+            indices,
+            len
+        )
+    }
+
+    pub(crate) fn run(&self, commands: Vec<Arc<PrimaryAutoCommandBuffer>>) {
+        for cmd in commands.into_iter() {
+            cmd.execute(self.queue.clone()).expect("Failed to run draw!");
+        }
     }
 
     pub(crate) fn buffer_vertices(&self, vertices: &[f32]) -> Arc<Buffer> {
@@ -447,7 +465,7 @@ impl Vulkan {
         ).expect("Failed to create vulkan buffer.").buffer().clone()
     }
 
-    pub(crate) fn buffer_indices(&self, vertices: &[u32]) -> Arc<Buffer> {
+    pub(crate) fn buffer_indices(&self, indices: &[u32]) -> Arc<Buffer> {
         Buffer::from_iter(
             &self.memory_allocator,
             BufferCreateInfo {
@@ -458,7 +476,7 @@ impl Vulkan {
                 usage: MemoryUsage::Upload,
                 ..Default::default()
             },
-            vertices.iter().cloned(),
+            indices.iter().cloned(),
         ).expect("Failed to create vulkan buffer.").buffer().clone()
     }
 

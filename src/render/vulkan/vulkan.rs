@@ -224,6 +224,7 @@ impl VulkanWindow {
         unsafe {
             self.info.width = width;
             self.info.height = height;
+            self.vulkan.as_mut().unwrap().resize(width as u32, height as u32);
             //viewport(width, height);
             //self.gen_render_buffer();
             self.render_2d.resize(width, height);
@@ -254,11 +255,12 @@ impl VulkanWindow {
         //self.gen_render_buffer();
         //self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.resize(self.info.width, self.info.height);
+        self.render_2d.set_vulkan(self.vulkan.as_mut().unwrap());
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
         let mut binding = shader.borrow_mut();
         let vk_shader = binding.get_vk();
-        self.vulkan.as_mut().unwrap().set_shader_2d(vk_shader, self.info.width as u32, self.info.height as u32);
+        //self.vulkan.as_mut().unwrap().set_shader_2d(vk_shader, self.info.width as u32, self.info.height as u32);
         self.draw_2d = Some(Draw2D::new(shader.clone(), font, self.info.width, self.info.height, self.res, self.get_dpi()));
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
@@ -483,6 +485,7 @@ pub struct VulkanRenderProcessor2D {
     width: i32,
     height: i32,
     camera: Option<Camera>,
+    vulkan: *mut Vulkan
 }
 
 impl VulkanRenderProcessor2D {
@@ -492,6 +495,7 @@ impl VulkanRenderProcessor2D {
             width: 0,
             height: 0,
             camera: None,
+            vulkan: std::ptr::null_mut()
         }
     }
 
@@ -507,12 +511,41 @@ impl VulkanRenderProcessor2D {
     fn set_camera(&mut self, cam: Camera) {
         self.camera = Some(cam);
     }
+
+    fn set_vulkan(&mut self, vulkan: *mut Vulkan) {
+        self.vulkan = vulkan;
+    }
 }
 
 impl RenderProcessor2D for VulkanRenderProcessor2D {
     #[allow(clippy::too_many_arguments)]
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+        unsafe {
+            let vk = self.vulkan.as_mut().unwrap();
 
+            let mut i: u8 = 0;
+            for t in tex.iter_mut().flatten() {
+                t.borrow_mut().bind(i);
+                i += 1;
+            }
+
+            let ibo = vk.buffer_indices(indices);
+            let vbo = vk.buffer_vertices(vertices);
+
+            if !tex.is_empty() {
+                shader.uniform_iv("TEX_SAMPLER", tex_id.iter().map(|u| { *u as i32 }).collect::<Vec<_>>().as_slice());
+            }
+
+            shader.uniform_1i("uResX", self.width);
+            shader.uniform_1i("uResY", self.height);
+            shader.uniform_4fm("uProjection", self.camera.as_ref().unwrap().get_projection_mat());
+            shader.uniform_4fm("uView", self.camera.as_ref().unwrap().get_view_mat());
+
+            //gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);
+
+            let draw = vk.gen_command_buffer_2d(vbo, ibo, indices.len());
+            vk.run(draw);
+        }
     }
 
     fn gen_buffer_id(&self) -> u32 {

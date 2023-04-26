@@ -639,12 +639,12 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
                 shader.uniform_iv("TEX_SAMPLER", tex_id.iter().map(|u| { *u as i32 }).collect::<Vec<_>>().as_slice());
             }
 
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);
-
             shader.uniform_1i("uResX", self.width);
             shader.uniform_1i("uResY", self.height);
             shader.uniform_4fm("uProjection", self.camera.as_ref().unwrap().get_projection_mat());
             shader.uniform_4fm("uView", self.camera.as_ref().unwrap().get_view_mat());
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);
 
             vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
             vert_attrib!(1, ROTATION_SIZE, ROTATION_OFFSET_BYTES);

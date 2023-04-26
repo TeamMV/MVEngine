@@ -429,29 +429,29 @@ impl Draw2D {
         self.batch.add_vertices(&self.vertices);
     }
 
-    pub fn text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String) {
+    pub fn text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str) {
         self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), 0.0, 0, 0)
     }
 
-    pub fn text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, rotation: f32) {
-        let width = self.font.get_metrics(text.as_str()).width(height);
+    pub fn text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str, rotation: f32) {
+        let width = self.font.get_metrics(text).width(height);
         self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), rotation, x + width / 4, y + height / 4)
     }
 
-    pub fn text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, rotation: f32, rx: i32, ry: i32) {
+    pub fn text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str, rotation: f32, rx: i32, ry: i32) {
         self.custom_text_origin_rotated(chroma, x, y, height, text, self.font.clone(), rotation, rx, ry)
     }
 
-    pub fn custom_text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>) {
+    pub fn custom_text(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str, font: Rc<Font>) {
         self.custom_text_origin_rotated(chroma, x, y, height, text, font, 0.0, 0, 0);
     }
 
-    pub fn custom_text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>, rotation: f32) {
+    pub fn custom_text_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str, font: Rc<Font>, rotation: f32) {
         let width = font.get_metrics(&text).width(height);
         self.custom_text_origin_rotated(chroma, x, y, height, text, font, rotation, x + width / 4, y + height / 4);
     }
 
-    pub fn custom_text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: String, font: Rc<Font>, rotation: f32, rx: i32, ry: i32) {
+    pub fn custom_text_origin_rotated(&mut self, chroma: bool, x: i32, y: i32, height: i32, text: &str, font: Rc<Font>, rotation: f32, rx: i32, ry: i32) {
         let mut char_x = 0;
         let rad_rot = rotation.to_radians();
 

@@ -1,11 +1,14 @@
 use std::ops::Deref;
 use mvutils::screen::Measurements;
-use mvutils::utils::{R, XTraFMath};
+use mvutils::utils::{RcMut, XTraFMath};
+use crate::gui::gui_formats::FormattedString;
+use crate::gui::styles;
 use crate::render::draw::Draw2D;
-use crate::resolve;
-use crate::vgui_v5::styles::{BorderStyle, GuiStyle};
-use crate::vgui_v5::styles::BorderStyle::{Round, Triangle};
+use crate::gui::styles::{BorderStyle, GuiStyle};
+use crate::gui::styles::BorderStyle::{Round, Triangle};
+use crate::render::color::Color;
 
+#[derive(Default)]
 pub struct GuiElementInfo {
     pub x: i32,
     pub y: i32,
@@ -13,8 +16,8 @@ pub struct GuiElementInfo {
     pub height: i32,
     pub bounding_width: i32,
     pub bounding_height: i32,
-    e_width: i32,
-    e_height: i32,
+    content_width: i32,
+    content_height: i32,
     pub rotation: f32,
     pub rotation_center: (i32, i32),
     pub z_index: u32,
@@ -58,23 +61,23 @@ impl GuiElementInfo {
         &self.style
     }
 
-    pub(crate) fn recalculate_bounds(&mut self) {
+    pub(crate) fn recalculate_bounds(&mut self, ctx: RcMut<Draw2D>) {
         let mut paddings: [i32; 4] = [0; 4];
-        paddings[0] = resolve!(self, true, padding[0]);
-        paddings[1] = resolve!(self, true, padding[1]);
-        paddings[2] = resolve!(self, true, padding[2]);
-        paddings[3] = resolve!(self, true, padding[3]);
+        paddings[0] = styles::resolve!(self, true, padding_left);
+        paddings[1] = styles::resolve!(self, true, padding_right);
+        paddings[2] = styles::resolve!(self, true, padding_bottom);
+        paddings[3] = styles::resolve!(self, true, padding_top);
 
         let mut margins: [i32; 4] = [0; 4];
-        margins[0] = resolve!(self, true, margin[0]);
-        margins[1] = resolve!(self, true, margin[1]);
-        margins[2] = resolve!(self, true, margin[2]);
-        margins[3] = resolve!(self, true, margin[3]);
+        margins[0] = styles::resolve!(self, true, margin_left);
+        margins[1] = styles::resolve!(self, true, margin_right);
+        margins[2] = styles::resolve!(self, true, margin_bottom);
+        margins[3] = styles::resolve!(self, true, margin_top);
 
-        self.e_width = resolve!(self, true, width);
-        self.e_height = resolve!(self, true, height);
-        self.bounding_width = self.e_width + paddings[0] + paddings[1];
-        self.bounding_height = self.e_width + paddings[2] + paddings[3];
+        self.content_width = styles::resolve!(self, true, width);
+        self.content_height = styles::resolve!(self, true, height);
+        self.bounding_width = self.content_width + paddings[0] + paddings[1];
+        self.bounding_height = self.content_width + paddings[2] + paddings[3];
         self.width = self.bounding_width + margins[0] + margins[1];
         self.height = self.bounding_height + margins[2] + margins[3];
     }
@@ -91,22 +94,24 @@ pub enum GuiEvent {
 }
 
 pub trait GuiElement {
+    fn create() -> Self;
+
     fn info(&self) -> &GuiElementInfo;
     fn info_mut(&mut self) -> &mut GuiElementInfo;
-    fn draw(&self, ctx: R<Draw2D>);
+    fn draw(&self, ctx: RcMut<Draw2D>);
     fn handle(&mut self, event: GuiEvent) {
         self.info_mut().handles.push(event);
     }
 }
 
-pub(crate) fn draw_component_body(ctx: R<Draw2D>, info: &GuiElementInfo) {
+pub(crate) fn draw_component_body(ctx: RcMut<Draw2D>, info: &GuiElementInfo) {
     let br = info.style.border_radius.unwrapt(ctx.clone(), info, |s| {&s.border_radius});
     let bs: BorderStyle = info.style.border_style.unwrapt(ctx.clone(), info, |s| {&s.border_style});
     let mut paddings: [i32; 4] = [0; 4];
-    paddings[0] = resolve!(info, true, padding[0]);
-    paddings[1] = resolve!(info, true, padding[1]);
-    paddings[2] = resolve!(info, true, padding[2]);
-    paddings[3] = resolve!(info, true, padding[3]);
+    paddings[0] = styles::resolve!(info, true, padding_left);
+    paddings[1] = styles::resolve!(info, true, padding_right);
+    paddings[2] = styles::resolve!(info, true, padding_bottom);
+    paddings[3] = styles::resolve!(info, true, padding_top);
     //left right bottom top
 
     if bs == Round {
@@ -144,8 +149,8 @@ macro_rules! center {
 //Specific abstraction
 
 pub trait GuiTextComponent: GuiElement {
-    fn get_text(&self) -> &String;
-    fn set_text(&mut self, text: String);
+    fn get_text(&self) -> &FormattedString;
+    fn set_text(&mut self, text: FormattedString);
 }
 
 //Implementation (real component shit)
@@ -155,10 +160,17 @@ pub trait GuiTextComponent: GuiElement {
 //------------------------------------
 pub struct GuiParagraph {
     info: GuiElementInfo,
-    text: String,
+    text: FormattedString,
 }
 
 impl GuiElement for GuiParagraph {
+    fn create() -> Self {
+        GuiParagraph {
+            info: GuiElementInfo::default(),
+            text: FormattedString { pieces: vec![], whole: "".to_string() },
+        }
+    }
+
     fn info(&self) -> &GuiElementInfo {
         &self.info
     }
@@ -167,22 +179,21 @@ impl GuiElement for GuiParagraph {
         &mut self.info
     }
 
-    fn draw(&self, ctx: R<Draw2D>) {
+    fn draw(&self, ctx: RcMut<Draw2D>) {
         draw_component_body(ctx, self.info());
-        let left = resolve!(padding[0]);
-        let bottom = resolve!(padding[2]);
+        let left = styles::resolve!(padding_left);
+        let bottom = styles::resolve!(padding_bottom);
 
-        ctx.borrow_mut().get_mut_gradient().copy_of(self.info.style.text_color.unwrapt(ctx.clone(), self.info(), |s| {&s.text_color}));
-        ctx.borrow_mut().text_origin_rotated(resolve!(text_chroma), center!(), self.info.y, resolve!(text_size))
+        self.text.draw(ctx.clone(), self.info.x + left, self.info.y + bottom, self.info.content_height, styles::resolve!(font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1);
     }
 }
 
 impl GuiTextComponent for GuiParagraph {
-    fn get_text(&self) -> &String {
+    fn get_text(&self) -> &FormattedString {
         &self.text
     }
 
-    fn set_text(&mut self, text: String) {
+    fn set_text(&mut self, text: FormattedString) {
         self.text = text;
     }
 }

@@ -4,9 +4,10 @@ use std::cmp::max;
 use super::{shared::Texture, RenderCore};
 
 pub struct TypeFace {
-    regular: Font,
-    bold: Font,
-    italic: Font,
+    pub regular: Rc<Font>,
+    pub bold: Rc<Font>,
+    pub italic: Rc<Font>,
+    pub italic_bold: Rc<Font>,
 }
 
 pub struct Font {

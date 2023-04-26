@@ -2,22 +2,28 @@ use alloc::rc::Rc;
 use std::cell::RefCell;
 use mvutils::deref;
 use mvutils::screen::{Measurement, Measurements};
-use mvutils::utils::{R, XTraFMath};
+use mvutils::utils::{RcMut, XTraFMath};
 use crate::render::color::{Gradient, RGB};
 use crate::render::draw::Draw2D;
 use crate::render::text::{Font, TypeFace};
-use crate::vgui_v5::components::{GuiElement, GuiElementInfo};
+use crate::gui::components::{GuiElement, GuiElementInfo};
 
+#[derive(Default)]
 pub struct GuiStyle {
     pub background_color: GuiValue<Gradient<RGB, f32>>,
     pub foreground_color: GuiValue<Gradient<RGB, f32>>,
     pub text_color: GuiValue<Gradient<RGB, f32>>,
     pub text_chroma: GuiValue<bool>,
     pub text_size: GuiValue<i32>,
-    pub font: GuiValue<TypeFace>,
-    //left, right, bottom, top
-    pub margin: [GuiValue<i32>; 4],
-    pub padding: [GuiValue<i32>; 4],
+    pub font: GuiValue<Rc<TypeFace>>,
+    pub margin_left: GuiValue<i32>,
+    pub margin_right: GuiValue<i32>,
+    pub margin_bottom: GuiValue<i32>,
+    pub margin_top: GuiValue<i32>,
+    pub padding_left: GuiValue<i32>,
+    pub padding_right: GuiValue<i32>,
+    pub padding_bottom: GuiValue<i32>,
+    pub padding_top: GuiValue<i32>,
     pub border_width: GuiValue<i32>,
     pub border_radius: GuiValue<i32>,
     pub border_style: GuiValue<BorderStyle>,
@@ -66,7 +72,7 @@ macro_rules! impl_gv {
     ($($t:ty),*) => {
         $(
             impl GuiValue<$t> {
-                pub fn unwrap<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> $t where
+                pub fn unwrap<F>(&self, draw: RcMut<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> $t where
                     F: FnMut(&GuiStyle) -> &GuiValue<$t> {
                         match self {
                         GuiValue::Just(t) => {deref!(t)},
@@ -82,7 +88,7 @@ macro_rules! impl_gv {
 }
 
 impl<T: Copy> GuiValue<T> {
-    pub fn unwrapt<F>(&self, draw: R<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> T where
+    pub fn unwrapt<F>(&self, draw: RcMut<Draw2D>, element_info: &GuiElementInfo, mut name_supplier: F) -> T where
         F: FnMut(&GuiStyle) -> &GuiValue<T> {
         match self {
             GuiValue::Just(t) => {deref!(t)},
@@ -94,7 +100,6 @@ impl<T: Copy> GuiValue<T> {
     }
 }
 
-#[macro_export]
 macro_rules! resolve {
     ($n:ident) => {self.info.style.$n.unwrapt(ctx.clone(), self.info(), |s| {&s.$n})};
     ($v:ident, $n:ident) => {$v.info.style.$n.unwrapt(ctx.clone(), $v.info(), |s| {&s.$n})};
@@ -102,4 +107,12 @@ macro_rules! resolve {
     ($v:ident, $ign:expr, $n:ident) => {$v.style.$n.unwrapt(ctx.clone(), $v, |s| {&s.$n})};
 }
 
+pub(crate) use resolve;
+
 impl_gv!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64);
+
+impl<T: Default> Default for GuiValue<T> {
+    fn default() -> Self {
+        GuiValue::Just(T::default())
+    }
+}
