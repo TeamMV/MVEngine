@@ -2,10 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::GLFWwindow;
-use mvutils::utils::TetrahedronOp;
+use mvutils::utils::{TetrahedronOp, RcMut};
 
-use crate::assets::SemiAutomaticAssetManager;
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
 use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
@@ -13,19 +11,19 @@ use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::vulkan::vulkan::*;
 
 pub trait ApplicationLoop {
-    fn start(&self, window: RunningWindow);
-    fn update(&self, window: RunningWindow);
-    fn draw(&self, window: RunningWindow);
-    fn stop(&self, window: RunningWindow);
+    fn start(&mut self, window: RunningWindow);
+    fn update(&mut self, window: RunningWindow);
+    fn draw(&mut self, window: RunningWindow);
+    fn stop(&mut self, window: RunningWindow);
 }
 
 struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
-    fn start(&self, _:RunningWindow) {}
-    fn update(&self, _: RunningWindow) {}
-    fn draw(&self, _: RunningWindow) {}
-    fn stop(&self, _: RunningWindow) {}
+    fn start(&mut self, _:RunningWindow) {}
+    fn update(&mut self, _: RunningWindow) {}
+    fn draw(&mut self, _: RunningWindow) {}
+    fn stop(&mut self, _: RunningWindow) {}
 }
 
 macro_rules! backend_call {
@@ -257,7 +255,7 @@ impl RunningWindow {
     backend_ptr_fn!(RunningWindow, get_ups, u16, true);
     backend_ptr_fn!(RunningWindow, get_frame, u64, true);
 
-    backend_ptr_fn!(RunningWindow, get_draw_2d, &mut Draw2D);
+    backend_ptr_fn!(RunningWindow, get_draw_2d, RcMut<Draw2D>);
     backend_ptr_fn!(RunningWindow, set_fullscreen, fullscreen : bool);
     //backend_fn!(Window, get_glfw_window, *mut GLFWwindow, true);
 

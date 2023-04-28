@@ -1,14 +1,11 @@
-use std::ops::Deref;
-use mvutils::screen::Measurements;
-use mvutils::utils::{RcMut, XTraFMath};
+use mvutils::utils::RcMut;
+use crate::gui::components::GuiElement::{Nothing, Paragraph};
 use crate::gui::gui_formats::FormattedString;
-use crate::gui::styles;
 use crate::render::draw::Draw2D;
-use crate::gui::styles::{BorderStyle, GuiStyle};
+use crate::gui::styles::{BorderStyle, GuiStyle, GuiValueComputeSupply};
 use crate::gui::styles::BorderStyle::{Round, Triangle};
-use crate::render::color::Color;
+use crate::resolve;
 
-#[derive(Default)]
 pub struct GuiElementInfo {
     pub x: i32,
     pub y: i32,
@@ -22,11 +19,35 @@ pub struct GuiElementInfo {
     pub rotation_center: (i32, i32),
     pub z_index: u32,
 
-    pub parent: Box<dyn GuiElement>,
+    pub parent: Option<RcMut<GuiElement>>,
 
     pub handles: Vec<GuiEvent>,
 
-    pub style: GuiStyle
+    pub style: GuiStyle,
+
+    compute_supply: GuiValueComputeSupply
+}
+
+impl Default for GuiElementInfo {
+    fn default() -> Self {
+        GuiElementInfo {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            bounding_width: 0,
+            bounding_height: 0,
+            content_width: 0,
+            content_height: 0,
+            rotation: 0.0,
+            rotation_center: (0, 0),
+            z_index: 0,
+            parent: None,
+            handles: vec![],
+            style: GuiStyle::default(),
+            compute_supply: GuiValueComputeSupply::new(1.0, None),
+        }
+    }
 }
 
 impl GuiElementInfo {
@@ -51,8 +72,8 @@ impl GuiElementInfo {
     pub fn z_index(&self) -> u32 {
         self.z_index
     }
-    pub fn parent(&self) -> &Box<dyn GuiElement> {
-        &self.parent
+    pub fn parent(&self) -> Option<RcMut<GuiElement>> {
+        self.parent.clone()
     }
     pub fn handles(&self) -> &Vec<GuiEvent> {
         &self.handles
@@ -62,22 +83,23 @@ impl GuiElementInfo {
     }
 
     pub(crate) fn recalculate_bounds(&mut self, ctx: RcMut<Draw2D>) {
+        self.compute_supply.dpi = ctx.borrow_mut().dpi();
+        self.compute_supply.parent = self.parent.clone();
+
         let mut paddings: [i32; 4] = [0; 4];
-        paddings[0] = styles::resolve!(self, true, padding_left);
-        paddings[1] = styles::resolve!(self, true, padding_right);
-        paddings[2] = styles::resolve!(self, true, padding_bottom);
-        paddings[3] = styles::resolve!(self, true, padding_top);
+        paddings[0] = resolve!(self, padding_left);
+        paddings[1] = resolve!(self, padding_right);
+        paddings[2] = resolve!(self, padding_bottom);
+        paddings[3] = resolve!(self, padding_top);
 
         let mut margins: [i32; 4] = [0; 4];
-        margins[0] = styles::resolve!(self, true, margin_left);
-        margins[1] = styles::resolve!(self, true, margin_right);
-        margins[2] = styles::resolve!(self, true, margin_bottom);
-        margins[3] = styles::resolve!(self, true, margin_top);
+        margins[0] = resolve!(self, margin_left);
+        margins[1] = resolve!(self, margin_right);
+        margins[2] = resolve!(self, margin_bottom);
+        margins[3] = resolve!(self, margin_top);
 
-        self.content_width = styles::resolve!(self, true, width);
-        self.content_height = styles::resolve!(self, true, height);
         self.bounding_width = self.content_width + paddings[0] + paddings[1];
-        self.bounding_height = self.content_width + paddings[2] + paddings[3];
+        self.bounding_height = self.content_height + paddings[2] + paddings[3];
         self.width = self.bounding_width + margins[0] + margins[1];
         self.height = self.bounding_height + margins[2] + margins[3];
     }
@@ -93,49 +115,110 @@ pub enum GuiEvent {
     OnMouseLeave(MouseFn),
 }
 
-pub trait GuiElement {
-    fn create() -> Self;
+//All types here...
+pub enum GuiElement {
+    Nothing(GuiEmpty),
+    Paragraph(GuiParagraph)
+}
 
+impl Default for GuiElement {
+    fn default() -> Self {
+        Nothing(GuiEmpty {})
+    }
+}
+macro_rules! ge_fn {
+    ($name:ident) => {
+        return match self {
+            _ => {}
+            GuiElement::Paragraph(p) => {p.$name()}
+        }
+    };
+
+    ($name:ident, $($param:ident),*) => {
+        $(
+            return match self {
+                _ => {}
+                GuiElement::Paragraph(p) => {p.$name($($param,)*)}
+            }
+        )*
+    };
+}
+
+impl GuiElement {
+    pub fn info(&self) -> &GuiElementInfo {
+        ge_fn!(info)
+    }
+
+    pub fn info_mut(&mut self) -> &mut GuiElementInfo {
+        ge_fn!(info_mut)
+    }
+
+    pub fn draw(&self, ctx: RcMut<Draw2D>) -> &GuiElementInfo {
+        ge_fn!(draw, ctx)
+    }
+
+    pub fn handle(&mut self, event: GuiEvent) {
+        ge_fn!(handle, event)
+    }
+}
+
+pub trait GuiElementAbs {
     fn info(&self) -> &GuiElementInfo;
     fn info_mut(&mut self) -> &mut GuiElementInfo;
-    fn draw(&self, ctx: RcMut<Draw2D>);
+    fn draw(&mut self, ctx: RcMut<Draw2D>);
     fn handle(&mut self, event: GuiEvent) {
         self.info_mut().handles.push(event);
     }
 }
 
+pub struct GuiEmpty;
+impl GuiElementAbs for GuiEmpty {
+    fn info(&self) -> &GuiElementInfo {
+        todo!()
+    }
+
+    fn info_mut(&mut self) -> &mut GuiElementInfo {
+        todo!()
+    }
+
+    fn draw(&mut self, ctx: RcMut<Draw2D>) {
+        todo!()
+    }
+}
+
 pub(crate) fn draw_component_body(ctx: RcMut<Draw2D>, info: &GuiElementInfo) {
-    let br = info.style.border_radius.unwrapt(ctx.clone(), info, |s| {&s.border_radius});
-    let bs: BorderStyle = info.style.border_style.unwrapt(ctx.clone(), info, |s| {&s.border_style});
+
+    let br = resolve!(info, border_radius);
+    let bs: BorderStyle = resolve!(info, border_style);
     let mut paddings: [i32; 4] = [0; 4];
-    paddings[0] = styles::resolve!(info, true, padding_left);
-    paddings[1] = styles::resolve!(info, true, padding_right);
-    paddings[2] = styles::resolve!(info, true, padding_bottom);
-    paddings[3] = styles::resolve!(info, true, padding_top);
+    paddings[0] = resolve!(info, padding_left);
+    paddings[1] = resolve!(info, padding_right);
+    paddings[2] = resolve!(info, padding_bottom);
+    paddings[3] = resolve!(info, padding_top);
     //left right bottom top
 
     if bs == Round {
-        ctx.borrow_mut().get_mut_gradient().copy_of(info.style.background_color.unwrapt(ctx.clone(), info, |s| {&s.background_color}));
-        let bw: i32 = info.style.border_width.unwrapt(ctx.clone(), info, |s| {&s.border_width});
+        ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, background_color));
+        let bw: i32 = resolve!(info, border_width);
         ctx.borrow_mut().rounded_rectangle_origin_rotated(info.x + bw, info.y + bw, info.width - bw * 2 + paddings[1] + paddings[0], info.height - bw * 2 + paddings[3] + paddings[2], br, br as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.borrow_mut().get_mut_gradient().copy_of(info.style.border_color.unwrapt(ctx.clone(), info, |s| {&s.border_color}));
-            ctx.borrow_mut().void_rounded_rectangle_origin_rotated(info.x, info.y, info.width + paddings[1] + paddings[0], info.height + paddings[3] + paddings[2], bw, br, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, border_color));
+            ctx.borrow_mut().void_rounded_rectangle_origin_rotated(info.x, info.y, info.width + paddings[1] + paddings[0], info.height + paddings[3] + paddings[2], bw, br + bw, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else if bs == Triangle {
-        ctx.borrow_mut().get_mut_gradient().copy_of(info.style.background_color.unwrapt(ctx.clone(), info, |s| {&s.background_color}));
-        let bw: i32 = info.style.border_width.unwrapt(ctx.clone(), info, |s| {&s.border_width});
+        ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, background_color));
+        let bw: i32 = resolve!(info, border_width);
         ctx.borrow_mut().triangular_rectangle_origin_rotated(info.x + bw, info.y + bw, info.width - bw * 2 + paddings[1] + paddings[0], info.height - bw * 2 + paddings[3] + paddings[2], br, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.borrow_mut().get_mut_gradient().copy_of(info.style.border_color.unwrapt(ctx.clone(), info, |s| {&s.border_color}));
+            ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, border_color));
             ctx.borrow_mut().void_triangular_rectangle_origin_rotated(info.x, info.y, info.width + paddings[1] + paddings[0], info.height + paddings[3] + paddings[2], bw, br + bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else {
-        ctx.borrow_mut().get_mut_gradient().copy_of(info.style.background_color.unwrapt(ctx.clone(), info, |s| {&s.background_color}));;
-        let bw: i32 = info.style.border_width.unwrapt(ctx.clone(), info, |s| {&s.border_width});
+        ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, background_color));;
+        let bw: i32 = resolve!(info, border_width);
         ctx.borrow_mut().rectangle_origin_rotated(info.x + bw, info.y + bw, info.width - bw * 2 + paddings[1] + paddings[0], info.height - bw * 2 + paddings[3] + paddings[2], info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.borrow_mut().get_mut_gradient().copy_of(info.style.border_color.unwrapt(ctx.clone(), info, |s| {&s.border_color}));
+            ctx.borrow_mut().get_mut_gradient().copy_of(resolve!(info, border_color));
             ctx.borrow_mut().void_rectangle_origin_rotated(info.x, info.y, info.width + paddings[1] + paddings[0], info.height + paddings[3] + paddings[2], bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     }
@@ -148,7 +231,7 @@ macro_rules! center {
 
 //Specific abstraction
 
-pub trait GuiTextComponent: GuiElement {
+pub trait GuiTextComponent {
     fn get_text(&self) -> &FormattedString;
     fn set_text(&mut self, text: FormattedString);
 }
@@ -163,14 +246,7 @@ pub struct GuiParagraph {
     text: FormattedString,
 }
 
-impl GuiElement for GuiParagraph {
-    fn create() -> Self {
-        GuiParagraph {
-            info: GuiElementInfo::default(),
-            text: FormattedString { pieces: vec![], whole: "".to_string() },
-        }
-    }
-
+impl GuiElementAbs for GuiParagraph {
     fn info(&self) -> &GuiElementInfo {
         &self.info
     }
@@ -179,12 +255,17 @@ impl GuiElement for GuiParagraph {
         &mut self.info
     }
 
-    fn draw(&self, ctx: RcMut<Draw2D>) {
-        draw_component_body(ctx, self.info());
-        let left = styles::resolve!(padding_left);
-        let bottom = styles::resolve!(padding_bottom);
+    fn draw(&mut self, ctx: RcMut<Draw2D>) {
 
-        self.text.draw(ctx.clone(), self.info.x + left, self.info.y + bottom, self.info.content_height, styles::resolve!(font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1);
+        self.info_mut().content_height = resolve!(self.info, text_size);
+        self.info_mut().content_width = resolve!(self.info, font).unwrap().regular.get_metrics(self.text.whole.as_str()).width(self.info.content_height);
+        self.info_mut().recalculate_bounds(ctx.clone());
+
+        draw_component_body(ctx.clone(), self.info());
+        let left = resolve!(self.info, padding_left);
+        let bottom = resolve!(self.info, padding_bottom);
+
+        self.text.draw(ctx.clone(), self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, resolve!(self.info, text_color));
     }
 }
 
@@ -195,5 +276,14 @@ impl GuiTextComponent for GuiParagraph {
 
     fn set_text(&mut self, text: FormattedString) {
         self.text = text;
+    }
+}
+
+impl GuiParagraph {
+    pub fn create() -> Self {
+        GuiParagraph {
+            info: GuiElementInfo::default(),
+            text: FormattedString { pieces: vec![], whole: "".to_string() },
+        }
     }
 }

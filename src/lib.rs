@@ -1,13 +1,13 @@
 extern crate alloc;
 extern crate core;
 
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 use include_dir::{Dir, include_dir};
 use mvutils::version::Version;
 
-use crate::assets::{AssetManager, SemiAutomaticAssetManager, WritableAssetManager};
+use crate::assets::{AssetManager, SemiAutomaticAssetManager};
 use crate::render::{RenderCore, RenderingBackend};
 
 pub mod assets;
@@ -97,12 +97,21 @@ impl Default for ApplicationInfo {
 }
 
 #[cfg(test)]
+#[cfg(feature = "gui")]
 mod tests {
+    use std::cell::RefCell;
+    use std::ops::Deref;
+    use mvutils::utils::RcMut;
     use crate::assets::ReadableAssetManager;
     use crate::{ApplicationInfo, MVCore};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
     use mvutils::version::Version;
+    use crate::gui::components::{GuiElementAbs, GuiParagraph, GuiTextComponent};
+    use crate::gui::gui_formats::FormattedString;
+    use crate::gui::styles::{BorderStyle, GuiValue};
+    use crate::render::color::{Color, Gradient, RGB};
+    use crate::render::text::TypeFace;
 
     #[test]
     fn test() {
@@ -114,22 +123,43 @@ mod tests {
         let mut info = WindowCreateInfo::default();
         info.title = "MVCore".to_string();
         let mut window = core.get_render().create_window(info);
-        window.run(Test { core });
+        window.run(Test {
+            core,
+            p: GuiParagraph::create()
+        });
     }
 
     struct Test {
-        core: MVCore
+        core: MVCore,
+        p: GuiParagraph
     }
 
     impl ApplicationLoop for Test {
-        fn start(&self, mut window: RunningWindow) {}
+        fn start(&mut self, mut window: RunningWindow) {
+            self.p.set_text(FormattedString::new("Heggo"));
+            self.p.info_mut().style.font = GuiValue::Just(Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))));
+            self.p.info_mut().style.text_size = GuiValue::Percentage(window.get_height(), 5);
+            self.p.info_mut().style.text_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::yellow()));
+            self.p.info_mut().x = 100;
+            self.p.info_mut().y = 100;
 
-        fn update(&self, mut window: RunningWindow) {}
+            self.p.info_mut().style.background_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::cyan()));
+            self.p.info_mut().style.border_width = GuiValue::Just(5);
+            self.p.info_mut().style.border_style = GuiValue::Just(BorderStyle::Square);
+            self.p.info_mut().style.border_radius = GuiValue::Just(20);
+            self.p.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::red()));
+            //self.p.info_mut().style.padding_top = GuiValue::Just(20);
+            self.p.info_mut().style.padding_bottom = GuiValue::Just(20);
+            //self.p.info_mut().style.padding_right = GuiValue::Just(20);
+            //self.p.info_mut().style.padding_left = GuiValue::Just(20);
+        }
 
-        fn draw(&self, mut window: RunningWindow) {
+        fn update(&mut self, mut window: RunningWindow) {}
+
+        fn draw(&mut self, mut window: RunningWindow) {
             //window.get_draw_2d().tri();
-            window.get_draw_2d().text(true, 100, 100, 50, "Hello");
-            window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
+            //window.get_draw_2d().text(true, 100, 100, 50, "Hello");
+            //window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
             //window.queue_shader_pass(ShaderPassInfo::new("pixelate", |shader| {
             //  shader.uniform_1f("size", 10.0);
             //}));
@@ -138,8 +168,9 @@ mod tests {
             //    shader.uniform_1f("quality", 4.0);
             //    shader.uniform_1f("size", 8.0);
             //}));
+            self.p.draw(window.get_draw_2d());
         }
 
-        fn stop(&self, window: RunningWindow) {}
+        fn stop(&mut self, window: RunningWindow) {}
     }
 }

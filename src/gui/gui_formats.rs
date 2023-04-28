@@ -1,15 +1,12 @@
 use alloc::rc::Rc;
-use core::fmt::{Formatter, LowerHex};
-use std::ops::Deref;
-use mvutils::utils::{RcMut, Verify};
+use mvutils::utils::RcMut;
 use crate::render::draw::Draw2D;
 use crate::render::text::{Font, TypeFace};
 
 use bitflags::{bitflags};
-use bytebuffer::ByteBuffer;
 use mvutils::deref;
 use mvutils::serialize::{Deserializer, Serializable, Serializer};
-use crate::render::color::{Color, RGB};
+use crate::render::color::{Color, Gradient, RGB};
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -58,7 +55,7 @@ impl Default for FontStyle {
 }
 
 fn get_font(face: Rc<TypeFace>, style: FontStyle) -> Rc<Font> {
-    match style & 3 {
+    match style.bits() & 3 {
         0 => face.regular.clone(),
         1 => face.bold.clone(),
         2 => face.italic.clone(),
@@ -74,13 +71,28 @@ pub struct FormattedString {
 }
 
 impl FormattedString {
-    pub fn draw(&self, ctx: RcMut<Draw2D>, x: i32, y: i32, height: i32, font: Rc<TypeFace>, rotation: f32, rx: i32, ry: i32) {
+    pub fn new(src: &str) -> Self {
+        FormattedString {
+            pieces: vec![Format {
+                style: FontStyle::REGULAR,
+                text: src.to_string(),
+                color: None,
+            }],
+            whole: src.to_string(),
+        }
+    }
+
+    pub fn draw(&self, ctx: RcMut<Draw2D>, x: i32, y: i32, height: i32, font: Option<Rc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: Gradient<RGB, f32>) {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
-            let font = get_font(font.clone(), fmt.style);
-            ctx.borrow_mut().color(deref!(fmt.color.borrow()));
-            ctx.borrow_mut().custom_text_origin_rotated(fmt.style.is_chroma(), char_x, y, height, fmt.text.as_str(), font.clone(), rotation, rx, ry);
-            char_x += font.get_metrics(fmt.text.as_str()).width(height);
+            if fmt.color.is_some() {
+                ctx.borrow_mut().color(deref!(fmt.color.clone().unwrap()));
+            } else {
+                ctx.borrow_mut().get_mut_gradient().copy_of(col);
+            }
+            let font = font.clone().unwrap_or(TypeFace::single(Draw2D::get_default_font(ctx.as_ptr())));
+            ctx.borrow_mut().custom_text_origin_rotated(fmt.style.is_chroma(), char_x, y, height, fmt.text.as_str(), get_font(font.clone(), fmt.style), rotation, rx, ry);
+            char_x += get_font(font.clone(), fmt.style).get_metrics(fmt.text.as_str()).width(height);
         }
     }
 }
@@ -109,20 +121,23 @@ impl Serializable for FormattedString {
     }
 }
 
-struct Format {
+pub struct Format {
     pub style: FontStyle,
     pub text: String,
-    pub color: Rc<Color<RGB, f32>>,
+    pub color: Option<Rc<Color<RGB, f32>>>,
 }
 
 impl Serializable for Format {
     fn serialize(&self, serializer: &mut impl Serializer) {
         serializer.push_u8(self.style.raw());
         serializer.push_string(self.text.as_str());
-        serializer.push_f32(self.color.r());
-        serializer.push_f32(self.color.g());
-        serializer.push_f32(self.color.b());
-        serializer.push_f32(self.color.a());
+        if self.color.is_some() {
+            let col = self.color.clone().unwrap();
+            serializer.push_f32(col.r());
+            serializer.push_f32(col.g());
+            serializer.push_f32(col.b());
+            serializer.push_f32(col.a());
+        }
     }
 
     fn deserialize(deserializer: &mut impl Deserializer) -> Result<Self, String> {
@@ -134,6 +149,6 @@ impl Serializable for Format {
         let b = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
         let a = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
         let color = Rc::new(Color::<RGB, f32>::new(r, g, b, a));
-        Ok(Format { style, text, color })
+        Ok(Format { style, text, color: Some(color) })
     }
 }

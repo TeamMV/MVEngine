@@ -45,7 +45,9 @@ impl Draw2D {
         }
     }
 
-
+    pub(crate) fn get_default_font(ctx: *mut Draw2D) -> Rc<Font> {
+        unsafe { ctx.as_ref().unwrap().font.clone() }
+    }
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         self.frame += 1;
@@ -170,7 +172,7 @@ impl Draw2D {
     }
 
     pub fn void_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, rotation: f32, rx: i32, ry: i32) {
-        self.rectangle_origin_rotated(x, y, width, height, rotation, rx, ry);
+        self.rectangle_origin_rotated(x, y, width, thickness, rotation, rx, ry);
         self.rectangle_origin_rotated(x, y + thickness, thickness, height - 2 * thickness, rotation, rx, ry);
         self.rectangle_origin_rotated(x, y + height - thickness, width, thickness, rotation, rx, ry);
         self.rectangle_origin_rotated(x + width - thickness, y + thickness, thickness, height - 2 * thickness, rotation, rx, ry);
@@ -247,9 +249,9 @@ impl Draw2D {
         let rad_rotation: f32 = rotation.to_radians();
 
         self.vertices.get_mut(0).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
-        self.vertices.get_mut(1).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
-        self.vertices.get_mut(2).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
-        self.vertices.get_mut(3).set_data(x as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_data((x + radius) as f32, (y + height) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_data((x + radius) as f32, (y + height - thickness) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_data((x + thickness) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
         

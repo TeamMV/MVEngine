@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use std::marker::PhantomData;
 use mvutils::utils::SplitSized;
 
@@ -308,3 +309,9 @@ impl<F: Fmt, T: Clone> Clone for Gradient<F, T> {
 }
 
 impl<F: Fmt, T: Copy> Copy for Gradient<F, T> {}
+
+impl<F: Fmt, T: Default + Copy> Default for Gradient<F, T> {
+    fn default() -> Self {
+        Gradient::new(Color::<F, T>::default())
+    }
+}

@@ -3,23 +3,22 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::Cursor;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::rc::Rc;
 
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWvidmode, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
-use image::EncodableLayout;
-use mvutils::utils::{AsCStr, TetrahedronOp, Time};
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
+use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets};
+use crate::render::{glfwFreeCallbacks, load_render_assets};
 use crate::render::batch::batch_layout_2d;
 use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
@@ -48,7 +47,7 @@ pub struct OpenGLWindow {
 
     size_buf: [i32; 4],
 
-    draw_2d: Option<Draw2D>,
+    draw_2d: Option<RcMut<Draw2D>>,
     render_2d: OpenGLRenderProcessor2D,
     shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     enabled_shaders: Vec<ShaderPassInfo>,
@@ -119,7 +118,7 @@ impl OpenGLWindow {
         }
     }
 
-    fn running(&mut self, application_loop: &impl ApplicationLoop) {
+    fn running(&mut self, application_loop: &mut impl ApplicationLoop) {
         unsafe {
             let mut init_time: u128 = u128::time_nanos();
             let mut current_time: u128;
@@ -147,7 +146,7 @@ impl OpenGLWindow {
                     gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
                     gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                     //draws
-                    self.draw_2d.as_mut().unwrap().reset_canvas();
+                    self.draw_2d.clone().unwrap().borrow_mut().reset_canvas();
 
                     application_loop.draw(RunningWindow::OpenGL(self));
 
@@ -164,7 +163,7 @@ impl OpenGLWindow {
                     //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
                     self.render_2d.set_camera(self.camera.clone());
 
-                    self.draw_2d.as_mut().unwrap().render(&self.render_2d);
+                    self.draw_2d.clone().unwrap().borrow_mut().render(&self.render_2d);
 
                     if len > 0 {
                         for (i, info) in self.enabled_shaders.drain(..).enumerate() {
@@ -245,13 +244,13 @@ impl OpenGLWindow {
             gl::Viewport(0, 0, width, height);
             self.gen_render_buffer();
             self.render_2d.resize(width, height);
-            self.draw_2d.as_mut().unwrap().resize(width, height);
+            self.draw_2d.clone().unwrap().borrow_mut().resize(width, height);
             self.shader_pass.resize(width, height);
             self.camera.update_projection_mat(width, height);
         }
     }
 
-    pub(crate) fn run(&mut self, application_loop: impl ApplicationLoop) {
+    pub(crate) fn run(&mut self, mut application_loop: impl ApplicationLoop) {
         self.init();
 
         if self.info.fullscreen {
@@ -265,12 +264,12 @@ impl OpenGLWindow {
         self.render_2d.resize(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
-        self.draw_2d = Some(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()));
+        self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()))));
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::OpenGL(self));
 
-        self.running(&application_loop);
+        self.running(&mut application_loop);
         application_loop.stop(RunningWindow::OpenGL(self));
         self.terminate();
     }
@@ -309,8 +308,8 @@ impl OpenGLWindow {
         self.current_frame
     }
 
-    pub(crate) fn get_draw_2d(&mut self) -> &mut Draw2D {
-        self.draw_2d.as_mut().expect("The Draw2D is not initialized yet!")
+    pub(crate) fn get_draw_2d(&mut self) -> RcMut<Draw2D> {
+        self.draw_2d.clone().expect("The Draw2D is not initialized yet!")
     }
 
     pub(crate) fn set_fullscreen(&mut self, fullscreen: bool) {

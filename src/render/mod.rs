@@ -1,10 +1,7 @@
 use std::cell::RefCell;
-use std::io::Cursor;
 use std::rc::Rc;
 
 use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
-use image::{EncodableLayout, ImageFormat};
-use image::ImageFormat::Png;
 use crate::ApplicationInfo;
 
 use crate::assets::{SemiAutomaticAssetManager, WritableAssetManager};

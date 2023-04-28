@@ -10,6 +10,17 @@ pub struct TypeFace {
     pub italic_bold: Rc<Font>,
 }
 
+impl TypeFace {
+    pub fn single(font: Rc<Font>) -> Rc<Self> {
+        Rc::new(TypeFace {
+            regular: font.clone(),
+            bold: font.clone(),
+            italic: font.clone(),
+            italic_bold: font.clone(),
+        })
+    }
+}
+
 pub struct Font {
     texture: Rc<RefCell<Texture>>,
     alphabet: HashMap<char, Glyph>,
@@ -55,6 +66,7 @@ impl FontMetrics {
     }
 
     pub fn char_width(&self, height: i32, c: char) -> i32 {
+        if height == 0 {return 0;}
         let glyph = unsafe { self.font.as_ref().unwrap().get_glyph(c) };
         glyph.get_width(height) * (height / glyph.get_height(height))
     }
