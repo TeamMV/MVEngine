@@ -117,13 +117,17 @@ impl OpenGLWindow {
             glfwSetWindowSizeCallback(self.window, Some(res));
 
             let vidm = glfwGetVideoMode(glfwGetPrimaryMonitor()).as_ref().unwrap();
-            let res = vidm.width as f32 / vidm.height as f32;
+            let pxw = vidm.width as f32;
 
             let mut mon_phy_x: i32 = 1;
             let mut mon_phy_y: i32 = 1;
             glfwGetMonitorPhysicalSize(glfwGetPrimaryMonitor(), &mut mon_phy_x as *mut _, &mut mon_phy_y as *mut _);
-            self.dpi = (mon_phy_x as f32 / 25.4) / (mon_phy_y as f32 / 25.4) * res;
-            println!("{}", self.dpi);
+
+            let mut scly: f32 = 0.0;
+            let mut sclx: f32 = 0.0;
+            glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &mut sclx as *mut _, &mut scly as *mut _);
+
+            self.dpi = pxw / (mon_phy_x as f32 / 25.4) * sclx;
         }
     }
 

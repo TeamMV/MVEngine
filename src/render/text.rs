@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, collections::HashMap};
 use std::cmp::max;
+use mvutils::utils::TetrahedronOp;
 
 use super::{shared::Texture, RenderCore};
 
@@ -68,7 +69,7 @@ impl FontMetrics {
     pub fn char_width(&self, height: i32, c: char) -> i32 {
         if height == 0 {return 0;}
         let glyph = unsafe { self.font.as_ref().unwrap().get_glyph(c) };
-        glyph.get_width(height) * (height / glyph.get_height(height))
+        (glyph.get_width(height) * (height / (glyph.get_height(height) == 0).yn(1, glyph.get_height(height))))
     }
 }
 

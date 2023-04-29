@@ -32,16 +32,71 @@ pub struct GuiStyle {
     pub border_style: GuiValue<BorderStyle>,
     pub border_color: GuiValue<Gradient<RGB, f32>>,
     pub view_state: GuiValue<ViewState>,
-    pub positioning: GuiValue<Positioning>,
+    pub position: GuiValue<Positioning>,
     pub width: GuiValue<i32>,
     pub height: GuiValue<i32>,
-    pub left: GuiValue<i32>,
-    pub right: GuiValue<i32>,
-    pub top: GuiValue<i32>,
-    pub bottom: GuiValue<i32>,
+    pub x: GuiValue<i32>,
+    pub y: GuiValue<i32>,
+    pub origin: GuiValue<Origin>,
     pub rotation: GuiValue<f32>,
     pub rotation_center: GuiValue<(i32, i32)>,
     pub z_index: GuiValue<u16>
+}
+
+#[macro_export]
+macro_rules! value {
+    ($val:tt px) => {
+        GuiValue::Measurement($val, Measurement::PX)
+    };
+    ($val:tt mm) => {
+        GuiValue::Measurement($val, Measurement::MM)
+    };
+    ($val:tt cm) => {
+        GuiValue::Measurement($val, Measurement::CM)
+    };
+    ($val:tt dm) => {
+        GuiValue::Measurement($val, Measurement::DM)
+    };
+    ($val:tt m) => {
+        GuiValue::Measurement($val, Measurement::CM)
+    };
+    ($val:tt IN) => {
+        GuiValue::Measurement($val, Measurement::IN)
+    };
+    ($val:tt inch) => {
+        GuiValue::Measurement($val, Measurement::IN)
+    };
+    ($val:tt inches) => {
+        GuiValue::Measurement($val, Measurement::IN)
+    };
+    ($val:tt ft) => {
+        GuiValue::Measurement($val, Measurement::FT)
+    };
+    ($val:tt p) => {
+        GuiValue::ParentPercentage($val)
+    };
+    ($val:tt percent) => {
+        GuiValue::ParentPercentage($val)
+    };
+    ($val:tt clone) => {
+        GuiValue::Clone($val)
+    };
+    ($val:expr) => {
+        GuiValue::Just($val)
+    };
+}
+
+#[macro_export]
+macro_rules! setup {
+    (
+        $s:expr => {
+            $($key:ident: $value:tt $($suffix:ident)*),*
+        }
+    ) => {
+        $(
+            $s.$key = $crate::value!($value $($suffix)*);
+        )*
+    }
 }
 
 impl Default for GuiStyle {
@@ -68,13 +123,12 @@ impl Default for GuiStyle {
             border_style: Default::default(),
             border_color: Default::default(),
             view_state: Default::default(),
-            positioning: Default::default(),
+            position: Default::default(),
             width: Default::default(),
             height: Default::default(),
-            left: Default::default(),
-            right: Default::default(),
-            top: Default::default(),
-            bottom: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
+            origin: Default::default(),
             rotation: Default::default(),
             rotation_center: Default::default(),
             z_index: Default::default(),
@@ -82,15 +136,15 @@ impl Default for GuiStyle {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub enum ViewState {
     #[default]
-    There,
-    None,
+    Visible,
+    Invisible,
     Gone
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub enum Positioning {
     #[default]
     Relative,
@@ -104,6 +158,33 @@ pub enum BorderStyle {
     Square,
     Round,
     Triangle
+}
+
+#[derive(Copy, Clone, Default, Eq, PartialEq, Default)]
+pub enum Origin {
+    #[default]
+    BottomLeft,
+    BottomRight,
+    TopLeft,
+    TopRight
+}
+
+impl Origin {
+    pub fn is_top(&self) -> bool {
+        self == Origin::TopLeft || self == Origin::TopRight
+    }
+
+    pub fn is_bottom(&self) -> bool {
+        self == Origin::BottomLeft || self == Origin::BottomRight
+    }
+
+    pub fn is_right(&self) -> bool {
+        self == Origin::TopRight || self == Origin::BottomRight
+    }
+
+    pub fn is_left(&self) -> bool {
+        self == Origin::TopLeft || self == Origin::BottomLeft
+    }
 }
 
 pub trait GuiValueValue<T> {

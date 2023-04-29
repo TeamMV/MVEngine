@@ -101,17 +101,17 @@ impl Default for ApplicationInfo {
 mod tests {
     use std::cell::RefCell;
     use std::ops::Deref;
-    use json::object;
     use mvutils::screen::Measurement;
     use mvutils::utils::RcMut;
     use crate::assets::ReadableAssetManager;
-    use crate::{ApplicationInfo, MVCore};
+    use crate::{ApplicationInfo, MVCore, resolve, setup};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
     use mvutils::version::Version;
     use crate::gui::components::{GuiElementAbs, GuiMarkdown, GuiTextComponent};
     use crate::gui::gui_formats::FormattedString;
     use crate::gui::styles::{BorderStyle, GuiValue};
+    use crate::gui::styles::Positioning::Absolute;
     use crate::render::color::{Color, Gradient, RGB};
     use crate::render::text::TypeFace;
 
@@ -138,40 +138,25 @@ mod tests {
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
-            self.md.set_text(FormattedString::new("Heggo"));
-            self.md.info_mut().style.font = GuiValue::Just(Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))));
-            self.md.info_mut().style.text_size = GuiValue::Just(20);
-            self.md.info_mut().style.text_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::black()));
-            self.md.info_mut().style.text_chroma = GuiValue::Just(true);
-            self.md.info_mut().x = 100;
-            self.md.info_mut().y = 100;
+            self.md.set_text(FormattedString::new("Hello"));
 
-            self.md.info_mut().style.background_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::cyan()));
-            self.md.info_mut().style.border_width = GuiValue::Just(5);
-            self.md.info_mut().style.border_style = GuiValue::Just(BorderStyle::Square);
-            self.md.info_mut().style.border_radius = GuiValue::Just(20);
-            self.md.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::red()));
-
-            macro_rules! setup {
-                (@entry($key:ident = $val:expr), $s:expr) => {
-                    $s.$key = GuiValue::Just($val);
-                };
-
-                (
-                    $s:expr => {
-                        $($key:ident: $val:expr),*
-                    }
-                ) => {
-                    $(
-                        setup!(@entry($key = $val), $s);
-                    )*
+            setup!(
+                self.md.info_mut().style => {
+                    font: (Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default")))),
+                    text_size: 2 cm,
+                    text_color: (Gradient::new(Color::<RGB, f32>::black())),
+                    text_chroma: true,
+                    background_color: (Gradient::new(Color::<RGB, f32>::cyan())),
+                    border_width: 5,
+                    border_style: (BorderStyle::Square),
+                    border_radius: 20,
+                    border_color: (Gradient::new(Color::<RGB, f32>::red())),
+                    x: (window.get_width() - 100),
+                    y: 100,
+                    origin: (Origin::BottomLeft),
+                    position: Absolute
                 }
-            }
-
-            setup!(self.md.info_mut().style => {
-                font: Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))),
-                text_color: Gradient::new(Color::<RGB, f32>::black())
-            });
+            );
 
             //self.md.info_mut().style.padding_top = GuiValue::Just(20);
             //self.md.info_mut().style.padding_bottom = GuiValue::Just(20);
@@ -179,7 +164,9 @@ mod tests {
             //self.md.info_mut().style.padding_left = GuiValue::Just(20);
         }
 
-        fn update(&mut self, mut window: RunningWindow) {}
+        fn update(&mut self, mut window: RunningWindow) {
+
+        }
 
         fn draw(&mut self, mut window: RunningWindow) {
             //window.get_draw_2d().tri();

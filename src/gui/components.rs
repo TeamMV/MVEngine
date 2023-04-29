@@ -1,8 +1,8 @@
-use mvutils::utils::RcMut;
+use mvutils::utils::{RcMut, TetrahedronOp};
 use crate::gui::components::GuiElement::{Nothing, Paragraph};
 use crate::gui::gui_formats::FormattedString;
 use crate::render::draw::Draw2D;
-use crate::gui::styles::{BorderStyle, GuiStyle, GuiValueComputeSupply};
+use crate::gui::styles::{BorderStyle, GuiStyle, GuiValueComputeSupply, Positioning};
 use crate::gui::styles::BorderStyle::{Round, Triangle};
 use crate::resolve;
 
@@ -13,8 +13,8 @@ pub struct GuiElementInfo {
     pub height: i32,
     pub bounding_width: i32,
     pub bounding_height: i32,
-    content_width: i32,
-    content_height: i32,
+    pub content_width: i32,
+    pub content_height: i32,
     pub rotation: f32,
     pub rotation_center: (i32, i32),
     pub z_index: u32,
@@ -25,7 +25,7 @@ pub struct GuiElementInfo {
 
     pub style: GuiStyle,
 
-    compute_supply: GuiValueComputeSupply
+    pub compute_supply: GuiValueComputeSupply
 }
 
 impl Default for GuiElementInfo {
@@ -102,6 +102,15 @@ impl GuiElementInfo {
         self.bounding_height = self.content_height + paddings[2] + paddings[3];
         self.width = self.bounding_width + margins[0] + margins[1];
         self.height = self.bounding_height + margins[2] + margins[3];
+
+        let pos = resolve!(self, position);
+        if pos == Positioning::Absolute {
+            let x = resolve!(self, x);
+            let y = resolve!(self, y);
+            let origin = resolve!(self, origin);
+            self.x = origin.is_right().yn(x - self.width, x);
+            self.y = origin.is_top().yn(y - self.height, y);
+        }
     }
 }
 
