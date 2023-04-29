@@ -32,12 +32,12 @@ macro_rules! backend_call {
             #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name();
-            },
+            }
             #[cfg(feature = "vulkan")]
             #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name();
-            },
+            }
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
@@ -45,12 +45,12 @@ macro_rules! backend_call {
             #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*);
-            },
+            }
             #[cfg(feature = "vulkan")]
             #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name($($params,)*);
-            },
+            }
         }
     };
 }
@@ -61,12 +61,12 @@ macro_rules! backend_ret_call {
             #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name()
-            },
+            }
             #[cfg(feature = "vulkan")]
             #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name()
-            },
+            }
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
@@ -74,12 +74,12 @@ macro_rules! backend_ret_call {
             #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.$name($($params,)*)
-            },
+            }
             #[cfg(feature = "vulkan")]
             #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.$name($($params,)*)
-            },
+            }
         }
     };
 }
@@ -132,22 +132,22 @@ macro_rules! backend_ptr_call {
         match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.as_mut().unwrap().$name();
-            },
+            }
             #[cfg(feature = "vulkan")]
             $ty::Vulkan(vk) => unsafe {
                 vk.as_mut().unwrap().$name();
-            },
+            }
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.as_mut().unwrap().$name($($params,)*);
-            },
+            }
             #[cfg(feature = "vulkan")]
             $ty::Vulkan(vk) => unsafe {
                 vk.as_mut().unwrap().$name($($params,)*);
-            },
+            }
         }
     };
 }
@@ -158,23 +158,23 @@ macro_rules! backend_ptr_ret_call {
             #[allow(unused_unsafe)]
             $ty::OpenGL(gl) => unsafe {
                 gl.as_mut().unwrap().$name()
-            },
+            }
             #[cfg(feature = "vulkan")]
             #[allow(unused_unsafe)]
             $ty::Vulkan(vk) => unsafe {
                 vk.as_mut().unwrap().$name()
-            },
+            }
         }
     };
     ($ty:ident, $s:expr, $name:ident, $($params:ident),*) => {
         return match $s {
             $ty::OpenGL(gl) => unsafe {
                 gl.as_mut().unwrap().$name($($params,)*)
-            },
+            }
             #[cfg(feature = "vulkan")]
             $ty::Vulkan(vk) => unsafe {
                 vk.as_mut().unwrap().$name($($params,)*)
-            },
+            }
         }
     };
 }
@@ -249,7 +249,6 @@ impl RunningWindow {
 
     backend_ptr_fn!(RunningWindow, get_width, i32, true);
     backend_ptr_fn!(RunningWindow, get_height, i32, true);
-    backend_ptr_fn!(RunningWindow, get_resolution, (i32, i32), true);
     backend_ptr_fn!(RunningWindow, get_dpi, f32, true);
     backend_ptr_fn!(RunningWindow, get_fps, u16, true);
     backend_ptr_fn!(RunningWindow, get_ups, u16, true);
@@ -353,6 +352,7 @@ impl Shader {
 
     backend_fn!(Shader, uniform_fv, name: &str, value: &[f32]);
     backend_fn!(Shader, uniform_iv, name: &str, value: &[i32]);
+
     pub fn uniform_bv(&mut self, name: &str, value: &[bool]) {
         self.uniform_iv(name, value.iter().map(|b| { b.yn(1, 0) }).collect::<Vec<i32>>().as_slice());
     }

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use include_dir::*;
-use mvutils::utils::RcMut;
 
 use crate::render::RenderCore;
 use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};

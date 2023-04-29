@@ -1,5 +1,5 @@
 use alloc::rc::Rc;
-use mvutils::utils::RcMut;
+use mvutils::utils::{RcMut, TetrahedronOp};
 use crate::render::draw::Draw2D;
 use crate::render::text::{Font, TypeFace};
 
@@ -82,7 +82,7 @@ impl FormattedString {
         }
     }
 
-    pub fn draw(&self, ctx: RcMut<Draw2D>, x: i32, y: i32, height: i32, font: Option<Rc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: Gradient<RGB, f32>) {
+    pub fn draw(&self, ctx: RcMut<Draw2D>, x: i32, y: i32, height: i32, font: Option<Rc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: Gradient<RGB, f32>, chroma: bool) {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
             if fmt.color.is_some() {
@@ -91,7 +91,7 @@ impl FormattedString {
                 ctx.borrow_mut().get_mut_gradient().copy_of(col);
             }
             let font = font.clone().unwrap_or(TypeFace::single(Draw2D::get_default_font(ctx.as_ptr())));
-            ctx.borrow_mut().custom_text_origin_rotated(fmt.style.is_chroma(), char_x, y, height, fmt.text.as_str(), get_font(font.clone(), fmt.style), rotation, rx, ry);
+            ctx.borrow_mut().custom_text_origin_rotated(chroma || fmt.style.is_chroma(), char_x, y, height, fmt.text.as_str(), get_font(font.clone(), fmt.style), rotation, rx, ry);
             char_x += get_font(font.clone(), fmt.style).get_metrics(fmt.text.as_str()).width(height);
         }
     }

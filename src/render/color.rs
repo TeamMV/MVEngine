@@ -89,7 +89,7 @@ pub trait Parse {
 
 impl Color<RGB, u8> {
     pub fn white() -> Self { Color::new(255, 255, 255, 255) }
-    pub fn black() -> Self { Color::new(0, 0, 0, 0) }
+    pub fn black() -> Self { Color::new(0, 0, 0, 255) }
     pub fn red() -> Self { Color::new(255, 0, 0, 255) }
     pub fn green() -> Self { Color::new(0, 255, 0, 255) }
     pub fn blue() -> Self { Color::new(0, 0, 0, 255) }
@@ -156,7 +156,7 @@ impl Color<RGB, u8> {
 
 impl Color<RGB, f32> {
     pub fn white() -> Self { Color::new(1.0, 1.0, 1.0, 1.0) }
-    pub fn black() -> Self { Color::new(0.0, 0.0, 0.0, 0.0) }
+    pub fn black() -> Self { Color::new(0.0, 0.0, 0.0, 1.0) }
     pub fn red() -> Self { Color::new(1.0, 0.0, 0.0, 1.0) }
     pub fn green() -> Self { Color::new(0.0, 1.0, 0.0, 1.0) }
     pub fn blue() -> Self { Color::new(0.0, 0.0, 0.0, 1.0) }

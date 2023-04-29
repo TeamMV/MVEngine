@@ -22,13 +22,12 @@ pub struct Draw2D {
     chroma_tilt: f32,
     chroma_compress: f32,
     frame: u64,
-    screen_resolution: (i32, i32),
     dpi: f32
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Draw2D {
-    pub(crate) fn new(shader: Rc<RefCell<Shader>>, font: Rc<Font>, width: i32, height: i32, res: (i32, i32), dpi: f32) -> Self {
+    pub(crate) fn new(shader: Rc<RefCell<Shader>>, font: Rc<Font>, width: i32, height: i32, dpi: f32) -> Self {
         Draw2D {
             canvas: [0.0, 0.0, width as f32, height as f32, 0.0, 0.0],
             size: [width as f32, height as f32],
@@ -40,7 +39,6 @@ impl Draw2D {
             chroma_tilt: -0.5,
             chroma_compress: 1.0,
             frame: 0,
-            screen_resolution: res,
             dpi
         }
     }
@@ -120,12 +118,24 @@ impl Draw2D {
         self.chroma_tilt = tilt;
     }
 
+    pub fn default_chroma_tilt(&mut self) {
+        self.chroma_tilt = -0.5;
+    }
+
     pub fn chroma_compress(&mut self, compress: f32) {
         self.chroma_compress = compress;
     }
 
+    pub fn default_chroma_stretch(&mut self) {
+        self.chroma_compress = 1.0;
+    }
+
     pub fn chroma_stretch(&mut self, stretch: f32) {
         self.chroma_compress = 1.0 / stretch;
+    }
+
+    pub fn default_chroma_compress(&mut self) {
+        self.chroma_compress = 1.0;
     }
 
     pub fn triangle(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32) {
@@ -558,10 +568,6 @@ impl Draw2D {
     //), useCamera, isStripped);
     //}
     //}
-
-    pub fn screen_resolution(&self) -> (i32, i32) {
-        self.screen_resolution
-    }
     pub fn dpi(&self) -> f32 {
         self.dpi
     }

@@ -101,13 +101,15 @@ impl Default for ApplicationInfo {
 mod tests {
     use std::cell::RefCell;
     use std::ops::Deref;
+    use json::object;
+    use mvutils::screen::Measurement;
     use mvutils::utils::RcMut;
     use crate::assets::ReadableAssetManager;
     use crate::{ApplicationInfo, MVCore};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
     use mvutils::version::Version;
-    use crate::gui::components::{GuiElementAbs, GuiParagraph, GuiTextComponent};
+    use crate::gui::components::{GuiElementAbs, GuiMarkdown, GuiTextComponent};
     use crate::gui::gui_formats::FormattedString;
     use crate::gui::styles::{BorderStyle, GuiValue};
     use crate::render::color::{Color, Gradient, RGB};
@@ -125,33 +127,56 @@ mod tests {
         let mut window = core.get_render().create_window(info);
         window.run(Test {
             core,
-            p: GuiParagraph::create()
+            md: GuiMarkdown::create()
         });
     }
 
     struct Test {
         core: MVCore,
-        p: GuiParagraph
+        md: GuiMarkdown
     }
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
-            self.p.set_text(FormattedString::new("Heggo"));
-            self.p.info_mut().style.font = GuiValue::Just(Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))));
-            self.p.info_mut().style.text_size = GuiValue::Percentage(window.get_height(), 5);
-            self.p.info_mut().style.text_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::yellow()));
-            self.p.info_mut().x = 100;
-            self.p.info_mut().y = 100;
+            self.md.set_text(FormattedString::new("Heggo"));
+            self.md.info_mut().style.font = GuiValue::Just(Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))));
+            self.md.info_mut().style.text_size = GuiValue::Just(20);
+            self.md.info_mut().style.text_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::black()));
+            self.md.info_mut().style.text_chroma = GuiValue::Just(true);
+            self.md.info_mut().x = 100;
+            self.md.info_mut().y = 100;
 
-            self.p.info_mut().style.background_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::cyan()));
-            self.p.info_mut().style.border_width = GuiValue::Just(5);
-            self.p.info_mut().style.border_style = GuiValue::Just(BorderStyle::Square);
-            self.p.info_mut().style.border_radius = GuiValue::Just(20);
-            self.p.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::red()));
-            //self.p.info_mut().style.padding_top = GuiValue::Just(20);
-            self.p.info_mut().style.padding_bottom = GuiValue::Just(20);
-            //self.p.info_mut().style.padding_right = GuiValue::Just(20);
-            //self.p.info_mut().style.padding_left = GuiValue::Just(20);
+            self.md.info_mut().style.background_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::cyan()));
+            self.md.info_mut().style.border_width = GuiValue::Just(5);
+            self.md.info_mut().style.border_style = GuiValue::Just(BorderStyle::Square);
+            self.md.info_mut().style.border_radius = GuiValue::Just(20);
+            self.md.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::red()));
+
+            macro_rules! setup {
+                (@entry($key:ident = $val:expr), $s:expr) => {
+                    $s.$key = GuiValue::Just($val);
+                };
+
+                (
+                    $s:expr => {
+                        $($key:ident: $val:expr),*
+                    }
+                ) => {
+                    $(
+                        setup!(@entry($key = $val), $s);
+                    )*
+                }
+            }
+
+            setup!(self.md.info_mut().style => {
+                font: Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default"))),
+                text_color: Gradient::new(Color::<RGB, f32>::black())
+            });
+
+            //self.md.info_mut().style.padding_top = GuiValue::Just(20);
+            //self.md.info_mut().style.padding_bottom = GuiValue::Just(20);
+            //self.md.info_mut().style.padding_right = GuiValue::Just(20);
+            //self.md.info_mut().style.padding_left = GuiValue::Just(20);
         }
 
         fn update(&mut self, mut window: RunningWindow) {}
@@ -168,7 +193,7 @@ mod tests {
             //    shader.uniform_1f("quality", 4.0);
             //    shader.uniform_1f("size", 8.0);
             //}));
-            self.p.draw(window.get_draw_2d());
+            self.md.draw(window.get_draw_2d());
         }
 
         fn stop(&mut self, window: RunningWindow) {}

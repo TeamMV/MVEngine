@@ -96,7 +96,7 @@ impl RenderCore {
         match self.backend {
             RenderingBackend::OpenGL => {
                 Window::OpenGL(OpenGLWindow::new(info, self.assets.clone()))
-            },
+            }
             #[cfg(feature = "vulkan")]
             RenderingBackend::Vulkan => unsafe {
                 Window::Vulkan(VulkanWindow::new(info, self.assets.clone(), (self as *const _) as *mut _, self.app))
@@ -109,7 +109,7 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     EffectShader::OpenGL(OpenGLShader::new(EFFECT_VERT, source))
-                },
+                }
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
                     EffectShader::Vulkan(VulkanShader::new(VK_EFFECT_VERT, source))
@@ -123,7 +123,7 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     Shader::OpenGL(OpenGLShader::new(vertex, fragment))
-                },
+                }
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
                     Shader::Vulkan(VulkanShader::new(vertex, fragment))
@@ -137,7 +137,7 @@ impl RenderCore {
             match self.backend {
                 RenderingBackend::OpenGL => {
                     Texture::OpenGL(OpenGLTexture::new(bytes.to_vec()))
-                },
+                }
                 #[cfg(feature = "vulkan")]
                 RenderingBackend::Vulkan => {
                     Texture::Vulkan(VulkanTexture::new(bytes.to_vec()))

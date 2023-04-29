@@ -1,7 +1,7 @@
 use alloc::ffi::CString;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::c_void;
+use std::ffi::{c_float, c_void};
 use std::io::Cursor;
 use std::ops::DerefMut;
 use std::rc::Rc;
@@ -9,7 +9,7 @@ use std::rc::Rc;
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
+use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetMonitorContentScale, glfwGetMonitorPhysicalSize, glfwGetPrimaryMonitor, glfwGetProcAddress, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, OPENGL_API, RESIZABLE, TRUE, VISIBLE};
 use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
@@ -57,7 +57,7 @@ pub struct OpenGLWindow {
 
     camera: Camera,
 
-    res: (i32, i32)
+    dpi: f32
 }
 
 impl OpenGLWindow {
@@ -82,7 +82,7 @@ impl OpenGLWindow {
 
             draw_2d: None,
             camera: Camera::new_2d(),
-            res: (0, 0),
+            dpi: 0.0
         }
     }
 
@@ -115,6 +115,15 @@ impl OpenGLWindow {
             self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
 
             glfwSetWindowSizeCallback(self.window, Some(res));
+
+            let vidm = glfwGetVideoMode(glfwGetPrimaryMonitor()).as_ref().unwrap();
+            let res = vidm.width as f32 / vidm.height as f32;
+
+            let mut mon_phy_x: i32 = 1;
+            let mut mon_phy_y: i32 = 1;
+            glfwGetMonitorPhysicalSize(glfwGetPrimaryMonitor(), &mut mon_phy_x as *mut _, &mut mon_phy_y as *mut _);
+            self.dpi = (mon_phy_x as f32 / 25.4) / (mon_phy_y as f32 / 25.4) * res;
+            println!("{}", self.dpi);
         }
     }
 
@@ -264,7 +273,7 @@ impl OpenGLWindow {
         self.render_2d.resize(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
-        self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.res, self.get_dpi()))));
+        self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.get_dpi()))));
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::OpenGL(self));
@@ -288,12 +297,8 @@ impl OpenGLWindow {
         self.info.height
     }
 
-    pub(crate) fn get_resolution(&self) -> (i32, i32) {
-        self.res
-    }
-
     pub(crate) fn get_dpi(&self) -> f32 {
-        self.res.0 as f32 / self.res.1 as f32
+        self.dpi
     }
 
     pub(crate) fn get_fps(&self) -> u16 {
