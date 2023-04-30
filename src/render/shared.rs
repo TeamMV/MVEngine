@@ -474,9 +474,7 @@ impl TextureRegion {
 
 //Assets above this comment pls, here comes the "real rendering shit"
 
-pub(crate) trait RenderProcessor2D {
+pub(crate) trait RenderProcessor {
     #[allow(clippy::too_many_arguments)]
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8);
-    fn gen_buffer_id(&self) -> u32;
-    fn adapt_render_mode(&self, render_mode: u8) -> u8;
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8);
 }

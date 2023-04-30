@@ -11,7 +11,7 @@ use crate::render::text::{Font, FontLoader};
 pub struct AssetManager {
     core: Option<Rc<RenderCore>>,
     font_loader: Option<FontLoader>,
-    files: HashMap<String, File<'static>>,
+    pub(crate) files: HashMap<String, File<'static>>,
     shaders: HashMap<String, Rc<RefCell<Shader>>>,
     effect_shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     textures: HashMap<String, Rc<RefCell<Texture>>>,
@@ -116,6 +116,8 @@ macro_rules! impl_am {
 }
 
 pub trait ReadableAssetManager {
+    fn get_raw(&mut self, file: &str) -> Vec<u8>;
+    fn try_get_raw(&mut self, file: &str) -> Option<Vec<u8>>;
     fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
     fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
     fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
@@ -133,6 +135,14 @@ macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
             impl ReadableAssetManager for $t {
+                fn get_raw(&mut self, file: &str) -> Vec<u8> {
+                    self.try_get_raw(file).expect("dev.mv.core.IOException: 'File not found!'")
+                }
+
+                fn try_get_raw(&mut self, file: &str) -> Option<Vec<u8>> {
+                    self.manager.files.remove(file).map(|file| file.contents().to_vec())
+                }
+
                 fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>> {
                     self.manager.shaders.get(id).unwrap().clone()
                 }

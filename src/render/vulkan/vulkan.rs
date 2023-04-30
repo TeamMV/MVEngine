@@ -17,7 +17,7 @@ use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
 use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 use crate::render::vulkan::internal::Vulkan;
 
 static mut VK_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut VulkanWindow>> = Lazy::new(HashMap::new);
@@ -517,7 +517,7 @@ impl VulkanRenderProcessor2D {
     }
 }
 
-impl RenderProcessor2D for VulkanRenderProcessor2D {
+impl RenderProcessor for VulkanRenderProcessor2D {
     #[allow(clippy::too_many_arguments)]
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
         unsafe {

@@ -15,10 +15,10 @@ use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::{glfwFreeCallbacks, load_render_assets};
-use crate::render::batch::batch_layout_2d;
+use crate::render::batch2d::batch_layout_2d;
 use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
@@ -37,6 +37,14 @@ macro_rules! static_listener {
 
 static_listener!(res, resize, w: i32, h: i32);
 
+pub(super) fn gen_buffer_id() -> u32 {
+    unsafe {
+        let mut buf: GLuint = 0;
+        gl::GenBuffers(1, &mut buf);
+        buf
+    }
+}
+
 pub struct OpenGLWindow {
     info: WindowCreateInfo,
     assets: Rc<RefCell<SemiAutomaticAssetManager>>,
@@ -49,11 +57,14 @@ pub struct OpenGLWindow {
 
     draw_2d: Option<RcMut<Draw2D>>,
     render_2d: OpenGLRenderProcessor2D,
+    #[cfg(feature = "3d")]
+    render_3d: OpenGLRenderProcessor3D,
     shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     enabled_shaders: Vec<ShaderPassInfo>,
     shader_pass: OpenGLShaderPass,
-    frame_buf: u32,
-    texture_buf: u32,
+    shader_buffer_2d: OpenGLShaderBuffer,
+    #[cfg(feature = "3d")]
+    shader_buffer_3d: OpenGLShaderBuffer,
 
     camera: Camera,
 
@@ -74,11 +85,14 @@ impl OpenGLWindow {
 
             size_buf: [0; 4],
             render_2d: OpenGLRenderProcessor2D::new(),
+            #[cfg(feature = "3d")]
+            render_3d: OpenGLRenderProcessor3D::new(),
             shaders: HashMap::new(),
             enabled_shaders: Vec::with_capacity(10),
             shader_pass: OpenGLShaderPass::new(),
-            frame_buf: 0,
-            texture_buf: 0,
+            shader_buffer_2d: OpenGLShaderBuffer::default(),
+            #[cfg(feature = "3d")]
+            shader_buffer_3d: OpenGLShaderBuffer::default(),
 
             draw_2d: None,
             camera: Camera::new_2d(),
@@ -112,7 +126,7 @@ impl OpenGLWindow {
             gl::DepthMask(gl::TRUE);
             gl::DepthFunc(gl::LEQUAL);
 
-            self.shader_pass.set_ibo(self.render_2d.gen_buffer_id());
+            self.shader_pass.set_ibo(gen_buffer_id());
 
             glfwSetWindowSizeCallback(self.window, Some(res));
 
@@ -159,42 +173,15 @@ impl OpenGLWindow {
                     gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
                     gl::Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                     //draws
+
                     self.draw_2d.clone().unwrap().borrow_mut().reset_canvas();
 
                     application_loop.draw(RunningWindow::OpenGL(self));
 
-                    let len = self.enabled_shaders.len();
+                    #[cfg(feature = "3d")]
+                    self.render_3d();
 
-                    if len > 0 {
-                        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buf);
-                        gl::Clear(COLOR_BUFFER_BIT);
-                        self.render_2d.set_framebuffer(self.frame_buf);
-                    } else {
-                        self.render_2d.set_framebuffer(0);
-                    }
-
-                    //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
-                    self.render_2d.set_camera(self.camera.clone());
-
-                    self.draw_2d.clone().unwrap().borrow_mut().render(&self.render_2d);
-
-                    if len > 0 {
-                        for (i, info) in self.enabled_shaders.drain(..).enumerate() {
-                            let mut shader = self.shaders.get(info.get_id());
-                            if shader.is_none() {
-                                if len == i + 1 {
-                                    shader = self.shaders.get("empty");
-                                } else {
-                                    continue;
-                                }
-                            }
-                            let shader = shader.unwrap();
-                            shader.borrow_mut().bind();
-                            info.apply(shader.borrow_mut().deref_mut());
-                            let f_buf = (len == i + 1).yn(0, self.frame_buf);
-                            self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
-                        }
-                    }
+                    self.render_2d();
 
                     glfwSwapBuffers(self.window);
                     self.current_frame += 1;
@@ -212,6 +199,46 @@ impl OpenGLWindow {
         }
     }
 
+    unsafe fn render_2d(&mut self) {
+        let len = self.enabled_shaders.len();
+
+        if len > 0 {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.shader_buffer_2d.f_buf);
+            gl::Clear(COLOR_BUFFER_BIT);
+            self.render_2d.set_framebuffer(self.shader_buffer_2d.f_buf);
+        } else {
+            self.render_2d.set_framebuffer(0);
+        }
+
+        //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
+        self.render_2d.set_camera(self.camera.clone());
+
+        self.draw_2d.clone().unwrap().borrow_mut().render(&self.render_2d);
+
+        if len > 0 {
+            for (i, info) in self.enabled_shaders.drain(..).enumerate() {
+                let mut shader = self.shaders.get(info.get_id());
+                if shader.is_none() {
+                    if len == i + 1 {
+                        shader = self.shaders.get("empty");
+                    } else {
+                        continue;
+                    }
+                }
+                let shader = shader.unwrap();
+                shader.borrow_mut().bind();
+                info.apply(shader.borrow_mut().deref_mut());
+                let f_buf = (len == i + 1).yn(0, self.shader_buffer_2d.f_buf);
+                self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.shader_buffer_2d.t_buf, self.current_frame as i32);
+            }
+        }
+    }
+
+    #[cfg(feature = "3d")]
+    unsafe fn render_3d(&mut self) {
+
+    }
+
     fn terminate(&mut self) {
         unsafe {
             GL_WINDOWS.remove(&self.window);
@@ -220,30 +247,70 @@ impl OpenGLWindow {
         }
     }
 
-    fn gen_render_buffer(&mut self) {
+    fn gen_render_buffers(&mut self) {
         unsafe {
-            if self.frame_buf != 0 {
-                gl::DeleteBuffers(1, &self.frame_buf);
+            if self.shader_buffer_2d.f_buf != 0 {
+                gl::DeleteBuffers(1, &self.shader_buffer_2d.f_buf);
+            }
+            if self.shader_buffer_2d.t_buf != 0 {
+                gl::DeleteBuffers(1, &self.shader_buffer_2d.t_buf);
             }
 
-            gl::CreateFramebuffers(1, &mut self.frame_buf);
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.frame_buf);
+            gl::CreateFramebuffers(1, &mut self.shader_buffer_2d.f_buf);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.shader_buffer_2d.f_buf);
 
-            gl::GenTextures(1, &mut self.texture_buf);
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_buf);
+            gl::GenTextures(1, &mut self.shader_buffer_2d.t_buf);
+            gl::BindTexture(gl::TEXTURE_2D, self.shader_buffer_2d.t_buf);
             gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width, self.info.height, 0, gl::RGB, gl::UNSIGNED_BYTE, std::ptr::null());
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.frame_buf);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.shader_buffer_2d.f_buf);
 
-            gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, self.texture_buf, 0);
+            gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, self.shader_buffer_2d.t_buf, 0);
 
             let attach = [gl::COLOR_ATTACHMENT0];
             gl::DrawBuffers(1, attach.as_ptr());
 
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
-                panic!("Incomplete Framebuffer");
+                panic!("Incomplete 2D Framebuffer!");
+            }
+
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+        #[cfg(feature = "3d")]
+        unsafe {
+            if self.shader_buffer_3d.f_buf != 0 {
+                gl::DeleteBuffers(1, &self.shader_buffer_3d.f_buf);
+            }
+            if self.shader_buffer_3d.t_buf != 0 {
+                gl::DeleteBuffers(1, &self.shader_buffer_3d.t_buf);
+            }
+            if self.shader_buffer_3d.r_buf != 0 {
+                gl::DeleteBuffers(1, &self.shader_buffer_3d.r_buf);
+            }
+
+            gl::CreateFramebuffers(1, &mut self.shader_buffer_3d.f_buf);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.shader_buffer_3d.f_buf);
+
+            gl::GenTextures(1, &mut self.shader_buffer_3d.t_buf);
+            gl::BindTexture(gl::TEXTURE_2D, self.shader_buffer_3d.t_buf);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, self.info.width, self.info.height, 0, gl::RGB, gl::UNSIGNED_BYTE, std::ptr::null());
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+
+            gl::GenRenderbuffers(1, &mut self.shader_buffer_3d.r_buf);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, self.shader_buffer_3d.r_buf);
+            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT, self.info.width, self.info.height);
+
+            gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, self.shader_buffer_3d.t_buf, 0);
+            gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, self.shader_buffer_3d.r_buf);
+
+            let attach = [gl::COLOR_ATTACHMENT0];
+            gl::DrawBuffers(1, attach.as_ptr());
+
+            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+                panic!("Incomplete 3D Framebuffer!");
             }
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -255,8 +322,10 @@ impl OpenGLWindow {
             self.info.width = width;
             self.info.height = height;
             gl::Viewport(0, 0, width, height);
-            self.gen_render_buffer();
+            self.gen_render_buffers();
             self.render_2d.resize(width, height);
+            #[cfg(feature = "3d")]
+            self.render_3d.resize(width, height);
             self.draw_2d.clone().unwrap().borrow_mut().resize(width, height);
             self.shader_pass.resize(width, height);
             self.camera.update_projection_mat(width, height);
@@ -272,9 +341,11 @@ impl OpenGLWindow {
 
         load_render_assets(self.assets.clone());
 
-        self.gen_render_buffer();
+        self.gen_render_buffers();
         self.shader_pass.resize(self.info.width, self.info.height);
-        self.render_2d.resize(self.info.width, self.info.height);
+        self.render_2d.setup(self.info.width, self.info.height);
+        #[cfg(feature = "3d")]
+        self.render_3d.setup(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
         self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.get_dpi()))));
@@ -354,6 +425,13 @@ impl OpenGLWindow {
     pub(crate) fn get_camera(&self) -> &Camera {
         &self.camera
     }
+}
+
+#[derive(Default, Copy, Clone)]
+struct OpenGLShaderBuffer {
+    f_buf: u32,
+    t_buf: u32,
+    r_buf: u32,
 }
 
 struct OpenGLShaderPass {
@@ -589,10 +667,12 @@ impl OpenGLTexture {
 
 //"real rendering" coming here
 
-pub struct OpenGLRenderProcessor2D {
+pub(crate) struct OpenGLRenderProcessor2D {
     framebuffer: u32,
     width: i32,
     height: i32,
+    vbo: u32,
+    ibo: u32,
     camera: Option<Camera>,
 }
 
@@ -602,8 +682,17 @@ impl OpenGLRenderProcessor2D {
             framebuffer: 0,
             width: 0,
             height: 0,
+            vbo: 0,
+            ibo: 0,
             camera: None,
         }
+    }
+
+    fn setup(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+        self.vbo = gen_buffer_id();
+        self.ibo = gen_buffer_id();
     }
 
     fn resize(&mut self, width: i32, height: i32) {
@@ -627,9 +716,9 @@ macro_rules! vert_attrib {
     };
 }
 
-impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
+impl RenderProcessor for OpenGLRenderProcessor2D {
     #[allow(clippy::too_many_arguments)]
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], vbo: u32, ibo: u32, shader: &mut Shader, render_mode: u8) {
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
         let mut i: u8 = 0;
         for t in tex.iter_mut().flatten() {
             t.borrow_mut().bind(i);
@@ -637,10 +726,10 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
         }
 
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(gl::ARRAY_BUFFER, (vertices.len() * 4) as GLsizeiptr, vertices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
 
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
             gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (indices.len() * 4) as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
 
             if !tex.is_empty() {
@@ -674,16 +763,56 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D<> {
             t.borrow_mut().unbind();
         }
     }
+}
 
-    fn gen_buffer_id(&self) -> u32 {
-        unsafe {
-            let mut buf: GLuint = 0;
-            gl::GenBuffers(1, &mut buf);
-            buf
+#[cfg(feature = "3d")]
+pub(crate) struct OpenGLRenderProcessor3D {
+    framebuffer: u32,
+    width: i32,
+    height: i32,
+    vbo: u32,
+    ibo: u32,
+    camera: Option<Camera>
+}
+
+#[cfg(feature = "3d")]
+impl OpenGLRenderProcessor3D {
+    fn new() -> Self {
+        OpenGLRenderProcessor3D {
+            framebuffer: 0,
+            width: 0,
+            height: 0,
+            vbo: 0,
+            ibo: 0,
+            camera: None,
         }
     }
 
-    fn adapt_render_mode(&self, render_mode: u8) -> u8 {
-        render_mode
+    fn setup(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+        self.vbo = gen_buffer_id();
+        self.ibo = gen_buffer_id();
+    }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    fn set_framebuffer(&mut self, framebuffer: u32) {
+        self.framebuffer = framebuffer;
+    }
+
+    fn set_camera(&mut self, cam: Camera) {
+        self.camera = Some(cam);
+    }
+}
+
+#[cfg(feature = "3d")]
+impl RenderProcessor for OpenGLRenderProcessor3D {
+    #[allow(clippy::too_many_arguments)]
+    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+
     }
 }

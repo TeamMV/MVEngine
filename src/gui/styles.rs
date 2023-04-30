@@ -160,7 +160,7 @@ pub enum BorderStyle {
     Triangle
 }
 
-#[derive(Copy, Clone, Default, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub enum Origin {
     #[default]
     BottomLeft,
@@ -171,19 +171,19 @@ pub enum Origin {
 
 impl Origin {
     pub fn is_top(&self) -> bool {
-        self == Origin::TopLeft || self == Origin::TopRight
+        self == &Origin::TopLeft || self == &Origin::TopRight
     }
 
     pub fn is_bottom(&self) -> bool {
-        self == Origin::BottomLeft || self == Origin::BottomRight
+        self == &Origin::BottomLeft || self == &Origin::BottomRight
     }
 
     pub fn is_right(&self) -> bool {
-        self == Origin::TopRight || self == Origin::BottomRight
+        self == &Origin::TopRight || self == &Origin::BottomRight
     }
 
     pub fn is_left(&self) -> bool {
-        self == Origin::TopLeft || self == Origin::BottomLeft
+        self == &Origin::TopLeft || self == &Origin::BottomLeft
     }
 }
 
@@ -248,7 +248,7 @@ macro_rules! impl_unreachable_gvv {
     };
 }
 
-impl_unreachable_gvv!(Gradient<RGB, f32>, ViewState, Positioning, BorderStyle, Option<Rc<TypeFace>>, bool);
+impl_unreachable_gvv!(Gradient<RGB, f32>, ViewState, Positioning, BorderStyle, Origin, Option<Rc<TypeFace>>, bool);
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,

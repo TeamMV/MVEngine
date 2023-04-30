@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use mvutils::utils::XTraIMath;
 
-use crate::render::batch::{BatchController2D, Vertex2D, VertexGroup};
+use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
-use crate::render::shared::{RenderProcessor2D, Shader};
+use crate::render::shared::{RenderProcessor, Shader};
 
 use super::color::Gradient;
 use super::shared::TextureRegion;
@@ -47,7 +47,7 @@ impl Draw2D {
         unsafe { ctx.as_ref().unwrap().font.clone() }
     }
 
-    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor) {
         self.frame += 1;
         self.batch.render(processor);
     }

@@ -110,18 +110,25 @@ mod tests {
     use mvutils::version::Version;
     use crate::gui::components::{GuiElementAbs, GuiMarkdown, GuiTextComponent};
     use crate::gui::gui_formats::FormattedString;
-    use crate::gui::styles::{BorderStyle, GuiValue};
+    use crate::gui::styles::{BorderStyle, GuiValue, Origin};
     use crate::gui::styles::Positioning::Absolute;
     use crate::render::color::{Color, Gradient, RGB};
+    use crate::render::model::GLTFModelLoader;
     use crate::render::text::TypeFace;
 
     #[test]
     fn test() {
+        let loader = GLTFModelLoader::new();
+
         let mut app = ApplicationInfo::default();
         app.version = Version::parse("v0.1.0").unwrap();
         app.name = "Test".to_string();
         app.backend = OpenGL;
         let mut core = MVCore::new(app);
+
+        let model = loader.load_model(core.assets.borrow_mut().get_raw("cube.glb"));
+        println!("{:?}", model.mesh.indices);
+
         let mut info = WindowCreateInfo::default();
         info.title = "MVCore".to_string();
         let mut window = core.get_render().create_window(info);

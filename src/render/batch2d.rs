@@ -6,12 +6,12 @@ use mvutils::init_arr;
 use mvutils::utils::{TetrahedronOp};
 use crate::render::color::{Color, RGB};
 
-use crate::render::shared::{RenderProcessor2D, Shader, Texture};
+use crate::render::shared::{RenderProcessor, Shader, Texture};
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
 
 pub mod batch_layout_2d {
-    use crate::render::batch::FLOAT_BYTES;
+    use crate::render::batch2d::FLOAT_BYTES;
 
     pub(crate) const POSITION_SIZE: u16 = 3;
     pub(crate) const ROTATION_SIZE: u16 = 1;
@@ -116,8 +116,6 @@ struct Batch2D {
     indices: Vec<u32>,
     textures: [Option<Rc<RefCell<Texture>>>; 17],
     tex_ids: [u32; 16],
-    vbo: u32,
-    ibo: u32,
     size: u32,
     vert_count: u32,
     obj_count: u32,
@@ -127,15 +125,13 @@ struct Batch2D {
 }
 
 impl Batch2D {
-    pub(crate) fn new<T: BatchGen + 'static>(size: u32, generator: T) -> Self {
+    fn new<T: BatchGen + 'static>(size: u32, generator: T) -> Self {
         Batch2D {
             generator: Box::new(generator),
             data: Vec::with_capacity(size as usize * batch_layout_2d::VERTEX_SIZE_FLOATS as usize),
             indices: Vec::with_capacity(size as usize * 6),
             textures: [0; 17].map(|_| None),
             tex_ids: [0; 16],
-            vbo: 0,
-            ibo: 0,
             size,
             vert_count: 0,
             obj_count: 0,
@@ -145,7 +141,7 @@ impl Batch2D {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
+    fn clear(&mut self) {
         self.vert_count = 0;
         self.obj_count = 0;
         self.next_tex = 0;
@@ -154,7 +150,7 @@ impl Batch2D {
         self.full_tex = false;
     }
 
-    pub(crate) fn force_clear(&mut self) {
+    fn force_clear(&mut self) {
         self.data.clear();
         self.indices.clear();
         self.textures.fill(None);
@@ -163,11 +159,11 @@ impl Batch2D {
         self.clear();
     }
 
-    pub(crate) fn is_full(&self, amount: u32) -> bool {
+    fn is_full(&self, amount: u32) -> bool {
         self.data.capacity() < amount as usize
     }
 
-    pub(crate) fn is_full_tex(&self) -> bool {
+    fn is_full_tex(&self) -> bool {
         self.full_tex
     }
 
@@ -178,7 +174,7 @@ impl Batch2D {
         self.vert_count += 1;
     }
 
-    pub(crate) fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
+    fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
         if self.is_full(vertices.len as u32) {
             return;
         }
@@ -203,7 +199,7 @@ impl Batch2D {
         self.obj_count += 1;
     }
 
-    pub(crate) fn add_texture(&mut self, texture: Rc<RefCell<Texture>>) -> u32 {
+    fn add_texture(&mut self, texture: Rc<RefCell<Texture>>) -> u32 {
         if self.full_tex {
             return 0;
         }
@@ -227,18 +223,12 @@ impl Batch2D {
         self.next_tex
     }
 
-    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D, shader: &mut Shader) {
-        if self.vbo == 0 {
-            self.vbo = processor.gen_buffer_id();
-        }
-        if self.ibo == 0 {
-            self.ibo = processor.gen_buffer_id();
-        }
-        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, self.vbo, self.ibo, shader, processor.adapt_render_mode(self.generator.get_render_mode()));
+    fn render(&mut self, processor: &impl RenderProcessor, shader: &mut Shader) {
+        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, shader,  self.generator.get_render_mode());
         self.force_clear();
     }
 
-    pub(crate) fn is_stripped(&self) -> bool {
+    fn is_stripped(&self) -> bool {
         self.generator.is_stripped()
     }
 }
@@ -328,7 +318,7 @@ impl BatchController2D {
         batch
     }
 
-    pub(crate) fn start(&mut self) {
+    fn start(&mut self) {
         self.batches.push(Batch2D::new(self.batch_limit, RegularBatch));
     }
 
@@ -336,7 +326,7 @@ impl BatchController2D {
         self.current += 1;
         if let Some(batch) = self.batches.get(self.current as usize) {
             if batch.is_stripped() != stripped {
-                self.batches.insert(self.current as usize, self.gen_batch(stripped))
+                self.batches[self.current as usize] = self.gen_batch(stripped);
             }
         } else {
             self.batches.push(self.gen_batch(stripped));
@@ -396,7 +386,7 @@ impl BatchController2D {
         self.batches[self.current as usize].add_texture(texture)
     }
 
-    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor) {
         self.shader.borrow_mut().bind();
         for i in 0..self.current + 1 {
             self.batches[i as usize].render(processor, self.shader.borrow_mut().deref_mut());

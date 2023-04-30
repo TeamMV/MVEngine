@@ -14,12 +14,16 @@ use crate::render::vulkan::vulkan::{VulkanWindow, VulkanShader, VulkanTexture};
 pub mod shared;
 pub mod draw;
 pub mod color;
-pub mod batch;
+pub mod batch2d;
 pub mod camera;
 pub mod text;
 pub mod opengl;
 #[cfg(feature = "vulkan")]
 pub mod vulkan;
+#[cfg(feature = "3d")]
+pub mod model;
+#[cfg(feature = "3d")]
+pub mod batch3d;
 
 pub const EFFECT_VERT: &str = "#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}";
 pub const EMPTY_EFFECT_FRAG: &str = "#version 450\nin vec2 fTexCoord;out vec4 outColor;uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
