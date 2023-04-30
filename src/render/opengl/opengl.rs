@@ -14,11 +14,13 @@ use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{glfwFreeCallbacks, load_render_assets};
+use crate::render::{glfwFreeCallbacks, load_render_assets, MAX_TEXTURES, MAX_TEXTURES_IDENTIFIER};
 use crate::render::batch2d::batch_layout_2d;
 use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
+use crate::render::model::Material;
+use crate::render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightningPass};
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RenderProcessor3D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
@@ -58,7 +60,10 @@ pub struct OpenGLWindow {
     draw_2d: Option<RcMut<Draw2D>>,
     render_2d: OpenGLRenderProcessor2D,
     #[cfg(feature = "3d")]
-    render_3d: OpenGLRenderProcessor3D,
+    geometry_pass: OpenGLGeometryPass,
+    #[cfg(feature = "3d")]
+    lighting_pass: OpenGLLightningPass,
+
     shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     enabled_shaders: Vec<ShaderPassInfo>,
     shader_pass: OpenGLShaderPass,
@@ -86,7 +91,10 @@ impl OpenGLWindow {
             size_buf: [0; 4],
             render_2d: OpenGLRenderProcessor2D::new(),
             #[cfg(feature = "3d")]
-            render_3d: OpenGLRenderProcessor3D::new(),
+            geometry_pass: OpenGLGeometryPass::new(),
+            #[cfg(feature = "3d")]
+            lighting_pass: OpenGLLightingPass::new(),
+
             shaders: HashMap::new(),
             enabled_shaders: Vec::with_capacity(10),
             shader_pass: OpenGLShaderPass::new(),
@@ -127,6 +135,10 @@ impl OpenGLWindow {
             gl::DepthFunc(gl::LEQUAL);
 
             self.shader_pass.set_ibo(gen_buffer_id());
+
+            let mut mt = 0;
+            gl::GetIntegerv(gl::MAX_TEXTURE_IMAGE_UNITS, &mut mt);
+            MAX_TEXTURES = mt as u32;
 
             glfwSetWindowSizeCallback(self.window, Some(res));
 
@@ -253,7 +265,7 @@ impl OpenGLWindow {
                 gl::DeleteBuffers(1, &self.shader_buffer_2d.f_buf);
             }
             if self.shader_buffer_2d.t_buf != 0 {
-                gl::DeleteBuffers(1, &self.shader_buffer_2d.t_buf);
+                gl::DeleteTextures(1, &self.shader_buffer_2d.t_buf);
             }
 
             gl::CreateFramebuffers(1, &mut self.shader_buffer_2d.f_buf);
@@ -284,10 +296,10 @@ impl OpenGLWindow {
                 gl::DeleteBuffers(1, &self.shader_buffer_3d.f_buf);
             }
             if self.shader_buffer_3d.t_buf != 0 {
-                gl::DeleteBuffers(1, &self.shader_buffer_3d.t_buf);
+                gl::DeleteTextures(1, &self.shader_buffer_3d.t_buf);
             }
             if self.shader_buffer_3d.r_buf != 0 {
-                gl::DeleteBuffers(1, &self.shader_buffer_3d.r_buf);
+                gl::DeleteRenderbuffers(1, &self.shader_buffer_3d.r_buf);
             }
 
             gl::CreateFramebuffers(1, &mut self.shader_buffer_3d.f_buf);
@@ -325,7 +337,7 @@ impl OpenGLWindow {
             self.gen_render_buffers();
             self.render_2d.resize(width, height);
             #[cfg(feature = "3d")]
-            self.render_3d.resize(width, height);
+            self.geometry_pass.resize(width, height);
             self.draw_2d.clone().unwrap().borrow_mut().resize(width, height);
             self.shader_pass.resize(width, height);
             self.camera.update_projection_mat(width, height);
@@ -344,11 +356,14 @@ impl OpenGLWindow {
         self.gen_render_buffers();
         self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.setup(self.info.width, self.info.height);
-        #[cfg(feature = "3d")]
-        self.render_3d.setup(self.info.width, self.info.height);
         let shader = self.assets.borrow().get_shader("default");
         let font = self.assets.borrow().get_font("default");
         self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.get_dpi()))));
+
+        #[cfg(feature = "3d")]
+        {
+            self.geometry_pass.setup(self.info.width, self.info.height);
+        }
 
         self.camera.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::OpenGL(self));
@@ -605,6 +620,20 @@ impl OpenGLShader {
     pub unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {
         shader_uniform!(UniformMatrix4fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
+
+    pub unsafe fn uniform_material(&self, name: &str, value: &Material) {
+        self.uniform_4fv((name.to_string() + ".ambient").as_str(), value.ambient.as_vec());
+        self.uniform_4fv((name.to_string() + ".diffuse").as_str(), value.diffuse.as_vec());
+        self.uniform_4fv((name.to_string() + ".specular").as_str(), value.specular.as_vec());
+        self.uniform_4fv((name.to_string() + ".emission").as_str(), value.emission.as_vec());
+        self.uniform_1f((name.to_string() + ".alpha").as_str(), value.alpha);
+        self.uniform_1f((name.to_string() + ".specularExponent").as_str(), value.specular_exponent);
+        self.uniform_1f((name.to_string() + ".metallic").as_str(), value.metallic);
+        self.uniform_1f((name.to_string() + ".roughness").as_str(), value.roughness);
+        self.uniform_1i((name.to_string() + ".diffuseTextureId").as_str(), 0);
+        self.uniform_1i((name.to_string() + ".metallicRoughnessTextureId").as_str(), 0);
+        self.uniform_1i((name.to_string() + ".normalTextureId").as_str(), 0);
+    }
 }
 
 pub struct OpenGLTexture {
@@ -716,7 +745,7 @@ macro_rules! vert_attrib {
     };
 }
 
-impl RenderProcessor for OpenGLRenderProcessor2D {
+impl RenderProcessor2D for OpenGLRenderProcessor2D {
     #[allow(clippy::too_many_arguments)]
     fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
         let mut i: u8 = 0;
@@ -762,57 +791,5 @@ impl RenderProcessor for OpenGLRenderProcessor2D {
         for t in tex.iter_mut().flatten() {
             t.borrow_mut().unbind();
         }
-    }
-}
-
-#[cfg(feature = "3d")]
-pub(crate) struct OpenGLRenderProcessor3D {
-    framebuffer: u32,
-    width: i32,
-    height: i32,
-    vbo: u32,
-    ibo: u32,
-    camera: Option<Camera>
-}
-
-#[cfg(feature = "3d")]
-impl OpenGLRenderProcessor3D {
-    fn new() -> Self {
-        OpenGLRenderProcessor3D {
-            framebuffer: 0,
-            width: 0,
-            height: 0,
-            vbo: 0,
-            ibo: 0,
-            camera: None,
-        }
-    }
-
-    fn setup(&mut self, width: i32, height: i32) {
-        self.width = width;
-        self.height = height;
-        self.vbo = gen_buffer_id();
-        self.ibo = gen_buffer_id();
-    }
-
-    fn resize(&mut self, width: i32, height: i32) {
-        self.width = width;
-        self.height = height;
-    }
-
-    fn set_framebuffer(&mut self, framebuffer: u32) {
-        self.framebuffer = framebuffer;
-    }
-
-    fn set_camera(&mut self, cam: Camera) {
-        self.camera = Some(cam);
-    }
-}
-
-#[cfg(feature = "3d")]
-impl RenderProcessor for OpenGLRenderProcessor3D {
-    #[allow(clippy::too_many_arguments)]
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
-
     }
 }

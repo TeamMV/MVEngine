@@ -100,7 +100,7 @@ impl Default for ApplicationInfo {
 #[cfg(feature = "gui")]
 mod tests {
     use std::cell::RefCell;
-    use std::ops::Deref;
+    use std::ops::{Deref, DerefMut};
     use mvutils::screen::Measurement;
     use mvutils::utils::RcMut;
     use crate::assets::ReadableAssetManager;
@@ -113,21 +113,16 @@ mod tests {
     use crate::gui::styles::{BorderStyle, GuiValue, Origin};
     use crate::gui::styles::Positioning::Absolute;
     use crate::render::color::{Color, Gradient, RGB};
-    use crate::render::model::GLTFModelLoader;
+    use crate::render::model::{GLTFModelLoader, OBJModelLoader};
     use crate::render::text::TypeFace;
 
     #[test]
     fn test() {
-        let loader = GLTFModelLoader::new();
-
         let mut app = ApplicationInfo::default();
         app.version = Version::parse("v0.1.0").unwrap();
         app.name = "Test".to_string();
         app.backend = OpenGL;
         let mut core = MVCore::new(app);
-
-        let model = loader.load_model(core.assets.borrow_mut().get_raw("cube.glb"));
-        println!("{:?}", model.mesh.indices);
 
         let mut info = WindowCreateInfo::default();
         info.title = "MVCore".to_string();
@@ -145,6 +140,10 @@ mod tests {
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
+            let loader = OBJModelLoader::new(&mut self.core.assets.borrow_mut().manager, self.core.get_render());
+            let model = loader.load_model(self.core.assets.borrow_mut().get_raw("models/figcolor.obj").as_str(), "models/");
+            println!("{:?}", model.mesh.indices);
+
             self.md.set_text(FormattedString::new("Hello"));
 
             setup!(

@@ -1,55 +1,158 @@
+use alloc::rc::Rc;
 use std::any::{Any, TypeId};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use glam::{IVec3, Vec2, Vec3};
 use gltf::buffer::View;
-use gltf::Gltf;
+use gltf::{Gltf, Semantic};
+use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
 use itertools::Itertools;
-use mvutils::utils::{Binary, TetrahedronOp};
+use mvutils::utils::{Binary, rc_mut, RcMut, TetrahedronOp};
 use crate::assets::AssetManager;
 use crate::render::color::{Color, RGB};
+use crate::render::RenderCore;
+use crate::render::shared::Texture;
 
 pub struct Model {
-    pub mesh: Mesh,
+    pub(crate) mesh: Mesh,
 }
 
 pub struct Mesh {
-    pub name: String,
-    pub vertices: Vec<Vec3>,
-    pub indices: Vec<(u16, u16)>,
-    pub normals: Vec<Vec3>,
-    pub tex_coords: Vec<Vec2>,
-    pub materials: Vec<Material>,
+    pub(crate) name: String,
+    pub(crate) vertices: Vec<Vec3>,
+    pub(crate) indices: Vec<u16>,
+    pub(crate) normals: Vec<Vec3>,
+    pub(crate) tex_coords: Vec<Vec2>,
+    pub(crate) materials: Vec<Material>,
 }
 
 pub struct Material {
-    double_side: bool,
-    color: Color<RGB, f32>,
-    metallic_fac: f32,
-    roughness_fac: f32
+    pub ambient: Color<RGB, f32>, //Ka
+    pub diffuse: Color<RGB, f32>, //Kd
+    pub specular: Color<RGB, f32>, //Ks (specular reflectivity)
+    pub emission: Color<RGB, f32>,
+
+    pub alpha: f32, //d or Ts
+    pub specular_exponent: f32, //Ns (specular exponent)
+    pub metallic: f32,
+    pub roughness: f32,
+
+    //pub transmission_filter: f32, //Tf
+    //pub illumination: u32, //illum
+    //pub sharpness: i32, //sharpness
+    //pub optical_density: f32, //Ni
+    //pub alpha_mode: AlphaMode,
+    //pub alpha_cutoff: f32,
+    //pub double_side: bool,
+
+    pub diffuse_texture: Option<RcMut<Texture>>, //map_Kd
+    pub metallic_roughness_texture: Option<RcMut<Texture>>,
+    pub normal_texture: Option<RcMut<Texture>>, //norm
+
+    //pub specular_texture: Option<RcMut<Texture>>, //map_Ks
+    //pub occlusion_texture: Option<RcMut<Texture>>, //map_d
+    //pub reflection_texture: Option<RcMut<Texture>>, //refl
+    //pub bump_texture: Option<RcMut<Texture>>, //bump
+    //pub emission_texture: Option<RcMut<Texture>>,
+}
+
+impl Material {
+    pub fn new() -> Self {
+        Material {
+            ambient: Color::<RGB, f32>::new(0.2, 0.2, 0.2, 1.0),
+            diffuse: Color::<RGB, f32>::new(0.8, 0.8, 0.8, 1.0),
+            specular: Color::<RGB, f32>::white(),
+            alpha: 1.0,
+            //transmission_filter: 0.0,
+            specular_exponent: 0.0,
+            //illumination: 1,
+            //sharpness: 0,
+            //optical_density: 0.0,
+            diffuse_texture: None,
+            //specular_texture: None,
+            //occlusion_texture: None,
+            //reflection_texture: None,
+            normal_texture: None,
+            //double_side: false,
+            metallic_roughness_texture: None,
+            metallic: 1.0,
+            roughness: 1.0,
+            emission: Color::<RGB, f32>::black(),
+            //emission_texture: None,
+            //alpha_mode: AlphaMode::Opaque,
+            //alpha_cutoff: 0.5,
+        }
+    }
+
+    pub fn texture_count(&self) -> usize {
+        let mut sum = 0;
+        if self.diffuse_texture.is_some() {
+            sum += 1;
+        }
+        if self.normal_texture.is_some() {
+            sum += 1;
+        }
+        if self.metallic_roughness_texture.is_some() {
+            sum += 1;
+        }
+        sum
+    }
+}
+
+impl Default for Material {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Model {
     pub fn vertex_count(&self) -> u32 {
         self.mesh.vertices.len() as u32
     }
+
+    pub fn is_simple_geometry(&self) -> bool {
+        self.vertex_count() < 5000
+        //&& self.materials.len() < 16
+        //&& self.materials.iter().sum_by_key(Material::texture_count) < 8
+    }
+
+    pub fn to_simple_geometry(self) -> SimpleGeometry {
+        if self.is_simple_geometry() {
+            SimpleGeometry { model: self }
+        } else {
+            panic!("Model is too complex to be cast as a simple geometry");
+        }
+    }
 }
 
-pub struct OBJModelLoader;
+pub struct SimpleGeometry {
+    pub(crate) model: Model
+}
+
+pub struct OBJModelLoader {
+    manager: *mut AssetManager,
+    core: Rc<RenderCore>
+}
 
 impl OBJModelLoader {
-    pub fn new() -> Self { OBJModelLoader }
+    pub fn new(manager: *mut AssetManager, core: Rc<RenderCore>) -> Self {
+        OBJModelLoader {
+            manager,
+            core
+        }
+    }
 
-    pub fn load_model(&self, data: &str, path: &str, manager: &mut AssetManager) -> Model {
+    pub fn load_model(&self, data: &str, path: &str) -> Model {
 
         fn process_face(data: &str) -> IVec3 {
             let tokens = data.split("/").collect::<Vec<_>>();
-            let pos = tokens[0].parse::<i32>().unwrap();
+            let pos = tokens[0].parse::<i32>().unwrap() - 1;
             let mut coords = -1;
             let mut normal = -1;
             if tokens.len() > 1 {
                 coords = (tokens[1].len() > 0).yn(tokens[1].parse::<i32>().unwrap() - 1, -1);
                 if tokens.len() > 2 {
-                    normal = tokens[2].parse::<i32>().unwrap();
+                    normal = tokens[2].parse::<i32>().unwrap() - 1;
                 }
             }
             IVec3 {
@@ -60,12 +163,15 @@ impl OBJModelLoader {
         }
 
         let mut vertices: Vec<Vec3> = Vec::new();
+        let mut normals_vec: Vec<Vec3> = Vec::new();
         let mut normals: Vec<Vec3> = Vec::new();
-        let mut textures: Vec<Vec2> = Vec::new();
+        let mut tex_coords_vec: Vec<Vec2> = Vec::new();
+        let mut tex_coords: Vec<Vec2> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
         let mut faces: Vec<IVec3> = Vec::new();
         let mut material_map: HashMap<String, u16> = HashMap::new();
         let mut materials: Vec<Material> = Vec::new();
+        let mut current_material: u16 = 0; //indexing starts at 1, 0 = no material / default
 
         for line in data.lines() {
             let tokens = line.split_whitespace().collect::<Vec<&str>>();
@@ -74,16 +180,17 @@ impl OBJModelLoader {
             }
             match tokens[0] {
                 "mtllib" => {
-                    let full_path = path + tokens[1];
-                    let file = manager.files.remove(full_path).expect(format!("Mtl file {} not found!", full_path).as_str());
+                    let full_path = path.to_string() + tokens[1];
+                    let file = unsafe { self.manager.as_mut() }.unwrap().files.get(full_path.as_str()).expect(format!("Mtl file {} not found!", full_path).as_str());
                     self.load_materials(
                         file.contents_utf8().expect(format!("Illegal mtl file format '{}'!", full_path).as_str()),
+                        path,
                         &mut material_map,
                         &mut materials
                     );
                 }
                 "usemtl" => {
-
+                    current_material = *material_map.get(tokens[1]).unwrap_or(&0);
                 }
                 "v" => {
                     vertices.push(Vec3::new(
@@ -93,17 +200,31 @@ impl OBJModelLoader {
                     ));
                 }
                 "vn" => {
-                    normals.push(Vec3::new(
+                    normals_vec.push(Vec3::new(
                         tokens[1].parse::<f32>().unwrap(),
                         tokens[2].parse::<f32>().unwrap(),
                         tokens[3].parse::<f32>().unwrap(),
                     ));
                 }
                 "vt" => {
-                    textures.push(Vec2::new(
+                    tex_coords_vec.push(Vec2::new(
                         tokens[1].parse::<f32>().unwrap(),
                         tokens[2].parse::<f32>().unwrap(),
                     ));
+                }
+                "p" => {
+                    let face = process_face(tokens[1]);
+                    faces.push(face);
+                    faces.push(face);
+                    faces.push(face);
+                }
+                "l" => {
+                    for i in 1..tokens.len() - 1 {
+                        let face = process_face(tokens[i]);
+                        faces.push(face);
+                        faces.push(face);
+                        faces.push(process_face(tokens[i + 1]));
+                    }
                 }
                 "f" => {
                     match tokens.len() {
@@ -125,39 +246,175 @@ impl OBJModelLoader {
                         }
                     }
                 }
+                "s" => {
+
+                }
                 _ => {}
             }
         }
-        todo!()
+
+        for _ in 0..faces.len() {
+            tex_coords.push(Vec2::new(0.0, 0.0));
+            normals.push(Vec3::new(0.0, 0.0, 0.0));
+        }
+
+        for face in faces {
+            indices.push(face.x as u16);
+
+            if face.y >= 0 {
+                let coord = tex_coords_vec[face.y as usize];
+                tex_coords[face. x as usize] = Vec2::new(coord.x, 1.0 - coord.y);
+            }
+
+            if face.z >= 0 {
+                normals[face.x as usize] = normals_vec[face.z as usize];
+            }
+        }
+
+        Model {
+            mesh: Mesh {
+                name: String::new(),
+                vertices,
+                indices,
+                normals,
+                tex_coords,
+                materials,
+            },
+        }
     }
 
-    fn load_materials(&self, data: &str, map: &mut HashMap<String, u16>, materials: &mut Vec<Material>) {
+    fn load_materials(&self, data: &str, path: &str, map: &mut HashMap<String, u16>, materials: &mut Vec<Material>) {
+        let mut name = String::new();
+        let mut material = Material::default();
 
+        for line in data.lines() {
+            let tokens = line.split_whitespace().collect::<Vec<&str>>();
+            if tokens.len() == 0 {
+                continue;
+            }
+            match tokens[0] {
+                "newmtl" => {
+                    if !name.is_empty() {
+                        map.insert(name, materials.len() as u16);
+                        materials.push(material);
+                        name = String::new();
+                        material = Material::default();
+                    }
+                }
+                "Ka" => {
+                    material.ambient.set_r(tokens[1].parse::<f32>().unwrap());
+                    material.ambient.set_g(tokens[2].parse::<f32>().unwrap());
+                    material.ambient.set_b(tokens[3].parse::<f32>().unwrap());
+                }
+                "Kd" => {
+                    material.diffuse.set_r(tokens[1].parse::<f32>().unwrap());
+                    material.diffuse.set_g(tokens[2].parse::<f32>().unwrap());
+                    material.diffuse.set_b(tokens[3].parse::<f32>().unwrap());
+                }
+                "Ks" => {
+                    material.specular.set_r(tokens[1].parse::<f32>().unwrap());
+                    material.specular.set_g(tokens[2].parse::<f32>().unwrap());
+                    material.specular.set_b(tokens[3].parse::<f32>().unwrap());
+                }
+                "d" => {
+                    material.alpha = tokens[1].parse::<f32>().unwrap();
+                }
+                "Ns" => {
+                    material.specular_exponent = tokens[1].parse::<f32>().unwrap();
+                }
+                //"Ni" => {
+                //    material.optical_density = tokens[1].parse::<f32>().unwrap();
+                //}
+                //"illum" => {
+                //    material.illumination = tokens[1].parse::<i32>().unwrap();
+                //}
+                //"Tf" => {
+                //    material.transmission_filter = tokens[1].parse::<i32>().unwrap();
+                //}
+                //"sharpness" => {
+                //    material.sharpness = tokens[1].parse::<i32>().unwrap();
+                //}
+                "map_Kd" => {
+                    material.diffuse_texture = Some(self.load_texture(path.to_string() + tokens[1]));
+                }
+                //"map_Ks" => {
+                //    material.specular_texture = Some(self.load_texture(path + tokens[1]));
+                //}
+                //"map_d" => {
+                //    material.occlusion_texture = Some(self.load_texture(path + tokens[1]));
+                //}
+                //"refl" => {
+                //    material.reflection_texture = Some(self.load_texture(path + tokens[1]));
+                //}
+                "normal" => {
+                    material.normal_texture = Some(self.load_texture(path.to_string() + tokens[1]));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn load_texture(&self, path: String) -> RcMut<Texture> {
+        if let Some(texture) = unsafe { self.manager.as_mut() }.unwrap().textures.get(path.as_str()) {
+            texture.clone()
+        }
+        else {
+            let file = unsafe { self.manager.as_mut() }.unwrap().files.remove(path.as_str()).expect(format!("Texture file {} not present or already loaded with different name!", path).as_str());
+            let texture = Rc::new(RefCell::new(self.core.create_texture(file.contents())));
+            unsafe { self.manager.as_mut() }.unwrap().textures.insert(path.to_string(), texture.clone());
+            texture
+        }
     }
 }
 
-pub struct GLTFModelLoader;
+pub struct GLTFModelLoader {
+    render_core: Rc<RenderCore>
+}
 
 impl GLTFModelLoader {
-    pub fn new() -> Self { GLTFModelLoader }
+    pub fn new(render_core: Rc<RenderCore>) -> Self { GLTFModelLoader {render_core} }
 
     pub fn load_model(&self, data: Binary) -> Model {
         let gltf = Gltf::from_slice(data.as_slice()).expect("There was a Problem loading a 3d-Asset!");
         let mut materials: Vec<Material> = Vec::new();
-        //for material in gltf.materials() {
-        //    let double_side: bool = material.double_sided();
-        //    let mut color: Color<RGB, f32>;
-        //    let mut metallic_fac: f32;
-        //    let mut roughness_fac: f32;
-        //}
+        for material in gltf.materials() {
+            let mut mat = Material::new();
+            //mat.double_side = material.double_sided();
+            mat.emission = Color::<RGB, f32>::new(material.emissive_factor()[0], material.emissive_factor()[1], material.emissive_factor()[2], 1.0);
+            mat.roughness = material.pbr_metallic_roughness().roughness_factor();
+            mat.metallic = material.pbr_metallic_roughness().metallic_factor();
+            //mat.alpha_mode = material.alpha_mode();
+            //mat.alpha_cutoff = material.alpha_cutoff().unwrap_or(0.5);
+            //if let Some(info) = material.emissive_texture() {
+            //    mat.emission_texture = Some(rc_mut(self.construct_texture(&gltf, &info)));
+            //}
+            //if let Some(info) = material.occlusion_texture() {
+            //    mat.occlusion_texture = Some(rc_mut(self.construct_texture_occ(&gltf, &info)));
+            //}
+            if let Some(info) = material.pbr_metallic_roughness().metallic_roughness_texture() {
+                mat.metallic_roughness_texture = Some(rc_mut(self.construct_texture(&gltf, &info)));
+            }
+            if let Some(info) = material.normal_texture() {
+                mat.normal_texture = Some(rc_mut(self.construct_texture_nor(&gltf, &info)));
+            }
+            if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
+                mat.diffuse_texture = Some(rc_mut(self.construct_texture(&gltf, &info)));
+            }
+        }
 
         for mesh in gltf.meshes() {
             let name = mesh.name().unwrap_or("").to_string();
-            let vertices = self.construct_vec3s(self.get_data_from_buffer_view(&gltf, mesh.primitives().next().unwrap().attributes().nth(0).unwrap().1.index()));
-            let normals = self.construct_vec3s(self.get_data_from_buffer_view(&gltf, mesh.primitives().next().unwrap().attributes().nth(1).unwrap().1.index()));
-            let tex_coords = self.construct_vec2s(self.get_data_from_buffer_view(&gltf, mesh.primitives().next().unwrap().attributes().nth(2).unwrap().1.index()));
-            let indices = self.construct::<u16>(self.get_data_from_buffer_view(&gltf, mesh.primitives().next().unwrap().indices().unwrap().index()))
-                .into_iter().map(|i| {(i, materials[mesh.primitives().next().unwrap().material().unwrap().index()])}).collect_vec();
+            let mut vertices: Vec<Vec3> = Vec::new();
+            let mut normals: Vec<Vec3> = Vec::new();
+            let mut tex_coords: Vec<Vec2> = Vec::new();
+            let mut indices: Vec<u16> = Vec::new();
+            for primitive in mesh.primitives() {
+                vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Positions).unwrap().index())));
+                normals.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Normals).unwrap().index())));
+                tex_coords.append(&mut self.construct_vec2s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::TexCoords(0)).unwrap().index())));
+                indices.append(&mut self.construct::<u16>(self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index())));
+            }
+
             println!("{}", name);
             let parsed_mesh = Mesh {
                 name,
@@ -209,6 +466,27 @@ impl GLTFModelLoader {
             let t = c.collect_vec();
             T::from_le_bytes(&t[0..T::byte_count()])
         }).collect_vec()
+    }
+
+    fn construct_texture(&self, gltf: &Gltf, src: &gltf::texture::Info) -> Texture {
+        let img_idx = src.texture().source().index();
+        let buffer_view = gltf.images().nth(img_idx).unwrap().index();
+        let binary = self.get_data_from_buffer_view(gltf, buffer_view);
+        self.render_core.create_texture(binary.as_slice())
+    }
+
+    fn construct_texture_occ(&self, gltf: &Gltf, src: &OcclusionTexture) -> Texture {
+        let img_idx = src.texture().source().index();
+        let buffer_view = gltf.images().nth(img_idx).unwrap().index();
+        let binary = self.get_data_from_buffer_view(gltf, buffer_view);
+        self.render_core.create_texture(binary.as_slice())
+    }
+
+    fn construct_texture_nor(&self, gltf: &Gltf, src: &NormalTexture) -> Texture {
+        let img_idx = src.texture().source().index();
+        let buffer_view = gltf.images().nth(img_idx).unwrap().index();
+        let binary = self.get_data_from_buffer_view(gltf, buffer_view);
+        self.render_core.create_texture(binary.as_slice())
     }
 }
 

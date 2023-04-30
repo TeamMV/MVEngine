@@ -14,7 +14,7 @@ pub struct AssetManager {
     pub(crate) files: HashMap<String, File<'static>>,
     shaders: HashMap<String, Rc<RefCell<Shader>>>,
     effect_shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
-    textures: HashMap<String, Rc<RefCell<Texture>>>,
+    pub(crate) textures: HashMap<String, Rc<RefCell<Texture>>>,
     texture_regions: HashMap<String, Rc<TextureRegion>>,
     fonts: HashMap<String, Rc<Font>>,
 }
@@ -92,7 +92,7 @@ pub struct AutomaticAssetManager {
 }
 
 pub struct SemiAutomaticAssetManager {
-    manager: AssetManager,
+    pub(crate) manager: AssetManager,
 }
 
 pub struct ManualAssetManager {
@@ -116,8 +116,8 @@ macro_rules! impl_am {
 }
 
 pub trait ReadableAssetManager {
-    fn get_raw(&mut self, file: &str) -> Vec<u8>;
-    fn try_get_raw(&mut self, file: &str) -> Option<Vec<u8>>;
+    fn get_raw(&mut self, file: &str) -> String;
+    fn try_get_raw(&mut self, file: &str) -> Option<String>;
     fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
     fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
     fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
@@ -135,12 +135,13 @@ macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
             impl ReadableAssetManager for $t {
-                fn get_raw(&mut self, file: &str) -> Vec<u8> {
-                    self.try_get_raw(file).expect("dev.mv.core.IOException: 'File not found!'")
+                fn get_raw(&mut self, file: &str) -> String {
+                    self.try_get_raw(file).expect("File not found!")
                 }
 
-                fn try_get_raw(&mut self, file: &str) -> Option<Vec<u8>> {
-                    self.manager.files.remove(file).map(|file| file.contents().to_vec())
+                fn try_get_raw(&mut self, file: &str) -> Option<String> {
+                    let a = self.manager.files.remove(file).unwrap();
+                    a.contents_utf8().map(|s| s.to_string())
                 }
 
                 fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>> {

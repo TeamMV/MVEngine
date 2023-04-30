@@ -6,7 +6,7 @@ use mvutils::init_arr;
 use mvutils::utils::{TetrahedronOp};
 use crate::render::color::{Color, RGB};
 
-use crate::render::shared::{RenderProcessor, Shader, Texture};
+use crate::render::shared::{RenderProcessor2D, Shader, Texture};
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
 
@@ -223,7 +223,7 @@ impl Batch2D {
         self.next_tex
     }
 
-    fn render(&mut self, processor: &impl RenderProcessor, shader: &mut Shader) {
+    fn render(&mut self, processor: &impl RenderProcessor2D, shader: &mut Shader) {
         processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, shader,  self.generator.get_render_mode());
         self.force_clear();
     }
@@ -386,7 +386,7 @@ impl BatchController2D {
         self.batches[self.current as usize].add_texture(texture)
     }
 
-    pub(crate) fn render(&mut self, processor: &impl RenderProcessor) {
+    pub(crate) fn render(&mut self, processor: &impl RenderProcessor2D) {
         self.shader.borrow_mut().bind();
         for i in 0..self.current + 1 {
             self.batches[i as usize].render(processor, self.shader.borrow_mut().deref_mut());

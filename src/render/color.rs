@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 use std::marker::PhantomData;
+use glam::Vec4;
 use mvutils::utils::SplitSized;
 
 use regex::Regex;
@@ -207,6 +208,14 @@ impl Color<RGB, f32> {
         let mut c: Color<RGB, f32> = Color::default();
         c.copy_hsv(col);
         c
+    }
+
+    pub fn as_vec(&self) -> Vec4 {
+        Vec4::new(self.c1, self.c2, self.c3, self.c4)
+    }
+
+    pub fn to_vec(self) -> Vec4 {
+        Vec4::new(self.c1, self.c2, self.c3, self.c4)
     }
 }
 
