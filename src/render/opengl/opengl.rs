@@ -157,7 +157,7 @@ impl OpenGLWindow {
             gl::GetIntegerv(gl::MAX_TEXTURE_IMAGE_UNITS, &mut mt);
             MAX_TEXTURES = min(mt as u32, TEXTURE_LIMIT);
             gl::GetIntegerv(gl::MAX_UNIFORM_BUFFER_BINDINGS, &mut mt);
-            MAX_NUM_LIGHTS = mt as u32;
+            MAX_NUM_LIGHTS = mt as u32 - 15;
 
             glfwSetWindowSizeCallback(self.window, Some(res));
 

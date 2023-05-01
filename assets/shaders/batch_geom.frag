@@ -4,7 +4,7 @@ layout (location = 0) out vec3 gPosition;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gAlbedoSpec;
 
-const int MAX_MATERIALS = 100;
+const int MAX_MATERIALS = 10;
 
 struct Material {
     vec4 ambient;

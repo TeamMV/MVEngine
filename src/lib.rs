@@ -116,6 +116,7 @@ mod tests {
     use crate::gui::styles::{BorderStyle, GuiValue, Origin};
     use crate::gui::styles::Positioning::Absolute;
     use crate::render::batch3d::BatchController3D;
+    use crate::render::camera::Camera3D;
     use crate::render::color::{Color, Gradient, RGB};
     use crate::render::lights::Light;
     use crate::render::text::TypeFace;
@@ -157,13 +158,20 @@ mod tests {
             self.batch = Some(BatchController3D::new(s, shader, 10000));
 
             self.demo_lights = vec![Light {
-                position: Vec3::new(0.0, 0.0, 0.0),
-                direcetion: Vec3::new(0.0, 0.0, -1.0),
+                position: Vec3::new(0.0, 0.0, 5.0),
+                direcetion: Vec3::new(0.5, 0.0, 0.5),
                 color: Color::<RGB, f32>::white(),
                 attenuation: 0.0,
                 cutoff: 0.0,
                 radius: 100.0,
-            }]
+            }];
+
+            let cam = window.get_camera_3d();
+
+            unsafe {
+                let cam = (cam as *const Camera3D).cast_mut().as_mut().unwrap();
+                cam.rotation = Vec3::new(0.0, 1.0, 0.0);
+            }
 
             //self.md.set_text(FormattedString::new("Hello"));
             //setup!(

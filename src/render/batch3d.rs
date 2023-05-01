@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::ops::{DerefMut, IndexMut};
 use std::rc::Rc;
 
-use glam::Mat4;
+use glam::{Mat4, Vec2, Vec4};
 use mvutils::utils::RcMut;
 use crate::render::camera::Camera3D;
 
@@ -244,6 +244,9 @@ impl Model3D {
         shader.uniform_4fm("uModel", self.model_matrix);
         shader.uniform_4fm("uProjection", camera.get_projection_mat());
         shader.uniform_4fm("uView", camera.get_view_mat());
+
+        shader.uniform_4fv("uCanvasCoords", Vec4::new(self.canvas[0], self.canvas[1], self.canvas[2], self.canvas[3]));
+        shader.uniform_2fv("uCanvasData", Vec2::new(self.canvas[4], self.canvas[5]));
 
         for (i, m) in self.model.borrow().materials.iter().enumerate() {
             shader.uniform_material(format!("materials[{}]", i).as_str(), m);

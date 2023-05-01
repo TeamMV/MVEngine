@@ -17,7 +17,7 @@ uniform sampler2D gAlbedoSpec;
 uniform sampler2D gNormals;
 uniform sampler2D gPosition;
 
-uniform float ambient = 0.1;
+uniform float ambient = 0.5;
 
 uniform vec3 viewPos;
 
@@ -35,12 +35,12 @@ void main() {
     for (int i = 0; i < numLights; ++i) {
         float dist = length(lights[i].position - FragPos);
         //check for light volumes
-        if (dist < lights[i].radius) {
+        //if (dist < lights[i].radius) {
             // diffuse
             vec3 lightDir = normalize(lights[i].position - FragPos);
             vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Albedo * lights[i].color;
             lighting += diffuse;
-        }
+        //}
     }
 
     outColor = vec4(lighting, 1.0);

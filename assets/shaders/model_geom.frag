@@ -4,7 +4,7 @@ layout (location = 0) out vec4 gAlbedoSpec;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec3 gPosition;
 
-const int MAX_MATERIALS = 100;
+const int MAX_MATERIALS = 10;
 
 struct Material {
     vec4 ambient;
@@ -38,7 +38,7 @@ float sq(float x) {
 }
 
 void main() {
-    /*
+
     float type = uCanvasData.x;
     float r = uCanvasData.y;
     if (uCanvasCoords.x > gl_FragCoord.x || uCanvasCoords.x + uCanvasCoords.z < gl_FragCoord.x || uCanvasCoords.y > gl_FragCoord.y || uCanvasCoords.y + uCanvasCoords.w < gl_FragCoord.y) {
@@ -74,7 +74,7 @@ void main() {
             }
         }
     }
-    */
+
     Material mat = materials[matId];
 
     //fancy calculations with material
@@ -91,5 +91,4 @@ void main() {
     if (mat.diffuseTextureId > 0) {
         gAlbedoSpec.rgb = texture(TEX_SAMPLER[mat.diffuseTextureId], texCoord).rgb;
     }
-    gAlbedoSpec.rgba = vec4(1.0);
 }
