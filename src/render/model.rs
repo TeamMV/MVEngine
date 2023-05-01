@@ -125,6 +125,10 @@ impl Model {
     pub fn single_batch(&self) -> bool {
         self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES }
     }
+
+    pub fn min_batches(&self) -> u32 {
+        (self.texture_count(TextureType::Geometry) as f32 / unsafe { MAX_TEXTURES as f32 }).ceil() as u32
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

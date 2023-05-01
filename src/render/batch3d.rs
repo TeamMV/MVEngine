@@ -324,7 +324,7 @@ impl BatchController3D {
 
     pub(crate) fn render(&mut self, processor: &impl RenderProcessor3D) {
         self.batch_shader.borrow_mut().bind();
-        for i in 0..self.current + 1 {
+        for i in 0..=self.current {
             self.batches[i as usize].render(processor, self.batch_shader.borrow_mut().deref_mut(), self.model_shader.borrow_mut().deref_mut());
         }
         self.current = 0;
