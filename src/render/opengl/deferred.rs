@@ -1,3 +1,5 @@
+use alloc::rc::Rc;
+use std::cell::RefCell;
 use gl::types::{GLint, GLuint};
 use mvutils::utils::RcMut;
 use crate::render::camera::Camera;
@@ -32,7 +34,7 @@ impl GBuffer {
         self.height = height;
 
         if self.id != 0 {
-            gl::DeleteBuffers(1, &self.id);
+            gl::DeleteFramebuffers(1, &self.id);
         }
         if self.albedo != 0 {
             gl::DeleteTextures(1, &self.albedo);
@@ -92,6 +94,7 @@ impl GBuffer {
 }
 
 pub(crate) struct OpenGLGeometryPass {
+    buffer: GBuffer,
     width: i32,
     height: i32,
     vbo: u32,
@@ -102,6 +105,7 @@ pub(crate) struct OpenGLGeometryPass {
 impl OpenGLGeometryPass {
     pub(super) fn new() -> Self {
         OpenGLGeometryPass {
+            buffer: GBuffer::new(),
             width: 0,
             height: 0,
             vbo: 0,
@@ -129,18 +133,23 @@ impl OpenGLGeometryPass {
 
 impl RenderProcessor3D for OpenGLGeometryPass {
     #[allow(clippy::too_many_arguments)]
-    fn process_data(&self, tex: &mut [Option<RcMut<Texture>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+    fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+        todo!()
+    }
 
+    #[allow(clippy::too_many_arguments)]
+    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+        todo!()
     }
 }
 
-pub(crate) struct OpenGLLightningPass {
+pub(crate) struct OpenGLLightingPass {
 
 }
 
-impl OpenGLLightningPass {
+impl OpenGLLightingPass {
     pub(super) fn new() -> Self {
-        OpenGLLightningPass {
+        OpenGLLightingPass {
 
         }
     }

@@ -6,10 +6,11 @@ use mvutils::utils::{TetrahedronOp, RcMut};
 
 use crate::render::camera::Camera;
 use crate::render::draw::Draw2D;
-use crate::render::model::Material;
 use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 #[cfg(feature = "vulkan")]
 use crate::render::vulkan::vulkan::*;
+#[cfg(feature = "3d")]
+use crate::render::model::Material;
 
 pub trait ApplicationLoop {
     fn start(&mut self, window: RunningWindow);
@@ -364,6 +365,7 @@ impl Shader {
     backend_fn!(Shader, uniform_2fm, name: &str, value: Mat2);
     backend_fn!(Shader, uniform_3fm, name: &str, value: Mat3);
     backend_fn!(Shader, uniform_4fm, name: &str, value: Mat4);
+    #[cfg(feature = "3d")]
     backend_fn!(Shader, uniform_material, name: &str, value: &Material);
 
     #[cfg(feature = "vulkan")]
@@ -484,5 +486,8 @@ pub(crate) trait RenderProcessor2D {
 #[cfg(feature = "3d")]
 pub(crate) trait RenderProcessor3D {
     #[allow(clippy::too_many_arguments)]
-    fn process_data(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8);
+    fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8);
+
+    #[allow(clippy::too_many_arguments)]
+    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8);
 }

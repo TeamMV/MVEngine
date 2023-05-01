@@ -5,6 +5,7 @@ use std::rc::Rc;
 use mvutils::init_arr;
 use mvutils::utils::{TetrahedronOp};
 use crate::render::color::{Color, RGB};
+use crate::render::{MAX_TEXTURES, TEXTURE_LIMIT};
 
 use crate::render::shared::{RenderProcessor2D, Shader, Texture};
 
@@ -114,8 +115,8 @@ struct Batch2D {
     generator: Box<dyn BatchGen>,
     data: Vec<f32>,
     indices: Vec<u32>,
-    textures: [Option<Rc<RefCell<Texture>>>; 17],
-    tex_ids: [u32; 16],
+    textures: [Option<Rc<RefCell<Texture>>>; TEXTURE_LIMIT as usize + 1],
+    tex_ids: [u32; TEXTURE_LIMIT as usize],
     size: u32,
     vert_count: u32,
     obj_count: u32,
@@ -130,8 +131,8 @@ impl Batch2D {
             generator: Box::new(generator),
             data: Vec::with_capacity(size as usize * batch_layout_2d::VERTEX_SIZE_FLOATS as usize),
             indices: Vec::with_capacity(size as usize * 6),
-            textures: [0; 17].map(|_| None),
-            tex_ids: [0; 16],
+            textures: [0; TEXTURE_LIMIT as usize + 1].map(|_| None),
+            tex_ids: [0; TEXTURE_LIMIT as usize],
             size,
             vert_count: 0,
             obj_count: 0,
@@ -165,6 +166,10 @@ impl Batch2D {
 
     fn is_full_tex(&self) -> bool {
         self.full_tex
+    }
+
+    fn is_full_tex_for(&self, amount: u32) -> bool {
+        self.next_tex + amount < unsafe { MAX_TEXTURES }
     }
 
     fn add_vertex(&mut self, vertex: &Vertex2D) {
@@ -204,7 +209,7 @@ impl Batch2D {
             return 0;
         }
 
-        for i in 0..16 {
+        for i in 0..unsafe { MAX_TEXTURES as usize } {
             if let Some(tex) = &self.textures[i] {
                 if tex.borrow().get_id() == texture.borrow().get_id() {
                     return i as u32 + 1;
@@ -216,7 +221,7 @@ impl Batch2D {
         self.tex_ids[self.next_tex as usize] = self.next_tex;
         self.next_tex += 1;
 
-        if self.next_tex >= 17 {
+        if self.next_tex > unsafe { MAX_TEXTURES } {
             self.full_tex = true;
         }
 
@@ -358,6 +363,12 @@ impl BatchController2D {
         }
 
         self.batches[self.current as usize].add_vertices(vertices);
+    }
+
+    pub(crate) fn require_textures(&mut self, textures: u32) {
+        if self.batches[self.current as usize].is_full_tex_for(textures) {
+            self.next_batch(false);
+        }
     }
 
     pub(crate) fn add_texture(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {

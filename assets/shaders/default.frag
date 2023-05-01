@@ -11,7 +11,7 @@ in vec2 fRes;
 
 out vec4 outColor;
 
-uniform sampler2D TEX_SAMPLER[16];
+uniform sampler2D TEX_SAMPLER[GL_MAX_TEXTURE_IMAGE_UNITS];
 
 float sq(float x) {
     return x * x;

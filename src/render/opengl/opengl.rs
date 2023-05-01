@@ -1,5 +1,6 @@
 use alloc::ffi::CString;
 use std::cell::RefCell;
+use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::{c_float, c_void};
 use std::io::Cursor;
@@ -14,13 +15,18 @@ use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{glfwFreeCallbacks, load_render_assets, MAX_TEXTURES, MAX_TEXTURES_IDENTIFIER};
+use crate::render::{glfwFreeCallbacks, load_render_assets, MAX_TEXTURES, MAX_TEXTURES_IDENTIFIER, shader_preprocessor, TEXTURE_LIMIT};
 use crate::render::batch2d::batch_layout_2d;
 use crate::render::camera::{Camera};
 use crate::render::draw::Draw2D;
+use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
+
+#[cfg(feature = "3d")]
+use crate::render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
+#[cfg(feature = "3d")]
 use crate::render::model::Material;
-use crate::render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightningPass};
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RenderProcessor3D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
+#[cfg(feature = "3d")]
+use crate::render::shared::RenderProcessor3D;
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
@@ -59,10 +65,13 @@ pub struct OpenGLWindow {
 
     draw_2d: Option<RcMut<Draw2D>>,
     render_2d: OpenGLRenderProcessor2D,
+
+    #[cfg(feature = "3d")]
+    forward_render: OpenGLRenderProcessor3D,
     #[cfg(feature = "3d")]
     geometry_pass: OpenGLGeometryPass,
     #[cfg(feature = "3d")]
-    lighting_pass: OpenGLLightningPass,
+    lighting_pass: OpenGLLightingPass,
 
     shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     enabled_shaders: Vec<ShaderPassInfo>,
@@ -90,6 +99,9 @@ impl OpenGLWindow {
 
             size_buf: [0; 4],
             render_2d: OpenGLRenderProcessor2D::new(),
+
+            #[cfg(feature = "3d")]
+            forward_render: OpenGLRenderProcessor3D::new(),
             #[cfg(feature = "3d")]
             geometry_pass: OpenGLGeometryPass::new(),
             #[cfg(feature = "3d")]
@@ -138,7 +150,7 @@ impl OpenGLWindow {
 
             let mut mt = 0;
             gl::GetIntegerv(gl::MAX_TEXTURE_IMAGE_UNITS, &mut mt);
-            MAX_TEXTURES = mt as u32;
+            MAX_TEXTURES = min(mt as u32, TEXTURE_LIMIT);
 
             glfwSetWindowSizeCallback(self.window, Some(res));
 
@@ -262,7 +274,7 @@ impl OpenGLWindow {
     fn gen_render_buffers(&mut self) {
         unsafe {
             if self.shader_buffer_2d.f_buf != 0 {
-                gl::DeleteBuffers(1, &self.shader_buffer_2d.f_buf);
+                gl::DeleteFramebuffers(1, &self.shader_buffer_2d.f_buf);
             }
             if self.shader_buffer_2d.t_buf != 0 {
                 gl::DeleteTextures(1, &self.shader_buffer_2d.t_buf);
@@ -293,7 +305,7 @@ impl OpenGLWindow {
         #[cfg(feature = "3d")]
         unsafe {
             if self.shader_buffer_3d.f_buf != 0 {
-                gl::DeleteBuffers(1, &self.shader_buffer_3d.f_buf);
+                gl::DeleteFramebuffers(1, &self.shader_buffer_3d.f_buf);
             }
             if self.shader_buffer_3d.t_buf != 0 {
                 gl::DeleteTextures(1, &self.shader_buffer_3d.t_buf);
@@ -517,8 +529,8 @@ macro_rules! shader_uniform {
 impl OpenGLShader {
     pub unsafe fn new(vertex: &str, fragment: &str) -> Self {
         OpenGLShader {
-            vertex: Some(CString::new(vertex).unwrap()),
-            fragment: Some(CString::new(fragment).unwrap()),
+            vertex: Some(CString::new(shader_preprocessor(vertex)).unwrap()),
+            fragment: Some(CString::new(shader_preprocessor(fragment)).unwrap()),
             prgm_id: 0,
             vertex_id: 0,
             fragment_id: 0,
@@ -621,6 +633,7 @@ impl OpenGLShader {
         shader_uniform!(UniformMatrix4fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
+    #[cfg(feature = "3d")]
     pub unsafe fn uniform_material(&self, name: &str, value: &Material) {
         self.uniform_4fv((name.to_string() + ".ambient").as_str(), value.ambient.as_vec());
         self.uniform_4fv((name.to_string() + ".diffuse").as_str(), value.diffuse.as_vec());
@@ -791,5 +804,60 @@ impl RenderProcessor2D for OpenGLRenderProcessor2D {
         for t in tex.iter_mut().flatten() {
             t.borrow_mut().unbind();
         }
+    }
+}
+
+#[cfg(feature = "3d")]
+pub(crate) struct OpenGLRenderProcessor3D {
+    framebuffer: u32,
+    width: i32,
+    height: i32,
+    vbo: u32,
+    ibo: u32,
+    camera: Option<Camera>,
+}
+
+#[cfg(feature = "3d")]
+impl OpenGLRenderProcessor3D {
+    fn new() -> Self {
+        OpenGLRenderProcessor3D {
+            framebuffer: 0,
+            width: 0,
+            height: 0,
+            vbo: 0,
+            ibo: 0,
+            camera: None,
+        }
+    }
+
+    fn setup(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+        self.vbo = gen_buffer_id();
+        self.ibo = gen_buffer_id();
+    }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    fn set_framebuffer(&mut self, framebuffer: u32) {
+        self.framebuffer = framebuffer;
+    }
+
+    fn set_camera(&mut self, cam: Camera) {
+        self.camera = Some(cam);
+    }
+}
+
+#[cfg(feature = "3d")]
+impl RenderProcessor3D for OpenGLRenderProcessor3D {
+    fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+
+    }
+
+    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+
     }
 }

@@ -2,19 +2,21 @@ use alloc::rc::Rc;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use glam::{IVec3, Vec2, Vec3};
+use glam::{IVec3, IVec4, Vec2, Vec3};
 use gltf::buffer::View;
 use gltf::{Gltf, Semantic};
 use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
+use include_dir::File;
 use itertools::Itertools;
-use mvutils::utils::{Binary, rc_mut, RcMut, TetrahedronOp};
+use mvutils::utils::{Bytecode, rc_mut, RcMut, TetrahedronOp};
 use crate::assets::AssetManager;
 use crate::render::color::{Color, RGB};
-use crate::render::RenderCore;
+use crate::render::{MAX_TEXTURES, RenderCore};
 use crate::render::shared::Texture;
 
 pub struct Model {
     pub(crate) mesh: Mesh,
+    pub(crate) materials: Vec<Material>
 }
 
 pub struct Mesh {
@@ -23,7 +25,7 @@ pub struct Mesh {
     pub(crate) indices: Vec<u16>,
     pub(crate) normals: Vec<Vec3>,
     pub(crate) tex_coords: Vec<Vec2>,
-    pub(crate) materials: Vec<Material>,
+    pub(crate) materials: Vec<u16>,
 }
 
 pub struct Material {
@@ -84,15 +86,15 @@ impl Material {
         }
     }
 
-    pub fn texture_count(&self) -> usize {
+    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
         let mut sum = 0;
-        if self.diffuse_texture.is_some() {
+        if self.diffuse_texture.is_some() && texture_type.is_geometry() {
             sum += 1;
         }
-        if self.normal_texture.is_some() {
+        if self.normal_texture.is_some() && texture_type.is_geometry() {
             sum += 1;
         }
-        if self.metallic_roughness_texture.is_some() {
+        if self.metallic_roughness_texture.is_some() && texture_type.is_geometry() {
             sum += 1;
         }
         sum
@@ -112,39 +114,75 @@ impl Model {
 
     pub fn is_simple_geometry(&self) -> bool {
         self.vertex_count() < 5000
-        //&& self.materials.len() < 16
-        //&& self.materials.iter().sum_by_key(Material::texture_count) < 8
+        && self.materials.len() < 16
+        && self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES / 4 }
     }
 
-    pub fn to_simple_geometry(self) -> SimpleGeometry {
-        if self.is_simple_geometry() {
-            SimpleGeometry { model: self }
-        } else {
-            panic!("Model is too complex to be cast as a simple geometry");
+    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
+        self.materials.iter().fold(0, |t, m| t + m.texture_count(texture_type))
+    }
+
+    pub fn single_batch(&self) -> bool {
+        self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum TextureType {
+    Any,
+    Geometry,
+    Lighting
+}
+
+impl TextureType {
+    pub fn is_geometry(&self) -> bool {
+        self == &TextureType::Geometry || self == &TextureType::Any
+    }
+
+    pub fn is_lighting(&self) -> bool {
+        self == &TextureType::Lighting || self == &TextureType::Any
+    }
+}
+
+pub(crate) struct ModelLoader {
+    obj: OBJModelLoader,
+    gltf: GLTFModelLoader
+}
+
+impl ModelLoader {
+    pub(crate) fn new(core: Rc<RenderCore>, manager: *mut AssetManager) -> Self {
+        ModelLoader {
+            obj: OBJModelLoader::new(core.clone(), manager),
+            gltf: GLTFModelLoader::new(core)
+        }
+    }
+
+    pub(crate) fn load_model(&self, path: &str, file: File<'static>) -> Model {
+        let extension = path.split('.').last().unwrap();
+        let path = path.split('/').collect_vec().split_last().map(|(_, v)| v.join("/")).unwrap() + "/";
+        match extension {
+            "obj" => self.obj.load_model(file.contents_utf8().unwrap(), path.as_str()),
+            "gltf" => self.gltf.load_model(file.contents().to_vec()),
+            _ => panic!("Unsupported model file extension: '.{}'!", extension)
         }
     }
 }
 
-pub struct SimpleGeometry {
-    pub(crate) model: Model
-}
-
-pub struct OBJModelLoader {
-    manager: *mut AssetManager,
-    core: Rc<RenderCore>
+struct OBJModelLoader {
+    core: Rc<RenderCore>,
+    manager: *mut AssetManager
 }
 
 impl OBJModelLoader {
-    pub fn new(manager: *mut AssetManager, core: Rc<RenderCore>) -> Self {
+    fn new(core: Rc<RenderCore>, manager: *mut AssetManager) -> Self {
         OBJModelLoader {
-            manager,
-            core
+            core,
+            manager
         }
     }
 
-    pub fn load_model(&self, data: &str, path: &str) -> Model {
-
-        fn process_face(data: &str) -> IVec3 {
+    fn load_model(&self, data: &str, path: &str) -> Model {
+        fn process_face(data: &str, material: u16) -> IVec4 {
             let tokens = data.split("/").collect::<Vec<_>>();
             let pos = tokens[0].parse::<i32>().unwrap() - 1;
             let mut coords = -1;
@@ -155,22 +193,25 @@ impl OBJModelLoader {
                     normal = tokens[2].parse::<i32>().unwrap() - 1;
                 }
             }
-            IVec3 {
+            IVec4 {
                 x: pos,
                 y: coords,
-                z: normal
+                z: normal,
+                w: material as i32
             }
         }
 
+        let mut name = String::new();
         let mut vertices: Vec<Vec3> = Vec::new();
         let mut normals_vec: Vec<Vec3> = Vec::new();
         let mut normals: Vec<Vec3> = Vec::new();
         let mut tex_coords_vec: Vec<Vec2> = Vec::new();
         let mut tex_coords: Vec<Vec2> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
-        let mut faces: Vec<IVec3> = Vec::new();
+        let mut materials: Vec<u16> = Vec::new();
+        let mut faces: Vec<IVec4> = Vec::new();
         let mut material_map: HashMap<String, u16> = HashMap::new();
-        let mut materials: Vec<Material> = Vec::new();
+        let mut available_materials: Vec<Material> = Vec::new();
         let mut current_material: u16 = 0; //indexing starts at 1, 0 = no material / default
 
         for line in data.lines() {
@@ -186,8 +227,11 @@ impl OBJModelLoader {
                         file.contents_utf8().expect(format!("Illegal mtl file format '{}'!", full_path).as_str()),
                         path,
                         &mut material_map,
-                        &mut materials
+                        &mut available_materials
                     );
+                }
+                "o" => {
+                    name = tokens[1].to_string();
                 }
                 "usemtl" => {
                     current_material = *material_map.get(tokens[1]).unwrap_or(&0);
@@ -213,41 +257,40 @@ impl OBJModelLoader {
                     ));
                 }
                 "p" => {
-                    let face = process_face(tokens[1]);
+                    let face = process_face(tokens[1], current_material);
                     faces.push(face);
                     faces.push(face);
                     faces.push(face);
                 }
                 "l" => {
                     for i in 1..tokens.len() - 1 {
-                        let face = process_face(tokens[i]);
+                        let face = process_face(tokens[i], current_material);
                         faces.push(face);
                         faces.push(face);
-                        faces.push(process_face(tokens[i + 1]));
+                        faces.push(process_face(tokens[i + 1], current_material));
                     }
                 }
                 "f" => {
                     match tokens.len() {
                         4 => {
-                            faces.push(process_face(tokens[1]));
-                            faces.push(process_face(tokens[2]));
-                            faces.push(process_face(tokens[3]));
+                            faces.push(process_face(tokens[1], current_material));
+                            faces.push(process_face(tokens[2], current_material));
+                            faces.push(process_face(tokens[3], current_material));
                         }
                         5 => {
-                            faces.push(process_face(tokens[1]));
-                            faces.push(process_face(tokens[2]));
-                            faces.push(process_face(tokens[3]));
-                            faces.push(process_face(tokens[1]));
-                            faces.push(process_face(tokens[3]));
-                            faces.push(process_face(tokens[4]));
+                            let face = process_face(tokens[1], current_material);
+                            let duplicate = process_face(tokens[3], current_material);
+                            faces.push(face);
+                            faces.push(process_face(tokens[2], current_material));
+                            faces.push(duplicate);
+                            faces.push(face);
+                            faces.push(duplicate);
+                            faces.push(process_face(tokens[4], current_material));
                         }
                         _ => {
                             panic!("Invalid amount of vertices per face!")
                         }
                     }
-                }
-                "s" => {
-
                 }
                 _ => {}
             }
@@ -260,6 +303,7 @@ impl OBJModelLoader {
 
         for face in faces {
             indices.push(face.x as u16);
+            materials.push(face.w as u16);
 
             if face.y >= 0 {
                 let coord = tex_coords_vec[face.y as usize];
@@ -273,13 +317,14 @@ impl OBJModelLoader {
 
         Model {
             mesh: Mesh {
-                name: String::new(),
+                name,
                 vertices,
                 indices,
                 normals,
                 tex_coords,
                 materials,
             },
+            materials: available_materials,
         }
     }
 
@@ -295,7 +340,7 @@ impl OBJModelLoader {
             match tokens[0] {
                 "newmtl" => {
                     if !name.is_empty() {
-                        map.insert(name, materials.len() as u16);
+                        map.insert(name, materials.len() as u16 + 1);
                         materials.push(material);
                         name = String::new();
                         material = Material::default();
@@ -367,14 +412,18 @@ impl OBJModelLoader {
     }
 }
 
-pub struct GLTFModelLoader {
-    render_core: Rc<RenderCore>
+struct GLTFModelLoader {
+    core: Rc<RenderCore>
 }
 
 impl GLTFModelLoader {
-    pub fn new(render_core: Rc<RenderCore>) -> Self { GLTFModelLoader {render_core} }
+    fn new(core: Rc<RenderCore>) -> Self {
+        GLTFModelLoader {
+            core
+        }
+    }
 
-    pub fn load_model(&self, data: Binary) -> Model {
+    fn load_model(&self, data: Bytecode) -> Model {
         let gltf = Gltf::from_slice(data.as_slice()).expect("There was a Problem loading a 3d-Asset!");
         let mut materials: Vec<Material> = Vec::new();
         for material in gltf.materials() {
@@ -422,23 +471,24 @@ impl GLTFModelLoader {
                 indices,
                 normals,
                 tex_coords,
-                materials
+                materials: Vec::new()
             };
             return Model {
-                mesh: parsed_mesh
+                mesh: parsed_mesh,
+                materials
             }
         }
 
         unreachable!()
     }
 
-    fn get_data_from_buffer_view(&self, gltf: &Gltf, idx: usize) -> Binary {
+    fn get_data_from_buffer_view(&self, gltf: &Gltf, idx: usize) -> Bytecode {
         gltf.views().filter_map(|v| if v.index() == idx {
             Some(gltf.blob.clone().expect("No data present in this gltf file!")[v.offset()..v.offset() + v.length()].to_vec())
         } else { None }).next().expect("This buffer view does not exist!")
     }
 
-    fn construct_vec2s(&self, data: Binary) -> Vec<Vec2> {
+    fn construct_vec2s(&self, data: Bytecode) -> Vec<Vec2> {
         if data.len() % 8 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
         data.into_iter().chunks(8).into_iter().map(|c| {
             let vec = c.chunks(4).into_iter().map(|f| {
@@ -449,7 +499,7 @@ impl GLTFModelLoader {
         }).collect_vec()
     }
 
-    fn construct_vec3s(&self, data: Binary) -> Vec<Vec3> {
+    fn construct_vec3s(&self, data: Bytecode) -> Vec<Vec3> {
         if data.len() % 12 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
         data.into_iter().chunks(12).into_iter().map(|c| {
             let vec = c.chunks(4).into_iter().map(|f| {
@@ -460,7 +510,7 @@ impl GLTFModelLoader {
         }).collect_vec()
     }
 
-    fn construct<T: FromLeBytes>(&self, data: Binary) -> Vec<T> {
+    fn construct<T: FromLeBytes>(&self, data: Bytecode) -> Vec<T> {
         if data.len() % T::byte_count() != 0 {panic!("invalid byte size for {}: {}", T::name(), data.len())}
         data.into_iter().chunks(T::byte_count()).into_iter().map(|c| {
             let t = c.collect_vec();
@@ -472,21 +522,21 @@ impl GLTFModelLoader {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.render_core.create_texture(binary.as_slice())
+        self.core.create_texture(binary.as_slice())
     }
 
     fn construct_texture_occ(&self, gltf: &Gltf, src: &OcclusionTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.render_core.create_texture(binary.as_slice())
+        self.core.create_texture(binary.as_slice())
     }
 
     fn construct_texture_nor(&self, gltf: &Gltf, src: &NormalTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.render_core.create_texture(binary.as_slice())
+        self.core.create_texture(binary.as_slice())
     }
 }
 

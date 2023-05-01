@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use include_dir::*;
+use crate::render::model::{Model, ModelLoader};
 
 use crate::render::RenderCore;
 use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};
@@ -11,12 +12,14 @@ use crate::render::text::{Font, FontLoader};
 pub struct AssetManager {
     core: Option<Rc<RenderCore>>,
     font_loader: Option<FontLoader>,
+    model_loader: Option<ModelLoader>,
     pub(crate) files: HashMap<String, File<'static>>,
     shaders: HashMap<String, Rc<RefCell<Shader>>>,
     effect_shaders: HashMap<String, Rc<RefCell<EffectShader>>>,
     pub(crate) textures: HashMap<String, Rc<RefCell<Texture>>>,
     texture_regions: HashMap<String, Rc<TextureRegion>>,
     fonts: HashMap<String, Rc<Font>>,
+    models: HashMap<String, Rc<RefCell<Model>>>,
 }
 
 impl AssetManager {
@@ -37,12 +40,14 @@ impl AssetManager {
             manager: AssetManager {
                 core: None,
                 font_loader: None,
+                model_loader: None,
                 files: file_map,
                 shaders: HashMap::new(),
                 effect_shaders: HashMap::new(),
                 textures: HashMap::new(),
                 texture_regions: HashMap::new(),
                 fonts: HashMap::new(),
+                models: HashMap::new(),
             },
         }
     }
@@ -52,12 +57,14 @@ impl AssetManager {
             manager: AssetManager {
                 core: None,
                 font_loader: None,
+                model_loader: None,
                 files: Self::map(dir),
                 shaders: HashMap::new(),
                 effect_shaders: HashMap::new(),
                 textures: HashMap::new(),
                 texture_regions: HashMap::new(),
                 fonts: HashMap::new(),
+                models: HashMap::new(),
             },
         }
     }
@@ -109,6 +116,7 @@ macro_rules! impl_am {
                 pub fn set_render_core(&mut self, core: Rc<RenderCore>) {
                     self.manager.core = Some(core);
                     self.manager.font_loader = Some(FontLoader::new(self.manager.core.clone().unwrap()));
+                    self.manager.model_loader = Some(ModelLoader::new(self.manager.core.clone().unwrap(), &mut self.manager));
                 }
             }
         )*
@@ -116,8 +124,6 @@ macro_rules! impl_am {
 }
 
 pub trait ReadableAssetManager {
-    fn get_raw(&mut self, file: &str) -> String;
-    fn try_get_raw(&mut self, file: &str) -> Option<String>;
     fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
     fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
     fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
@@ -126,6 +132,8 @@ pub trait ReadableAssetManager {
     fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
     fn get_font(&self, id: &str) -> Rc<Font>;
     fn try_get_font(&self, id: &str) -> Option<Rc<Font>>;
+    fn get_model(&self, id: &str) -> Rc<RefCell<Model>>;
+    fn try_get_model(&self, id: &str) -> Option<Rc<RefCell<Model>>>;
 }
 
 crate::impl_ram!(AutomaticAssetManager, SemiAutomaticAssetManager, ManualAssetManager);
@@ -135,15 +143,6 @@ macro_rules! impl_ram {
     ($($t:ty),*) => {
         $(
             impl ReadableAssetManager for $t {
-                fn get_raw(&mut self, file: &str) -> String {
-                    self.try_get_raw(file).expect("File not found!")
-                }
-
-                fn try_get_raw(&mut self, file: &str) -> Option<String> {
-                    let a = self.manager.files.remove(file).unwrap();
-                    a.contents_utf8().map(|s| s.to_string())
-                }
-
                 fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>> {
                     self.manager.shaders.get(id).unwrap().clone()
                 }
@@ -175,6 +174,14 @@ macro_rules! impl_ram {
                 fn try_get_font(&self, id: &str) -> Option<Rc<Font>> {
                     self.manager.fonts.get(id).cloned()
                 }
+
+                fn get_model(&self, id: &str) -> Rc<RefCell<Model>> {
+                    self.manager.models.get(id).unwrap().clone()
+                }
+
+                fn try_get_model(&self, id: &str) -> Option<Rc<RefCell<Model>>> {
+                    self.manager.models.get(id).cloned()
+                }
             }
         )*
     };
@@ -191,6 +198,8 @@ pub trait WritableAssetManager {
     fn try_load_ttf_font(&mut self, id: &str, ttf_path: &str) -> Result<(), String>;
     fn load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str);
     fn try_load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str) -> Result<(), String>;
+    fn load_model(&mut self, id: &str, model_path: &str);
+    fn try_load_model(&mut self, id: &str, model_path: &str) -> Result<(), String>;
     fn prepare_texture(&mut self, id: &str, tex_id: &str);
     fn try_prepare_texture(&mut self, id: &str, tex_id: &str) -> Result<(), String>;
     fn crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32);
@@ -290,7 +299,7 @@ macro_rules! impl_wam {
                         return Err(format!("Ttf file {} not found!", ttf_path));
                     }
                     let ttf = ttf.unwrap();
-                    let font = self.manager.font_loader.clone().expect("Core not set!").load_ttf(ttf.contents().to_vec());
+                    let font = self.manager.font_loader.as_ref().expect("Core not set!").load_ttf(ttf.contents().to_vec());
                     self.manager.fonts.insert(id.to_string(), Rc::new(font));
                     Ok(())
                 }
@@ -319,8 +328,25 @@ macro_rules! impl_wam {
                         self.manager.files.insert(data_path.to_string(), data);
                         return Err(format!("Illegal data in file {}!", data_path));
                     }
-                    let font = self.manager.font_loader.clone().expect("Core not set!").load_bitmap(image.contents(), data_str.unwrap());
+                    let font = self.manager.font_loader.as_ref().expect("Core not set!").load_bitmap(image.contents(), data_str.unwrap());
                     self.manager.fonts.insert(id.to_string(), Rc::new(font));
+                    Ok(())
+                }
+
+                fn load_model(&mut self, id: &str, model_path: &str) {
+                    if let Err(e) = self.try_load_model(id, model_path) {
+                        panic!("{}", e);
+                    }
+                }
+
+                fn try_load_model(&mut self, id: &str, model_path: &str) -> Result<(), String> {
+                    let model = self.manager.files.remove(model_path);
+                    if model.is_none() {
+                        return Err(format!("Model file {} not found!", model_path));
+                    }
+                    let model = model.unwrap();
+                    let model = self.manager.model_loader.as_ref().expect("Core not set!").load_model(model_path, model);
+                    self.manager.models.insert(id.to_string(), Rc::new(RefCell::new(model)));
                     Ok(())
                 }
 

@@ -98,12 +98,13 @@ impl Default for ApplicationInfo {
 
 #[cfg(test)]
 #[cfg(feature = "gui")]
+#[cfg(feature = "3d")]
 mod tests {
     use std::cell::RefCell;
     use std::ops::{Deref, DerefMut};
     use mvutils::screen::Measurement;
     use mvutils::utils::RcMut;
-    use crate::assets::ReadableAssetManager;
+    use crate::assets::{ReadableAssetManager, WritableAssetManager};
     use crate::{ApplicationInfo, MVCore, resolve, setup};
     use crate::render::RenderingBackend::OpenGL;
     use crate::render::shared::*;
@@ -113,7 +114,6 @@ mod tests {
     use crate::gui::styles::{BorderStyle, GuiValue, Origin};
     use crate::gui::styles::Positioning::Absolute;
     use crate::render::color::{Color, Gradient, RGB};
-    use crate::render::model::{GLTFModelLoader, OBJModelLoader};
     use crate::render::text::TypeFace;
 
     #[test]
@@ -140,9 +140,9 @@ mod tests {
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
-            let loader = OBJModelLoader::new(&mut self.core.assets.borrow_mut().manager, self.core.get_render());
-            let model = loader.load_model(self.core.assets.borrow_mut().get_raw("models/figcolor.obj").as_str(), "models/");
-            println!("{:?}", model.mesh.indices);
+            self.core.assets.borrow_mut().load_model("figcolor", "models/figcolor.obj");
+            let model = self.core.assets.borrow().get_model("figcolor");
+            println!("{:?}", model.borrow().mesh.indices);
 
             self.md.set_text(FormattedString::new("Hello"));
 

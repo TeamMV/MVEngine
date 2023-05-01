@@ -25,8 +25,9 @@ pub mod model;
 #[cfg(feature = "3d")]
 pub mod batch3d;
 
-pub(crate) static mut MAX_TEXTURES: u32 = 16;
-pub(crate) const MAX_TEXTURES_IDENTIFIER: &str = "GL_MAX_TEXTURE_UNITS";
+pub(crate) const TEXTURE_LIMIT: u32 = 64;
+pub(crate) static mut MAX_TEXTURES: u32 = 0;
+pub(crate) const MAX_TEXTURES_IDENTIFIER: &str = "GL_MAX_TEXTURE_IMAGE_UNITS";
 
 pub const EFFECT_VERT: &str = "#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}";
 pub const EMPTY_EFFECT_FRAG: &str = "#version 450\nin vec2 fTexCoord;out vec4 outColor;uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
@@ -59,9 +60,14 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
 
 pub(crate) fn load_render_assets(assets: Rc<RefCell<SemiAutomaticAssetManager>>) {
     assets.borrow_mut().load_bitmap_font("default", "fonts/font.png", "fonts/default.fnt");
-    assets.borrow_mut().load_shader("default", "shaders/default2d.vert", "shaders/default2d.frag");
-    assets.borrow_mut().load_effect_shader("blur", "shaders/blur.frag");
-    assets.borrow_mut().load_effect_shader("pixelate", "shaders/pixelate.frag");
+    assets.borrow_mut().load_shader("default", "shaders/default.vert", "shaders/default.frag");
+    assets.borrow_mut().load_effect_shader("blur", "effects/blur.frag");
+    assets.borrow_mut().load_effect_shader("pixelate", "effects/pixelate.frag");
+    #[cfg(feature = "3d")]
+    {
+        assets.borrow_mut().load_shader("model", "shaders/model.vert", "shaders/model.frag");
+        assets.borrow_mut().load_shader("batch", "shaders/batch.vert", "shaders/batch.frag");
+    }
 }
 
 pub struct RenderCore {
@@ -152,4 +158,8 @@ impl RenderCore {
             }
         }
     }
+}
+
+fn shader_preprocessor(source: &str) -> String {
+    source.replace(MAX_TEXTURES_IDENTIFIER, unsafe { MAX_TEXTURES }.to_string().as_str())
 }
