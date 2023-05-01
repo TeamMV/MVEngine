@@ -1,8 +1,11 @@
 use alloc::rc::Rc;
 use std::cell::RefCell;
-use gl::types::{GLint, GLuint};
+use std::os::raw::c_void;
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use mvutils::utils::RcMut;
+use crate::render::batch3d::batch_layout_3d;
 use crate::render::camera::Camera;
+use crate::render::model::{Geometry, Model};
 use crate::render::opengl::opengl::gen_buffer_id;
 use crate::render::shared::{RenderProcessor3D, Shader, Texture};
 
@@ -131,15 +134,65 @@ impl OpenGLGeometryPass {
     }
 }
 
+macro_rules! vert_attrib {
+    ($idx:expr, $size:ident, $off:ident) => {
+        gl::VertexAttribPointer($idx, batch_layout_3d::$size as GLint, gl::FLOAT, 0, batch_layout_3d::VERTEX_SIZE_BYTES as GLsizei, batch_layout_3d::$off as *const _);
+        gl::EnableVertexAttribArray($idx);
+    };
+}
+
 impl RenderProcessor3D for OpenGLGeometryPass {
     #[allow(clippy::too_many_arguments)]
     fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
-        todo!()
+        let mut i: u8 = 0;
+        for t in tex.iter_mut().flatten() {
+            t.borrow_mut().bind(i);
+            i += 1;
+        }
+
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, (vertices.len() * 4) as GLsizeiptr, vertices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.vbo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (indices.len() * 4) as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
+            vert_attrib!(1, MATERIAL_ID_SIZE, MATERIAL_ID_OFFSET_BYTES);
+            vert_attrib!(2, CANVAS_COORDS_SIZE, CANVAS_COORDS_OFFSET_BYTES);
+            vert_attrib!(3, CANVAS_DATA_SIZE, CANVAS_DATA_OFFSET_BYTES);
+            vert_attrib!(4, MODEL_MATRIX_SIZE, MODEL_MATRIX_OFFSET_BYTES);
+
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, std::ptr::null());
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
-        todo!()
+    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], vertices: &[f32], indices: &[f32], shader: &mut Shader, render_mode: u8) {
+        let mut i: u8 = 0;
+        for t in tex.iter_mut().flatten() {
+            t.borrow_mut().bind(i);
+            i += 1;
+        }
+
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, (vertices.len() * 4) as GLsizeiptr, vertices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.vbo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (indices.len() * 4) as GLsizeiptr, indices.as_ptr() as *const c_void, gl::DYNAMIC_DRAW);
+
+            vert_attrib!(0, POSITION_SIZE, POSITION_OFFSET_BYTES);
+            vert_attrib!(1, MATERIAL_ID_SIZE, MATERIAL_ID_OFFSET_BYTES);
+
+            gl::DrawElements(render_mode as GLenum, indices.len() as GLsizei, gl::UNSIGNED_INT, std::ptr::null());
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+        }
     }
 }
 

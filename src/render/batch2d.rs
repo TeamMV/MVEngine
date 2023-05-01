@@ -45,15 +45,23 @@ pub mod batch_layout_2d {
     pub(crate) const USE_CAMERA_OFFSET_BYTES: u16 = USE_CAMERA_OFFSET * FLOAT_BYTES;
 }
 
+pub(crate) enum BatchType {
+    Regular,
+    Stripped,
+    Fan
+}
+
 pub(crate) trait BatchGen {
     fn get_render_mode(&self) -> u8;
     fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>);
-    fn is_stripped(&self) -> bool;
+    fn batch_type(&self) -> BatchType;
 }
 
 struct RegularBatch;
 
 struct StrippedBatch;
+
+struct FanBatch;
 
 impl BatchGen for RegularBatch {
     fn get_render_mode(&self) -> u8 {
@@ -78,8 +86,8 @@ impl BatchGen for RegularBatch {
         }
     }
 
-    fn is_stripped(&self) -> bool {
-        false
+    fn batch_type(&self) -> BatchType {
+        BatchType::Regular
     }
 }
 
@@ -106,8 +114,24 @@ impl BatchGen for StrippedBatch {
         }
     }
 
-    fn is_stripped(&self) -> bool {
-        true
+    fn batch_type(&self) -> BatchType {
+        BatchType::Stripped
+    }
+}
+
+impl BatchGen for FanBatch {
+    fn get_render_mode(&self) -> u8 {
+        gl::TRIANGLE_FAN as u8
+    }
+
+    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
+        for i in 0..amt {
+            indices.insert(i as usize, i as u32);
+        }
+    }
+
+    fn batch_type(&self) -> BatchType {
+        BatchType::Fan
     }
 }
 
@@ -164,6 +188,10 @@ impl Batch2D {
         self.data.capacity() < amount as usize
     }
 
+    fn is_empty(&self) -> bool {
+        self.vert_count == 0
+    }
+
     fn is_full_tex(&self) -> bool {
         self.full_tex
     }
@@ -172,11 +200,19 @@ impl Batch2D {
         self.next_tex + amount < unsafe { MAX_TEXTURES }
     }
 
+    fn can_hold(&self, vertices: u32, textures: u32) -> bool {
+        !(self.is_full(vertices) || self.is_full_tex_for(textures))
+    }
+
     fn add_vertex(&mut self, vertex: &Vertex2D) {
         for i in 0..batch_layout_2d::VERTEX_SIZE_FLOATS {
             self.data.insert(i as usize + (self.vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) as usize, vertex.data[i as usize]);
         }
         self.vert_count += 1;
+    }
+
+    fn end_fan(&mut self) {
+        self.generator.gen_indices(self.vert_count as u16, 0, &mut self.indices);
     }
 
     fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
@@ -233,8 +269,8 @@ impl Batch2D {
         self.force_clear();
     }
 
-    fn is_stripped(&self) -> bool {
-        self.generator.is_stripped()
+    fn batch_type(&self) -> BatchType {
+        self.generator.batch_type()
     }
 }
 
@@ -264,6 +300,14 @@ impl Vertex2D {
 
     pub(crate) fn set_norot_texture_data(&mut self, x: f32, y: f32, z: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: u32, canvas: [f32; 6], cam: bool) {
         self.set([x, y, z, 0.0, 0.0, 0.0, col.r(), col.g(), col.b(), col.a(), ux, uy, tex as f32, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    }
+
+    fn z(&self, z: f32) {
+        unsafe {
+            let ptr = self as *const Vertex2D;
+            let v = ptr.cast_mut().as_mut().unwrap();
+            v.data[2] = z;
+        }
     }
 }
 
@@ -297,6 +341,13 @@ impl VertexGroup<Vertex2D> {
     pub(crate) fn len(&self) -> u8 {
         self.len
     }
+
+    fn z(&self, z: f32) {
+        self.vertices[0].z(z);
+        self.vertices[1].z(z);
+        self.vertices[2].z(z);
+        self.vertices[3].z(z);
+    }
 }
 
 //controllers
@@ -307,9 +358,15 @@ pub(crate) struct BatchController2D {
     shader: Rc<RefCell<Shader>>,
     default_shader: Rc<RefCell<Shader>>,
     current: u32,
+    previous_regular: i32,
+    previous_stripped: i32,
+    z: f32
 }
 
 impl BatchController2D {
+    const Z_SHIFT: f32 = 0.01;
+    const Z_BASE: f32 = -1999.0;
+
     pub(crate) fn new(shader: Rc<RefCell<Shader>>, batch_limit: u32) -> Self {
         assert!(batch_limit >= 14);
         let mut batch = BatchController2D {
@@ -318,6 +375,9 @@ impl BatchController2D {
             default_shader: shader.clone(),
             shader,
             current: 0,
+            previous_regular: -1,
+            previous_stripped: -1,
+            z: Self::Z_BASE,
         };
         batch.start();
         batch
@@ -327,73 +387,142 @@ impl BatchController2D {
         self.batches.push(Batch2D::new(self.batch_limit, RegularBatch));
     }
 
-    fn next_batch(&mut self, stripped: bool) {
-        self.current += 1;
-        if let Some(batch) = self.batches.get(self.current as usize) {
-            if batch.is_stripped() != stripped {
-                self.batches[self.current as usize] = self.gen_batch(stripped);
+    fn ensure_batch(&mut self, batch_type: BatchType, vertices: u32, textures: u32) {
+        match batch_type {
+            BatchType::Regular => {
+                if self.batches[self.current as usize].batch_type() != batch_type {
+                    if self.previous_regular >= 0 {
+                        if self.batches[self.previous_regular as usize].can_hold(vertices, textures) {
+                            self.inc_z();
+                            return;
+                        }
+                    }
+                    self.current += 1;
+                    self.previous_regular = self.current as i32;
+                    self.advance(batch_type);
+                }
+                else {
+                    if self.batches[self.current as usize].can_hold(vertices, textures) {
+                        self.inc_z();
+                        return;
+                    }
+                    self.current += 1;
+                    self.previous_regular = self.current as i32;
+                    self.advance(batch_type);
+                }
             }
-        } else {
-            self.batches.push(self.gen_batch(stripped));
+            BatchType::Stripped => {
+                if self.batches[self.current as usize].batch_type() != batch_type {
+                    if self.previous_stripped >= 0 {
+                        if self.batches[self.previous_stripped as usize].can_hold(vertices, textures) {
+                            self.inc_z();
+                            return;
+                        }
+                    }
+                    self.current += 1;
+                    self.previous_stripped = self.current as i32;
+                    self.advance(batch_type);
+                }
+                else {
+                    if self.batches[self.current as usize].can_hold(vertices, textures) {
+                        self.inc_z();
+                        return;
+                    }
+                    self.current += 1;
+                    self.previous_stripped = self.current as i32;
+                    self.advance(batch_type);
+                }
+            }
+            BatchType::Fan => {
+                if self.batches[self.current as usize].batch_type() == batch_type {
+                    if self.batches[self.current as usize].is_empty() {
+                        return;
+                    }
+                }
+                self.advance(batch_type);
+            }
         }
     }
 
-    fn gen_batch(&self, stripped: bool) -> Batch2D {
-        stripped.yn(Batch2D::new(self.batch_limit, StrippedBatch),
-                    Batch2D::new(self.batch_limit, RegularBatch))
+    fn inc_z(&mut self) {
+        self.z += Self::Z_SHIFT;
+        if self.z >= 0.0 {
+            self.z = 0.0;
+        }
+    }
+
+    fn advance(&mut self, batch_type: BatchType) {
+        if self.batches.len() > self.current as usize {
+            if self.batches[self.current as usize].batch_type() != batch_type {
+                self.batches[self.current as usize] = self.gen_batch(batch_type);
+            }
+        } else {
+            self.batches.push(self.gen_batch(batch_type));
+        }
+    }
+
+    fn gen_batch(&self, batch_type: BatchType) -> Batch2D {
+        match batch_type {
+            BatchType::Regular => Batch2D::new(self.batch_limit, RegularBatch),
+            BatchType::Stripped => Batch2D::new(self.batch_limit, StrippedBatch),
+            BatchType::Fan => Batch2D::new(self.batch_limit, FanBatch),
+        }
     }
 
     pub(crate) fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
-        if self.batches[self.current as usize].is_stripped() {
-            self.next_batch(false);
-        }
-        if self.batches[self.current as usize].is_full(vertices.len as u32 * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
-            self.next_batch(false);
-        }
-
-        self.batches[self.current as usize].add_vertices(vertices);
+        vertices.z(self.z);
+        self.ensure_batch(BatchType::Regular, vertices.len() as u32, 0);
+        self.batches[self.previous_regular as usize].add_vertices(vertices);
     }
 
     pub(crate) fn add_vertices_stripped(&mut self, vertices: &VertexGroup<Vertex2D>) {
-        if !self.batches[self.current as usize].is_stripped() {
-            self.next_batch(true);
-        }
-        if self.batches[self.current as usize].is_full(vertices.len as u32 * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
-            self.next_batch(true);
-        }
-
-        self.batches[self.current as usize].add_vertices(vertices);
+        vertices.z(self.z);
+        self.ensure_batch(BatchType::Stripped, vert_count, 1);
+        self.batches[self.previous_stripped as usize].add_vertices(vertices);
     }
 
-    pub(crate) fn require_textures(&mut self, textures: u32) {
-        if self.batches[self.current as usize].is_full_tex_for(textures) {
-            self.next_batch(false);
+    pub(crate) fn add_fan_center(&mut self, vertex: &Vertex2D) {
+        vertex.z(self.z);
+        self.ensure_batch(BatchType::Fan, 0, 0);
+        self.batches[self.current as usize].add_vertex(vertex);
+    }
+
+    pub(crate) fn add_fan_point(&mut self, vertex: &Vertex2D) {
+        vertex.z(self.z);
+        if self.batches[self.current as usize].batch_type() == BatchType::Fan {
+            self.batches[self.current as usize].add_vertex(vertex);
         }
+    }
+
+    pub(crate) fn end_fan(&mut self) {
+        if self.batches[self.current as usize].batch_type() == BatchType::Fan {
+            self.batches[self.current as usize].end_fan();
+        }
+    }
+
+    pub(crate) fn require(&mut self, vertices: u32, textures: u32) {
+        self.ensure_batch(BatchType::Regular, vertices, textures);
+    }
+
+    pub(crate) fn require_stripped(&mut self, vertices: u32, textures: u32) {
+        self.ensure_batch(BatchType::Stripped, vertices, textures);
     }
 
     pub(crate) fn add_texture(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
         texture.borrow_mut().make();
-
-        if self.batches[self.current as usize].is_stripped() {
-            self.next_batch(false);
-        }
-        if self.batches[self.current as usize].is_full(vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
-            self.next_batch(false);
-        }
-
-        self.batches[self.current as usize].add_texture(texture)
+        self.ensure_batch(BatchType::Regular, vert_count, 1);
+        self.batches[self.previous_regular as usize].add_texture(texture)
     }
 
     pub(crate) fn add_texture_stripped(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
         texture.borrow_mut().make();
+        self.ensure_batch(BatchType::Stripped, vert_count, 1);
+        self.batches[self.previous_stripped as usize].add_texture(texture)
+    }
 
-        if !self.batches[self.current as usize].is_stripped() {
-            self.next_batch(true);
-        }
-        if self.batches[self.current as usize].is_full(vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) {
-            self.next_batch(true);
-        }
-
+    pub(crate) fn add_texture_fan(&mut self, texture: Rc<RefCell<Texture>>) -> u32 {
+        texture.borrow_mut().make();
+        self.ensure_batch(BatchType::Fan, 0, 1);
         self.batches[self.current as usize].add_texture(texture)
     }
 
@@ -403,6 +532,9 @@ impl BatchController2D {
             self.batches[i as usize].render(processor, self.shader.borrow_mut().deref_mut());
         }
         self.current = 0;
+        self.previous_regular = -1;
+        self.previous_stripped = -1;
+        self.z = Self::Z_BASE;
     }
 
     pub(crate) fn set_shader(&mut self, shader: Rc<RefCell<Shader>>) {

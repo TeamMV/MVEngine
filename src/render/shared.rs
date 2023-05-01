@@ -11,6 +11,7 @@ use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::render::vulkan::vulkan::*;
 #[cfg(feature = "3d")]
 use crate::render::model::Material;
+use crate::render::model::Model;
 
 pub trait ApplicationLoop {
     fn start(&mut self, window: RunningWindow);

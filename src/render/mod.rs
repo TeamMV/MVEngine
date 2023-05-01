@@ -65,8 +65,8 @@ pub(crate) fn load_render_assets(assets: Rc<RefCell<SemiAutomaticAssetManager>>)
     assets.borrow_mut().load_effect_shader("pixelate", "effects/pixelate.frag");
     #[cfg(feature = "3d")]
     {
-        assets.borrow_mut().load_shader("model", "shaders/model.vert", "shaders/model.frag");
-        assets.borrow_mut().load_shader("batch", "shaders/batch.vert", "shaders/batch.frag");
+        assets.borrow_mut().load_shader("model", "shaders/model_geom.vert", "shaders/model_geom.frag");
+        assets.borrow_mut().load_shader("batch", "shaders/batch_geom.vert", "shaders/batch_geom.frag");
     }
 }
 

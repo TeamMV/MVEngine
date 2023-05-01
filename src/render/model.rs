@@ -2,7 +2,7 @@ use alloc::rc::Rc;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use glam::{IVec3, IVec4, Vec2, Vec3};
+use glam::{IVec3, IVec4, Mat4, Vec2, Vec3};
 use gltf::buffer::View;
 use gltf::{Gltf, Semantic};
 use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
