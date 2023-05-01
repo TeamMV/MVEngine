@@ -15,9 +15,9 @@ use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{glfwFreeCallbacks, load_render_assets, MAX_TEXTURES, MAX_TEXTURES_IDENTIFIER, shader_preprocessor, TEXTURE_LIMIT};
+use crate::render::{glfwFreeCallbacks, load_render_assets, shader_preprocessor};
 use crate::render::batch2d::batch_layout_2d;
-use crate::render::camera::{Camera};
+use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::draw::Draw2D;
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 
@@ -25,7 +25,10 @@ use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, Ru
 use crate::render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
 #[cfg(feature = "3d")]
 use crate::render::model::Material;
+use crate::render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, TEXTURE_LIMIT};
 #[cfg(feature = "3d")]
+#[cfg(feature = "3d")]
+use crate::render::lights::Light;
 use crate::render::shared::RenderProcessor3D;
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
@@ -80,7 +83,8 @@ pub struct OpenGLWindow {
     #[cfg(feature = "3d")]
     shader_buffer_3d: OpenGLShaderBuffer,
 
-    camera: Camera,
+    camera_2d: Camera2D,
+    camera_3d: Camera3D,
 
     dpi: f32
 }
@@ -115,7 +119,8 @@ impl OpenGLWindow {
             shader_buffer_3d: OpenGLShaderBuffer::default(),
 
             draw_2d: None,
-            camera: Camera::new_2d(),
+            camera_2d: Camera2D::default(),
+            camera_3d: Camera3D::default(),
             dpi: 0.0
         }
     }
@@ -151,6 +156,8 @@ impl OpenGLWindow {
             let mut mt = 0;
             gl::GetIntegerv(gl::MAX_TEXTURE_IMAGE_UNITS, &mut mt);
             MAX_TEXTURES = min(mt as u32, TEXTURE_LIMIT);
+            gl::GetIntegerv(gl::MAX_UNIFORM_BUFFER_BINDINGS, &mut mt);
+            MAX_NUM_LIGHTS = mt as u32;
 
             glfwSetWindowSizeCallback(self.window, Some(res));
 
@@ -235,7 +242,7 @@ impl OpenGLWindow {
         }
 
         //TODO: camera 2D and 3D obj so no clone (Rc<RefCell<Camera>>)
-        self.render_2d.set_camera(self.camera.clone());
+        self.render_2d.set_camera(self.camera_2d.clone());
 
         self.draw_2d.clone().unwrap().borrow_mut().render(&self.render_2d);
 
@@ -352,7 +359,8 @@ impl OpenGLWindow {
             self.geometry_pass.resize(width, height);
             self.draw_2d.clone().unwrap().borrow_mut().resize(width, height);
             self.shader_pass.resize(width, height);
-            self.camera.update_projection_mat(width, height);
+            self.camera_2d.update_projection_mat(width, height);
+            self.camera_3d.update_projection_mat(width, height);
         }
     }
 
@@ -375,9 +383,12 @@ impl OpenGLWindow {
         #[cfg(feature = "3d")]
         {
             self.geometry_pass.setup(self.info.width, self.info.height);
+            self.lighting_pass.setup();
+            self.forward_render.setup(self.info.width, self.info.height);
         }
 
-        self.camera.update_projection_mat(self.info.width, self.info.height);
+        self.camera_2d.update_projection_mat(self.info.width, self.info.height);
+        self.camera_3d.update_projection_mat(self.info.width, self.info.height);
         application_loop.start(RunningWindow::OpenGL(self));
 
         self.running(&mut application_loop);
@@ -449,8 +460,20 @@ impl OpenGLWindow {
         self.enabled_shaders.push(info);
     }
 
-    pub(crate) fn get_camera(&self) -> &Camera {
-        &self.camera
+    pub(crate) fn get_camera_2d(&self) -> &Camera2D {
+        &self.camera_2d
+    }
+
+    pub(crate) fn get_camera_3d(&self) -> &Camera3D {
+        &self.camera_3d
+    }
+
+    pub(crate) fn get_render_3d(&self) -> &OpenGLGeometryPass {
+        &self.geometry_pass
+    }
+
+    pub(crate) fn get_lighting(&self) -> &OpenGLLightingPass {
+        &self.lighting_pass
     }
 }
 
@@ -469,7 +492,7 @@ struct OpenGLShaderPass {
 }
 
 impl OpenGLShaderPass {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             ibo: 0,
             indices: [0, 2, 1, 1, 2, 3],
@@ -478,16 +501,16 @@ impl OpenGLShaderPass {
         }
     }
 
-    pub fn set_ibo(&mut self, ibo: u32) {
+    fn set_ibo(&mut self, ibo: u32) {
         self.ibo = ibo;
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) {
+    fn resize(&mut self, width: i32, height: i32) {
         self.width = width;
         self.height = height;
     }
 
-    pub fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32, frame: i32) {
+    fn render(&self, shader: &mut EffectShader, f_buf: u32, t_buf: u32, frame: i32) {
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, t_buf);
@@ -527,10 +550,10 @@ macro_rules! shader_uniform {
 }
 
 impl OpenGLShader {
-    pub unsafe fn new(vertex: &str, fragment: &str) -> Self {
+    pub(crate) unsafe fn new(vertex: &str, fragment: &str) -> Self {
         OpenGLShader {
-            vertex: Some(CString::new(shader_preprocessor(vertex)).unwrap()),
-            fragment: Some(CString::new(shader_preprocessor(fragment)).unwrap()),
+            vertex: Some(CString::new(process(vertex)).unwrap()),
+            fragment: Some(CString::new(process(fragment)).unwrap()),
             prgm_id: 0,
             vertex_id: 0,
             fragment_id: 0,
@@ -551,11 +574,11 @@ impl OpenGLShader {
 
             error_log.set_len(error_log_size as usize);
             let log = String::from_utf8(error_log).unwrap();
-            panic!("{}", log);
+            panic!("{}: {}", id, log);
         }
     }
 
-    pub unsafe fn make(&mut self) {
+    pub(crate) unsafe fn make(&mut self) {
         if self.prgm_id != 0 || self.vertex.is_none() || self.fragment.is_none() {
             return;
         }
@@ -586,55 +609,55 @@ impl OpenGLShader {
         }
     }
 
-    pub unsafe fn bind(&mut self) {
+    pub(crate) unsafe fn bind(&mut self) {
         if self.prgm_id == 0 {
             self.make();
         }
         gl::UseProgram(self.prgm_id)
     }
 
-    pub unsafe fn uniform_1f(&self, name: &str, value: f32) {
+    pub(crate) unsafe fn uniform_1f(&self, name: &str, value: f32) {
         shader_uniform!(Uniform1f, self.prgm_id, name, value);
     }
 
-    pub unsafe fn uniform_1i(&self, name: &str, value: i32) {
+    pub(crate) unsafe fn uniform_1i(&self, name: &str, value: i32) {
         shader_uniform!(Uniform1i, self.prgm_id, name, value);
     }
 
-    pub unsafe fn uniform_fv(&self, name: &str, value: &[f32]) {
+    pub(crate) unsafe fn uniform_fv(&self, name: &str, value: &[f32]) {
         shader_uniform!(Uniform1fv, self.prgm_id, name, value.len() as i32, value.as_ptr());
     }
 
-    pub unsafe fn uniform_iv(&self, name: &str, value: &[i32]) {
+    pub(crate) unsafe fn uniform_iv(&self, name: &str, value: &[i32]) {
         shader_uniform!(Uniform1iv, self.prgm_id, name, value.len() as i32, value.as_ptr());
     }
 
-    pub unsafe fn uniform_2fv(&self, name: &str, value: Vec2) {
+    pub(crate) unsafe fn uniform_2fv(&self, name: &str, value: Vec2) {
         shader_uniform!(Uniform2fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
-    pub unsafe fn uniform_3fv(&self, name: &str, value: Vec3) {
+    pub(crate) unsafe fn uniform_3fv(&self, name: &str, value: Vec3) {
         shader_uniform!(Uniform3fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
-    pub unsafe fn uniform_4fv(&self, name: &str, value: Vec4) {
+    pub(crate) unsafe fn uniform_4fv(&self, name: &str, value: Vec4) {
         shader_uniform!(Uniform4fv, self.prgm_id, name, 1, value.to_array().as_ptr());
     }
 
-    pub unsafe fn uniform_2fm(&self, name: &str, value: Mat2) {
+    pub(crate) unsafe fn uniform_2fm(&self, name: &str, value: Mat2) {
         shader_uniform!(UniformMatrix2fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
-    pub unsafe fn uniform_3fm(&self, name: &str, value: Mat3) {
+    pub(crate) unsafe fn uniform_3fm(&self, name: &str, value: Mat3) {
         shader_uniform!(UniformMatrix3fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
-    pub unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {
+    pub(crate) unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {
         shader_uniform!(UniformMatrix4fv, self.prgm_id, name, 1, 0, value.to_cols_array().as_ptr());
     }
 
     #[cfg(feature = "3d")]
-    pub unsafe fn uniform_material(&self, name: &str, value: &Material) {
+    pub(crate) unsafe fn uniform_material(&self, name: &str, value: &Material) {
         self.uniform_4fv((name.to_string() + ".ambient").as_str(), value.ambient.as_vec());
         self.uniform_4fv((name.to_string() + ".diffuse").as_str(), value.diffuse.as_vec());
         self.uniform_4fv((name.to_string() + ".specular").as_str(), value.specular.as_vec());
@@ -647,6 +670,16 @@ impl OpenGLShader {
         self.uniform_1i((name.to_string() + ".metallicRoughnessTextureId").as_str(), 0);
         self.uniform_1i((name.to_string() + ".normalTextureId").as_str(), 0);
     }
+
+    #[cfg(feature = "3d")]
+    pub(crate) unsafe fn uniform_light(&self, name: &str, value: &Light) {
+        self.uniform_3fv((name.to_string() + ".position").as_str(), value.position);
+        self.uniform_3fv((name.to_string() + ".direction").as_str(), value.direcetion);
+        self.uniform_3fv((name.to_string() + ".color").as_str(), value.color.as_solid_vec());
+        self.uniform_1f((name.to_string() + ".attenuation").as_str(), value.attenuation);
+        self.uniform_1f((name.to_string() + ".cutoff").as_str(), value.cutoff);
+        self.uniform_1f((name.to_string() + ".radius").as_str(), value.radius);
+    }
 }
 
 pub struct OpenGLTexture {
@@ -657,7 +690,7 @@ pub struct OpenGLTexture {
 }
 
 impl OpenGLTexture {
-    pub unsafe fn new(bytes: Vec<u8>) -> Self {
+    pub(crate) unsafe fn new(bytes: Vec<u8>) -> Self {
         OpenGLTexture {
             bytes: Some(bytes),
             width: 0,
@@ -666,7 +699,7 @@ impl OpenGLTexture {
         }
     }
 
-    pub unsafe fn make(&mut self) {
+    pub(crate) unsafe fn make(&mut self) {
         if self.gl_id != 0 || self.bytes.is_none() {
             return;
         }
@@ -685,24 +718,24 @@ impl OpenGLTexture {
         gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
-    pub unsafe fn bind(&mut self, index: u8) {
+    pub(crate) unsafe fn bind(&mut self, index: u8) {
         gl::ActiveTexture(gl::TEXTURE0 + index as u32);
         gl::BindTexture(gl::TEXTURE_2D, self.gl_id);
     }
 
-    pub unsafe fn unbind(&mut self) {
+    pub(crate) unsafe fn unbind(&mut self) {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    pub fn get_width(&self) -> u32 {
+    pub(crate) fn get_width(&self) -> u32 {
         self.width
     }
 
-    pub fn get_height(&self) -> u32 {
+    pub(crate) fn get_height(&self) -> u32 {
         self.height
     }
 
-    pub fn get_id(&self) -> u32 {
+    pub(crate) fn get_id(&self) -> u32 {
         self.gl_id
     }
 }
@@ -715,7 +748,7 @@ pub(crate) struct OpenGLRenderProcessor2D {
     height: i32,
     vbo: u32,
     ibo: u32,
-    camera: Option<Camera>,
+    camera: Option<Camera2D>,
 }
 
 impl OpenGLRenderProcessor2D {
@@ -746,7 +779,7 @@ impl OpenGLRenderProcessor2D {
         self.framebuffer = framebuffer;
     }
 
-    fn set_camera(&mut self, cam: Camera) {
+    fn set_camera(&mut self, cam: Camera2D) {
         self.camera = Some(cam);
     }
 }
@@ -814,7 +847,7 @@ pub(crate) struct OpenGLRenderProcessor3D {
     height: i32,
     vbo: u32,
     ibo: u32,
-    camera: Option<Camera>,
+    camera: Option<Camera3D>,
 }
 
 #[cfg(feature = "3d")]
@@ -846,7 +879,7 @@ impl OpenGLRenderProcessor3D {
         self.framebuffer = framebuffer;
     }
 
-    fn set_camera(&mut self, cam: Camera) {
+    fn set_camera(&mut self, cam: Camera3D) {
         self.camera = Some(cam);
     }
 }

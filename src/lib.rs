@@ -102,6 +102,8 @@ impl Default for ApplicationInfo {
 mod tests {
     use std::cell::RefCell;
     use std::ops::{Deref, DerefMut};
+    use std::sync::{Arc, RwLock};
+    use glam::{Mat4, Vec3};
     use mvutils::screen::Measurement;
     use mvutils::utils::RcMut;
     use crate::assets::{ReadableAssetManager, WritableAssetManager};
@@ -113,11 +115,15 @@ mod tests {
     use crate::gui::gui_formats::FormattedString;
     use crate::gui::styles::{BorderStyle, GuiValue, Origin};
     use crate::gui::styles::Positioning::Absolute;
+    use crate::render::batch3d::BatchController3D;
     use crate::render::color::{Color, Gradient, RGB};
+    use crate::render::lights::Light;
     use crate::render::text::TypeFace;
 
     #[test]
     fn test() {
+
+
         let mut app = ApplicationInfo::default();
         app.version = Version::parse("v0.1.0").unwrap();
         app.name = "Test".to_string();
@@ -129,40 +135,54 @@ mod tests {
         let mut window = core.get_render().create_window(info);
         window.run(Test {
             core,
-            md: GuiMarkdown::create()
+            md: GuiMarkdown::create(),
+            batch: None,
+            demo_lights: Vec::new()
         });
     }
 
     struct Test {
         core: MVCore,
-        md: GuiMarkdown
+        md: GuiMarkdown,
+        batch: Option<BatchController3D>,
+        demo_lights: Vec<Light>
     }
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
             self.core.assets.borrow_mut().load_model("figcolor", "models/figcolor.obj");
-            let model = self.core.assets.borrow().get_model("figcolor");
-            println!("{:?}", model.borrow().mesh.indices);
 
-            self.md.set_text(FormattedString::new("Hello"));
+            let shader = self.core.assets.borrow().get_shader("model");
+            let s = self.core.assets.borrow().get_shader("batch");
+            self.batch = Some(BatchController3D::new(s, shader, 10000));
 
-            setup!(
-                self.md.info_mut().style => {
-                    font: (Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default")))),
-                    text_size: 2 cm,
-                    text_color: (Gradient::new(Color::<RGB, f32>::black())),
-                    text_chroma: true,
-                    background_color: (Gradient::new(Color::<RGB, f32>::cyan())),
-                    border_width: 5,
-                    border_style: (BorderStyle::Square),
-                    border_radius: 20,
-                    border_color: (Gradient::new(Color::<RGB, f32>::red())),
-                    x: (window.get_width() - 100),
-                    y: 100,
-                    origin: (Origin::BottomLeft),
-                    position: Absolute
-                }
-            );
+            self.demo_lights = vec![Light {
+                position: Vec3::new(0.0, 0.0, 0.0),
+                direcetion: Vec3::new(0.0, 0.0, -1.0),
+                color: Color::<RGB, f32>::white(),
+                attenuation: 0.0,
+                cutoff: 0.0,
+                radius: 100.0,
+            }]
+
+            //self.md.set_text(FormattedString::new("Hello"));
+            //setup!(
+            //    self.md.info_mut().style => {
+            //        font: (Some(TypeFace::single(self.core.assets.borrow_mut().get_font("default")))),
+            //        text_size: 2 cm,
+            //        text_color: (Gradient::new(Color::<RGB, f32>::black())),
+            //        text_chroma: true,
+            //        background_color: (Gradient::new(Color::<RGB, f32>::cyan())),
+            //        border_width: 5,
+            //        border_style: (BorderStyle::Square),
+            //        border_radius: 20,
+            //        border_color: (Gradient::new(Color::<RGB, f32>::red())),
+            //        x: (window.get_width() - 100),
+            //        y: 100,
+            //        origin: (Origin::BottomLeft),
+            //        position: Absolute
+            //    }
+            //);
 
             //self.md.info_mut().style.padding_top = GuiValue::Just(20);
             //self.md.info_mut().style.padding_bottom = GuiValue::Just(20);
@@ -175,6 +195,16 @@ mod tests {
         }
 
         fn draw(&mut self, mut window: RunningWindow) {
+            let model = self.core.assets.borrow().get_model("figcolor");
+            self.batch.as_mut().unwrap().add_model(model, [0.0, 0.0, 800.0, 600.0, 0.0, 0.0], Mat4::IDENTITY);
+            if let RunningWindow::OpenGL(w) = window {
+                unsafe {
+                    let w = w.as_mut().unwrap();
+                    self.batch.as_mut().unwrap().render(w.get_render_3d(), window.get_camera_3d());
+                    let shader = self.core.assets.borrow().get_effect_shader("deferred");
+                    w.get_lighting().light_scene(shader, &w.get_render_3d().buffer, w.get_camera_3d(), &self.demo_lights);
+                }
+            }
             //window.get_draw_2d().tri();
             //window.get_draw_2d().text(true, 100, 100, 50, "Hello");
             //window.get_draw_2d().rectangle(100, 150, self.core.get_asset_manager().get_font("default").get_metrics("Hello").width(50), 50);
@@ -186,7 +216,7 @@ mod tests {
             //    shader.uniform_1f("quality", 4.0);
             //    shader.uniform_1f("size", 8.0);
             //}));
-            self.md.draw(window.get_draw_2d());
+            //self.md.draw(window.get_draw_2d());
         }
 
         fn stop(&mut self, window: RunningWindow) {}

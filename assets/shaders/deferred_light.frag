@@ -7,10 +7,10 @@ in vec2 fTexCoord;
 struct Light {
     vec3 position;
     vec3 direcetion;
-    vec4 color;
+    vec3 color;
     float attenuation;
-    float cutoff;
-    float radius;
+    float cutoff; //if > 0 -> spotlight
+    float radius; //if 0 -> direction light
 };
 
 uniform sampler2D gAlbedoSpec;
@@ -21,7 +21,8 @@ uniform float ambient = 0.1;
 
 uniform vec3 viewPos;
 
-uniform Light lights[NUM_LIGHTS]; //replaced in shader loader
+uniform Light lights[MAX_NUM_LIGHTS]; //replaced in shader loader
+uniform int numLights = MAX_NUM_LIGHTS;
 
 void main() {
     vec3 FragPos = texture(gPosition, fTexCoord).rgb;
@@ -31,7 +32,7 @@ void main() {
 
     vec3 lighting = Albedo * ambient;
     vec3 viewDir = normalize(viewPos - FragPos);
-    for (int i = 0; i < NUM_LIGHTS; ++i) {
+    for (int i = 0; i < numLights; ++i) {
         float dist = length(lights[i].position - FragPos);
         //check for light volumes
         if (dist < lights[i].radius) {

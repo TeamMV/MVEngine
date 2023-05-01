@@ -4,8 +4,9 @@ use std::rc::Rc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use mvutils::utils::{TetrahedronOp, RcMut};
 
-use crate::render::camera::Camera;
+use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::draw::Draw2D;
+use crate::render::lights::Light;
 use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 #[cfg(feature = "vulkan")]
 use crate::render::vulkan::vulkan::*;
@@ -264,7 +265,8 @@ impl RunningWindow {
     backend_ptr_fn!(RunningWindow, add_shader, id: &str, shader: Rc<RefCell<EffectShader>>);
     backend_ptr_fn!(RunningWindow, queue_shader_pass, info: ShaderPassInfo);
 
-    backend_ptr_fn!(RunningWindow, get_camera, &Camera, true);
+    backend_ptr_fn!(RunningWindow, get_camera_2d, &Camera2D, true);
+    backend_ptr_fn!(RunningWindow, get_camera_3d, &Camera3D, true);
 }
 
 pub struct ShaderPassInfo {
@@ -368,6 +370,8 @@ impl Shader {
     backend_fn!(Shader, uniform_4fm, name: &str, value: Mat4);
     #[cfg(feature = "3d")]
     backend_fn!(Shader, uniform_material, name: &str, value: &Material);
+    #[cfg(feature = "3d")]
+    backend_fn!(Shader, uniform_light, name: &str, value: &Light);
 
     #[cfg(feature = "vulkan")]
     pub(crate) fn get_vk(&mut self) -> &mut VulkanShader {
@@ -405,6 +409,11 @@ impl EffectShader {
     backend_fn!(EffectShader, uniform_2fm, name: &str, value: Mat2);
     backend_fn!(EffectShader, uniform_3fm, name: &str, value: Mat3);
     backend_fn!(EffectShader, uniform_4fm, name: &str, value: Mat4);
+
+    #[cfg(feature = "3d")]
+    backend_fn!(EffectShader, uniform_material, name: &str, value: &Material);
+    #[cfg(feature = "3d")]
+    backend_fn!(EffectShader, uniform_light, name: &str, value: &Light);
 
     #[cfg(feature = "vulkan")]
     pub(crate) fn get_vk(&mut self) -> &mut VulkanShader {

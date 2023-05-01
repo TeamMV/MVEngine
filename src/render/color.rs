@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 use std::marker::PhantomData;
-use glam::Vec4;
+use glam::{Vec3, Vec4};
 use mvutils::utils::SplitSized;
 
 use regex::Regex;
@@ -216,6 +216,14 @@ impl Color<RGB, f32> {
 
     pub fn to_vec(self) -> Vec4 {
         Vec4::new(self.c1, self.c2, self.c3, self.c4)
+    }
+
+    pub fn as_solid_vec(&self) -> Vec3 {
+        Vec3::new(self.c1, self.c2, self.c3)
+    }
+
+    pub fn to_solid_vec(self) -> Vec3 {
+        Vec3::new(self.c1, self.c2, self.c3)
     }
 }
 

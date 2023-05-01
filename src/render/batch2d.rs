@@ -5,7 +5,7 @@ use std::rc::Rc;
 use mvutils::init_arr;
 use mvutils::utils::{TetrahedronOp};
 use crate::render::color::{Color, RGB};
-use crate::render::{MAX_TEXTURES, TEXTURE_LIMIT};
+use crate::render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
 
 use crate::render::shared::{RenderProcessor2D, Shader, Texture};
 
@@ -45,13 +45,14 @@ pub mod batch_layout_2d {
     pub(crate) const USE_CAMERA_OFFSET_BYTES: u16 = USE_CAMERA_OFFSET * FLOAT_BYTES;
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum BatchType {
     Regular,
     Stripped,
     Fan
 }
 
-pub(crate) trait BatchGen {
+trait BatchGen {
     fn get_render_mode(&self) -> u8;
     fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>);
     fn batch_type(&self) -> BatchType;
@@ -359,7 +360,6 @@ pub(crate) struct BatchController2D {
     default_shader: Rc<RefCell<Shader>>,
     current: u32,
     previous_regular: i32,
-    previous_stripped: i32,
     z: f32
 }
 
@@ -376,7 +376,6 @@ impl BatchController2D {
             shader,
             current: 0,
             previous_regular: -1,
-            previous_stripped: -1,
             z: Self::Z_BASE,
         };
         batch.start();
@@ -397,41 +396,25 @@ impl BatchController2D {
                             return;
                         }
                     }
-                    self.current += 1;
-                    self.previous_regular = self.current as i32;
                     self.advance(batch_type);
+                    self.previous_regular = self.current as i32;
                 }
                 else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         self.inc_z();
                         return;
                     }
-                    self.current += 1;
-                    self.previous_regular = self.current as i32;
                     self.advance(batch_type);
+                    self.previous_regular = self.current as i32;
                 }
             }
             BatchType::Stripped => {
-                if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous_stripped >= 0 {
-                        if self.batches[self.previous_stripped as usize].can_hold(vertices, textures) {
-                            self.inc_z();
-                            return;
-                        }
-                    }
-                    self.current += 1;
-                    self.previous_stripped = self.current as i32;
-                    self.advance(batch_type);
-                }
-                else {
-                    if self.batches[self.current as usize].can_hold(vertices, textures) {
-                        self.inc_z();
+                if self.batches[self.current as usize].batch_type() == batch_type {
+                    if self.batches[self.current as usize].is_empty() {
                         return;
                     }
-                    self.current += 1;
-                    self.previous_stripped = self.current as i32;
-                    self.advance(batch_type);
                 }
+                self.advance(batch_type);
             }
             BatchType::Fan => {
                 if self.batches[self.current as usize].batch_type() == batch_type {
@@ -452,6 +435,7 @@ impl BatchController2D {
     }
 
     fn advance(&mut self, batch_type: BatchType) {
+        self.current += 1;
         if self.batches.len() > self.current as usize {
             if self.batches[self.current as usize].batch_type() != batch_type {
                 self.batches[self.current as usize] = self.gen_batch(batch_type);
@@ -475,13 +459,18 @@ impl BatchController2D {
         self.batches[self.previous_regular as usize].add_vertices(vertices);
     }
 
-    pub(crate) fn add_vertices_stripped(&mut self, vertices: &VertexGroup<Vertex2D>) {
-        vertices.z(self.z);
-        self.ensure_batch(BatchType::Stripped, vert_count, 1);
-        self.batches[self.previous_stripped as usize].add_vertices(vertices);
+    pub(crate) fn start_stripped(&mut self) {
+        self.ensure_batch(BatchType::Stripped, 0, 0);
     }
 
-    pub(crate) fn add_fan_center(&mut self, vertex: &Vertex2D) {
+    pub(crate) fn add_vertices_stripped(&mut self, vertices: &VertexGroup<Vertex2D>) {
+        vertices.z(self.z);
+        if self.batches[self.current as usize].batch_type() == BatchType::Stripped {
+            self.batches[self.current as usize].add_vertices(vertices);
+        }
+    }
+
+    pub(crate) fn start_fan(&mut self, vertex: &Vertex2D) {
         vertex.z(self.z);
         self.ensure_batch(BatchType::Fan, 0, 0);
         self.batches[self.current as usize].add_vertex(vertex);
@@ -504,20 +493,20 @@ impl BatchController2D {
         self.ensure_batch(BatchType::Regular, vertices, textures);
     }
 
-    pub(crate) fn require_stripped(&mut self, vertices: u32, textures: u32) {
-        self.ensure_batch(BatchType::Stripped, vertices, textures);
-    }
-
     pub(crate) fn add_texture(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
         texture.borrow_mut().make();
         self.ensure_batch(BatchType::Regular, vert_count, 1);
         self.batches[self.previous_regular as usize].add_texture(texture)
     }
 
-    pub(crate) fn add_texture_stripped(&mut self, texture: Rc<RefCell<Texture>>, vert_count: u32) -> u32 {
+    pub(crate) fn add_texture_stripped(&mut self, texture: Rc<RefCell<Texture>>) -> u32 {
         texture.borrow_mut().make();
-        self.ensure_batch(BatchType::Stripped, vert_count, 1);
-        self.batches[self.previous_stripped as usize].add_texture(texture)
+        if self.batches[self.current as usize].batch_type() == BatchType::Stripped {
+            self.batches[self.current as usize].add_texture(texture)
+        }
+        else {
+            0
+        }
     }
 
     pub(crate) fn add_texture_fan(&mut self, texture: Rc<RefCell<Texture>>) -> u32 {
@@ -533,7 +522,6 @@ impl BatchController2D {
         }
         self.current = 0;
         self.previous_regular = -1;
-        self.previous_stripped = -1;
         self.z = Self::Z_BASE;
     }
 

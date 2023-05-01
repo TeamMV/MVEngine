@@ -11,7 +11,8 @@ use itertools::Itertools;
 use mvutils::utils::{Bytecode, rc_mut, RcMut, TetrahedronOp};
 use crate::assets::AssetManager;
 use crate::render::color::{Color, RGB};
-use crate::render::{MAX_TEXTURES, RenderCore};
+use crate::render::RenderCore;
+use crate::render::shader_preprocessor::{MAX_TEXTURES};
 use crate::render::shared::Texture;
 
 pub struct Model {
@@ -22,7 +23,7 @@ pub struct Model {
 pub struct Mesh {
     pub(crate) name: String,
     pub(crate) vertices: Vec<Vec3>,
-    pub(crate) indices: Vec<u16>,
+    pub(crate) indices: Vec<u32>,
     pub(crate) normals: Vec<Vec3>,
     pub(crate) tex_coords: Vec<Vec2>,
     pub(crate) materials: Vec<u16>,
@@ -36,7 +37,7 @@ pub struct Material {
 
     pub alpha: f32, //d or Ts
     pub specular_exponent: f32, //Ns (specular exponent)
-    pub metallic: f32,
+    pub metallic: f32, //m
     pub roughness: f32,
 
     //pub transmission_filter: f32, //Tf
@@ -211,7 +212,7 @@ impl OBJModelLoader {
         let mut normals: Vec<Vec3> = Vec::new();
         let mut tex_coords_vec: Vec<Vec2> = Vec::new();
         let mut tex_coords: Vec<Vec2> = Vec::new();
-        let mut indices: Vec<u16> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
         let mut materials: Vec<u16> = Vec::new();
         let mut faces: Vec<IVec4> = Vec::new();
         let mut material_map: HashMap<String, u16> = HashMap::new();
@@ -306,7 +307,7 @@ impl OBJModelLoader {
         }
 
         for face in faces {
-            indices.push(face.x as u16);
+            indices.push(face.x as u32);
             materials.push(face.w as u16);
 
             if face.y >= 0 {
@@ -318,6 +319,8 @@ impl OBJModelLoader {
                 normals[face.x as usize] = normals_vec[face.z as usize];
             }
         }
+
+        available_materials.insert(0, Material::default());
 
         Model {
             mesh: Mesh {
@@ -346,9 +349,9 @@ impl OBJModelLoader {
                     if !name.is_empty() {
                         map.insert(name, materials.len() as u16 + 1);
                         materials.push(material);
-                        name = String::new();
-                        material = Material::default();
                     }
+                    name = tokens[1].to_string();
+                    material = Material::default();
                 }
                 "Ka" => {
                     material.ambient.set_r(tokens[1].parse::<f32>().unwrap());
@@ -370,6 +373,9 @@ impl OBJModelLoader {
                 }
                 "Ns" => {
                     material.specular_exponent = tokens[1].parse::<f32>().unwrap();
+                }
+                "m" => {
+                    material.metallic = tokens[1].parse::<f32>().unwrap();
                 }
                 //"Ni" => {
                 //    material.optical_density = tokens[1].parse::<f32>().unwrap();
@@ -400,6 +406,10 @@ impl OBJModelLoader {
                 }
                 _ => {}
             }
+        }
+        if !name.is_empty() {
+            map.insert(name, materials.len() as u16 + 1);
+            materials.push(material);
         }
     }
 
@@ -460,12 +470,12 @@ impl GLTFModelLoader {
             let mut vertices: Vec<Vec3> = Vec::new();
             let mut normals: Vec<Vec3> = Vec::new();
             let mut tex_coords: Vec<Vec2> = Vec::new();
-            let mut indices: Vec<u16> = Vec::new();
+            let mut indices: Vec<u32> = Vec::new();
             for primitive in mesh.primitives() {
                 vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Positions).unwrap().index())));
                 normals.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Normals).unwrap().index())));
                 tex_coords.append(&mut self.construct_vec2s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::TexCoords(0)).unwrap().index())));
-                indices.append(&mut self.construct::<u16>(self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index())));
+                indices.append(&mut self.construct::<u32>(self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index())));
             }
 
             println!("{}", name);
@@ -561,6 +571,20 @@ impl FromLeBytes for u16 {
 
     fn name() -> String {
         "UNSIGNED_SHORT".to_string()
+    }
+}
+
+impl FromLeBytes for u32 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
+    }
+
+    fn byte_count() -> usize {
+        4
+    }
+
+    fn name() -> String {
+        "UNSIGNED_INT".to_string()
     }
 }
 

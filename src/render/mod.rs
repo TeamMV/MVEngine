@@ -24,10 +24,8 @@ pub mod vulkan;
 pub mod model;
 #[cfg(feature = "3d")]
 pub mod batch3d;
-
-pub(crate) const TEXTURE_LIMIT: u32 = 64;
-pub(crate) static mut MAX_TEXTURES: u32 = 0;
-pub(crate) const MAX_TEXTURES_IDENTIFIER: &str = "GL_MAX_TEXTURE_IMAGE_UNITS";
+#[cfg(feature = "3d")]
+pub mod lights;
 
 pub const EFFECT_VERT: &str = "#version 450\nout vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexID];gl_Position=vec4(positions[gl_VertexID],0.0,1.0);}";
 pub const EMPTY_EFFECT_FRAG: &str = "#version 450\nin vec2 fTexCoord;out vec4 outColor;uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
@@ -67,6 +65,7 @@ pub(crate) fn load_render_assets(assets: Rc<RefCell<SemiAutomaticAssetManager>>)
     {
         assets.borrow_mut().load_shader("model", "shaders/model_geom.vert", "shaders/model_geom.frag");
         assets.borrow_mut().load_shader("batch", "shaders/batch_geom.vert", "shaders/batch_geom.frag");
+        assets.borrow_mut().load_effect_shader("deferred", "shaders/deferred_light.frag");
     }
 }
 
@@ -160,6 +159,19 @@ impl RenderCore {
     }
 }
 
-fn shader_preprocessor(source: &str) -> String {
-    source.replace(MAX_TEXTURES_IDENTIFIER, unsafe { MAX_TEXTURES }.to_string().as_str())
+pub mod shader_preprocessor {
+    pub(crate) const TEXTURE_LIMIT: u32 = 64;
+    pub(crate) static mut MAX_TEXTURES: u32 = 0;
+    pub(crate) const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURE_IMAGE_UNITS";
+
+    pub(crate) static mut MAX_NUM_LIGHTS: u32 = 0;
+    pub(crate) const MAX_NUM_LIGHTS_IDENTIFIER: &str = "MAX_NUM_LIGHTS";
+
+    pub(crate) fn process(source: &str) -> String {
+        unsafe {
+            source
+                .replace(MAX_TEXTURES_IDENTIFIER, MAX_TEXTURES.to_string().as_str())
+                .replace(MAX_NUM_LIGHTS_IDENTIFIER, MAX_NUM_LIGHTS.to_string().as_str())
+        }
+    }
 }
