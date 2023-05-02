@@ -2,6 +2,7 @@ use alloc::rc::Rc;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::Arc;
 use glam::{IVec3, IVec4, Mat4, Vec2, Vec3};
 use gltf::buffer::View;
 use gltf::{Gltf, Semantic};
@@ -155,7 +156,7 @@ pub(crate) struct ModelLoader {
 }
 
 impl ModelLoader {
-    pub(crate) fn new(core: Rc<RenderCore>, manager: *mut AssetManager) -> Self {
+    pub(crate) fn new(core: Arc<RenderCore>, manager: *mut AssetManager) -> Self {
         ModelLoader {
             obj: OBJModelLoader::new(core.clone(), manager),
             gltf: GLTFModelLoader::new(core)
@@ -174,12 +175,12 @@ impl ModelLoader {
 }
 
 struct OBJModelLoader {
-    core: Rc<RenderCore>,
+    core: Arc<RenderCore>,
     manager: *mut AssetManager
 }
 
 impl OBJModelLoader {
-    fn new(core: Rc<RenderCore>, manager: *mut AssetManager) -> Self {
+    fn new(core: Arc<RenderCore>, manager: *mut AssetManager) -> Self {
         OBJModelLoader {
             core,
             manager
@@ -427,11 +428,11 @@ impl OBJModelLoader {
 }
 
 struct GLTFModelLoader {
-    core: Rc<RenderCore>
+    core: Arc<RenderCore>
 }
 
 impl GLTFModelLoader {
-    fn new(core: Rc<RenderCore>) -> Self {
+    fn new(core: Arc<RenderCore>) -> Self {
         GLTFModelLoader {
             core
         }

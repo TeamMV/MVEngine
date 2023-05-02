@@ -1,16 +1,20 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use include_dir::*;
+use mvutils::sealable;
 use crate::render::model::{Model, ModelLoader};
 
 use crate::render::RenderCore;
 use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};
 use crate::render::text::{Font, FontLoader};
 
+sealable!();
+
 pub struct AssetManager {
-    core: Option<Rc<RenderCore>>,
+    core: Option<Arc<RenderCore>>,
     font_loader: Option<FontLoader>,
     model_loader: Option<ModelLoader>,
     pub(crate) files: HashMap<String, File<'static>>,
@@ -94,17 +98,23 @@ impl AssetManager {
     }
 }
 
-pub struct AutomaticAssetManager {
-    manager: AssetManager,
-}
+seal!(
+    pub struct AutomaticAssetManager {
+        pub(crate) manager: AssetManager,
+    }
+);
 
-pub struct SemiAutomaticAssetManager {
-    pub(crate) manager: AssetManager,
-}
+seal!(
+    pub struct SemiAutomaticAssetManager {
+        pub(crate) manager: AssetManager,
+    }
+);
 
-pub struct ManualAssetManager {
-    manager: AssetManager,
-}
+seal!(
+    pub struct ManualAssetManager {
+        pub(crate) manager: AssetManager,
+    }
+);
 
 crate::impl_am!(ManualAssetManager, SemiAutomaticAssetManager, AutomaticAssetManager);
 
@@ -113,7 +123,7 @@ macro_rules! impl_am {
     ($($t:ty),*) => {
         $(
             impl $t {
-                pub fn set_render_core(&mut self, core: Rc<RenderCore>) {
+                pub fn set_render_core(&mut self, core: Arc<RenderCore>) {
                     self.manager.core = Some(core);
                     self.manager.font_loader = Some(FontLoader::new(self.manager.core.clone().unwrap()));
                     self.manager.model_loader = Some(ModelLoader::new(self.manager.core.clone().unwrap(), &mut self.manager));
@@ -123,18 +133,20 @@ macro_rules! impl_am {
     };
 }
 
-pub trait ReadableAssetManager {
-    fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
-    fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
-    fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
-    fn try_get_effect_shader(&self, id: &str) -> Option<Rc<RefCell<EffectShader>>>;
-    fn get_texture(&self, id: &str) -> Rc<TextureRegion>;
-    fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
-    fn get_font(&self, id: &str) -> Rc<Font>;
-    fn try_get_font(&self, id: &str) -> Option<Rc<Font>>;
-    fn get_model(&self, id: &str) -> Rc<RefCell<Model>>;
-    fn try_get_model(&self, id: &str) -> Option<Rc<RefCell<Model>>>;
-}
+sealed!(
+    pub trait ReadableAssetManager {
+        fn get_shader(&self, id: &str) -> Rc<RefCell<Shader>>;
+        fn try_get_shader(&self, id: &str) -> Option<Rc<RefCell<Shader>>>;
+        fn get_effect_shader(&self, id: &str) -> Rc<RefCell<EffectShader>>;
+        fn try_get_effect_shader(&self, id: &str) -> Option<Rc<RefCell<EffectShader>>>;
+        fn get_texture(&self, id: &str) -> Rc<TextureRegion>;
+        fn try_get_texture(&self, id: &str) -> Option<Rc<TextureRegion>>;
+        fn get_font(&self, id: &str) -> Rc<Font>;
+        fn try_get_font(&self, id: &str) -> Option<Rc<Font>>;
+        fn get_model(&self, id: &str) -> Rc<RefCell<Model>>;
+        fn try_get_model(&self, id: &str) -> Option<Rc<RefCell<Model>>>;
+    }
+);
 
 crate::impl_ram!(AutomaticAssetManager, SemiAutomaticAssetManager, ManualAssetManager);
 
@@ -187,24 +199,30 @@ macro_rules! impl_ram {
     };
 }
 
-pub trait WritableAssetManager {
-    fn load_shader(&mut self, id: &str, vertex_path: &str, fragment_path: &str);
-    fn try_load_shader(&mut self, id: &str, vertex_path: &str, fragment_path: &str) -> Result<(), String>;
-    fn load_effect_shader(&mut self, id: &str, fragment_path: &str);
-    fn try_load_effect_shader(&mut self, id: &str, fragment_path: &str) -> Result<(), String>;
-    fn load_texture(&mut self, id: &str, texture_path: &str);
-    fn try_load_texture(&mut self, id: &str, texture_path: &str) -> Result<(), String>;
-    fn load_ttf_font(&mut self, id: &str, ttf_path: &str);
-    fn try_load_ttf_font(&mut self, id: &str, ttf_path: &str) -> Result<(), String>;
-    fn load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str);
-    fn try_load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str) -> Result<(), String>;
-    fn load_model(&mut self, id: &str, model_path: &str);
-    fn try_load_model(&mut self, id: &str, model_path: &str) -> Result<(), String>;
-    fn prepare_texture(&mut self, id: &str, tex_id: &str);
-    fn try_prepare_texture(&mut self, id: &str, tex_id: &str) -> Result<(), String>;
-    fn crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32);
-    fn try_crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32) -> Result<(), String>;
-}
+sealed!(
+    pub trait WritableAssetManager {
+        fn get_contents(&mut self, path: &str) -> Vec<u8>;
+        fn try_get_contents(&mut self, path: &str) -> Result<Vec<u8>, String>;
+        fn get_string_contents(&mut self, path: &str) -> String;
+        fn try_get_string_contents(&mut self, path: &str) -> Result<String, String>;
+        fn load_shader(&mut self, id: &str, vertex_path: &str, fragment_path: &str);
+        fn try_load_shader(&mut self, id: &str, vertex_path: &str, fragment_path: &str) -> Result<(), String>;
+        fn load_effect_shader(&mut self, id: &str, fragment_path: &str);
+        fn try_load_effect_shader(&mut self, id: &str, fragment_path: &str) -> Result<(), String>;
+        fn load_texture(&mut self, id: &str, texture_path: &str);
+        fn try_load_texture(&mut self, id: &str, texture_path: &str) -> Result<(), String>;
+        fn load_ttf_font(&mut self, id: &str, ttf_path: &str);
+        fn try_load_ttf_font(&mut self, id: &str, ttf_path: &str) -> Result<(), String>;
+        fn load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str);
+        fn try_load_bitmap_font(&mut self, id: &str, bitmap_path: &str, data_path: &str) -> Result<(), String>;
+        fn load_model(&mut self, id: &str, model_path: &str);
+        fn try_load_model(&mut self, id: &str, model_path: &str) -> Result<(), String>;
+        fn prepare_texture(&mut self, id: &str, tex_id: &str);
+        fn try_prepare_texture(&mut self, id: &str, tex_id: &str) -> Result<(), String>;
+        fn crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32);
+        fn try_crop_texture_region(&mut self, id: &str, tex_id: &str, x: u32, y: u32, width: u32, height: u32) -> Result<(), String>;
+    }
+);
 
 crate::impl_wam!(SemiAutomaticAssetManager, ManualAssetManager);
 
@@ -213,6 +231,43 @@ macro_rules! impl_wam {
     ($($t:ty),*) => {
         $(
             impl WritableAssetManager for $t {
+                fn get_contents(&mut self, path: &str) -> Vec<u8> {
+                    let contents = self.try_get_contents(path);
+                    if contents.is_err() {
+                        panic!("{}", contents.unwrap_err());
+                    }
+                    contents.unwrap()
+                }
+
+                fn try_get_contents(&mut self, path: &str) -> Result<Vec<u8>, String> {
+                    let file = self.manager.files.remove(path);
+                    if file.is_none() {
+                        return Err(format!("File not found: {}", path));
+                    }
+                    Ok(file.unwrap().contents().to_vec())
+                }
+
+                fn get_string_contents(&mut self, path: &str) -> String {
+                    let contents = self.try_get_string_contents(path);
+                    if contents.is_err() {
+                        panic!("{}", contents.unwrap_err());
+                    }
+                    contents.unwrap()
+                }
+
+                fn try_get_string_contents(&mut self, path: &str) -> Result<String, String> {
+                    let file = self.manager.files.remove(path);
+                    if file.is_none() {
+                        return Err(format!("File not found: {}", path));
+                    }
+                    let contents = file.unwrap();
+                    let contents = contents.contents_utf8();
+                    if contents.is_none() {
+                        return Err(format!("Contents are not a utf-8 compatible string in file: {}", path));
+                    }
+                    Ok(contents.unwrap().to_string())
+                }
+
                 fn load_shader(&mut self, id: &str, vertex_path: &str, fragment_path: &str) {
                     if let Err(e) = self.try_load_shader(id, vertex_path, fragment_path) {
                         panic!("{}", e);

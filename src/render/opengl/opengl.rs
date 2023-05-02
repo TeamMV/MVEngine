@@ -6,6 +6,7 @@ use std::ffi::{c_float, c_void};
 use std::io::Cursor;
 use std::ops::DerefMut;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
@@ -30,6 +31,7 @@ use crate::render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, 
 #[cfg(feature = "3d")]
 use crate::render::lights::Light;
 use crate::render::shared::RenderProcessor3D;
+use crate::resource_loader::ResourceLoader;
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);
 
@@ -58,7 +60,7 @@ pub(super) fn gen_buffer_id() -> u32 {
 
 pub struct OpenGLWindow {
     info: WindowCreateInfo,
-    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
+    resource_loader: Arc<ResourceLoader>,
     window: *mut GLFWwindow,
     current_fps: u16,
     current_ups: u16,
@@ -90,10 +92,10 @@ pub struct OpenGLWindow {
 }
 
 impl OpenGLWindow {
-    pub(crate) fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
+    pub(crate) fn new(info: WindowCreateInfo, resource_loader: Arc<ResourceLoader>) -> Self {
         OpenGLWindow {
             info,
-            assets,
+            resource_loader,
 
             window: std::ptr::null_mut(),
 
@@ -371,13 +373,13 @@ impl OpenGLWindow {
             self.set_fullscreen(true);
         }
 
-        load_render_assets(self.assets.clone());
+        self.resource_loader.load();
 
         self.gen_render_buffers();
         self.shader_pass.resize(self.info.width, self.info.height);
         self.render_2d.setup(self.info.width, self.info.height);
-        let shader = self.assets.borrow().get_shader("default");
-        let font = self.assets.borrow().get_font("default");
+        let shader = self.resource_loader.get_asset_manager("MVCore").get_shader("default");
+        let font = self.resource_loader.get_asset_manager("MVCore").get_font("default");
         self.draw_2d = Some(RcMut::new(RefCell::new(Draw2D::new(shader, font, self.info.width, self.info.height, self.get_dpi()))));
 
         #[cfg(feature = "3d")]

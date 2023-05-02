@@ -43,6 +43,8 @@ image = "0.24.6"
 bitflags = "2.2.1"
 openal = "0.2.2"
 itertools = "0.10.5"
+is_main_thread = "0.1.0"
+tokio = { version = "1.28.0", features = ["rt", "rt-multi-thread", "macros"] }
 roxmltree = { version = "0.18.0", optional = true }
 gltf = { version = "1.1.0", optional = true }
 

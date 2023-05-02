@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
+use is_main_thread::is_main_thread;
 use crate::ApplicationInfo;
 
 use crate::assets::{SemiAutomaticAssetManager, WritableAssetManager};
@@ -10,6 +12,7 @@ use crate::render::shared::{EffectShader, Shader, Texture, Window, WindowCreateI
 
 #[cfg(feature = "vulkan")]
 use crate::render::vulkan::vulkan::{VulkanWindow, VulkanShader, VulkanTexture};
+use crate::resource_loader::ResourceLoader;
 
 pub mod shared;
 pub mod draw;
@@ -35,6 +38,16 @@ pub const VK_EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexC
 #[cfg(feature = "vulkan")]
 pub const VK_EMPTY_EFFECT_FRAG: &str = "#version 450\nlayout(location=0)in vec2 fTexCoord;layout(location=0)out vec4 outColor;layout(binding=0)uniform sampler2D tex;void main(){outColor=texture(tex,fTexCoord);}";
 
+#[macro_export]
+macro_rules! ensure_main_thread {
+    () => {
+        let is_main = is_main_thread();
+        if is_main.is_none() || !is_main.unwrap() {
+            return;
+        }
+    };
+}
+
 #[allow(non_snake_case)]
 pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetWindowPosCallback(window, None);
@@ -56,22 +69,22 @@ pub unsafe fn glfwFreeCallbacks(window: *mut GLFWwindow) {
     glfwSetDropCallback(window, None);
 }
 
-pub(crate) fn load_render_assets(assets: Rc<RefCell<SemiAutomaticAssetManager>>) {
-    assets.borrow_mut().load_bitmap_font("default", "fonts/font.png", "fonts/default.fnt");
-    assets.borrow_mut().load_shader("default", "shaders/default.vert", "shaders/default.frag");
-    assets.borrow_mut().load_effect_shader("blur", "effects/blur.frag");
-    assets.borrow_mut().load_effect_shader("pixelate", "effects/pixelate.frag");
+pub(crate) fn load_render_assets(assets: &mut dyn WritableAssetManager) {
+    assets.load_bitmap_font("default", "fonts/font.png", "fonts/default.fnt");
+    assets.load_shader("default", "shaders/default.vert", "shaders/default.frag");
+    assets.load_effect_shader("blur", "effects/blur.frag");
+    assets.load_effect_shader("pixelate", "effects/pixelate.frag");
     #[cfg(feature = "3d")]
     {
-        assets.borrow_mut().load_shader("model", "shaders/model_geom.vert", "shaders/model_geom.frag");
-        assets.borrow_mut().load_shader("batch", "shaders/batch_geom.vert", "shaders/batch_geom.frag");
-        assets.borrow_mut().load_effect_shader("deferred", "shaders/deferred_light.frag");
+        assets.load_shader("model", "shaders/model_geom.vert", "shaders/model_geom.frag");
+        assets.load_shader("batch", "shaders/batch_geom.vert", "shaders/batch_geom.frag");
+        assets.load_effect_shader("deferred", "shaders/deferred_light.frag");
     }
 }
 
 pub struct RenderCore {
     backend: RenderingBackend,
-    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
+    resource_loader: Arc<ResourceLoader>,
     app: *const ApplicationInfo
 }
 
@@ -83,12 +96,12 @@ pub enum RenderingBackend {
 }
 
 impl RenderCore {
-    pub(crate) fn new(info: &ApplicationInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>) -> Self {
+    pub(crate) fn new(info: &ApplicationInfo, resource_loader: Arc<ResourceLoader>) -> Self {
         unsafe {
             glfwInit();
             RenderCore {
                 backend: info.backend.clone(),
-                assets,
+                resource_loader,
                 app: info
             }
         }
@@ -107,11 +120,11 @@ impl RenderCore {
     pub fn create_window(&self, info: WindowCreateInfo) -> Window {
         match self.backend {
             RenderingBackend::OpenGL => {
-                Window::OpenGL(OpenGLWindow::new(info, self.assets.clone()))
+                Window::OpenGL(OpenGLWindow::new(info, self.resource_loader.clone()))
             }
             #[cfg(feature = "vulkan")]
             RenderingBackend::Vulkan => unsafe {
-                Window::Vulkan(VulkanWindow::new(info, self.assets.clone(), (self as *const _) as *mut _, self.app))
+                Window::Vulkan(VulkanWindow::new(info, self.resource_loader.clone(), (self as *const _) as *mut _, self.app))
             }
         }
     }

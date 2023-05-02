@@ -3,35 +3,55 @@ extern crate core;
 
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender};
+use std::thread::{JoinHandle, spawn};
 
 use include_dir::{Dir, include_dir};
 use mvutils::version::Version;
 
-use crate::assets::{AssetManager, SemiAutomaticAssetManager};
+use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::{RenderCore, RenderingBackend};
+use crate::resource_loader::{LoadRequest, ResourceLoader};
 
 pub mod assets;
 pub mod render;
 pub mod parser;
 pub mod input;
+pub mod resource_loader;
+pub mod files;
 #[cfg(feature = "gui")]
 pub mod gui;
 
 pub struct MVCore {
-    assets: Rc<RefCell<SemiAutomaticAssetManager>>,
-    render: Rc<RenderCore>,
+    render: Arc<RenderCore>,
+    load_request: Sender<LoadRequest>,
+    resource_thread: JoinHandle<()>,
+    resource_loader: Arc<ResourceLoader>,
     info: ApplicationInfo
 }
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> MVCore {
         static DIR: Dir = include_dir!("assets");
-        let assets = Rc::new(RefCell::new(AssetManager::semi_automatic(DIR.clone())));
-        let render = Rc::new(RenderCore::new(&info, assets.clone()));
-        assets.borrow_mut().set_render_core(render.clone());
+        let mut assets = AssetManager::semi_automatic(DIR.clone());
+        let mut resource_loader = ResourceLoader::new();
+        let ptr = (&mut resource_loader as *mut ResourceLoader) as usize ;
+        let resource_thread = spawn(move || {
+            unsafe {
+                (ptr as *mut ResourceLoader).as_mut().unwrap().start()
+            }
+        });
+        let resource_loader = Arc::new(resource_loader);
+        let load_request = resource_loader.get_load_request();
+        let render = Arc::new(RenderCore::new(&info, resource_loader.clone()));
+        assets.set_render_core(render.clone());
+        load_request.send(LoadRequest::add_manager("MVCore", resource_loader::AssetManager::SemiAutomatic(assets))).expect("Failed to setup resource thread!");
         MVCore {
-            assets,
             render,
+            load_request,
+            resource_thread,
+            resource_loader,
             info
         }
     }
@@ -40,12 +60,20 @@ impl MVCore {
         self.info.version
     }
 
-    pub fn get_render(&self) -> Rc<RenderCore> {
+    pub fn get_render(&self) -> Arc<RenderCore> {
         self.render.clone()
     }
 
-    pub fn get_asset_manager(&self) -> Ref<SemiAutomaticAssetManager> {
-        self.assets.borrow()
+    pub fn get_asset_manager(&self) -> &dyn ReadableAssetManager {
+        self.resource_loader.get_asset_manager("MVCore")
+    }
+
+    pub fn get_resource_loader(&self) -> Arc<ResourceLoader> {
+        self.resource_loader.clone()
+    }
+
+    pub fn get_load_request(&self) -> Sender<LoadRequest> {
+        self.load_request.clone()
     }
 
     pub fn terminate(mut self) {
@@ -120,11 +148,10 @@ mod tests {
     use crate::render::color::{Color, Gradient, RGB};
     use crate::render::lights::Light;
     use crate::render::text::TypeFace;
+    use crate::resource_loader::{LoadRequest, ResourceLoadInfo};
 
     #[test]
     fn test() {
-
-
         let mut app = ApplicationInfo::default();
         app.version = Version::parse("v0.1.0").unwrap();
         app.name = "Test".to_string();
@@ -151,10 +178,10 @@ mod tests {
 
     impl ApplicationLoop for Test {
         fn start(&mut self, mut window: RunningWindow) {
-            self.core.assets.borrow_mut().load_model("figcolor", "models/figcolor.obj");
+            self.core.get_load_request().send(LoadRequest::manager_resource("MVCore", "figcolor", ResourceLoadInfo::model("models/figcolor.obj"))).expect("Failed to load models!");
 
-            let shader = self.core.assets.borrow().get_shader("model");
-            let s = self.core.assets.borrow().get_shader("batch");
+            let shader = self.core.get_asset_manager().get_shader("model");
+            let s = self.core.get_asset_manager().get_shader("batch");
             self.batch = Some(BatchController3D::new(s, shader, 10000));
 
             self.demo_lights = vec![Light {
@@ -203,13 +230,13 @@ mod tests {
         }
 
         fn draw(&mut self, mut window: RunningWindow) {
-            let model = self.core.assets.borrow().get_model("figcolor");
+            let model = self.core.get_asset_manager().get_model("figcolor");
             self.batch.as_mut().unwrap().add_model(model, [0.0, 0.0, 800.0, 600.0, 0.0, 0.0], Mat4::IDENTITY);
             if let RunningWindow::OpenGL(w) = window {
                 unsafe {
                     let w = w.as_mut().unwrap();
                     self.batch.as_mut().unwrap().render(w.get_render_3d(), window.get_camera_3d());
-                    let shader = self.core.assets.borrow().get_effect_shader("deferred");
+                    let shader = self.core.get_asset_manager().get_effect_shader("deferred");
                     w.get_lighting().light_scene(shader, &w.get_render_3d().buffer, w.get_camera_3d(), &self.demo_lights);
                 }
             }

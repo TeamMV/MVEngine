@@ -19,6 +19,7 @@ use crate::render::draw::Draw2D;
 use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
 use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 use crate::render::vulkan::internal::Vulkan;
+use crate::resource_loader::ResourceLoader;
 
 static mut VK_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut VulkanWindow>> = Lazy::new(HashMap::new);
 
@@ -66,7 +67,7 @@ pub struct VulkanWindow {
 }
 
 impl VulkanWindow {
-    pub(crate) unsafe fn new(info: WindowCreateInfo, assets: Rc<RefCell<SemiAutomaticAssetManager>>, core: *mut RenderCore, app: *const ApplicationInfo) -> Self {
+    pub(crate) unsafe fn new(info: WindowCreateInfo, assets: Arc<ResourceLoader>, core: *mut RenderCore, app: *const ApplicationInfo) -> Self {
         VulkanWindow {
             info,
             assets,

@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, collections::HashMap};
 use std::cmp::max;
+use std::sync::Arc;
 use mvutils::utils::TetrahedronOp;
 
 use super::{shared::Texture, RenderCore};
@@ -133,11 +134,11 @@ impl Glyph {
 
 #[derive(Clone)]
 pub(crate) struct FontLoader {
-    core: Rc<RenderCore>
+    core: Arc<RenderCore>
 }
 
 impl FontLoader {
-    pub(crate) fn new(core: Rc<RenderCore>) -> FontLoader { 
+    pub(crate) fn new(core: Arc<RenderCore>) -> FontLoader {
         FontLoader {
             core
         }
