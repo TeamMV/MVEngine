@@ -50,4 +50,5 @@ tokio = { version = "1.28.0", features = ["rt", "rt-multi-thread", "macros"] }
 roxmltree = { version = "0.18.0", optional = true }
 gltf = { version = "1.1.0", optional = true }
 winit = "0.28.4"
-wgpu = "0.16.0"
+wgpu = { version = "0.16.0", features = ["glsl", "spirv", "naga"] }
+naga = { version = "0.12.0", features = ["glsl-in"] }

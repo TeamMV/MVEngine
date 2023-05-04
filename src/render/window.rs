@@ -183,7 +183,7 @@ impl Window {
             label: Some("Render Encoder")
         });
         {
-            let _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
@@ -200,7 +200,11 @@ impl Window {
                 })],
                 depth_stencil_attachment: None,
             });
+
+            render_pass.set_pipeline(&state.render_pipeline);
+            render_pass.draw(0..3, 0..1);
         }
+
 
         state.queue.submit(once(encoder.finish()));
         output.present();

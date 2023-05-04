@@ -3,7 +3,8 @@ use mvcore::render::window::WindowSpecs;
 
 fn main() {
     let core = RenderCore::new();
-    let specs = WindowSpecs::default();
+    let mut specs = WindowSpecs::default();
+    specs.vsync = false;
     let window = core.create_window(specs);
     window.run();
 }
