@@ -1,10 +1,11 @@
 use std::iter::once;
-use mvutils::utils::TetrahedronOp;
+use std::time::Instant;
+use mvutils::utils::{TetrahedronOp, Time};
 use wgpu::{CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Fullscreen, Theme, WindowBuilder, WindowButtons, WindowId};
+use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
 use crate::render::init::State;
 
 pub struct WindowSpecs {
@@ -95,6 +96,13 @@ impl Window {
 
         let mut state = State::new(&window, &self.specs);
 
+        let mut init_time: u128 = u128::time_nanos();
+        let mut current_time: u128 = init_time;
+        let time_f = 1000000000.0 / 144.0;
+        let mut delta_f: f32 = 0.0;
+        let mut frames = 0;
+        let mut timer = u128::time_millis();
+
         event_loop.run(move |event, _, control_flow| {
             match event {
                 Event::NewEvents(cause) => if cause == StartCause::Init {}
@@ -102,7 +110,18 @@ impl Window {
                    self.process_window_event(&mut state, event, window_id, control_flow);
                 }
                 Event::MainEventsCleared => {
-                    window.request_redraw();
+                    current_time = u128::time_nanos();
+                    delta_f += (current_time - init_time) as f32 / time_f;
+                    init_time = current_time;
+                    if delta_f >= 1.0 {
+                        window.request_redraw();
+                        frames += 1;
+                    }
+                    if u128::time_millis() - timer > 1000 {
+                        println!("{}", frames);
+                        frames = 0;
+                        timer += 1000;
+                    }
                 }
                 Event::RedrawRequested(window_id) => if window_id == window.id() {
                     match self.render(&mut state) {

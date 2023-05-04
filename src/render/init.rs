@@ -20,8 +20,6 @@ impl State {
 
     async fn init(window: &winit::window::Window, specs: &WindowSpecs) -> Self {
         unsafe {
-            let size = window.inner_size();
-
             let instance = Instance::new(InstanceDescriptor {
                 backends: Backends::GL
                     | Backends::VULKAN
@@ -54,7 +52,7 @@ impl State {
 
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor {
-                    features: Features::all_native_mask(),
+                    features: adapter.features(),
                     limits: adapter.limits(),
                     label: Some("GPU"),
                 },
