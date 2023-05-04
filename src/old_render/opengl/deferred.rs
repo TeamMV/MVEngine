@@ -4,12 +4,12 @@ use std::ops::Deref;
 use std::os::raw::c_void;
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use mvutils::utils::RcMut;
-use crate::render::batch3d::batch_layout_3d;
-use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::lights::Light;
-use crate::render::model::Model;
-use crate::render::opengl::opengl::gen_buffer_id;
-use crate::render::shared::{EffectShader, RenderProcessor3D, Shader, Texture};
+use crate::old_render::batch3d::batch_layout_3d;
+use crate::old_render::camera::{Camera2D, Camera3D};
+use crate::old_render::lights::Light;
+use crate::old_render::model::Model;
+use crate::old_render::opengl::opengl::gen_buffer_id;
+use crate::old_render::shared::{EffectShader, RenderProcessor3D, Shader, Texture};
 
 pub(crate) struct GBuffer {
     width: i32,

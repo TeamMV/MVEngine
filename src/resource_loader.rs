@@ -5,7 +5,7 @@ use include_dir::File;
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use crate::assets::{AutomaticAssetManager, ManualAssetManager, ReadableAssetManager, SemiAutomaticAssetManager, WritableAssetManager};
-use crate::render::load_render_assets;
+use crate::old_render::load_render_assets;
 
 pub enum AssetManager {
     Manual(ManualAssetManager),

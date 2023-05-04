@@ -4,15 +4,15 @@ use std::rc::Rc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use mvutils::utils::{TetrahedronOp, RcMut};
 
-use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::draw::Draw2D;
-use crate::render::lights::Light;
-use crate::render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
+use crate::old_render::camera::{Camera2D, Camera3D};
+use crate::old_render::draw::Draw2D;
+use crate::old_render::lights::Light;
+use crate::old_render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 #[cfg(feature = "vulkan")]
-use crate::render::vulkan::vulkan::*;
+use crate::old_render::vulkan::vulkan::*;
 #[cfg(feature = "3d")]
-use crate::render::model::Material;
-use crate::render::model::Model;
+use crate::old_render::model::Material;
+use crate::old_render::model::Model;
 
 pub trait ApplicationLoop {
     fn start(&mut self, window: RunningWindow);

@@ -4,15 +4,15 @@ use std::rc::Rc;
 
 use mvutils::init_arr;
 use mvutils::utils::{TetrahedronOp};
-use crate::render::color::{Color, RGB};
-use crate::render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
 
-use crate::render::shared::{RenderProcessor2D, Shader, Texture};
+use crate::old_render::shared::{RenderProcessor2D, Shader, Texture};
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
 
 pub mod batch_layout_2d {
-    use crate::render::batch2d::FLOAT_BYTES;
+    use crate::old_render::batch2d::FLOAT_BYTES;
 
     pub(crate) const POSITION_SIZE: u16 = 3;
     pub(crate) const ROTATION_SIZE: u16 = 1;

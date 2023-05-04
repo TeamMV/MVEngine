@@ -6,9 +6,9 @@ use mvutils::screen::{Measurement};
 use mvutils::utils::{RcMut, XTraFMath};
 
 use crate::gui::components::{GuiElement, GuiElementInfo};
-use crate::render::color::{Fmt, Gradient, RGB};
-use crate::render::draw::Draw2D;
-use crate::render::text::TypeFace;
+use crate::old_render::color::{Fmt, Gradient, RGB};
+use crate::old_render::draw::Draw2D;
+use crate::old_render::text::TypeFace;
 
 pub struct GuiStyle {
     pub background_color: GuiValue<Gradient<RGB, f32>>,

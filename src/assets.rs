@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use include_dir::*;
 use mvutils::sealable;
-use crate::render::model::{Model, ModelLoader};
+use crate::old_render::model::{Model, ModelLoader};
 
-use crate::render::RenderCore;
-use crate::render::shared::{EffectShader, Shader, Texture, TextureRegion};
-use crate::render::text::{Font, FontLoader};
+use crate::old_render::RenderCore;
+use crate::old_render::shared::{EffectShader, Shader, Texture, TextureRegion};
+use crate::old_render::text::{Font, FontLoader};
 
 sealable!();
 

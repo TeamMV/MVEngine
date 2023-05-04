@@ -4,14 +4,14 @@ use std::rc::Rc;
 
 use glam::{Mat4, Vec2, Vec4};
 use mvutils::utils::RcMut;
-use crate::render::camera::Camera3D;
+use crate::old_render::camera::Camera3D;
 
-use crate::render::model::{Model, TextureType};
-use crate::render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
-use crate::render::shared::{RenderProcessor3D, Shader, Texture};
+use crate::old_render::model::{Model, TextureType};
+use crate::old_render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
+use crate::old_render::shared::{RenderProcessor3D, Shader, Texture};
 
 pub mod batch_layout_3d {
-    use crate::render::batch2d::FLOAT_BYTES;
+    use crate::old_render::batch2d::FLOAT_BYTES;
 
     //shared
     pub(crate) const POSITION_SIZE: u16 = 3;

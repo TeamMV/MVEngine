@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::render::color::{Color, RGB};
+use crate::old_render::color::{Color, RGB};
 
 pub struct Light {
     pub(crate) position: Vec3,

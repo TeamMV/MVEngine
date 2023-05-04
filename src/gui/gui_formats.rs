@@ -1,12 +1,12 @@
 use alloc::rc::Rc;
 use mvutils::utils::{RcMut, TetrahedronOp};
-use crate::render::draw::Draw2D;
-use crate::render::text::{Font, TypeFace};
+use crate::old_render::draw::Draw2D;
+use crate::old_render::text::{Font, TypeFace};
 
 use bitflags::{bitflags};
 use mvutils::deref;
 use mvutils::serialize::{Deserializer, Serializable, Serializer};
-use crate::render::color::{Color, Gradient, RGB};
+use crate::old_render::color::{Color, Gradient, RGB};
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

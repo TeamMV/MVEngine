@@ -14,11 +14,11 @@ use vulkano::device::Device;
 use vulkano::shader::ShaderModule;
 use crate::ApplicationInfo;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::camera::Camera;
-use crate::render::draw::Draw2D;
-use crate::render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
-use crate::render::vulkan::internal::Vulkan;
+use crate::old_render::camera::Camera;
+use crate::old_render::draw::Draw2D;
+use crate::old_render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
+use crate::old_render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
+use crate::old_render::vulkan::internal::Vulkan;
 use crate::resource_loader::ResourceLoader;
 
 static mut VK_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut VulkanWindow>> = Lazy::new(HashMap::new);
@@ -193,7 +193,7 @@ impl VulkanWindow {
                             shader.borrow_mut().bind();
                             info.apply(shader.borrow_mut().deref_mut());
                             let f_buf = (len == i + 1).yn(0, self.frame_buf);
-                            //self.shader_pass.render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
+                            //self.shader_pass.old_render(shader.borrow_mut().deref_mut(), f_buf, self.texture_buf, self.current_frame as i32);
                         }
                     }
 

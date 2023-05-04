@@ -16,21 +16,21 @@ use mvutils::utils::{AsCStr, RcMut, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
-use crate::render::{glfwFreeCallbacks, load_render_assets, shader_preprocessor};
-use crate::render::batch2d::batch_layout_2d;
-use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::draw::Draw2D;
-use crate::render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
+use crate::old_render::{glfwFreeCallbacks, load_render_assets, shader_preprocessor};
+use crate::old_render::batch2d::batch_layout_2d;
+use crate::old_render::camera::{Camera2D, Camera3D};
+use crate::old_render::draw::Draw2D;
+use crate::old_render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 
 #[cfg(feature = "3d")]
-use crate::render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
+use crate::old_render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
 #[cfg(feature = "3d")]
-use crate::render::model::Material;
-use crate::render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, TEXTURE_LIMIT};
+use crate::old_render::model::Material;
+use crate::old_render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, TEXTURE_LIMIT};
 #[cfg(feature = "3d")]
 #[cfg(feature = "3d")]
-use crate::render::lights::Light;
-use crate::render::shared::RenderProcessor3D;
+use crate::old_render::lights::Light;
+use crate::old_render::shared::RenderProcessor3D;
 use crate::resource_loader::ResourceLoader;
 
 static mut GL_WINDOWS: Lazy<HashMap<*mut GLFWwindow, *mut OpenGLWindow>> = Lazy::new(HashMap::new);

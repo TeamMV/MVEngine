@@ -11,10 +11,10 @@ use include_dir::File;
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, rc_mut, RcMut, TetrahedronOp};
 use crate::assets::AssetManager;
-use crate::render::color::{Color, RGB};
-use crate::render::RenderCore;
-use crate::render::shader_preprocessor::{MAX_TEXTURES};
-use crate::render::shared::Texture;
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::RenderCore;
+use crate::old_render::shader_preprocessor::{MAX_TEXTURES};
+use crate::old_render::shared::Texture;
 
 pub struct Model {
     pub(crate) mesh: Mesh,

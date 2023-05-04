@@ -36,8 +36,8 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle
 use ash::vk;
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::ApplicationInfo;
-use crate::render::{VK_EFFECT_VERT, VK_EMPTY_EFFECT_FRAG};
-use crate::render::vulkan::vulkan::VulkanShader;
+use crate::old_render::{VK_EFFECT_VERT, VK_EMPTY_EFFECT_FRAG};
+use crate::old_render::vulkan::vulkan::VulkanShader;
 
 const DEVICE_EXTENSIONS: DeviceExtensions = DeviceExtensions {
     khr_swapchain: true,
