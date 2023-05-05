@@ -1,11 +1,16 @@
+use std::io::Read;
 use std::num::{NonZeroI16, NonZeroU32};
 use std::ops::Deref;
+use glsl_to_spirv::{compile, ShaderType};
+use itertools::Itertools;
 use mvutils::utils::TetrahedronOp;
-use naga::ShaderStage;
 use tokio::runtime::Runtime;
-use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState};
+use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState, include_spirv, Buffer, BufferUsages, VertexBufferLayout, VertexAttribute, VertexStepMode, VertexFormat, vertex_attr_array, BufferDescriptor, BindGroupLayoutDescriptor, BindGroupLayout, TextureDescriptor, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BlendComponent, BlendFactor, BlendOperation, ColorWrites, BlendState};
 use wgpu::Instance;
+use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
 use winit::dpi::PhysicalSize;
+use crate::render::common::Texture;
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_TEXTURES_2D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::window::{Window, WindowSpecs};
 
 pub(crate) struct State {
@@ -13,7 +18,7 @@ pub(crate) struct State {
     pub(crate) device: Device,
     pub(crate) queue: Queue,
     pub(crate) config: SurfaceConfiguration,
-    pub(crate) render_pipeline: RenderPipeline,
+    pub(crate) backend: Backend
 }
 
 impl State {
@@ -42,17 +47,6 @@ impl State {
                     force_fallback_adapter: false,
                 }
             ).await.expect("Graphical adapter cannot be found for this window! (This is usually a driver issue, or you are missing hardware)");
-
-            /*
-            let adapter = instance
-                .enumerate_adapters(wgpu::Backends::all())
-                .filter(|adapter| {
-                    // Check if this adapter supports our surface
-                    adapter.is_surface_supported(&surface)
-                })
-                .next()
-                .unwrap()
-             */
 
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor {
@@ -86,63 +80,165 @@ impl State {
             };
             surface.configure(&device, &config);
 
-            let vert = device.create_shader_module(ShaderModuleDescriptor {
-                label: Some("vert"),
-               source: ShaderSource::Glsl {
-                   shader: include_str!("shader.vert").into(),
-                   stage: ShaderStage::Vertex,
-                   defines: Default::default(),
-               }
+            BIND_GROUPS.insert(BIND_GROUP_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D));
+            BIND_GROUPS.insert(BIND_GROUP_TEXTURES_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_TEXTURES_2D));
+            BIND_GROUPS.insert(BIND_GROUP_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D));
+            BIND_GROUPS.insert(BIND_GROUP_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D));
+            BIND_GROUPS.insert(BIND_GROUP_GEOMETRY_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D));
+            BIND_GROUPS.insert(BIND_GROUP_GEOMETRY_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D));
+            BIND_GROUPS.insert(BIND_GROUP_LIGHTING_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_LIGHTING_3D));
+            BIND_GROUPS.insert(BIND_GROUP_EFFECT, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT));
+
+            let texture = device.create_texture(&TextureDescriptor {
+                label: Some("Dummy texture"),
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba8UnormSrgb,
+                usage: TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             });
 
-            let frag = device.create_shader_module(ShaderModuleDescriptor {
-                label: Some("frag"),
-                source: ShaderSource::Glsl {
-                    shader: include_str!("shader.frag").into(),
-                    stage: ShaderStage::Fragment,
-                    defines: Default::default(),
-                }
-            });
+            let view = texture.create_view(&TextureViewDescriptor::default());
+            let sampler = device.create_sampler(&SamplerDescriptor::default());
 
-            let render_pipeline = PipelineBuilder::begin_using(&device, &config)
-                .shader(PipelineBuilder::SHADER_VERTEX, &vert)
-                .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                .build();
+            DUMMY_TEXTURE = Some(Texture::premade(
+                texture,
+                view,
+                sampler
+            ));
+
+            DEFAULT_SAMPLER = Some(device.create_sampler(&SamplerDescriptor {
+                label: Some("Texture sampler"),
+                address_mode_u: AddressMode::Repeat,
+                address_mode_v: AddressMode::Repeat,
+                address_mode_w: AddressMode::Repeat,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Linear,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 32.0,
+                compare: None,
+                anisotropy_clamp: 1,
+                border_color: None,
+            }));
 
             Self {
                 surface,
                 device,
                 queue,
                 config,
-                render_pipeline
+                backend: adapter.get_info().backend
             }
         }
     }
 
-    fn create_render_pipeline(device: &Device, config: &SurfaceConfiguration, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode) -> RenderPipeline {
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+    pub(crate) fn gen_buffers(&self) -> (Buffer, Buffer) {
+        (self.gen_vbo(), self.gen_ibo())
+    }
+
+    pub(crate) fn gen_buffers_sized(&self, vbo: u64, ibo: u64) -> (Buffer, Buffer) {
+        (self.gen_vbo_sized(vbo), self.gen_ibo_sized(ibo))
+    }
+
+    pub(crate) fn gen_vbo(&self) -> Buffer {
+        self.device.create_buffer(&BufferDescriptor {
+            label: Some("vbo"),
+            size: VERT_LIMIT_2D_BYTES,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    pub(crate) fn gen_vbo_sized(&self, size: u64) -> Buffer {
+        self.device.create_buffer(&BufferDescriptor {
+            label: Some("vbo"),
+            size,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    pub(crate) fn gen_ibo(&self) -> Buffer {
+        self.device.create_buffer(&BufferDescriptor {
+            label: Some("ibo"),
+            size: INDEX_LIMIT,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    pub(crate)  fn gen_ibo_sized(&self, size: u64) -> Buffer {
+        self.device.create_buffer(&BufferDescriptor {
+            label: Some("ibo"),
+            size,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    pub(crate) fn gen_uniform_buffer(&self, data: &[u8]) -> Buffer {
+        self.device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("buffer"),
+            contents: data,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+        })
+    }
+
+    pub(crate) fn gen_uniform_buffer_sized(&self, size: u64) -> Buffer {
+        self.device.create_buffer(&BufferDescriptor {
+            label: Some("buffer"),
+            size,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        })
+    }
+
+    fn create_render_pipeline(&self, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, mut cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode, vertex_layout: VertexBufferLayout, bind_groups: Vec<&'static BindGroupLayout>) -> RenderPipeline {
+        if self.backend == Backend::Vulkan {
+            cull_dir = match cull_dir {
+                FrontFace::Ccw => FrontFace::Cw,
+                FrontFace::Cw => FrontFace::Ccw
+            }
+        }
+
+        let render_pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &bind_groups,
             push_constant_ranges: &[],
         });
 
         let strip_index_format = render_mode.is_strip().yn(Some(IndexFormat::Uint32), None);
 
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: VertexState {
                 module: vertex_shader,
                 entry_point: fragment_shader.is_none().yn("vert", "main"),
-                buffers: &[],
+                buffers: &[
+                    vertex_layout
+                ]
             },
             fragment: Some(FragmentState {
                 module: fragment_shader.unwrap_or(vertex_shader),
                 entry_point: fragment_shader.is_none().yn("frag", "main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    format: self.config.format,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent::OVER
+                    }),
+                    write_mask: ColorWrites::ALL,
                 })],
             }),
             primitive: PrimitiveState {
@@ -177,9 +273,10 @@ impl State {
 }
 
 pub(crate) struct PipelineBuilder<'a> {
-    device: &'a Device,
-    config: &'a SurfaceConfiguration,
+    state: &'a State,
 
+    vertex_layout: VertexBufferLayout<'static>,
+    bind_group: Vec<u8>,
     vert: Option<&'a ShaderModule>,
     frag: Option<&'a ShaderModule>,
     render_mode: PrimitiveTopology,
@@ -189,44 +286,37 @@ pub(crate) struct PipelineBuilder<'a> {
 }
 
 impl<'a> PipelineBuilder<'a> {
-    const RENDER_MODE: u8 = 0;
-    const CULL_DIR: u8 = 1;
-    const CULL_MODE: u8 = 2;
-    const POLYGON_MODE: u8 = 3;
-    const SHADER_VERTEX: u8 = 4;
-    const SHADER_FRAGMENT: u8 = 5;
-    const SHADER_COMMON: u8 = 6;
+    pub(crate) const RENDER_MODE: u8 = 0;
+    pub(crate) const CULL_DIR: u8 = 1;
+    pub(crate) const CULL_MODE: u8 = 2;
+    pub(crate) const POLYGON_MODE: u8 = 3;
+    pub(crate) const SHADER_VERTEX: u8 = 4;
+    pub(crate) const SHADER_FRAGMENT: u8 = 5;
+    pub(crate) const SHADER_COMMON: u8 = 6;
+    pub(crate) const VERTEX_LAYOUT: u8 = 7;
+    pub(crate) const BIND_GROUP: u8 = 8;
 
-    const CULL_DIR_CLOCKWISE: u8 = 10;
-    const CULL_DIR_COUNTERCLOCKWISE: u8 = 11;
-    const CULL_MODE_FORWARD: u8 = 12;
-    const CULL_MODE_BACKWARDS: u8 = 13;
-    const RENDER_MODE_TRIANGLES: u8 = 14;
-    const RENDER_MODE_LINES: u8 = 15;
-    const RENDER_MODE_POINTS: u8 = 16;
-    const RENDER_MODE_TRIANGLE_STRIP: u8 = 17;
-    const RENDER_MODE_LINE_STRIP: u8 = 18;
-    const POLYGON_MODE_FILL: u8 = 19;
-    const POLYGON_MODE_LINE: u8 = 20;
-    const POLYGON_MODE_POINT: u8 = 21;
+    pub(crate) const CULL_DIR_CLOCKWISE: u8 = 10;
+    pub(crate) const CULL_DIR_COUNTERCLOCKWISE: u8 = 11;
+    pub(crate) const CULL_MODE_FORWARD: u8 = 12;
+    pub(crate) const CULL_MODE_BACKWARDS: u8 = 13;
+    pub(crate) const RENDER_MODE_TRIANGLES: u8 = 14;
+    pub(crate) const RENDER_MODE_LINES: u8 = 15;
+    pub(crate) const RENDER_MODE_POINTS: u8 = 16;
+    pub(crate) const RENDER_MODE_TRIANGLE_STRIP: u8 = 17;
+    pub(crate) const RENDER_MODE_LINE_STRIP: u8 = 18;
+    pub(crate) const POLYGON_MODE_FILL: u8 = 19;
+    pub(crate) const POLYGON_MODE_LINE: u8 = 20;
+    pub(crate) const POLYGON_MODE_POINT: u8 = 21;
+    pub(crate) const VERTEX_LAYOUT_2D: u8 = 22;
+    pub(crate) const VERTEX_LAYOUT_MODEL_3D: u8 = 23;
+    pub(crate) const VERTEX_LAYOUT_BATCH_3D: u8 = 24;
 
     pub(crate) fn begin(state: &'a State) -> Self {
         Self {
-            device: &state.device,
-            config: &state.config,
-            vert: None,
-            frag: None,
-            render_mode: PrimitiveTopology::TriangleList,
-            cull_direction: FrontFace::Ccw,
-            cull_mode: Face::Back,
-            polygon_mode: PolygonMode::Fill,
-        }
-    }
-
-    pub(crate) fn begin_using(device: &'a Device, config: &'a SurfaceConfiguration) -> Self {
-        Self {
-            device,
-            config,
+            state: &state,
+            vertex_layout: VERTEX_LAYOUT_2D,
+            bind_group: Vec::new(),
             vert: None,
             frag: None,
             render_mode: PrimitiveTopology::TriangleList,
@@ -274,13 +364,27 @@ impl<'a> PipelineBuilder<'a> {
 
     pub(crate) fn param(mut self, which: u8, what: u8) -> Self {
         match which {
-            Self::RENDER_MODE => {self.render_mode = self.get_ren_mode(what)}
-            Self::POLYGON_MODE => {self.polygon_mode = self.get_pol_mode(what)}
-            Self::CULL_DIR => {self.cull_direction = self.get_cull_dir(what)}
-            Self::CULL_MODE => {self.cull_mode = self.get_cull_mode(what)}
+            Self::RENDER_MODE => self.render_mode = self.get_ren_mode(what),
+            Self::POLYGON_MODE => self.polygon_mode = self.get_pol_mode(what),
+            Self::CULL_DIR => self.cull_direction = self.get_cull_dir(what),
+            Self::CULL_MODE => self.cull_mode = self.get_cull_mode(what),
+            Self::VERTEX_LAYOUT => {
+                match what {
+                    Self::VERTEX_LAYOUT_2D => {self.vertex_layout = VERTEX_LAYOUT_2D}
+                    Self::VERTEX_LAYOUT_MODEL_3D => {self.vertex_layout = VERTEX_LAYOUT_MODEL_3D}
+                    Self::VERTEX_LAYOUT_BATCH_3D => {self.vertex_layout = VERTEX_LAYOUT_BATCH_3D}
+                    _ => {}
+                }
+            }
+            Self::BIND_GROUP => self.bind_group.push(what),
             _ => {}
         }
 
+        self
+    }
+
+    pub(crate) fn custom_vertex_layout(mut self, layout: VertexBufferLayout<'static>) -> Self {
+        self.vertex_layout = layout;
         self
     }
 
@@ -290,11 +394,18 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
+    pub(crate) fn bind_groups(mut self, groups: &[u8]) -> Self {
+        self.bind_group = groups.to_vec();
+        self
+    }
+
     pub(crate) fn build(self) -> RenderPipeline {
         if self.vert.is_none() {
             panic!("Vertex/Common can't be None when creating pipeline!");
         }
 
-        State::create_render_pipeline(self.device, self.config, self.vert.unwrap(), self.frag, self.render_mode, self.cull_direction, self.cull_mode, self.polygon_mode)
+        let bindings = self.bind_group.into_iter().map(|b| unsafe { BIND_GROUPS.get(&b).expect("Illegal bind group id!") } ).collect_vec();
+
+        self.state.create_render_pipeline(self.vert.unwrap(), self.frag, self.render_mode, self.cull_direction, self.cull_mode, self.polygon_mode, self.vertex_layout,  bindings)
     }
 }

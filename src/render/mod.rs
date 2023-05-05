@@ -1,5 +1,8 @@
 pub mod window;
 pub(crate) mod init;
+pub mod consts;
+pub mod common;
+pub(crate) mod render;
 
 use std::sync::Arc;
 use crate::render::window::{Window, WindowSpecs};
@@ -11,7 +14,7 @@ impl RenderCore {
         RenderCore
     }
 
-    pub fn create_window(&self, info: WindowSpecs) -> Window {
-        Window::new(info)
+    pub fn run_window(&self, info: WindowSpecs) {
+        Window::run(info)
     }
 }
