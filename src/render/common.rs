@@ -14,7 +14,7 @@ use regex::internal::Input;
 
 macro_rules! compile_spv {
     ($code:expr, $t:expr) => {
-        compile($code, $t).map_err(|e| panic!("{}", e)).unwrap().bytes().flatten().collect::<Vec<_>>();
+        compile($code, $t).map_err(|e| panic!("{}", e)).unwrap().bytes().flatten().collect::<Vec<_>>()
     };
 }
 

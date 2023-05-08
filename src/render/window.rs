@@ -11,7 +11,7 @@ use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, Windo
 use crate::render::common::{EffectShader, Shader, Texture};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::init::{State};
-use crate::render::render::RenderPass2D;
+use crate::render::render::{EBuffer, RenderPass2D};
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -94,7 +94,10 @@ pub(crate) struct Window {
     projection: Mat4,
     view: Mat4,
     render_pass_2d: RenderPass2D,
-    tex: Texture
+    effect_buffer: EBuffer,
+    tex: Texture,
+    tex2: Texture,
+    frame: u64
 }
 
 impl Window {
@@ -123,6 +126,10 @@ impl Window {
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
+        let mut tex2 = Texture::new(include_bytes!("textures/mqxf.png").to_vec());
+        tex2.make(&state);
+
+        let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let mut window = Window {
             specs,
@@ -130,7 +137,10 @@ impl Window {
             projection: Mat4::default(),
             view: Mat4::default(),
             render_pass_2d,
-            tex
+            effect_buffer,
+            tex,
+            tex2,
+            frame: 0
         };
 
         let mut init_time: u128 = u128::time_nanos();
@@ -154,6 +164,7 @@ impl Window {
                         internal_window.request_redraw();
                         frames += 1;
                         delta_f -= 1.0;
+                        window.frame += 1;
                     }
                     if u128::time_millis() - timer > 1000 {
                         println!("{}", frames);
@@ -212,6 +223,7 @@ impl Window {
         self.specs.width = size.width;
         self.specs.height = size.height;
         self.state.resize(size);
+        self.effect_buffer.resize(&self.state, size.width, size.height);
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -233,11 +245,13 @@ impl Window {
     }
 
     fn render_2d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
+        let width = self.specs.width as f32;
+        let height = self.specs.height as f32;
         let indices = &[0u32, 1, 2];
         let vertices = &[
-            -0.5f32, -0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
-            0.5, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
+            -0.5f32, -0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            0.5, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
         ];
 
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -259,16 +273,20 @@ impl Window {
         });
 
         self.render_pass_2d.new_frame(&mut render_pass, self.projection, self.view);
-        self.render_pass_2d.render(indices, vertices, None, false);
+        self.render_pass_2d.render(indices, vertices, [None, None], false);
 
-        let indices = &[0u32, 1, 2];
+        let indices = &[0u32, 1, 2, 5, 4, 3];
+        let alpha = ((self.frame as f32 / 360.0).sin() + 1.0) / 2.0;
         let vertices = &[
-            -1.0f32, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.1, 0.0, 0.0, 1.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.1, 0.5, 0.5, 1.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
-            1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.1, 1.0, 0.0, 1.0, 0.0, 0.0, 800.0, 600.0, 0.0, 0.0, 0.0,
+            -1.0f32, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.5, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.5, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
+            1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
         ];
 
-        self.render_pass_2d.render(indices, vertices, Some(&self.tex), false);
+        self.render_pass_2d.render(indices, vertices, [Some(&self.tex), Some(&self.tex2)], false);
 
         self.render_pass_2d.finish();
     }

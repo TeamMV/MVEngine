@@ -236,7 +236,11 @@ impl State {
                             dst_factor: BlendFactor::OneMinusSrcAlpha,
                             operation: BlendOperation::Add,
                         },
-                        alpha: BlendComponent::OVER
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        }
                     }),
                     write_mask: ColorWrites::ALL,
                 })],

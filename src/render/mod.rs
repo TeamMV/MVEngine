@@ -14,7 +14,7 @@ impl RenderCore {
         RenderCore
     }
 
-    pub fn run_window(&self, info: WindowSpecs) {
-        Window::run(info)
-    }
+   pub fn run_window(&self, info: WindowSpecs) {
+       Window::run(info)
+   }
 }

@@ -10,8 +10,8 @@ layout(location = 4) in vec2 fCanvasData;//([0 = sq, 1 = tri, 2 = circ], radius)
 
 layout(location = 0) out vec4 outColor;
 
-layout(set = 1, binding = 0) uniform texture2D TEXTURE[1];
-layout(set = 1, binding = 1) uniform sampler SAMPLER[1];
+layout(set = 0, binding = 1) uniform sampler SAMPLER;
+layout(set = 1, binding = 0) uniform texture2D TEXTURE[2];
 
 float sq(float x) {
     return x * x;
@@ -21,8 +21,8 @@ void main() {
     float type = fCanvasData.x;
     float r = fCanvasData.y;
 
-    int texID = int(fTexID) == 0 ? 0 : int(fTexID);
-    vec4 c = texture(sampler2D(TEXTURE[texID], SAMPLER[texID]), fTexCoords);
+    int texID = int(fTexID) == 0 ? 0 : int(fTexID) - 1;
+    vec4 c = texture(sampler2D(TEXTURE[texID], SAMPLER), fTexCoords);
 
     if (fCanvasCoords.x > gl_FragCoord.x || fCanvasCoords.x + fCanvasCoords.z < gl_FragCoord.x || fCanvasCoords.y > gl_FragCoord.y || fCanvasCoords.y + fCanvasCoords.w < gl_FragCoord.y) {
         discard;
@@ -59,12 +59,7 @@ void main() {
     }
 
     if (fTexID > 0) {
-        outColor = c;
-        if (fColor.w > 0.0) {
-            outColor = vec4(fColor.x, fColor.y, fColor.z, c.w);
-        } else {
-            outColor = c;
-        }
+        outColor = vec4(mix(c.xyz, fColor.xyz, fColor.w), c.w);
     }
     else {
         outColor = fColor;

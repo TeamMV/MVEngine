@@ -85,6 +85,12 @@ pub const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescr
                 min_binding_size: None,
             },
             count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
         }
     ],
 };
@@ -100,13 +106,7 @@ pub const BIND_GROUP_LAYOUT_TEXTURES_2D: BindGroupLayoutDescriptor = BindGroupLa
                 view_dimension: TextureViewDimension::D2,
                 sample_type: TextureSampleType::Float { filterable: true },
             },
-            count: Some(unsafe { NonZeroU32::new_unchecked(1) }),
-        },
-        BindGroupLayoutEntry {
-            binding: 1,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            count: Some(unsafe { NonZeroU32::new_unchecked(1) }),
+            count: Some(unsafe { NonZeroU32::new_unchecked(2) }),
         }
     ],
 };

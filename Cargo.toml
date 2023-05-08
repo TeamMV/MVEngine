@@ -36,6 +36,7 @@ gui = ["dep:roxmltree"]
 
 [dependencies]
 mvutils = { path = "../MVUtils" }
+mvsync = { path = "../MVSync" }
 include_dir = "0.7.3"
 regex = "1.7.3"
 glam = "0.24.0"

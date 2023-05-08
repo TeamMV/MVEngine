@@ -4,23 +4,23 @@ use std::ptr::{null, null_mut};
 use glam::Mat4;
 use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureView};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, Extent3d, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
 use crate::render::common::{Shader, Bytes, Texture};
 use crate::render::consts::{DEFAULT_SAMPLER, DUMMY_TEXTURE};
 use crate::render::init::State;
 
+const TEX_LIMIT: usize = 2;
+
 struct TextureBindGroup {
     bind_group: BindGroup,
-    textures: [&'static Texture; 1],
-    views: [&'static TextureView; 1],
-    samplers: [&'static Sampler; 1]
+    textures: [&'static Texture; TEX_LIMIT],
+    views: [&'static TextureView; TEX_LIMIT]
 }
 
 impl TextureBindGroup {
     fn new(shader: &Shader, state: &State) -> Self {
-        let textures: [&'static Texture; 1] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap() }; 1];
-        let views: [&'static TextureView; 1] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; 1];
-        let samplers: [&'static Sampler; 1] = [unsafe { DEFAULT_SAMPLER.as_ref().unwrap() }; 1];
+        let textures: [&'static Texture; TEX_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap() }; TEX_LIMIT];
+        let views: [&'static TextureView; TEX_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEX_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
@@ -29,10 +29,6 @@ impl TextureBindGroup {
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureViewArray(&views),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::SamplerArray(&samplers),
                 }
             ],
         });
@@ -40,8 +36,7 @@ impl TextureBindGroup {
         Self {
             bind_group,
             textures,
-            views,
-            samplers,
+            views
         }
     }
 
@@ -49,7 +44,6 @@ impl TextureBindGroup {
         let texture = unsafe { (texture as *const Texture).as_ref() }.unwrap();
         self.textures[index] = texture;
         self.views[index] = texture.get_view();
-        self.samplers[index] = texture.get_sampler();
     }
 
     fn remake(&mut self, state: &State, shader: &Shader) {
@@ -60,10 +54,6 @@ impl TextureBindGroup {
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureViewArray(&self.views),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::SamplerArray(&self.samplers),
                 }
             ],
         });
@@ -100,6 +90,10 @@ impl RenderPass2D {
                 BindGroupEntry {
                     binding: 0,
                     resource: uniform.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap() }),
                 }
             ],
         });
@@ -137,7 +131,7 @@ impl RenderPass2D {
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
     }
 
-    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], texture: Option<&Texture>, stripped: bool) {
+    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: [Option<&Texture>; TEX_LIMIT], stripped: bool) {
         unsafe {
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
@@ -153,14 +147,22 @@ impl RenderPass2D {
             self.state.queue.write_buffer(ibo, 0, indices.cast_bytes());
             self.state.queue.write_buffer(vbo, 0, vertices.cast_bytes());
 
-            if let Some(texture) = texture {
-                if texture_group.textures[0] != texture {
-                    texture_group.set(0, texture);
-                    texture_group.remake(self.state, &self.shader)
+            let mut changed = false;
+
+            for i in 0..TEX_LIMIT {
+                if let Some(texture) = textures[i] {
+                    if texture_group.textures[i] != texture {
+                        texture_group.set(i, texture);
+                        changed = true;
+                    }
+                }
+                else if texture_group.textures[i] != DUMMY_TEXTURE.as_ref().unwrap() {
+                    texture_group.set(i, DUMMY_TEXTURE.as_ref().unwrap());
+                    changed = true;
                 }
             }
-            else if texture_group.textures[0] != DUMMY_TEXTURE.as_ref().unwrap() {
-                texture_group.set(0, DUMMY_TEXTURE.as_ref().unwrap());
+
+            if changed {
                 texture_group.remake(self.state, &self.shader);
             }
 
@@ -197,4 +199,59 @@ pub(crate) trait RenderPass3D {
 #[cfg(feature = "3d")]
 pub(crate) struct ForwardPass {
 
+}
+
+pub(crate) struct EBuffer {
+    texture: wgpu::Texture,
+    view: TextureView,
+}
+
+impl EBuffer {
+    pub(crate) fn generate(state: &State, width: u32, height: u32) -> Self {
+
+        let texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer"),
+            size: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8UnormSrgb,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&TextureViewDescriptor::default());
+
+        Self {
+            texture,
+            view
+        }
+    }
+
+    pub(crate) fn resize(&mut self, state: &State, width: u32, height: u32) {
+         self.texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer"),
+            size: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8UnormSrgb,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        self.view = self.texture.create_view(&TextureViewDescriptor::default());
+    }
+
+    pub(crate) fn get_view(&self) -> &TextureView {
+        &self.view
+    }
 }
