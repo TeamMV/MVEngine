@@ -105,13 +105,8 @@ impl State {
             });
 
             let view = texture.create_view(&TextureViewDescriptor::default());
-            let sampler = device.create_sampler(&SamplerDescriptor::default());
 
-            DUMMY_TEXTURE = Some(Texture::premade(
-                texture,
-                view,
-                sampler
-            ));
+            DUMMY_TEXTURE = Some(Texture::premade(texture, view));
 
             DEFAULT_SAMPLER = Some(device.create_sampler(&SamplerDescriptor {
                 label: Some("Texture sampler"),

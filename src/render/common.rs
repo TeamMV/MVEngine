@@ -222,8 +222,7 @@ pub struct Texture {
     id: u64,
     image: Option<Vec<u8>>,
     texture: Option<wgpu::Texture>,
-    view: Option<TextureView>,
-    sampler: Option<Sampler>
+    view: Option<TextureView>
 }
 
 impl Texture {
@@ -232,18 +231,16 @@ impl Texture {
             id: next_id("MVCore::Texture"),
             image: Some(image),
             texture: None,
-            view: None,
-            sampler: None,
+            view: None
         }
     }
 
-    pub(crate) fn premade(texture: wgpu::Texture, view: TextureView, sampler: Sampler) -> Self {
+    pub(crate) fn premade(texture: wgpu::Texture, view: TextureView) -> Self {
         Self {
             id: next_id("MVCore::Texture"),
             image: None,
             texture: Some(texture),
-            view: Some(view),
-            sampler: Some(sampler),
+            view: Some(view)
         }
     }
 
@@ -293,24 +290,9 @@ impl Texture {
         );
 
         let view = texture.create_view(&TextureViewDescriptor::default());
-        let sampler = state.device.create_sampler(&SamplerDescriptor {
-            label: Some("Texture sampler"),
-            address_mode_u: AddressMode::Repeat,
-            address_mode_v: AddressMode::Repeat,
-            address_mode_w: AddressMode::Repeat,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 32.0,
-            compare: None,
-            anisotropy_clamp: 1,
-            border_color: None,
-        });
 
         self.texture = Some(texture);
         self.view = Some(view);
-        self.sampler = Some(sampler);
     }
 
     pub(crate) fn get_texture(&self) -> &wgpu::Texture {
@@ -319,10 +301,6 @@ impl Texture {
 
     pub(crate) fn get_view(&self) -> &TextureView {
         self.view.as_ref().expect("Binding unmade texture!")
-    }
-
-    pub(crate) fn get_sampler(&self) -> &Sampler {
-        self.sampler.as_ref().expect("Binding unmade texture!")
     }
 }
 
