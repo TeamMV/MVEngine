@@ -6,24 +6,22 @@ use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, Extent3d, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
 use crate::render::common::{Shader, Bytes, Texture};
-use crate::render::consts::{DEFAULT_SAMPLER, DUMMY_TEXTURE};
+use crate::render::consts::{DEFAULT_SAMPLER, DUMMY_TEXTURE, MAX_TEXTURES, TEXTURE_LIMIT};
 use crate::render::init::State;
-
-const TEX_LIMIT: usize = 2;
 
 struct TextureBindGroup {
     bind_group: BindGroup,
-    textures: [&'static Texture; TEX_LIMIT],
-    views: [&'static TextureView; TEX_LIMIT]
+    textures: [&'static Texture; TEXTURE_LIMIT],
+    views: [&'static TextureView; TEXTURE_LIMIT]
 }
 
 impl TextureBindGroup {
     fn new(shader: &Shader, state: &State) -> Self {
-        let textures: [&'static Texture; TEX_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap() }; TEX_LIMIT];
-        let views: [&'static TextureView; TEX_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEX_LIMIT];
+        let textures: [&'static Texture; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap() }; TEXTURE_LIMIT];
+        let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEXTURE_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("bind group"),
+            label: Some("Texture bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(1),
             entries: &[
                 BindGroupEntry {
@@ -131,7 +129,7 @@ impl RenderPass2D {
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
     }
 
-    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: [Option<&Texture>; TEX_LIMIT], stripped: bool) {
+    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: [Option<&Texture>; TEXTURE_LIMIT], stripped: bool) {
         unsafe {
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
@@ -149,7 +147,7 @@ impl RenderPass2D {
 
             let mut changed = false;
 
-            for i in 0..TEX_LIMIT {
+            for i in 0..MAX_TEXTURES {
                 if let Some(texture) = textures[i] {
                     if texture_group.textures[i] != texture {
                         texture_group.set(i, texture);

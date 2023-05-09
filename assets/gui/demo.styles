@@ -1,0 +1,11 @@
+:all
+base_color: #A6A6A6
+border_radius: 20px
+
+:class=button
+border_style: round
+border_width: 3px
+border_color: #F00
+
+:class=button@[hover]
+border_color: #F22

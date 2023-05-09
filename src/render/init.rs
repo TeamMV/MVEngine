@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::io::Read;
 use std::num::{NonZeroI16, NonZeroU32};
 use std::ops::Deref;
@@ -5,12 +6,12 @@ use glsl_to_spirv::{compile, ShaderType};
 use itertools::Itertools;
 use mvutils::utils::TetrahedronOp;
 use tokio::runtime::Runtime;
-use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState, include_spirv, Buffer, BufferUsages, VertexBufferLayout, VertexAttribute, VertexStepMode, VertexFormat, vertex_attr_array, BufferDescriptor, BindGroupLayoutDescriptor, BindGroupLayout, TextureDescriptor, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BlendComponent, BlendFactor, BlendOperation, ColorWrites, BlendState};
+use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState, include_spirv, Buffer, BufferUsages, VertexBufferLayout, VertexAttribute, VertexStepMode, VertexFormat, vertex_attr_array, BufferDescriptor, BindGroupLayoutDescriptor, BindGroupLayout, TextureDescriptor, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BlendComponent, BlendFactor, BlendOperation, ColorWrites, BlendState, BindGroupLayoutEntry, ShaderStages, BindingType, TextureViewDimension, TextureSampleType};
 use wgpu::Instance;
 use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
 use winit::dpi::PhysicalSize;
 use crate::render::common::Texture;
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_TEXTURES_2D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_TEXTURES_2D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::window::{Window, WindowSpecs};
 
 pub(crate) struct State {
@@ -47,6 +48,27 @@ impl State {
                     force_fallback_adapter: false,
                 }
             ).await.expect("Graphical adapter cannot be found for this window! (This is usually a driver issue, or you are missing hardware)");
+
+            let textures = adapter.limits().max_sampled_textures_per_shader_stage;
+
+            MAX_TEXTURES = min(textures as usize - 1, TEXTURE_LIMIT);
+            static entries: [BindGroupLayoutEntry; 1] = [
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: TextureViewDimension::D2,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                    },
+                    count: Some(unsafe { NonZeroU32::new_unchecked(MAX_TEXTURES as u32) }),
+                }
+            ];
+
+            BIND_GROUP_LAYOUT_TEXTURES_2D = BindGroupLayoutDescriptor {
+                label: Some("Bind group layout textures 2D"),
+                entries: &entries,
+            };
 
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor {

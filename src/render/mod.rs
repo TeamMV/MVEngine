@@ -3,6 +3,7 @@ pub(crate) mod init;
 pub mod consts;
 pub mod common;
 pub(crate) mod render;
+pub mod camera;
 
 use std::sync::Arc;
 use crate::render::window::{Window, WindowSpecs};

@@ -47,12 +47,11 @@ image = "0.24.6"
 bitflags = "2.2.1"
 openal = "0.2.2"
 itertools = "0.10.5"
-tokio = { version = "1.28.0", features = ["rt", "rt-multi-thread", "macros"] }
-roxmltree = { version = "0.18.0", optional = true }
-gltf = { version = "1.1.0", optional = true }
 winit = "0.28.4"
 wgpu = { version = "0.16.0", features = ["spirv"] }
-glsl-to-spirv = "0.1.7"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 log = "0.4.17"
 env_logger = "0.10.0"
+roxmltree = { version = "0.18.0", optional = true }
+gltf = { version = "1.1.0", optional = true }
+shaderc = "0.8.2"

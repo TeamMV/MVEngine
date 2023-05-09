@@ -1,0 +1,15 @@
+div[id=wrapper align=h]:
+    button[class=button] click1
+    button[class=button] click2
+    button[class=button] click3
+    button[class=button] click4
+    div[align=v]:
+        text[class=text] Hello
+        text[class=text] Mr.
+        text[class=text] World
+        md[class=text] __LoL__, this was fat and not *italic*
+        textbox[class=text]:
+            This is a fancy
+            multiline
+            textbox
+        input[class=text]

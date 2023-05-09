@@ -8,8 +8,9 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
+use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, Texture};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, RenderPass2D};
 
@@ -67,7 +68,7 @@ pub struct WindowSpecs {
     /// The maximum update rate of the window.
     ///
     /// Default is 30.
-    pub ups: u32
+    pub ups: u32,
 }
 
 impl Default for WindowSpecs {
@@ -97,7 +98,9 @@ pub(crate) struct Window {
     effect_buffer: EBuffer,
     tex: Texture,
     tex2: Texture,
-    frame: u64
+    frame: u64,
+    pub camera_2d: Camera2D,
+    pub camera_3d: Camera3D,
 }
 
 impl Window {
@@ -140,7 +143,9 @@ impl Window {
             effect_buffer,
             tex,
             tex2,
-            frame: 0
+            frame: 0,
+            camera_2d: Default::default(),
+            camera_3d: Default::default(),
         };
 
         let mut init_time: u128 = u128::time_nanos();
@@ -224,6 +229,9 @@ impl Window {
         self.specs.height = size.height;
         self.state.resize(size);
         self.effect_buffer.resize(&self.state, size.width, size.height);
+
+        self.camera_2d.update_projection_mat(size.width as i32, size.height as i32);
+        self.camera_3d.update_projection_mat(size.width as i32, size.height as i32);
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -273,7 +281,7 @@ impl Window {
         });
 
         self.render_pass_2d.new_frame(&mut render_pass, self.projection, self.view);
-        self.render_pass_2d.render(indices, vertices, [None, None], false);
+        self.render_pass_2d.render(indices, vertices, [None; TEXTURE_LIMIT], false);
 
         let indices = &[0u32, 1, 2, 5, 4, 3];
         let alpha = ((self.frame as f32 / 360.0).sin() + 1.0) / 2.0;
@@ -286,7 +294,11 @@ impl Window {
             1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
         ];
 
-        self.render_pass_2d.render(indices, vertices, [Some(&self.tex), Some(&self.tex2)], false);
+        let mut textures = [None; TEXTURE_LIMIT];
+        textures[0] = Some(&self.tex);
+        textures[1] = Some(&self.tex2);
+
+        self.render_pass_2d.render(indices, vertices, textures, false);
 
         self.render_pass_2d.finish();
     }

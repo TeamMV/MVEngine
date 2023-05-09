@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use glsl_to_spirv::{compile, ShaderType};
 use wgpu::{AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
 use wgpu::util::make_spirv;
 use crate::render::consts::{EFFECT_VERT, VERTEX_LAYOUT_EFFECT};
@@ -8,14 +7,46 @@ use crate::render::init::{PipelineBuilder, State};
 use std::io::Read;
 use std::num::NonZeroU32;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
+use glsl_to_spirv_macros::{glsl_cs, glsl_fs, glsl_gs, glsl_tcs, glsl_tes, glsl_vs, include_glsl_fs};
 use image::GenericImageView;
 use mvutils::utils::next_id;
 use regex::internal::Input;
+use shaderc::ShaderKind;
+use spirv_compiler::ShaderKind;
 
-macro_rules! compile_spv {
-    ($code:expr, $t:expr) => {
-        compile($code, $t).map_err(|e| panic!("{}", e)).unwrap().bytes().flatten().collect::<Vec<_>>()
-    };
+pub enum ShaderType {
+    Fragment,
+    Vertex,
+    Geometry,
+    Compute,
+    TessalationControl,
+    TessalationEvaluation
+}
+
+
+impl From<ShaderKind> for ShaderType {
+    fn from(value: ShaderKind) -> Self {
+        return match value {
+            ShaderKind::Fragment => ShaderType::Fragment,
+            ShaderKind::Vertex => ShaderType::Vertex,
+            ShaderKind::Geometry => ShaderType::Geometry,
+            ShaderKind::Compute => ShaderType::Compute,
+            ShaderKind::TessControl => ShaderType::TessalationControl,
+            ShaderKind::TessEvaluation => ShaderType::TessalationEvaluation,
+            _ => ()
+        }
+    }
+}
+
+
+fn compile(src: &str, type_of_shader: u8) -> Vec<u8> {
+    let compiler = shaderc::Compiler::new().unwrap();
+    let mut options = shaderc::CompileOptions::new().unwrap();
+    options.add_macro_definition("EP", Some("main"));
+    let binary_result = compiler.compile_into_spirv(
+        src, type_of_shader.into(),
+        "shader.glsl", "main", Some(&options)).unwrap();
+    binary_result.as_binary_u8().to_vec()
 }
 
 macro_rules! epecpc {
@@ -68,8 +99,8 @@ impl Clone for Shader {
 }
 
 impl Shader {
-    pub(crate) fn compile_glsl(code: String, shader_type: ShaderType) -> Vec<u8> {
-        compile_spv!(code.as_str(), shader_type)
+    pub(crate) fn compile_glsl(code: &String, shader_type: u8) -> Vec<u8> {
+        compile(code.as_str(), shader_type)
     }
 
     pub(crate) fn new(vert: Vec<u8>, frag: Vec<u8>) -> Self {

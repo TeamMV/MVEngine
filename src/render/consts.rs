@@ -15,6 +15,9 @@ pub const EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoor
 pub static mut DEFAULT_SAMPLER: Option<Sampler> = None;
 pub static mut DUMMY_TEXTURE: Option<Texture> = None;
 
+pub static mut MAX_TEXTURES: usize = 0;
+pub const TEXTURE_LIMIT: usize = 255;
+
 pub const VERTEX_LAYOUT_EFFECT: VertexBufferLayout = VertexBufferLayout {
     array_stride: 0,
     step_mode: VertexStepMode::Vertex,
@@ -95,20 +98,9 @@ pub const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescr
     ],
 };
 
-pub const BIND_GROUP_LAYOUT_TEXTURES_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: Some("Bind group layout textures 2D"),
-    entries: &[
-        BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled: false,
-                view_dimension: TextureViewDimension::D2,
-                sample_type: TextureSampleType::Float { filterable: true },
-            },
-            count: Some(unsafe { NonZeroU32::new_unchecked(2) }),
-        }
-    ],
+pub static mut BIND_GROUP_LAYOUT_TEXTURES_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
+    label: Some("Dummy bind group"),
+    entries: &[],
 };
 
 pub const BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
