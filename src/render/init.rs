@@ -1,11 +1,10 @@
 use std::cmp::min;
 use std::io::Read;
-use std::num::{NonZeroI16, NonZeroU32};
 use std::ops::Deref;
-use glsl_to_spirv::{compile, ShaderType};
+use std::num::NonZeroU32;
 use itertools::Itertools;
+use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
-use tokio::runtime::Runtime;
 use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState, include_spirv, Buffer, BufferUsages, VertexBufferLayout, VertexAttribute, VertexStepMode, VertexFormat, vertex_attr_array, BufferDescriptor, BindGroupLayoutDescriptor, BindGroupLayout, TextureDescriptor, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BlendComponent, BlendFactor, BlendOperation, ColorWrites, BlendState, BindGroupLayoutEntry, ShaderStages, BindingType, TextureViewDimension, TextureSampleType};
 use wgpu::Instance;
 use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
@@ -24,8 +23,7 @@ pub(crate) struct State {
 
 impl State {
     pub(crate) fn new(window: &winit::window::Window, specs: &WindowSpecs) -> Self {
-        let rt = Runtime::new().expect("Could not create State due to async function faliure!");
-        rt.block_on(Self::init(window, specs))
+        Self::init(window, specs).await_sync()
     }
 
     async fn init(window: &winit::window::Window, specs: &WindowSpecs) -> Self {

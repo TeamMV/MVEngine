@@ -5,14 +5,11 @@ use crate::render::consts::{EFFECT_VERT, VERTEX_LAYOUT_EFFECT};
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
-use std::num::NonZeroU32;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use glsl_to_spirv_macros::{glsl_cs, glsl_fs, glsl_gs, glsl_tcs, glsl_tes, glsl_vs, include_glsl_fs};
 use image::GenericImageView;
 use mvutils::utils::next_id;
 use regex::internal::Input;
 use shaderc::ShaderKind;
-use spirv_compiler::ShaderKind;
 
 pub enum ShaderType {
     Fragment,
@@ -33,13 +30,36 @@ impl From<ShaderKind> for ShaderType {
             ShaderKind::Compute => ShaderType::Compute,
             ShaderKind::TessControl => ShaderType::TessalationControl,
             ShaderKind::TessEvaluation => ShaderType::TessalationEvaluation,
-            _ => ()
+            _ => (unreachable!())
         }
     }
 }
 
+trait FromShaderType {
+    fn from_st(value: ShaderType) -> Self;
+}
 
-fn compile(src: &str, type_of_shader: u8) -> Vec<u8> {
+impl FromShaderType for ShaderKind {
+    fn from_st(value: ShaderType) -> Self {
+        return match value {
+            ShaderType::Fragment => ShaderKind::Fragment,
+            ShaderType::Vertex => ShaderKind::Vertex,
+            ShaderType::Geometry => ShaderKind::Geometry,
+            ShaderType::Compute => ShaderKind::Compute,
+            ShaderType::TessalationControl => ShaderKind::TessControl,
+            ShaderType::TessalationEvaluation => ShaderKind::TessEvaluation,
+        }
+    }
+}
+
+impl Into<ShaderKind> for ShaderType {
+    fn into(self) -> ShaderKind {
+        ShaderKind::from_st(self)
+    }
+}
+
+
+fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u8> {
     let compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
     options.add_macro_definition("EP", Some("main"));
@@ -99,7 +119,7 @@ impl Clone for Shader {
 }
 
 impl Shader {
-    pub(crate) fn compile_glsl(code: &String, shader_type: u8) -> Vec<u8> {
+    pub(crate) fn compile_glsl(code: &String, shader_type: ShaderType) -> Vec<u8> {
         compile(code.as_str(), shader_type)
     }
 
@@ -114,8 +134,8 @@ impl Shader {
     }
 
     pub(crate) fn new_glsl(vert: String, frag: String) -> Self {
-        let v_spv = compile_spv!(vert.as_str(), ShaderType::Vertex);
-        let f_spv = compile_spv!(frag.as_str(), ShaderType::Fragment);
+        let v_spv = compile(vert.as_str(), ShaderType::Vertex);
+        let f_spv = compile(frag.as_str(), ShaderType::Fragment);
         Self {
             id: next_id("MVCore::Shader"),
             vert: Some(v_spv),
@@ -204,7 +224,7 @@ impl EffectShader {
     }
 
     pub(crate) fn new_glsl(shader: &str) -> Self {
-        let spv = compile_spv!(shader, ShaderType::Fragment);
+        let spv = compile(shader, ShaderType::Fragment);
         Self {
             id: next_id("MVCore::EffectShader"),
             shader: Some(spv),
@@ -217,7 +237,7 @@ impl EffectShader {
             return self;
         }
 
-        let vert = compile_spv!(EFFECT_VERT, ShaderType::Vertex);
+        let vert = compile(EFFECT_VERT, ShaderType::Vertex);
 
         let vert = state.device.create_shader_module(ShaderModuleDescriptor {
             label: Some("effect_vert"),

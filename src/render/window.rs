@@ -1,7 +1,7 @@
 use std::iter::once;
 use std::time::Instant;
 use glam::Mat4;
-use glsl_to_spirv::ShaderType;
+use mvsync::block::AwaitSync;
 use mvutils::utils::{TetrahedronOp, Time};
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, CommandEncoder, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
@@ -9,7 +9,7 @@ use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
 use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::common::{EffectShader, Shader, Texture};
+use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, RenderPass2D};
@@ -116,7 +116,7 @@ impl Window {
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
             .build(&event_loop).unwrap();
 
-        let mut state = State::new(&internal_window, &specs);
+        let mut state = State::new(&internal_window, &specs).await_sync();
 
         let mut shader = Shader::new_glsl(include_str!("shaders/default.vert").to_string(), include_str!("shaders/default.frag").to_string());
 
@@ -341,7 +341,7 @@ impl ShaderSource {
     fn compile(self, shader_type: ShaderType) -> Vec<u8> {
         match self {
             ShaderSource::Spirv(v) => v,
-            ShaderSource::Glsl(c) => Shader::compile_glsl(c, shader_type)
+            ShaderSource::Glsl(c) => Shader::compile_glsl(&c, shader_type)
         }
     }
 }
