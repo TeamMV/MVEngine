@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::num::{NonZeroU32, NonZeroU64};
+use std::sync::Arc;
 use once_cell::unsync::Lazy;
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferSize, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension, vertex_attr_array, VertexBufferLayout, VertexStepMode};
 use crate::render::common::Texture;
 
 pub(crate) const VERT_LIMIT: u64 = 10000;
+pub(crate) const VERT_LIMIT_2D_FLOATS: u64 = VERT_LIMIT * VERTEX_LAYOUT_2D.array_stride / 4;
 pub(crate) const VERT_LIMIT_2D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_2D.array_stride;
 pub(crate) const VERT_LIMIT_MODEL_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_MODEL_3D.array_stride;
 pub(crate) const VERT_LIMIT_BATCH_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_BATCH_3D.array_stride;
@@ -13,7 +15,7 @@ pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 pub(crate) const EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
 
 pub(crate) static mut DEFAULT_SAMPLER: Option<Sampler> = None;
-pub(crate) static mut DUMMY_TEXTURE: Option<Texture> = None;
+pub(crate) static mut DUMMY_TEXTURE: Option<Arc<Texture>> = None;
 
 pub(crate) static mut MAX_TEXTURES: usize = 0;
 pub(crate) const TEXTURE_LIMIT: usize = 255;

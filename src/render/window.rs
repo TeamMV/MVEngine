@@ -1,4 +1,5 @@
 use std::iter::once;
+use std::sync::Arc;
 use std::time::Instant;
 use glam::Mat4;
 use mvsync::block::AwaitSync;
@@ -9,10 +10,13 @@ use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
 use crate::render::camera::{Camera2D, Camera3D};
+use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::draw::Draw2D;
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, RenderPass2D};
+use crate::render::text::FontLoader;
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -92,12 +96,9 @@ impl Default for WindowSpecs {
 pub(crate) struct Window {
     specs: WindowSpecs,
     state: State,
-    projection: Mat4,
-    view: Mat4,
+    draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
     effect_buffer: EBuffer,
-    tex: Texture,
-    tex2: Texture,
     frame: u64,
     pub camera_2d: Camera2D,
     pub camera_3d: Camera3D,
@@ -129,20 +130,21 @@ impl Window {
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
+        let tex = Arc::new(tex);
         let mut tex2 = Texture::new(include_bytes!("textures/mqxf.png").to_vec());
         tex2.make(&state);
+        let tex2 = Arc::new(tex2);
 
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
+
+        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font()), specs.width as i32, specs.height as i32, internal_window.scale_factor() as f32);
 
         let mut window = Window {
             specs,
             state,
-            projection: Mat4::default(),
-            view: Mat4::default(),
+            draw_2d,
             render_pass_2d,
             effect_buffer,
-            tex,
-            tex2,
             frame: 0,
             camera_2d: Default::default(),
             camera_3d: Default::default(),
@@ -232,6 +234,8 @@ impl Window {
 
         self.camera_2d.update_projection_mat(size.width as i32, size.height as i32);
         self.camera_3d.update_projection_mat(size.width as i32, size.height as i32);
+
+        self.draw_2d.resize(size.width as i32, size.height as i32);
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -253,15 +257,6 @@ impl Window {
     }
 
     fn render_2d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
-        let width = self.specs.width as f32;
-        let height = self.specs.height as f32;
-        let indices = &[0u32, 1, 2];
-        let vertices = &[
-            -0.5f32, -0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            0.5, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-        ];
-
         let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -281,24 +276,11 @@ impl Window {
         });
 
         self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection_mat(), self.camera_2d.get_view_mat());
-        self.render_pass_2d.render(indices, vertices, [None; TEXTURE_LIMIT], false);
 
-        let indices = &[0u32, 1, 2, 5, 4, 3];
-        let alpha = ((self.frame as f32 / 360.0).sin() + 1.0) / 2.0;
-        let vertices = &[
-            -1.0f32, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.5, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.5, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-            1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, width, height, 0.0, 0.0, 0.0,
-        ];
+        self.draw_2d.color(Color::<RGB, f32>::white());
+        self.draw_2d.rectangle(100, 100, 100, 100);
 
-        let mut textures = [None; TEXTURE_LIMIT];
-        textures[0] = Some(&self.tex);
-        textures[1] = Some(&self.tex2);
-
-        self.render_pass_2d.render(indices, vertices, textures, false);
+        self.draw_2d.render(&mut self.render_pass_2d);
 
         self.render_pass_2d.finish();
     }

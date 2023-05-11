@@ -5,6 +5,7 @@ use crate::render::consts::{EFFECT_VERT, VERTEX_LAYOUT_EFFECT};
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
+use std::sync::Arc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
 use mvutils::utils::next_id;
@@ -30,7 +31,7 @@ impl From<ShaderKind> for ShaderType {
             ShaderKind::Compute => ShaderType::Compute,
             ShaderKind::TessControl => ShaderType::TessellationControl,
             ShaderKind::TessEvaluation => ShaderType::TessellationEvaluation,
-            _ => (unreachable!())
+            _ => unreachable!()
         }
     }
 }
@@ -275,6 +276,8 @@ impl EffectShader {
 
 pub struct Texture {
     id: u64,
+    width: u32,
+    height: u32,
     image: Option<Vec<u8>>,
     texture: Option<wgpu::Texture>,
     view: Option<TextureView>
@@ -284,6 +287,8 @@ impl Texture {
     pub(crate) fn new(image: Vec<u8>) -> Self {
         Self {
             id: next_id("MVCore::Texture"),
+            width: 0,
+            height: 0,
             image: Some(image),
             texture: None,
             view: None
@@ -291,8 +296,12 @@ impl Texture {
     }
 
     pub(crate) fn premade(texture: wgpu::Texture, view: TextureView) -> Self {
+        let width = texture.width();
+        let height = texture.height();
         Self {
             id: next_id("MVCore::Texture"),
+            width,
+            height,
             image: None,
             texture: Some(texture),
             view: Some(view)
@@ -308,6 +317,9 @@ impl Texture {
         let image = image::load_from_memory(&image).unwrap();
         let bytes = image.to_rgba8();
         let dimensions = image.dimensions();
+
+        self.width = dimensions.0;
+        self.height = dimensions.1;
 
         let size = Extent3d {
             width: dimensions.0,
@@ -357,9 +369,65 @@ impl Texture {
     pub(crate) fn get_view(&self) -> &TextureView {
         self.view.as_ref().expect("Binding unmade texture!")
     }
+
+    pub(crate) fn get_width(&self) -> u32 {
+        self.width
+    }
+
+    pub(crate) fn get_height(&self) -> u32 {
+        self.height
+    }
 }
 
-epecpc!(Shader, EffectShader, Texture);
+pub struct TextureRegion {
+    id: u64,
+    texture: Arc<Texture>,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    uv: [f32; 4]
+}
+
+impl TextureRegion {
+    pub fn new(texture: Arc<Texture>, x: u32, y: u32, width: u32, height: u32) -> Self {
+        let w = texture.get_width() as f32;
+        let h = texture.get_height() as f32;
+        TextureRegion {
+            id: next_id("TextureRegion"),
+            texture,
+            x,
+            y,
+            width,
+            height,
+            uv: [x as f32 / w, (x + width) as f32 / w, y as f32 / h, (y + height) as f32 / h]
+        }
+    }
+
+    pub fn from(texture: Arc<Texture>) -> Self {
+        let width = texture.get_width();
+        let height = texture.get_height();
+        TextureRegion {
+            id: next_id("TextureRegion"),
+            texture,
+            x: 0,
+            y: 0,
+            width,
+            height,
+            uv: [0.0, 0.0, 1.0, 1.0],
+        }
+    }
+
+    pub(crate) fn get_uv(&self) -> [f32; 4] {
+        self.uv
+    }
+
+    pub(crate) fn parent(&self) -> Arc<Texture> {
+        self.texture.clone()
+    }
+}
+
+epecpc!(Shader, EffectShader, Texture, TextureRegion);
 
 pub trait Bytes {
     fn cast_bytes(&self) -> &[u8];

@@ -4,6 +4,10 @@ pub mod consts;
 pub mod common;
 pub(crate) mod render;
 pub mod camera;
+pub(crate) mod batch2d;
+pub mod color;
+pub mod draw;
+pub mod text;
 
 use std::sync::Arc;
 use crate::render::window::{Window, WindowSpecs};

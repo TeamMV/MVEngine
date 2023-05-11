@@ -1,6 +1,7 @@
 use std::ffi::c_void;
 use std::ops::Deref;
 use std::ptr::{null, null_mut};
+use std::sync::Arc;
 use glam::Mat4;
 use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
@@ -11,13 +12,15 @@ use crate::render::init::State;
 
 struct TextureBindGroup {
     bind_group: BindGroup,
-    textures: [&'static Texture; TEXTURE_LIMIT],
+    textures: [Arc<Texture>; TEXTURE_LIMIT],
     views: [&'static TextureView; TEXTURE_LIMIT]
+
+
 }
 
 impl TextureBindGroup {
     fn new(shader: &Shader, state: &State) -> Self {
-        let textures: [&'static Texture; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap() }; TEXTURE_LIMIT];
+        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| unsafe { DUMMY_TEXTURE.clone().unwrap() });
         let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEXTURE_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
@@ -38,10 +41,9 @@ impl TextureBindGroup {
         }
     }
 
-    fn set(&mut self, index: usize, texture: &Texture) {
-        let texture = unsafe { (texture as *const Texture).as_ref() }.unwrap();
+    fn set(&mut self, index: usize, texture: Arc<Texture>) {
+        self.views[index] = unsafe { (texture.get_view() as *const TextureView).as_ref().unwrap() };
         self.textures[index] = texture;
-        self.views[index] = texture.get_view();
     }
 
     fn remake(&mut self, state: &State, shader: &Shader) {
@@ -129,7 +131,7 @@ impl RenderPass2D {
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
     }
 
-    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: [Option<&Texture>; TEXTURE_LIMIT], stripped: bool) {
+    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool) {
         unsafe {
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
@@ -148,14 +150,14 @@ impl RenderPass2D {
             let mut changed = false;
 
             for i in 0..MAX_TEXTURES {
-                if let Some(texture) = textures[i] {
-                    if texture_group.textures[i] != texture {
-                        texture_group.set(i, texture);
+                if let Some(ref texture) = textures[i] {
+                    if &texture_group.textures[i] != texture {
+                        texture_group.set(i, texture.clone());
                         changed = true;
                     }
                 }
-                else if texture_group.textures[i] != DUMMY_TEXTURE.as_ref().unwrap() {
-                    texture_group.set(i, DUMMY_TEXTURE.as_ref().unwrap());
+                else if texture_group.textures[i] != DUMMY_TEXTURE.clone().unwrap() {
+                    texture_group.set(i, DUMMY_TEXTURE.clone().unwrap());
                     changed = true;
                 }
             }

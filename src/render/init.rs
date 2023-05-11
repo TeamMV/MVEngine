@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::io::Read;
 use std::ops::Deref;
 use std::num::NonZeroU32;
+use std::sync::Arc;
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
@@ -140,7 +141,7 @@ impl State {
 
             let view = texture.create_view(&TextureViewDescriptor::default());
 
-            DUMMY_TEXTURE = Some(Texture::premade(texture, view));
+            DUMMY_TEXTURE = Some(Arc::new(Texture::premade(texture, view)));
 
             DEFAULT_SAMPLER = Some(device.create_sampler(&SamplerDescriptor {
                 label: Some("Texture sampler"),
