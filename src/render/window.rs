@@ -116,7 +116,7 @@ impl Window {
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
             .build(&event_loop).unwrap();
 
-        let mut state = State::new(&internal_window, &specs).await_sync();
+        let mut state = State::new(&internal_window, &specs);
 
         let mut shader = Shader::new_glsl(include_str!("shaders/default.vert").to_string(), include_str!("shaders/default.frag").to_string());
 
@@ -280,7 +280,7 @@ impl Window {
             depth_stencil_attachment: None,
         });
 
-        self.render_pass_2d.new_frame(&mut render_pass, self.projection, self.view);
+        self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection_mat(), self.camera_2d.get_view_mat());
         self.render_pass_2d.render(indices, vertices, [None; TEXTURE_LIMIT], false);
 
         let indices = &[0u32, 1, 2, 5, 4, 3];

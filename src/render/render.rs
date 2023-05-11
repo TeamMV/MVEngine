@@ -26,7 +26,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&views),
+                    resource: BindingResource::TextureViewArray(&views[..unsafe { MAX_TEXTURES }]),
                 }
             ],
         });
@@ -51,7 +51,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&self.views),
+                    resource: BindingResource::TextureViewArray(&self.views[..unsafe { MAX_TEXTURES }]),
                 }
             ],
         });

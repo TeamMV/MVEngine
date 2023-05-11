@@ -101,7 +101,21 @@ impl State {
             surface.configure(&device, &config);
 
             BIND_GROUPS.insert(BIND_GROUP_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D));
-            BIND_GROUPS.insert(BIND_GROUP_TEXTURES_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_TEXTURES_2D));
+            BIND_GROUPS.insert(BIND_GROUP_TEXTURES_2D, device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Bind group layout textures 2D"),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: TextureViewDimension::D2,
+                            sample_type: TextureSampleType::Float { filterable: true },
+                        },
+                        count: Some(unsafe { NonZeroU32::new_unchecked(MAX_TEXTURES as u32) }),
+                    }
+                ],
+            }));
             BIND_GROUPS.insert(BIND_GROUP_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D));
             BIND_GROUPS.insert(BIND_GROUP_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D));
             BIND_GROUPS.insert(BIND_GROUP_GEOMETRY_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D));

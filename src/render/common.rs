@@ -16,8 +16,8 @@ pub enum ShaderType {
     Vertex,
     Geometry,
     Compute,
-    TessalationControl,
-    TessalationEvaluation
+    TessellationControl,
+    TessellationEvaluation
 }
 
 
@@ -28,45 +28,49 @@ impl From<ShaderKind> for ShaderType {
             ShaderKind::Vertex => ShaderType::Vertex,
             ShaderKind::Geometry => ShaderType::Geometry,
             ShaderKind::Compute => ShaderType::Compute,
-            ShaderKind::TessControl => ShaderType::TessalationControl,
-            ShaderKind::TessEvaluation => ShaderType::TessalationEvaluation,
+            ShaderKind::TessControl => ShaderType::TessellationControl,
+            ShaderKind::TessEvaluation => ShaderType::TessellationEvaluation,
             _ => (unreachable!())
-        }
-    }
-}
-
-trait FromShaderType {
-    fn from_st(value: ShaderType) -> Self;
-}
-
-impl FromShaderType for ShaderKind {
-    fn from_st(value: ShaderType) -> Self {
-        return match value {
-            ShaderType::Fragment => ShaderKind::Fragment,
-            ShaderType::Vertex => ShaderKind::Vertex,
-            ShaderType::Geometry => ShaderKind::Geometry,
-            ShaderType::Compute => ShaderKind::Compute,
-            ShaderType::TessalationControl => ShaderKind::TessControl,
-            ShaderType::TessalationEvaluation => ShaderKind::TessEvaluation,
         }
     }
 }
 
 impl Into<ShaderKind> for ShaderType {
     fn into(self) -> ShaderKind {
-        ShaderKind::from_st(self)
+        return match self {
+            ShaderType::Fragment => ShaderKind::Fragment,
+            ShaderType::Vertex => ShaderKind::Vertex,
+            ShaderType::Geometry => ShaderKind::Geometry,
+            ShaderType::Compute => ShaderKind::Compute,
+            ShaderType::TessellationControl => ShaderKind::TessControl,
+            ShaderType::TessellationEvaluation => ShaderKind::TessEvaluation,
+        }
     }
 }
 
 
 fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u8> {
+    let processed = preprocessor::process(src);
     let compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
     options.add_macro_definition("EP", Some("main"));
     let binary_result = compiler.compile_into_spirv(
-        src, type_of_shader.into(),
+        processed.as_str(), type_of_shader.into(),
         "shader.glsl", "main", Some(&options)).unwrap();
     binary_result.as_binary_u8().to_vec()
+}
+
+mod preprocessor {
+    use crate::render::consts::MAX_TEXTURES;
+
+    const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURES";
+
+    pub fn process(src: &str) -> String {
+        unsafe {
+            src
+                .replace(MAX_TEXTURES_IDENTIFIER, format!("{}", MAX_TEXTURES).as_str())
+        }
+    }
 }
 
 macro_rules! epecpc {
