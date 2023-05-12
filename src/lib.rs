@@ -12,6 +12,7 @@ use mvutils::version::Version;
 
 //use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::RenderCore;
+use crate::render::window::WindowSpecs;
 //use crate::resource_loader::{AssetManager, LoadRequest, ResourceLoader};
 
 //pub mod assets;
@@ -21,6 +22,16 @@ pub mod files;
 //#[cfg(feature = "gui")]
 //pub mod gui;
 pub mod render;
+
+#[test]
+fn it_works() {
+    let core = RenderCore::new();
+    let mut specs = WindowSpecs::default();
+    specs.vsync = false;
+    specs.fps = 10000;
+    core.run_window(specs);
+}
+
 
 pub struct MVCore {
     render: Arc<RenderCore>,
