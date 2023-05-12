@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::cmp::max;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -29,7 +30,7 @@ pub struct Draw2D {
 
 #[allow(clippy::too_many_arguments)]
 impl Draw2D {
-    pub(crate) fn new(font: Arc<Font>, width: i32, height: i32, dpi: f32) -> Self {
+    pub(crate) fn new(font: Arc<Font>, width: u32, height: u32, dpi: f32) -> Self {
         Draw2D {
             canvas: [0.0, 0.0, width as f32, height as f32, 0.0, 0.0],
             size: [width as f32, height as f32],
@@ -54,7 +55,7 @@ impl Draw2D {
         self.batch.render(render_pass);
     }
 
-    pub(crate) fn resize(&mut self, width: i32, height: i32) {
+    pub(crate) fn resize(&mut self, width: u32, height: u32) {
         self.size[0] = width as f32;
         self.size[1] = height as f32;
     }
@@ -73,7 +74,7 @@ impl Draw2D {
         self.canvas[5] = radius;
     }
 
-    pub fn canvas(&mut self, x: i32, y: i32, width: i32, height: i32) {
+    pub fn canvas(&mut self, x: i32, y: i32, width: u32, height: u32) {
         self.canvas[0] = x as f32;
         self.canvas[1] = y as f32;
         self.canvas[2] = width as f32;

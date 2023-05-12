@@ -181,7 +181,7 @@ impl Batch2D {
     }
 
     fn is_full_tex_for(&self, amount: u32) -> bool {
-        self.next_tex + amount < unsafe { MAX_TEXTURES } as u32
+        self.next_tex + amount > unsafe { MAX_TEXTURES } as u32
     }
 
     fn can_hold(&self, vertices: u32, textures: u32) -> bool {
@@ -346,7 +346,7 @@ pub(crate) struct BatchController2D {
 
 impl BatchController2D {
     const Z_SHIFT: f32 = 0.01;
-    const Z_BASE: f32 = -1999.0;
+    const Z_BASE: f32 = 1999.0;
 
     pub(crate) fn new() -> Self {
         let mut batch = BatchController2D {
@@ -379,6 +379,8 @@ impl BatchController2D {
                 else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         self.inc_z();
+                        //NEW!
+                        self.previous_regular = self.current as i32;
                         return;
                     }
                     self.advance(batch_type);
@@ -397,9 +399,9 @@ impl BatchController2D {
     }
 
     fn inc_z(&mut self) {
-        self.z += Self::Z_SHIFT;
-        if self.z >= 0.0 {
-            self.z = 0.0;
+        self.z -= Self::Z_SHIFT;
+        if self.z <= 0.1 {
+            self.z = 0.1;
         }
     }
 

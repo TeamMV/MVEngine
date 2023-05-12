@@ -2,89 +2,103 @@ use glam::{EulerRot, Mat4, Quat, Vec2, Vec3};
 
 #[derive(Clone)]
 pub struct Camera2D {
-    pub position: Vec2,
-    pub rotation: f32,
-    pub zoom: f32,
+    pub(crate) position: Vec2,
+    pub(crate) rotation: f32,
+    pub(crate) zoom: f32,
     projection: Mat4,
-    pub z_near: f32,
-    pub z_far: f32,
-}
-
-impl Default for Camera2D {
-    fn default() -> Self { Camera2D::new(0.0, 0.0) }
+    view: Mat4,
+    pub(crate) z_near: f32,
+    pub(crate) z_far: f32,
 }
 
 impl Camera2D {
-    pub(crate) fn new(x: f32, y: f32) -> Self {
+    pub(crate) fn new(width: u32, height: u32) -> Self {
         Camera2D {
-            position: Vec2::new(x, y),
+            position: Vec2::new(0.0, 0.0),
             rotation: 0.0,
             zoom: 1.0,
             projection: Mat4::default(),
-            z_near: 0.01,
-            z_far: 1000.0,
-        }
+            view: Mat4::default(),
+            z_near: 0.0,
+            z_far: 2000.0,
+        }.setup(width, height)
     }
 
-    pub(crate) fn get_view_mat(&self) -> Mat4 {
-        Mat4::from_scale_rotation_translation(
-            Vec3::new(self.zoom, self.zoom, self.zoom),
-            Quat::from_rotation_z(self.rotation),
-            Vec3::from((self.position, 0.0)))
+    pub(crate) fn get_view(&self) -> Mat4 {
+        self.view
     }
 
-    pub(crate) fn get_projection_mat(&self) -> Mat4 {
+    pub(crate) fn get_projection(&self) -> Mat4 {
         self.projection
     }
 
-    pub(crate) fn update_projection_mat(&mut self, width: i32, height: i32) {
+    pub(crate) fn update_view(&mut self) {
+        self.view = Mat4::from_scale_rotation_translation(
+            Vec3::new(self.zoom, self.zoom, self.zoom),
+            Quat::from_rotation_z(self.rotation),
+            Vec3::from((self.position, 0.0)));
+    }
+
+    pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
         self.projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, self.z_near, self.z_far);
+    }
+
+    fn setup(mut self, width: u32, height: u32) -> Self {
+        self.update_view();
+        self.update_projection(width, height);
+        self
     }
 }
 
 #[derive(Clone)]
 pub struct Camera3D {
-    pub position: Vec3,
-    pub rotation: Vec3,
-    pub zoom: f32,
+    pub(crate) position: Vec3,
+    pub(crate) rotation: Vec3,
+    pub(crate) zoom: f32,
     projection: Mat4,
-    pub z_near: f32,
-    pub z_far: f32,
-    pub fov: f32
-}
-
-impl Default for Camera3D {
-    fn default() -> Self {
-        Camera3D::new(Vec3::new(0.0, 0.0, 20.0), Vec3::default())
-    }
+    view: Mat4,
+    pub(crate) z_near: f32,
+    pub(crate) z_far: f32,
+    pub(crate) fov: f32
 }
 
 impl Camera3D {
-    pub fn new(pos: Vec3, rot: Vec3) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Camera3D {
-            position: pos,
-            rotation: rot,
+            position: Vec3::default(),
+            rotation: Vec3::default(),
             zoom: 1.0,
             projection: Mat4::default(),
-            z_near: 0.1,
+            view: Mat4::default(),
+            z_near: 0.0,
             z_far: 2000.0,
             fov: std::f32::consts::FRAC_PI_4
-        }
+        }.setup(width, height)
     }
 
-    pub(crate) fn get_view_mat(&self) -> Mat4 {
-        Mat4::from_scale_rotation_translation(
+    pub(crate) fn get_view(&self) -> Mat4 {
+        self.view
+    }
+
+    pub(crate) fn update_view(&mut self) {
+        self.view = Mat4::from_scale_rotation_translation(
             Vec3::new(self.zoom, self.zoom, self.zoom),
             Quat::from_euler(EulerRot::XYZ, self.rotation.x, self.rotation.y, self.rotation.z),
-            self.position)
+            self.position);
     }
 
-    pub(crate) fn get_projection_mat(&self) -> Mat4 {
+    pub(crate) fn get_projection(&self) -> Mat4 {
         self.projection
     }
 
-    pub(crate) fn update_projection_mat(&mut self, width: i32, height: i32) {
+    pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
         println!("{}", self.z_near);
         self.projection = Mat4::perspective_lh(self.fov, width as f32 / height as f32, self.z_near, self.z_far);
+    }
+
+    fn setup(mut self, width: u32, height: u32) -> Self {
+        self.update_view();
+        self.update_projection(width, height);
+        self
     }
 }

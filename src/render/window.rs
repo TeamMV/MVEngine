@@ -106,7 +106,7 @@ pub(crate) struct Window {
 
 impl Window {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
-    pub fn run(specs: WindowSpecs) {
+    pub fn run(mut specs: WindowSpecs) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
@@ -116,6 +116,9 @@ impl Window {
             .with_title(specs.title.as_str())
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
             .build(&event_loop).unwrap();
+
+        specs.width = internal_window.inner_size().width;
+        specs.height = internal_window.inner_size().height;
 
         let mut state = State::new(&internal_window, &specs);
 
@@ -137,7 +140,10 @@ impl Window {
 
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
-        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font()), specs.width as i32, specs.height as i32, internal_window.scale_factor() as f32);
+        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font()), specs.width, specs.height, internal_window.scale_factor() as f32);
+
+        let camera_2d = Camera2D::new(specs.width, specs.height);
+        let camera_3d = Camera3D::new(specs.width, specs.height);
 
         let mut window = Window {
             specs,
@@ -146,8 +152,8 @@ impl Window {
             render_pass_2d,
             effect_buffer,
             frame: 0,
-            camera_2d: Default::default(),
-            camera_3d: Default::default(),
+            camera_2d,
+            camera_3d,
         };
 
         let mut init_time: u128 = u128::time_nanos();
@@ -232,10 +238,10 @@ impl Window {
         self.state.resize(size);
         self.effect_buffer.resize(&self.state, size.width, size.height);
 
-        self.camera_2d.update_projection_mat(size.width as i32, size.height as i32);
-        self.camera_3d.update_projection_mat(size.width as i32, size.height as i32);
+        self.camera_2d.update_projection(size.width, size.height);
+        self.camera_3d.update_projection(size.width, size.height);
 
-        self.draw_2d.resize(size.width as i32, size.height as i32);
+        self.draw_2d.resize(size.width, size.height);
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -275,7 +281,7 @@ impl Window {
             depth_stencil_attachment: None,
         });
 
-        self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection_mat(), self.camera_2d.get_view_mat());
+        self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection(), self.camera_2d.get_view());
 
         self.draw_2d.color(Color::<RGB, f32>::white());
         self.draw_2d.rectangle(100, 100, 100, 100);
