@@ -129,6 +129,7 @@ impl RenderPass2D {
         }
 
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
+        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.uniform, &[]) };
     }
 
     pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool) {
@@ -166,7 +167,6 @@ impl RenderPass2D {
                 texture_group.remake(self.state, &self.shader);
             }
 
-            render_pass.set_bind_group(0, &self.uniform, &[]);
             render_pass.set_bind_group(1, &texture_group.bind_group, &[]);
             render_pass.set_pipeline(stripped.yn(self.shader.get_stripped_pipeline(), self.shader.get_pipeline()));
             render_pass.set_vertex_buffer(0, vbo.slice(..));
