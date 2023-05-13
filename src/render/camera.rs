@@ -92,7 +92,6 @@ impl Camera3D {
     }
 
     pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
-        println!("{}", self.z_near);
         self.projection = Mat4::perspective_lh(self.fov, width as f32 / height as f32, self.z_near, self.z_far);
     }
 

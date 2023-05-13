@@ -1,21 +1,22 @@
+use std::collections::HashMap;
 use std::iter::once;
 use std::sync::Arc;
 use std::time::Instant;
 use glam::Mat4;
 use mvsync::block::AwaitSync;
 use mvutils::utils::{TetrahedronOp, Time};
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, CommandEncoder, CommandEncoderDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, CommandEncoder, CommandEncoderDescriptor, IndexFormat, LoadOp, Maintain, MaintainBase, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
-use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
+use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
-use crate::render::render::{EBuffer, RenderPass2D};
+use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
 
 pub struct WindowSpecs {
@@ -98,10 +99,14 @@ pub(crate) struct Window {
     state: State,
     draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
+    effect_pass: EffectPass,
     effect_buffer: EBuffer,
     frame: u64,
     pub camera_2d: Camera2D,
     pub camera_3d: Camera3D,
+    tex: Arc<TextureRegion>,
+    effect_shaders: HashMap<String, Arc<EffectShader>>,
+    enabled_effects_2d: Vec<String>
 }
 
 impl Window {
@@ -122,7 +127,10 @@ impl Window {
 
         let mut state = State::new(&internal_window, &specs);
 
-        let mut shader = Shader::new_glsl(include_str!("shaders/default.vert").to_string(), include_str!("shaders/default.frag").to_string());
+        let mut shader = Shader::new_glsl(include_str!("shaders/default.vert"), include_str!("shaders/default.frag"));
+
+        let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"))
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
@@ -133,12 +141,15 @@ impl Window {
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
+        let tex = TextureRegion::from(Arc::new(tex));
         let tex = Arc::new(tex);
         let mut tex2 = Texture::new(include_bytes!("textures/mqxf.png").to_vec());
         tex2.make(&state);
         let tex2 = Arc::new(tex2);
 
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
+
+        let effect_pass = EffectPass::new(&state, &effect_buffer);
 
         let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font()), specs.width, specs.height, internal_window.scale_factor() as f32);
 
@@ -151,10 +162,16 @@ impl Window {
             draw_2d,
             render_pass_2d,
             effect_buffer,
+            effect_pass,
             frame: 0,
             camera_2d,
             camera_3d,
+            tex,
+            effect_shaders: HashMap::new(),
+            enabled_effects_2d: Vec::new(),
         };
+
+        window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
 
         let mut init_time: u128 = u128::time_nanos();
         let mut current_time: u128 = init_time;
@@ -247,52 +264,97 @@ impl Window {
     fn render(&mut self) -> Result<(), SurfaceError> {
         let output = self.state.surface.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor::default());
-        let mut encoder = self.state.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Command Encoder")
-        });
+        let mut encoders = vec![];
 
         #[cfg(feature = "3d")]
-        self.render_3d(&mut encoder, &view);
+        self.render_3d(&mut encoders, &view);
 
-        self.render_2d(&mut encoder, &view);
+        self.enable_effect_2d("pixelate".to_string());
 
-        self.state.queue.submit(once(encoder.finish()));
+        self.render_2d(&mut encoders, &view);
+
+        self.state.queue.submit(encoders.into_iter().map(CommandEncoder::finish));
+
         output.present();
 
         Ok(())
     }
 
-    fn render_2d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
-        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
+    fn render_2d(&mut self, encoders: &mut Vec<CommandEncoder>, view: &TextureView) {
+        let len = encoders.len();
+        encoders.push(self.state.device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Render 2D Encoder")
+        }));
+        let encoder = unsafe { (&mut encoders[len] as *mut CommandEncoder).as_mut().unwrap() };
+
+        macro_rules! gen_pass {
+            ($e:ident, $v:ident) => {
+                $e.begin_render_pass(&RenderPassDescriptor {
+                    label: Some("Render Pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view: $v,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Clear(wgpu::Color {
+                                r: 0.0,
+                                g: 0.0,
+                                b: 0.0,
+                                a: 1.0,
+                            }),
+                            store: true,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                })
+            };
+        }
+        let current = if self.enabled_effects_2d.len() > 0 {
+            self.effect_buffer.get_view()
+        } else { view };
+        let mut render_pass = gen_pass!(encoder, current);
 
         self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection(), self.camera_2d.get_view());
+        self.draw_2d.reset_canvas();
 
         self.draw_2d.color(Color::<RGB, f32>::white());
         self.draw_2d.rectangle(100, 100, 100, 100);
+        self.draw_2d.rgba(0, 0, 0, 0);
+        self.draw_2d.image(0, 0, self.specs.width as i32, self.specs.height as i32, self.tex.clone());
 
         self.draw_2d.render(&mut self.render_pass_2d);
 
         self.render_pass_2d.finish();
+
+        if self.enabled_effects_2d.len() > 0 {
+            encoders.push(self.state.device.create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Effect Encoder")
+            }));
+            let encoder = &mut encoders[len + 1];
+
+            let mut final_pass = gen_pass!(encoder, view);
+            let mut remaining = self.enabled_effects_2d.len();
+            if remaining > 1 {
+                self.effect_pass.new_target(&mut render_pass);
+            }
+            for shader in self.enabled_effects_2d.drain(..) {
+                if remaining == 1 {
+                    self.effect_pass.new_target(&mut final_pass);
+                }
+                let effect_shader = self.effect_shaders.get(shader.as_str());
+                if let Some(effect_shader) = effect_shader {
+                    self.effect_pass.render(effect_shader.clone());
+                }
+                else {
+                    panic!("Effect shader not found: {}", shader);
+                }
+                remaining -= 1;
+            }
+            self.effect_pass.finish();
+        }
     }
 
     #[cfg(feature = "3d")]
-    fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
+    fn render_3d(&mut self, encoder: &mut Vec<CommandEncoder>, view: &TextureView) {
 
     }
 
@@ -316,6 +378,21 @@ impl Window {
         match usage {
             EffectShaderUsage::LightingPass => CreatedShader::LightingPass(shader.setup_pipeline(&self.state, &[BIND_GROUP_LIGHTING_3D])),
             EffectShaderUsage::Effect => CreatedShader::Effect(shader.setup_pipeline(&self.state, &[BIND_GROUP_EFFECT]))
+        }
+    }
+
+    pub fn add_effect_shader(&mut self, name: String, shader: CreatedShader) {
+        if let CreatedShader::Effect(shader) = shader {
+            self.effect_shaders.insert(name, Arc::new(shader));
+        }
+        else {
+            panic!("Invalid shader type in shader '{}', expected Effect shader!", name);
+        }
+    }
+
+    pub fn enable_effect_2d(&mut self, name: String) {
+        if self.effect_shaders.contains_key(name.as_str()) {
+            self.enabled_effects_2d.push(name);
         }
     }
 }

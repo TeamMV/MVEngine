@@ -6,8 +6,8 @@ use glam::Mat4;
 use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, Extent3d, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
-use crate::render::common::{Shader, Bytes, Texture};
-use crate::render::consts::{DEFAULT_SAMPLER, DUMMY_TEXTURE, MAX_TEXTURES, TEXTURE_LIMIT};
+use crate::render::common::{Shader, Bytes, Texture, EffectShader};
+use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES, TEXTURE_LIMIT};
 use crate::render::init::State;
 
 struct TextureBindGroup {
@@ -143,7 +143,7 @@ impl RenderPass2D {
             let ibo = &self.ibo[self.pass];
             let vbo = &self.vbo[self.pass];
             let texture_group = &mut self.texture_groups[self.pass];
-            let render_pass = (self.render_pass as *mut RenderPass).as_mut().expect("You need to call RenderPass2D::next_frame() before rendering!");
+            let render_pass = (self.render_pass as *mut RenderPass).as_mut().expect("You need to call RenderPass2D::new_frame() before rendering!");
 
             self.state.queue.write_buffer(ibo, 0, indices.cast_bytes());
             self.state.queue.write_buffer(vbo, 0, vertices.cast_bytes());
@@ -182,7 +182,71 @@ impl RenderPass2D {
 }
 
 pub(crate) struct EffectPass {
+    state: &'static State,
+    render_pass: *mut c_void,
+    ibo: Vec<Buffer>,
+    vbo: Buffer,
+    pass: usize,
+    bind_group: BindGroup,
+}
 
+impl EffectPass {
+    pub(crate) fn new(state: &State, buffer: &EBuffer) -> Self {
+        unsafe {
+            let ibo = state.gen_ibo_sized(24);
+            let vbo = state.gen_vbo_sized(0);
+            let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Effect bind group"),
+                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(buffer.get_view())
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                    }
+                ],
+            });
+            EffectPass {
+                state: unsafe { (state as *const State).as_ref() }.unwrap(),
+                render_pass: null_mut(),
+                ibo: vec![ibo],
+                vbo,
+                pass: 0,
+                bind_group,
+            }
+        }
+    }
+
+    pub(crate) fn new_target(&mut self, render_pass: &mut RenderPass) {
+        self.render_pass = render_pass as *mut RenderPass as *mut c_void;
+        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_vertex_buffer(0, self.vbo.slice(..)) };
+        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.bind_group, &[]) };
+    }
+
+    pub(crate) fn render(&mut self, shader: Arc<EffectShader>) {
+        unsafe {
+            if self.ibo.len() <= self.pass {
+                self.ibo.push(self.state.gen_ibo_sized(24));
+            }
+            let ibo = &self.ibo[self.pass];
+            let render_pass = (self.render_pass as *mut RenderPass).as_mut().expect("You need to call EffectPass::new_target() before rendering!");
+
+            self.state.queue.write_buffer(ibo, 0, EFFECT_INDICES.as_slice().cast_bytes());
+
+            render_pass.set_pipeline(shader.get_pipeline());
+            render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);
+            render_pass.draw_indexed(0..6, 0, 0..1);
+            self.pass += 1;
+        }
+    }
+
+    pub(crate) fn finish(&mut self) {
+        self.render_pass = null_mut();
+        self.pass = 0;
+    }
 }
 
 #[cfg(feature = "3d")]
@@ -219,7 +283,7 @@ impl EBuffer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
+            format: state.config.format,
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
@@ -243,7 +307,7 @@ impl EBuffer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
+            format: state.config.format,
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });

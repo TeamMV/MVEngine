@@ -23,16 +23,6 @@ pub mod files;
 //pub mod gui;
 pub mod render;
 
-#[test]
-fn it_works() {
-    let core = RenderCore::new();
-    let mut specs = WindowSpecs::default();
-    specs.vsync = false;
-    specs.fps = 10000;
-    core.run_window(specs);
-}
-
-
 pub struct MVCore {
     render: Arc<RenderCore>,
     //load_request: Sender<LoadRequest>,

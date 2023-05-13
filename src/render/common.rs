@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
-use wgpu::{AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
-use wgpu::util::make_spirv;
-use crate::render::consts::{EFFECT_VERT, VERTEX_LAYOUT_EFFECT};
+use wgpu::{AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
+use wgpu::util::{make_spirv, make_spirv_raw};
+use crate::render::consts::EFFECT_VERT;
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
@@ -138,9 +138,9 @@ impl Shader {
         }
     }
 
-    pub(crate) fn new_glsl(vert: String, frag: String) -> Self {
-        let v_spv = compile(vert.as_str(), ShaderType::Vertex);
-        let f_spv = compile(frag.as_str(), ShaderType::Fragment);
+    pub(crate) fn new_glsl(vert: &str, frag: &str) -> Self {
+        let v_spv = compile(vert, ShaderType::Vertex);
+        let f_spv = compile(frag, ShaderType::Fragment);
         Self {
             id: next_id("MVCore::Shader"),
             vert: Some(v_spv),
@@ -151,44 +151,46 @@ impl Shader {
     }
 
     pub(crate) fn setup_pipeline(mut self, state: &State, layout: VertexBufferLayout<'static>, bind_groups:  &[u8]) -> Self {
-        if self.vert.is_none() || self.frag.is_none() {
-            return self;
+        unsafe {
+            if self.vert.is_none() || self.frag.is_none() {
+                return self;
+            }
+
+            let vert = self.vert.take().unwrap();
+
+            let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                label: Some("vert"),
+                source: make_spirv_raw(&vert),
+            });
+
+            let frag = self.frag.take().unwrap();
+
+            let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                label: Some("frag"),
+                source: make_spirv_raw(&frag),
+            });
+
+            self.pipeline = Some(
+                PipelineBuilder::begin(state)
+                    .custom_vertex_layout(layout.clone())
+                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
+                    .shader(PipelineBuilder::SHADER_VERTEX, &vert)
+                    .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
+                    .bind_groups(bind_groups)
+                    .build()
+            );
+
+            self.stripped_pipeline = Some(
+                PipelineBuilder::begin(state)
+                    .custom_vertex_layout(layout)
+                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
+                    .shader(PipelineBuilder::SHADER_VERTEX, &vert)
+                    .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
+                    .bind_groups(bind_groups)
+                    .build()
+            );
+            self
         }
-
-        let vert = self.vert.take().unwrap();
-
-        let vert = state.device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("vert"),
-            source: make_spirv(&vert),
-        });
-
-        let frag = self.frag.take().unwrap();
-
-        let frag = state.device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("frag"),
-            source: make_spirv(&frag),
-        });
-
-        self.pipeline = Some(
-            PipelineBuilder::begin(state)
-                .custom_vertex_layout(layout.clone())
-                .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
-                .shader(PipelineBuilder::SHADER_VERTEX, &vert)
-                .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                .bind_groups(bind_groups)
-                .build()
-        );
-
-        self.stripped_pipeline = Some(
-            PipelineBuilder::begin(state)
-                .custom_vertex_layout(layout)
-                .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
-                .shader(PipelineBuilder::SHADER_VERTEX, &vert)
-                .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                .bind_groups(bind_groups)
-                .build()
-        );
-        self
     }
 
     pub(crate) fn get_pipeline(&self) -> &RenderPipeline {
@@ -238,35 +240,37 @@ impl EffectShader {
     }
 
     pub(crate) fn setup_pipeline(mut self, state: &State, bind_groups: &[u8]) -> Self {
-        if self.shader.is_none() {
-            return self;
+        unsafe {
+            if self.shader.is_none() {
+                return self;
+            }
+
+            let vert = compile(EFFECT_VERT, ShaderType::Vertex);
+
+            let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                label: Some("effect_vert"),
+                source: make_spirv_raw(&vert),
+            });
+
+            let frag = self.shader.take().unwrap();
+
+            let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                label: Some("effect_frag"),
+                source: make_spirv_raw(&frag),
+            });
+
+            self.pipeline = Some(
+                PipelineBuilder::begin(state)
+                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
+                    .param(PipelineBuilder::VERTEX_LAYOUT, PipelineBuilder::VERTEX_LAYOUT_NONE)
+                    .shader(PipelineBuilder::SHADER_VERTEX, &vert)
+                    .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
+                    .bind_groups(bind_groups)
+                    .build()
+            );
+
+            self
         }
-
-        let vert = compile(EFFECT_VERT, ShaderType::Vertex);
-
-        let vert = state.device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("effect_vert"),
-            source: make_spirv(&vert),
-        });
-
-        let frag = self.shader.take().unwrap();
-
-        let frag = state.device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("effect_frag"),
-            source: make_spirv(&frag),
-        });
-
-        self.pipeline = Some(
-            PipelineBuilder::begin(state)
-                .custom_vertex_layout(VERTEX_LAYOUT_EFFECT)
-                .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
-                .shader(PipelineBuilder::SHADER_VERTEX, &vert)
-                .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                .bind_groups(bind_groups)
-                .build()
-        );
-
-        self
     }
 
     pub(crate) fn get_pipeline(&self) -> &RenderPipeline {

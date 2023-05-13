@@ -1,6 +1,6 @@
 use log::LevelFilter::Trace;
 use mvcore::render::RenderCore;
-use mvcore::render::window::WindowSpecs;
+use mvcore::render::window::{CreatedShader, WindowSpecs};
 
 fn main() {
     let core = RenderCore::new();

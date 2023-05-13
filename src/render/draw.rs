@@ -420,10 +420,10 @@ impl Draw2D {
         let tex = self.batch.add_texture(texture.parent(), 4);
         let uv = texture.get_uv();
 
-        self.vertices.get_mut(0).set_texture_data(x as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0), uv[0], uv[3], tex, self.canvas, self.use_cam);
-        self.vertices.get_mut(1).set_texture_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1), uv[0], uv[2], tex, self.canvas, self.use_cam);
-        self.vertices.get_mut(2).set_texture_data((x + width) as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2), uv[1], uv[2], tex, self.canvas, self.use_cam);
-        self.vertices.get_mut(3).set_texture_data((x + width) as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3), uv[1], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(0).set_texture_data(x as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(0),             uv[0], uv[1], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(1).set_texture_data(x as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(1),                        uv[0], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(2).set_texture_data((x + width) as f32, y as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(2),              uv[2], uv[3], tex, self.canvas, self.use_cam);
+        self.vertices.get_mut(3).set_texture_data((x + width) as f32, (y + height) as f32, 0.0, rad_rot, rx as f32, ry as f32, self.color.get(3),   uv[2], uv[1], tex, self.canvas, self.use_cam);
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
     }

@@ -11,7 +11,7 @@ use wgpu::Instance;
 use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
 use winit::dpi::PhysicalSize;
 use crate::render::common::Texture;
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_TEXTURES_2D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_NONE};
 use crate::render::window::{Window, WindowSpecs};
 
 pub(crate) struct State {
@@ -51,23 +51,6 @@ impl State {
             let textures = adapter.limits().max_sampled_textures_per_shader_stage;
 
             MAX_TEXTURES = min(textures as usize - 1, TEXTURE_LIMIT);
-            static entries: [BindGroupLayoutEntry; 1] = [
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: Some(unsafe { NonZeroU32::new_unchecked(MAX_TEXTURES as u32) }),
-                }
-            ];
-
-            BIND_GROUP_LAYOUT_TEXTURES_2D = BindGroupLayoutDescriptor {
-                label: Some("Bind group layout textures 2D"),
-                entries: &entries,
-            };
 
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor {
@@ -230,13 +213,6 @@ impl State {
     }
 
     fn create_render_pipeline(&self, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, mut cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode, vertex_layout: VertexBufferLayout, bind_groups: Vec<&'static BindGroupLayout>) -> RenderPipeline {
-        if self.backend == Backend::Vulkan {
-            cull_dir = match cull_dir {
-                FrontFace::Ccw => FrontFace::Cw,
-                FrontFace::Cw => FrontFace::Ccw
-            }
-        }
-
         let render_pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &bind_groups,
@@ -345,6 +321,7 @@ impl<'a> PipelineBuilder<'a> {
     pub(crate) const VERTEX_LAYOUT_2D: u8 = 22;
     pub(crate) const VERTEX_LAYOUT_MODEL_3D: u8 = 23;
     pub(crate) const VERTEX_LAYOUT_BATCH_3D: u8 = 24;
+    pub(crate) const VERTEX_LAYOUT_NONE: u8 = 25;
 
     pub(crate) fn begin(state: &'a State) -> Self {
         Self {
@@ -407,6 +384,7 @@ impl<'a> PipelineBuilder<'a> {
                     Self::VERTEX_LAYOUT_2D => {self.vertex_layout = VERTEX_LAYOUT_2D}
                     Self::VERTEX_LAYOUT_MODEL_3D => {self.vertex_layout = VERTEX_LAYOUT_MODEL_3D}
                     Self::VERTEX_LAYOUT_BATCH_3D => {self.vertex_layout = VERTEX_LAYOUT_BATCH_3D}
+                    Self::VERTEX_LAYOUT_NONE => {self.vertex_layout = VERTEX_LAYOUT_NONE}
                     _ => {}
                 }
             }
@@ -435,7 +413,7 @@ impl<'a> PipelineBuilder<'a> {
 
     pub(crate) fn build(self) -> RenderPipeline {
         if self.vert.is_none() {
-            panic!("Vertex/Common can't be None when creating pipeline!");
+            panic!("Vertex/Common shader can't be None when creating pipeline!");
         }
 
         let bindings = self.bind_group.into_iter().map(|b| unsafe { BIND_GROUPS.get(&b).expect("Illegal bind group id!") } ).collect_vec();

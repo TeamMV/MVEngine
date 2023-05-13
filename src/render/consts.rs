@@ -14,17 +14,13 @@ pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 
 pub(crate) const EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,0.0),vec2(0.0,1.0),vec2(1.0,0.0),vec2(1.0,1.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
 
+pub(crate) const EFFECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
+
 pub(crate) static mut DEFAULT_SAMPLER: Option<Sampler> = None;
 pub(crate) static mut DUMMY_TEXTURE: Option<Arc<Texture>> = None;
 
 pub(crate) static mut MAX_TEXTURES: usize = 0;
 pub(crate) const TEXTURE_LIMIT: usize = 255;
-
-pub(crate) const VERTEX_LAYOUT_EFFECT: VertexBufferLayout = VertexBufferLayout {
-    array_stride: 0,
-    step_mode: VertexStepMode::Vertex,
-    attributes: &[]
-};
 
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
     array_stride: 80,
@@ -67,6 +63,12 @@ pub(crate) const VERTEX_LAYOUT_BATCH_3D: VertexBufferLayout = VertexBufferLayout
     ]
 };
 
+pub(crate) const VERTEX_LAYOUT_NONE: VertexBufferLayout = VertexBufferLayout {
+    array_stride: 0,
+    step_mode: VertexStepMode::Vertex,
+    attributes: &vertex_attr_array![]
+};
+
 pub(crate) const BIND_GROUP_2D: u8 = 0;
 pub(crate) const BIND_GROUP_TEXTURES_2D: u8 = 1;
 pub(crate) const BIND_GROUP_GEOMETRY_MODEL_3D: u8 = 2;
@@ -100,11 +102,6 @@ pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayo
     ],
 };
 
-pub(crate) static mut BIND_GROUP_LAYOUT_TEXTURES_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: Some("Dummy bind group"),
-    entries: &[],
-};
-
 pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout geometry pass (model) 3D"),
     entries: &[],
@@ -132,5 +129,22 @@ pub(crate) const BIND_GROUP_LAYOUT_BATCH_3D: BindGroupLayoutDescriptor = BindGro
 
 pub(crate) const BIND_GROUP_LAYOUT_EFFECT: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout effect"),
-    entries: &[],
+    entries: &[
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                view_dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        }
+    ],
 };
