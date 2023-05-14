@@ -5,6 +5,7 @@ use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, EFFECT_VERT};
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
+use std::mem;
 use std::sync::Arc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
@@ -281,7 +282,7 @@ impl EffectShader {
                     .build()
             );
 
-            self.buffer = Some(state.gen_uniform_buffer_sized(self.uniform_size.max(4)));
+            self.buffer = Some(state.gen_uniform_buffer_sized((self.uniform_size * 4).max(4)));
 
             self.uniform = Some(
                 state.device.create_bind_group(&BindGroupDescriptor {
@@ -300,10 +301,8 @@ impl EffectShader {
         }
     }
 
-    pub(crate) fn get_buffer_maker(&self) -> BufferMaker {
-        BufferMaker {
-            buffer: self.buffer.as_ref().expect("Setting up unmade shader!")
-        }
+    pub(crate) fn get_buffer_maker(&self, state: &'static State) -> BufferMaker {
+        BufferMaker::new(state, self.buffer.as_ref().expect("Setting up unmade shader!"), self.uniform_size as usize)
     }
 
     pub(crate) fn get_uniforms(&self) -> &BindGroup {
@@ -316,16 +315,87 @@ impl EffectShader {
 }
 
 pub struct BufferMaker<'buf> {
-    buffer: &'buf Buffer
+    state: &'static State,
+    buffer: &'buf Buffer,
+    size: usize,
+    data: Vec<f32>
 }
 
 impl<'buf> BufferMaker<'buf> {
-    pub(crate) fn new(buffer: &'buf Buffer) -> Self {
-        BufferMaker { buffer }
+    pub(crate) fn new(state: &'static State, buffer: &'buf Buffer, size: usize) -> Self {
+        BufferMaker {
+            state,
+            buffer,
+            size,
+            data: vec![0.0; size]
+        }
+    }
+
+    pub fn set_float(&mut self, offset: usize, value: f32) {
+        if offset + 1 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset] = value;
+    }
+
+    pub fn set_vec2(&mut self, offset: usize, value: Vec2) {
+        if offset + 2 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 2].copy_from_slice(value.to_array().as_slice());
+    }
+
+    pub fn set_vec3(&mut self, offset: usize, value: Vec3) {
+        if offset + 3 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 3].copy_from_slice(value.to_array().as_slice());
+    }
+
+    pub fn set_vec4(&mut self, offset: usize, value: Vec4) {
+        if offset + 4 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 4].copy_from_slice(value.to_array().as_slice());
+    }
+
+    pub fn set_mat2(&mut self, offset: usize, value: Mat2) {
+        if offset + 4 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 4].copy_from_slice(value.to_cols_array().as_slice());
+    }
+
+    pub fn set_mat3(&mut self, offset: usize, value: Mat3) {
+        if offset + 9 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 9].copy_from_slice(value.to_cols_array().as_slice());
+    }
+
+    pub fn set_mat4(&mut self, offset: usize, value: Mat4) {
+        if offset + 16 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset..offset + 16].copy_from_slice(value.to_cols_array().as_slice());
+    }
+
+    pub fn set_int(&mut self, offset: usize, value: i32) {
+        if offset + 1 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset] = unsafe { mem::transmute(value) }
+    }
+
+    pub fn set_uint(&mut self, offset: usize, value: u32) {
+        if offset + 1 > self.size {
+            panic!("Uniform buffer index out of bounds!");
+        }
+        self.data[offset] = unsafe { mem::transmute(value) }
     }
 
     pub fn finish(self) {
-
+        self.state.queue.write_buffer(self.buffer, 0, self.data.as_slice().cast_bytes());
     }
 }
 
