@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::iter::once;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use glam::Mat4;
 use mvsync::block::AwaitSync;
 use mvutils::utils::{TetrahedronOp, Time};
@@ -97,6 +97,7 @@ impl Default for WindowSpecs {
 pub(crate) struct Window {
     specs: WindowSpecs,
     state: State,
+    start_time: SystemTime,
     draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
     effect_pass: EffectPass,
@@ -165,6 +166,7 @@ impl Window {
         let mut window = Window {
             specs,
             state,
+            start_time: SystemTime::now(),
             draw_2d,
             render_pass_2d,
             effect_buffer,
@@ -181,6 +183,7 @@ impl Window {
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
         window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
         window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
+
 
         let mut init_time: u128 = u128::time_nanos();
         let mut current_time: u128 = init_time;
@@ -286,8 +289,8 @@ impl Window {
         //self.enable_effect_2d("blur".to_string());
         //self.enable_effect_2d("pixelate".to_string());
         //self.enable_effect_2d("distort".to_string());
-        self.enable_effect_2d("pixelate".to_string());
-        self.enable_effect_2d("wave".to_string());
+        //self.enable_effect_2d("pixelate".to_string());
+        //self.enable_effect_2d("wave".to_string());
 
         self.render_2d(&mut encoder, &view);
 
@@ -340,7 +343,7 @@ impl Window {
             depth_stencil_attachment: None,
         });
         let current = if self.enabled_effects_2d.len() > 0 {
-            self.effect_pass.new_frame(self.frame, self.specs.width, self.specs.height);
+            self.effect_pass.new_frame(SystemTime::now().duration_since(self.start_time).expect("System time error").as_secs_f32(), self.specs.width, self.specs.height);
             self.effect_buffer.get_write()
         } else { view };
         let mut render_pass = gen_pass!(encoder, current);

@@ -293,8 +293,8 @@ impl EffectPass {
         mem::swap(&mut self.bind_group_a, &mut self.bind_group_b);
     }
 
-    pub(crate) fn new_frame(&mut self, time: u64, width: u32, height: u32) {
-        self.state.queue.write_buffer(&self.uniform, 0, [width as f32, height as f32, time as f32].as_slice().cast_bytes());
+    pub(crate) fn new_frame(&mut self, time: f32, width: u32, height: u32) {
+        self.state.queue.write_buffer(&self.uniform, 0, [width as f32, height as f32, time].as_slice().cast_bytes());
     }
 
     pub(crate) fn new_target(&mut self, render_pass: &mut RenderPass) {
