@@ -314,6 +314,7 @@ impl EffectPass {
             self.state.queue.write_buffer(ibo, 0, EFFECT_INDICES.as_slice().cast_bytes());
 
             render_pass.set_pipeline(shader.get_pipeline());
+            render_pass.set_bind_group(1, shader.get_uniforms(), &[]);
             render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);
             render_pass.draw_indexed(0..6, 0, 0..1);
             self.pass += 1;

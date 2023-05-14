@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
-use wgpu::{AddressMode, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
+use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
 use wgpu::util::{make_spirv, make_spirv_raw};
-use crate::render::consts::EFFECT_VERT;
+use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, EFFECT_VERT};
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
@@ -205,7 +205,10 @@ impl Shader {
 pub struct EffectShader {
     id: u64,
     shader: Option<Vec<u8>>,
-    pipeline: Option<RenderPipeline>
+    pipeline: Option<RenderPipeline>,
+    uniform_size: u64,
+    buffer: Option<Buffer>,
+    uniform: Option<BindGroup>
 }
 
 impl Clone for EffectShader {
@@ -217,25 +220,34 @@ impl Clone for EffectShader {
             id: self.id,
             shader: self.shader.clone(),
             pipeline: None,
+            uniform_size: self.uniform_size,
+            buffer: None,
+            uniform: None
         }
     }
 }
 
 impl EffectShader {
-    pub(crate) fn new(shader: Vec<u8>) -> Self {
+    pub(crate) fn new(shader: Vec<u8>, uniform_size: u64) -> Self {
         Self {
             id: next_id("MVCore::EffectShader"),
             shader: Some(shader),
             pipeline: None,
+            uniform_size,
+            buffer: None,
+            uniform: None
         }
     }
 
-    pub(crate) fn new_glsl(shader: &str) -> Self {
+    pub(crate) fn new_glsl(shader: &str, uniform_size: u64) -> Self {
         let spv = compile(shader, ShaderType::Fragment);
         Self {
             id: next_id("MVCore::EffectShader"),
             shader: Some(spv),
             pipeline: None,
+            uniform_size,
+            buffer: None,
+            uniform: None
         }
     }
 
@@ -269,12 +281,51 @@ impl EffectShader {
                     .build()
             );
 
+            self.buffer = Some(state.gen_uniform_buffer_sized(self.uniform_size.max(4)));
+
+            self.uniform = Some(
+                state.device.create_bind_group(&BindGroupDescriptor {
+                    label: Some("Effect custom uniforms"),
+                    layout: &BIND_GROUPS.get(&BIND_GROUP_EFFECT_CUSTOM).unwrap(),
+                    entries: &[
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: self.buffer.as_ref().unwrap().as_entire_binding(),
+                        },
+                    ],
+                })
+            );
+
             self
         }
     }
 
+    pub(crate) fn get_buffer_maker(&self) -> BufferMaker {
+        BufferMaker {
+            buffer: self.buffer.as_ref().expect("Setting up unmade shader!")
+        }
+    }
+
+    pub(crate) fn get_uniforms(&self) -> &BindGroup {
+        self.uniform.as_ref().expect("Binding unmade shader!")
+    }
+
     pub(crate) fn get_pipeline(&self) -> &RenderPipeline {
         self.pipeline.as_ref().expect("Binding unmade shader!")
+    }
+}
+
+pub struct BufferMaker<'buf> {
+    buffer: &'buf Buffer
+}
+
+impl<'buf> BufferMaker<'buf> {
+    pub(crate) fn new(buffer: &'buf Buffer) -> Self {
+        BufferMaker { buffer }
+    }
+
+    pub fn finish(self) {
+
     }
 }
 

@@ -13,7 +13,7 @@ use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, Windo
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
@@ -129,12 +129,14 @@ impl Window {
 
         let mut shader = Shader::new_glsl(include_str!("shaders/default.vert"), include_str!("shaders/default.frag"));
 
-        let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"))
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
-        let mut blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"))
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
-        let mut distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"))
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
+        let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let mut blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let mut distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let mut wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
@@ -178,6 +180,7 @@ impl Window {
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
         window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
+        window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
 
         let mut init_time: u128 = u128::time_nanos();
         let mut current_time: u128 = init_time;
@@ -282,7 +285,9 @@ impl Window {
 
         //self.enable_effect_2d("blur".to_string());
         //self.enable_effect_2d("pixelate".to_string());
-        self.enable_effect_2d("distort".to_string());
+        //self.enable_effect_2d("distort".to_string());
+        self.enable_effect_2d("pixelate".to_string());
+        self.enable_effect_2d("wave".to_string());
 
         self.render_2d(&mut encoder, &view);
 
@@ -399,10 +404,11 @@ impl Window {
     }
 
     pub fn create_effect_shader(&self, frag: ShaderSource, usage: EffectShaderUsage) -> CreatedShader {
-        let mut shader = EffectShader::new(frag.compile(ShaderType::Fragment));
+        let size = if let EffectShaderUsage::Effect(ref size) = usage { *size } else { 0 };
+        let mut shader = EffectShader::new(frag.compile(ShaderType::Fragment), size);
         match usage {
             EffectShaderUsage::LightingPass => CreatedShader::LightingPass(shader.setup_pipeline(&self.state, &[BIND_GROUP_LIGHTING_3D])),
-            EffectShaderUsage::Effect => CreatedShader::Effect(shader.setup_pipeline(&self.state, &[BIND_GROUP_EFFECT]))
+            EffectShaderUsage::Effect(_) => CreatedShader::Effect(shader.setup_pipeline(&self.state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]))
         }
     }
 
@@ -444,7 +450,7 @@ pub enum ShaderUsage {
 
 pub enum EffectShaderUsage {
     LightingPass,
-    Effect
+    Effect(u64)
 }
 
 pub enum CreatedShader {

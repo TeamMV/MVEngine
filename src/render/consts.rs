@@ -78,6 +78,7 @@ pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 4;
 pub(crate) const BIND_GROUP_MODEL_3D: u8 = 5;
 pub(crate) const BIND_GROUP_BATCH_3D: u8 = 6;
 pub(crate) const BIND_GROUP_EFFECT: u8 = 7;
+pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 8;
 
 pub(crate) static mut BIND_GROUPS: Lazy<HashMap<u8, BindGroupLayout>> = Lazy::new(HashMap::new);
 
@@ -154,6 +155,22 @@ pub(crate) const BIND_GROUP_LAYOUT_EFFECT: BindGroupLayoutDescriptor = BindGroup
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: false,
                 min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(16) }),
+            },
+            count: None
+        }
+    ],
+};
+
+pub(crate) const BIND_GROUP_LAYOUT_EFFECT_CUSTOM: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
+    label: Some("Bind group layout effect custom"),
+    entries: &[
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
             },
             count: None
         }
