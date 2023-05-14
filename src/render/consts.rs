@@ -60,7 +60,7 @@ pub(crate) const VERTEX_LAYOUT_BATCH_3D: VertexBufferLayout = VertexBufferLayout
         3 => Float32,   //material id
         4 => Float32x4, //canvas coords
         5 => Float32x2, //canvas data
-        6 => Float32    //model matrix id
+        6 => Float32    //model matrix idx
     ]
 };
 

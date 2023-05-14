@@ -8,6 +8,12 @@ pub(crate) mod batch2d;
 pub mod color;
 pub mod draw;
 pub mod text;
+#[cfg(feature = "3d")]
+pub mod render3d;
+#[cfg(feature = "3d")]
+pub mod deferred;
+#[cfg(feature = "3d")]
+pub mod common3d;
 
 use std::sync::Arc;
 use crate::render::window::{Window, WindowSpecs};

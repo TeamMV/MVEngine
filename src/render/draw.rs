@@ -480,7 +480,7 @@ impl Draw2D {
             let ax = x + char_x + glyph.get_x_offset(height);
             let ay = y - y_off;
             let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);
-            let ay2 = y + glyph.get_height(height)  - y_off;
+            let ay2 = y + glyph.get_height(height) - y_off;
 
             if chroma {
                 self.reset_color();

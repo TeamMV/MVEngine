@@ -3,6 +3,7 @@ use std::cmp::max;
 use std::sync::Arc;
 use mvutils::utils::TetrahedronOp;
 use crate::render::common::Texture;
+use crate::render::init::State;
 use crate::render::RenderCore;
 
 pub struct TypeFace {
@@ -128,7 +129,7 @@ impl Glyph {
     }
 
     fn multiplier(&self, height: i32, value: i32) -> i32 {
-        (height as f32 / self.max_height as f32 * value as f32) as i32
+        (height as f32 / self.max_height as f32 * value as f32).floor() as i32
     }
 }
 
@@ -140,15 +141,15 @@ impl FontLoader {
         FontLoader
     }
 
-    pub(crate) fn load_default_font(&self) -> Font {
-        self.load_bitmap(include_bytes!("fonts/default.png"), include_str!("fonts/default.fnt"))
+    pub(crate) fn load_default_font(&self, state: &State) -> Font {
+        self.load_bitmap(state, include_bytes!("fonts/default.png"), include_str!("fonts/default.fnt"))
     }
 
     pub(crate) fn load_ttf(&self, contents: Vec<u8>) -> Font {
         todo!()
     }
 
-    pub(crate) fn load_bitmap(&self, texture: &[u8], data: &str) -> Font {
+    pub(crate) fn load_bitmap(&self, state: &State, texture: &[u8], data: &str) -> Font {
         fn get_attrib(line: &str, name: &str) -> String {
             let re = regex::Regex::new(r"\s+").unwrap();
             let l = re.replace_all(line, " ");
@@ -205,8 +206,11 @@ impl FontLoader {
             glyph.make_coords(atlas_width, atlas_height, max_height);
         }
 
+        let mut texture = Texture::new(texture.to_vec());
+        texture.make(state);
+
         Font {
-            texture: Arc::new(Texture::new(texture.to_vec())),
+            texture: Arc::new(texture),
             alphabet: map,
             max_width,
             max_height

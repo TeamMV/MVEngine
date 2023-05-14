@@ -7,9 +7,9 @@ fn main() {
     let mut specs = WindowSpecs::default();
     specs.vsync = false;
     specs.fps = 10000;
-    specs.decorated = false;
-    specs.resizable = false;
-    specs.width = 600;
-    specs.height = 400;
+    specs.decorated = true;
+    specs.resizable = true;
+    specs.width = 800;
+    specs.height = 600;
     core.run_window(specs);
 }

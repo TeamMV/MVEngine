@@ -327,22 +327,6 @@ impl EffectPass {
     }
 }
 
-#[cfg(feature = "3d")]
-pub(crate) trait RenderPass3D {
-    fn render_batch(&self, ) {
-
-    }
-
-    fn render_model(&self, ) {
-
-    }
-}
-
-#[cfg(feature = "3d")]
-pub(crate) struct ForwardPass {
-
-}
-
 pub(crate) struct EBuffer {
     read_texture: wgpu::Texture,
     write_texture: wgpu::Texture,

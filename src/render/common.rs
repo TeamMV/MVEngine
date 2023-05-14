@@ -301,8 +301,14 @@ impl EffectShader {
         }
     }
 
-    pub(crate) fn get_buffer_maker(&self, state: &'static State) -> BufferMaker {
-        BufferMaker::new(state, self.buffer.as_ref().expect("Setting up unmade shader!"), self.uniform_size as usize)
+    pub(crate) fn get_buffer_maker(&self) -> BufferMaker {
+        BufferMaker::new(self.uniform_size as usize)
+    }
+
+    pub(crate) fn setup<F>(&self, state: &State, f: F) where F: FnOnce(&mut BufferMaker) {
+        let mut maker = self.get_buffer_maker();
+        f(&mut maker);
+        maker.finish(state, self.buffer.as_ref().expect("Setting up unmade shader!"));
     }
 
     pub(crate) fn get_uniforms(&self) -> &BindGroup {
@@ -314,18 +320,14 @@ impl EffectShader {
     }
 }
 
-pub struct BufferMaker<'buf> {
-    state: &'static State,
-    buffer: &'buf Buffer,
+pub struct BufferMaker {
     size: usize,
     data: Vec<f32>
 }
 
-impl<'buf> BufferMaker<'buf> {
-    pub(crate) fn new(state: &'static State, buffer: &'buf Buffer, size: usize) -> Self {
+impl BufferMaker {
+    pub(crate) fn new(size: usize) -> Self {
         BufferMaker {
-            state,
-            buffer,
             size,
             data: vec![0.0; size]
         }
@@ -394,8 +396,8 @@ impl<'buf> BufferMaker<'buf> {
         self.data[offset] = unsafe { mem::transmute(value) }
     }
 
-    pub fn finish(self) {
-        self.state.queue.write_buffer(self.buffer, 0, self.data.as_slice().cast_bytes());
+    pub(crate) fn finish(self, state: &State, buffer: &Buffer) {
+        state.queue.write_buffer(buffer, 0, self.data.as_slice().cast_bytes());
     }
 }
 

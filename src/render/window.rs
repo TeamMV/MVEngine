@@ -130,7 +130,7 @@ impl Window {
 
         let mut shader = Shader::new_glsl(include_str!("shaders/default.vert"), include_str!("shaders/default.frag"));
 
-        let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 0)
+        let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
         let mut blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
@@ -138,6 +138,11 @@ impl Window {
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
         let mut wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+
+        pixelate.setup(&state, |maker| {
+            maker.set_float(0, 5.0);
+
+        });
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
@@ -158,7 +163,7 @@ impl Window {
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
 
-        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font()), specs.width, specs.height, internal_window.scale_factor() as f32);
+        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font(&state)), specs.width, specs.height, internal_window.scale_factor() as f32);
 
         let camera_2d = Camera2D::new(specs.width, specs.height);
         let camera_3d = Camera3D::new(specs.width, specs.height);
@@ -350,10 +355,12 @@ impl Window {
         self.render_pass_2d.new_frame(&mut render_pass, self.camera_2d.get_projection(), self.camera_2d.get_view());
         self.draw_2d.reset_canvas();
 
-        self.draw_2d.color(Color::<RGB, f32>::white());
-        self.draw_2d.rectangle(100, 100, 100, 100);
-        self.draw_2d.rgba(0, 0, 0, 0);
-        self.draw_2d.image(0, 0, self.specs.width as i32, self.specs.height as i32, self.tex.clone());
+        //self.draw_2d.color(Color::<RGB, f32>::white());
+        //self.draw_2d.rectangle(100, 100, 100, 100);
+        //self.draw_2d.rgba(0, 0, 0, 0);
+        //self.draw_2d.image(0, 0, self.specs.width as i32, self.specs.height as i32, self.tex.clone());
+        self.draw_2d.color(Color::<RGB, f32>::new(1.0, 0.0, 0.0, 1.0));
+        self.draw_2d.text(true, 100, 100, 20, "H");
 
         self.draw_2d.render(&mut self.render_pass_2d);
 
