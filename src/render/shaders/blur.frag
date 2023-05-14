@@ -1,27 +1,31 @@
 #version 450
 
-in vec2 fTexCoord;
+layout(location = 0) in vec2 fTexCoord;
 
-out vec4 outColor;
+layout(location = 0) out vec4 outColor;
 
-uniform sampler2D tex;
-uniform vec2 res;
-uniform float time;
+layout(set = 0, binding = 0) uniform texture2D tex;
+layout(set = 0, binding = 1) uniform sampler sam;
+layout(set = 0, binding = 2) uniform UNIFORMS {
+    vec2 resolution;
+    float time;
+} uniforms;
 
-uniform float dir = 16.0;
-uniform float quality = 4.0;
-uniform float size = 8.0;
+const float dir = 16.0;
+const float quality = 4.0;
+const float size = 8.0;
 
 #define TAU 6.28318530718
 
 void main() {
+    vec2 res = vec2(800.0, 600.0);
     vec2 r = size / res.xy;
 
-    vec4 color = texture(tex, fTexCoord);
+    vec4 color = texture(sampler2D(tex, sam), fTexCoord);
 
     for (float d=0.0; d < TAU; d += TAU / dir) {
         for (float i=1.0 / quality; i<=1.0; i+=1.0 / quality) {
-            color += texture(tex, fTexCoord + vec2(cos(d), sin(d)) * r * i);
+            color += texture(sampler2D(tex, sam), fTexCoord + vec2(cos(d), sin(d)) * r * i);
         }
     }
 

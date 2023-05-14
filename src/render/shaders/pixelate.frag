@@ -6,15 +6,17 @@ layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform texture2D tex;
 layout(set = 0, binding = 1) uniform sampler sam;
-//uniform vec2 res;
-//uniform float time;
+layout(set = 0, binding = 2) uniform UNIFORMS {
+    vec2 resolution;
+    float time;
+} uniforms;
+
 
 const float size = 10.0;
 
 void main() {
-    vec2 res = vec2(800, 600);
-    vec2 d = 1.0 / res.xy;
-    vec2 uv = (d.xy * size) * floor(fTexCoord.xy * res.xy / size);
+    vec2 d = 1.0 / uniforms.resolution.xy;
+    vec2 uv = (d.xy * size) * floor(fTexCoord.xy * uniforms.resolution.xy / size);
 
     outColor = vec4(0);
 

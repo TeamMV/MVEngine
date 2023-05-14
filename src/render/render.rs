@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use std::mem;
 use std::ops::Deref;
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
@@ -187,7 +188,9 @@ pub(crate) struct EffectPass {
     ibo: Vec<Buffer>,
     vbo: Buffer,
     pass: usize,
-    bind_group: BindGroup,
+    bind_group_a: BindGroup,
+    bind_group_b: BindGroup,
+    uniform: Buffer
 }
 
 impl EffectPass {
@@ -195,17 +198,40 @@ impl EffectPass {
         unsafe {
             let ibo = state.gen_ibo_sized(24);
             let vbo = state.gen_vbo_sized(0);
-            let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
+            let uniform = state.gen_uniform_buffer_sized(16);
+            let bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Effect bind group"),
                 layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(buffer.get_view())
+                        resource: BindingResource::TextureView(buffer.get_read())
                     },
                     BindGroupEntry {
                         binding: 1,
                         resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: uniform.as_entire_binding()
+                    }
+                ],
+            });
+            let bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Effect bind group"),
+                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(buffer.get_write())
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: uniform.as_entire_binding()
                     }
                 ],
             });
@@ -215,15 +241,66 @@ impl EffectPass {
                 ibo: vec![ibo],
                 vbo,
                 pass: 0,
-                bind_group,
+                bind_group_a,
+                bind_group_b,
+                uniform
             }
         }
+    }
+
+    pub(crate) fn rebind(&mut self, state: &State, buffer: &EBuffer) {
+        unsafe {
+            self.bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Effect bind group"),
+                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(buffer.get_read())
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: self.uniform.as_entire_binding()
+                    }
+                ],
+            });
+            self.bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Effect bind group"),
+                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(buffer.get_write())
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: self.uniform.as_entire_binding()
+                    }
+                ],
+            });
+        }
+    }
+
+    pub(crate) fn swap(&mut self) {
+        mem::swap(&mut self.bind_group_a, &mut self.bind_group_b);
+    }
+
+    pub(crate) fn new_frame(&mut self, time: u64, width: u32, height: u32) {
+        self.state.queue.write_buffer(&self.uniform, 0, [width as f32, height as f32, time as f32].as_slice().cast_bytes());
     }
 
     pub(crate) fn new_target(&mut self, render_pass: &mut RenderPass) {
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
         unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_vertex_buffer(0, self.vbo.slice(..)) };
-        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.bind_group, &[]) };
+        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.bind_group_a, &[]) };
     }
 
     pub(crate) fn render(&mut self, shader: Arc<EffectShader>) {
@@ -266,15 +343,16 @@ pub(crate) struct ForwardPass {
 }
 
 pub(crate) struct EBuffer {
-    texture: wgpu::Texture,
-    view: TextureView,
+    read_texture: wgpu::Texture,
+    write_texture: wgpu::Texture,
+    read: TextureView,
+    write: TextureView,
 }
 
 impl EBuffer {
     pub(crate) fn generate(state: &State, width: u32, height: u32) -> Self {
-
-        let texture = state.device.create_texture(&TextureDescriptor {
-            label: Some("Effect buffer"),
+        let read_texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer A"),
             size: Extent3d {
                 width,
                 height,
@@ -288,17 +366,36 @@ impl EBuffer {
             view_formats: &[],
         });
 
-        let view = texture.create_view(&TextureViewDescriptor::default());
+        let write_texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer B"),
+            size: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: state.config.format,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        let read = read_texture.create_view(&TextureViewDescriptor::default());
+
+        let write = write_texture.create_view(&TextureViewDescriptor::default());
 
         Self {
-            texture,
-            view
+            read_texture,
+            write_texture,
+            read,
+            write,
         }
     }
 
     pub(crate) fn resize(&mut self, state: &State, width: u32, height: u32) {
-         self.texture = state.device.create_texture(&TextureDescriptor {
-            label: Some("Effect buffer"),
+        self.read_texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer A"),
             size: Extent3d {
                 width,
                 height,
@@ -311,11 +408,34 @@ impl EBuffer {
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-
-        self.view = self.texture.create_view(&TextureViewDescriptor::default());
+        self.write_texture = state.device.create_texture(&TextureDescriptor {
+            label: Some("Effect buffer B"),
+            size: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: state.config.format,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        self.read = self.read_texture.create_view(&TextureViewDescriptor::default());
+        self.write = self.write_texture.create_view(&TextureViewDescriptor::default());
     }
 
-    pub(crate) fn get_view(&self) -> &TextureView {
-        &self.view
+    pub(crate) fn swap(&mut self) {
+        mem::swap(&mut self.read_texture, &mut self.write_texture);
+        mem::swap(&mut self.read, &mut self.write);
+    }
+
+    pub(crate) fn get_read(&self) -> &TextureView {
+        &self.read
+    }
+
+    pub(crate) fn get_write(&self) -> &TextureView {
+        &self.write
     }
 }

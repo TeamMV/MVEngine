@@ -131,6 +131,10 @@ impl Window {
 
         let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"))
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
+        let mut blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"))
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
+        let mut distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"))
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT]);
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
@@ -172,6 +176,8 @@ impl Window {
         };
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
+        window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
+        window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
 
         let mut init_time: u128 = u128::time_nanos();
         let mut current_time: u128 = init_time;
@@ -200,6 +206,7 @@ impl Window {
                         println!("{}", frames);
                         frames = 0;
                         timer += 1000;
+                        window.frame += 1;
                     }
                 }
                 Event::RedrawRequested(window_id) => if window_id == internal_window.id() {
@@ -255,6 +262,8 @@ impl Window {
         self.state.resize(size);
         self.effect_buffer.resize(&self.state, size.width, size.height);
 
+        self.effect_pass.rebind(&self.state, &self.effect_buffer);
+
         self.camera_2d.update_projection(size.width, size.height);
         self.camera_3d.update_projection(size.width, size.height);
 
@@ -264,32 +273,31 @@ impl Window {
     fn render(&mut self) -> Result<(), SurfaceError> {
         let output = self.state.surface.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor::default());
-        let mut encoders = vec![];
+        let mut encoder = self.state.device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Command Encoder")
+        });
 
         #[cfg(feature = "3d")]
-        self.render_3d(&mut encoders, &view);
+        self.render_3d(&mut encoder, &view);
 
-        self.enable_effect_2d("pixelate".to_string());
+        //self.enable_effect_2d("blur".to_string());
+        //self.enable_effect_2d("pixelate".to_string());
+        self.enable_effect_2d("distort".to_string());
 
-        self.render_2d(&mut encoders, &view);
+        self.render_2d(&mut encoder, &view);
 
-        self.state.queue.submit(encoders.into_iter().map(CommandEncoder::finish));
+        self.state.queue.submit(once(encoder.finish()));
 
         output.present();
 
         Ok(())
     }
 
-    fn render_2d(&mut self, encoders: &mut Vec<CommandEncoder>, view: &TextureView) {
-        let len = encoders.len();
-        encoders.push(self.state.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Render 2D Encoder")
-        }));
-        let encoder = unsafe { (&mut encoders[len] as *mut CommandEncoder).as_mut().unwrap() };
-
+    fn render_2d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
+        let encoder = encoder as *mut CommandEncoder;
         macro_rules! gen_pass {
-            ($e:ident, $v:ident) => {
-                $e.begin_render_pass(&RenderPassDescriptor {
+            ($e:ident, $v:expr) => {
+                unsafe { $e.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
                     label: Some("Render Pass"),
                     color_attachments: &[Some(RenderPassColorAttachment {
                         view: $v,
@@ -308,8 +316,27 @@ impl Window {
                 })
             };
         }
+
+        unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Clear(wgpu::Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
         let current = if self.enabled_effects_2d.len() > 0 {
-            self.effect_buffer.get_view()
+            self.effect_pass.new_frame(self.frame, self.specs.width, self.specs.height);
+            self.effect_buffer.get_write()
         } else { view };
         let mut render_pass = gen_pass!(encoder, current);
 
@@ -325,21 +352,19 @@ impl Window {
 
         self.render_pass_2d.finish();
 
-        if self.enabled_effects_2d.len() > 0 {
-            encoders.push(self.state.device.create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Effect Encoder")
-            }));
-            let encoder = &mut encoders[len + 1];
+        drop(render_pass);
 
-            let mut final_pass = gen_pass!(encoder, view);
+        if self.enabled_effects_2d.len() > 0 {
             let mut remaining = self.enabled_effects_2d.len();
-            if remaining > 1 {
-                self.effect_pass.new_target(&mut render_pass);
-            }
             for shader in self.enabled_effects_2d.drain(..) {
-                if remaining == 1 {
-                    self.effect_pass.new_target(&mut final_pass);
-                }
+                self.effect_buffer.swap();
+                self.effect_pass.swap();
+                let mut pass = if remaining == 1 {
+                    gen_pass!(encoder, view)
+                } else {
+                    gen_pass!(encoder, self.effect_buffer.get_write())
+                };
+                self.effect_pass.new_target(&mut pass);
                 let effect_shader = self.effect_shaders.get(shader.as_str());
                 if let Some(effect_shader) = effect_shader {
                     self.effect_pass.render(effect_shader.clone());
@@ -354,7 +379,7 @@ impl Window {
     }
 
     #[cfg(feature = "3d")]
-    fn render_3d(&mut self, encoder: &mut Vec<CommandEncoder>, view: &TextureView) {
+    fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
 
     }
 
