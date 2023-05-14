@@ -48,7 +48,7 @@ pub struct WindowSpecs {
     /// Whether the window should be resizable.
     ///
     /// Default is true.
-    pub resizeable: bool,
+    pub resizable: bool,
 
     /// Dark or Light theme. None means system theme.
     ///
@@ -84,7 +84,7 @@ impl Default for WindowSpecs {
             title: String::new(),
             fullscreen: false,
             decorated: true,
-            resizeable: true,
+            resizable: true,
             theme: None,
             green_eco_mode: false,
             vsync: true,
@@ -117,7 +117,7 @@ impl Window {
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
             .with_fullscreen(specs.fullscreen.yn(Some(Fullscreen::Borderless(None)) , None))
-            .with_resizable(specs.resizeable)
+            .with_resizable(specs.resizable)
             .with_theme(specs.theme)
             .with_title(specs.title.as_str())
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
@@ -289,7 +289,6 @@ impl Window {
         //self.enable_effect_2d("blur".to_string());
         //self.enable_effect_2d("pixelate".to_string());
         //self.enable_effect_2d("distort".to_string());
-        //self.enable_effect_2d("pixelate".to_string());
         //self.enable_effect_2d("wave".to_string());
 
         self.render_2d(&mut encoder, &view);
