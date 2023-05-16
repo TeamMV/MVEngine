@@ -17,6 +17,7 @@ use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFEC
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
+use crate::render::render3d::DeferredPass;
 use crate::render::text::FontLoader;
 
 pub struct WindowSpecs {
@@ -100,6 +101,7 @@ pub(crate) struct Window {
     start_time: SystemTime,
     draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
+    render_pass_3d_def: DeferredPass,
     effect_pass: EffectPass,
     effect_buffer: EBuffer,
     frame: u64,
@@ -129,6 +131,7 @@ impl Window {
         let mut state = State::new(&internal_window, &specs);
 
         let mut shader = Shader::new_glsl(include_str!("shaders/default.vert"), include_str!("shaders/default.frag"));
+        let mut deferred_shader = Shader::new_glsl(include_str!("shaders/deferred_geom.vert"), include_str!("shaders/deferred_geom.frag"));
 
         let mut pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
@@ -149,6 +152,11 @@ impl Window {
             &state,
             Mat4::default(),
             Mat4::default()
+        );
+
+        let render_pass_3d_def = DeferredPass::new(
+            deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D]),
+            &state
         );
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
@@ -182,6 +190,7 @@ impl Window {
             tex,
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
+            render_pass_3d_def,
         };
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
@@ -296,7 +305,14 @@ impl Window {
         //self.enable_effect_2d("distort".to_string());
         //self.enable_effect_2d("wave".to_string());
 
-        self.render_2d(&mut encoder, &view);
+        //self.render_2d(&mut encoder, &view);
+        let mut array: [Option<_>; 255] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+        for item in &mut array {
+            std::mem::replace(item, None);
+        }
+        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
+        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, &mut encoder);
 
         self.state.queue.submit(once(encoder.finish()));
 

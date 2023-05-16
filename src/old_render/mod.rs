@@ -76,7 +76,7 @@ pub(crate) fn load_render_assets(assets: &mut dyn WritableAssetManager) {
     assets.load_effect_shader("pixelate", "effects/pixelate.frag");
     #[cfg(feature = "3d")]
     {
-        assets.load_shader("model", "shaders/model_geom.vert", "shaders/model_geom.frag");
+        assets.load_shader("model", "shaders/deferred_geom.vert", "shaders/deferred_geom.frag");
         assets.load_shader("batch", "shaders/batch_geom.vert", "shaders/batch_geom.frag");
         assets.load_effect_shader("deferred", "shaders/deferred_light.frag");
     }

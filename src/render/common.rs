@@ -422,6 +422,65 @@ impl Texture {
         }
     }
 
+    ///Special texture for storing runtime informations. Don't call make() on it!
+    pub(crate) fn buffer(state: &State) -> Self {
+        let tex = state.device.create_texture(&TextureDescriptor {
+            label: Some("Buffer Texture"),
+            size: Extent3d {
+                width: state.config.width,
+                height: state.config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R8Unorm,
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        let view = tex.create_view(&TextureViewDescriptor::default());
+
+        Self {
+            id: next_id("MVCore::Texture"),
+            width: state.config.width,
+            height: state.config.height,
+            image: None,
+            texture: Some(tex),
+            view: Some(view),
+        }
+    }
+
+    ///Special texture for storing depth informations. Don't call make() on it!!!
+    pub(crate) fn gen_depth(state: &State) -> Self {
+        let tex = state.device.create_texture(&TextureDescriptor {
+            label: Some("Depth Buffer"),
+            size: Extent3d {
+                width: state.config.width,
+                height: state.config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D1,
+            format: TextureFormat::Depth32Float,
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        //Change Filters here!
+        let view = tex.create_view(&TextureViewDescriptor::default());
+
+        Self {
+            id: next_id("MVCore::Texture"),
+            width: state.config.width,
+            height: state.config.height,
+            image: None,
+            texture: Some(tex),
+            view: Some(view),
+        }
+    }
+
     pub(crate) fn premade(texture: wgpu::Texture, view: TextureView) -> Self {
         let width = texture.width();
         let height = texture.height();

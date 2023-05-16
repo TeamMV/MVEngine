@@ -11,16 +11,16 @@ use crate::render::common::{Shader, Bytes, Texture, EffectShader};
 use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES, TEXTURE_LIMIT};
 use crate::render::init::State;
 
-struct TextureBindGroup {
-    bind_group: BindGroup,
-    textures: [Arc<Texture>; TEXTURE_LIMIT],
-    views: [&'static TextureView; TEXTURE_LIMIT]
+pub(crate) struct TextureBindGroup {
+    pub(crate) bind_group: BindGroup,
+    pub(crate) textures: [Arc<Texture>; TEXTURE_LIMIT],
+    pub(crate) views: [&'static TextureView; TEXTURE_LIMIT]
 
 
 }
 
 impl TextureBindGroup {
-    fn new(shader: &Shader, state: &State) -> Self {
+    pub(crate) fn new(shader: &Shader, state: &State) -> Self {
         let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| unsafe { DUMMY_TEXTURE.clone().unwrap() });
         let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEXTURE_LIMIT];
 
@@ -42,12 +42,12 @@ impl TextureBindGroup {
         }
     }
 
-    fn set(&mut self, index: usize, texture: Arc<Texture>) {
+    pub(crate) fn set(&mut self, index: usize, texture: Arc<Texture>) {
         self.views[index] = unsafe { (texture.get_view() as *const TextureView).as_ref().unwrap() };
         self.textures[index] = texture;
     }
 
-    fn remake(&mut self, state: &State, shader: &Shader) {
+    pub(crate) fn remake(&mut self, state: &State, shader: &Shader) {
         self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(1),
@@ -199,6 +199,7 @@ impl EffectPass {
             let ibo = state.gen_ibo_sized(24);
             let vbo = state.gen_vbo_sized(0);
             let uniform = state.gen_uniform_buffer_sized(16);
+            println!("{}", "new");
             let bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Effect bind group"),
                 layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
