@@ -1,9 +1,13 @@
 use core::fmt::Debug;
+use std::io::{BorrowedCursor, Read, Write};
 use std::marker::PhantomData;
+use std::mem;
 use glam::{Vec3, Vec4};
+use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::SplitSized;
 
 use regex::Regex;
+use crate::render::common::Bytes;
 
 pub trait Fmt {}
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
@@ -86,6 +90,29 @@ impl <F: Fmt, T: Copy> Color<F, T> {
 
 pub trait Parse {
     fn parse(s: &str) -> Result<Self, &str> where Self: Sized;
+}
+
+impl<F, T: Savable> Savable for Color<F, T> {
+    fn save(&self, saver: &mut impl Saver) {
+        self.c1.save(saver);
+        self.c2.save(saver);
+        self.c3.save(saver);
+        self.c4.save(saver);
+    }
+
+    fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let c1 = T::load(loader)?;
+        let c2 = T::load(loader)?;
+        let c3 = T::load(loader)?;
+        let c4 = T::load(loader)?;
+        Ok(Color::<F, T> {
+            c1,
+            c2,
+            c3,
+            c4,
+            phantom: Default::default(),
+        })
+    }
 }
 
 impl Color<RGB, u8> {
@@ -295,7 +322,7 @@ impl<F: Fmt, T: Copy> Gradient<F, T> {
         self.colors = [color; 4];
     }
 
-    pub fn copy_of(&mut self, gradient: Gradient<F, T>) {
+    pub fn copy_of(&mut self, gradient: &Gradient<F, T>) {
         self.colors = gradient.colors;
     }
 

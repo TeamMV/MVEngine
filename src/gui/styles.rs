@@ -1,14 +1,13 @@
 use alloc::rc::Rc;
 use std::ops::Deref;
+use std::sync::Arc;
 
-use mvutils::deref;
 use mvutils::screen::{Measurement};
-use mvutils::utils::{RcMut, XTraFMath};
+use mvutils::utils::Percentage;
 
 use crate::gui::components::{GuiElement, GuiElementInfo};
-use crate::old_render::color::{Fmt, Gradient, RGB};
-use crate::old_render::draw::Draw2D;
-use crate::old_render::text::TypeFace;
+use crate::render::color::{Gradient, RGB};
+use crate::render::text::TypeFace;
 
 pub struct GuiStyle {
     pub background_color: GuiValue<Gradient<RGB, f32>>,
@@ -18,7 +17,7 @@ pub struct GuiStyle {
     pub text_chroma_compress: GuiValue<f32>,
     pub text_chroma_tilt: GuiValue<f32>,
     pub text_size: GuiValue<i32>,
-    pub font: GuiValue<Option<Rc<TypeFace>>>,
+    pub font: GuiValue<Option<Arc<TypeFace>>>,
     pub margin_left: GuiValue<i32>,
     pub margin_right: GuiValue<i32>,
     pub margin_bottom: GuiValue<i32>,
@@ -40,7 +39,24 @@ pub struct GuiStyle {
     pub origin: GuiValue<Origin>,
     pub rotation: GuiValue<f32>,
     pub rotation_center: GuiValue<(i32, i32)>,
-    pub z_index: GuiValue<u16>
+    pub z_index: GuiValue<u16>,
+    //Layout
+    pub vertical_align: GuiValue<VerticalAlign>,
+    pub horizontal_align: GuiValue<HorizontalAlign>,
+    pub scroll: GuiValue<Scroll>,
+    pub overflow: GuiValue<Overflow>,
+    pub size: GuiValue<Size>,
+    //scrollbar
+    pub scrollbar_vertical_align: GuiValue<VerticalAlign>,
+    pub scrollbar_horizontal_align: GuiValue<HorizontalAlign>,
+    pub scrollbar_track_color: GuiValue<Gradient<RGB, f32>>,
+    pub scrollbar_border_width: GuiValue<i32>,
+    pub scrollbar_border_radius: GuiValue<i32>,
+    pub scrollbar_border_style: GuiValue<BorderStyle>,
+    pub scrollbar_border_color: GuiValue<Gradient<RGB, f32>>,
+    pub scrollbar_width: GuiValue<i32>,
+    pub scrollbar_mode: GuiValue<ScrollbarMode>,
+    pub scrollbar_leave_easing_func: GuiValue<>
 }
 
 #[macro_export]
@@ -132,6 +148,11 @@ impl Default for GuiStyle {
             rotation: Default::default(),
             rotation_center: Default::default(),
             z_index: Default::default(),
+            vertical_align: Default::default(),
+            horizontal_align: Default::default(),
+            scroll: Default::default(),
+            overflow: Default::default(),
+            size: Default::default(),
         }
     }
 }
@@ -185,6 +206,54 @@ impl Origin {
     pub fn is_left(&self) -> bool {
         self == &Origin::TopLeft || self == &Origin::BottomLeft
     }
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum VerticalAlign {
+    #[default]
+    Top,
+    Bottom,
+    Center
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum HorizontalAlign {
+    #[default]
+    Left,
+    Right,
+    Center
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Scroll {
+    #[default]
+    Vertical,
+    Horizontal,
+    Both,
+    None
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Overflow {
+    #[default]
+    Cut,
+    Clamp,
+    Ignore
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Size {
+    #[default]
+    Content,
+    Fixed
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum ScrollbarMode {
+    #[default]
+    Stay,
+    FadeOnLeave,
+    HideOnLeave,
 }
 
 pub trait GuiValueValue<T> {
@@ -248,15 +317,15 @@ macro_rules! impl_unreachable_gvv {
     };
 }
 
-impl_unreachable_gvv!(Gradient<RGB, f32>, ViewState, Positioning, BorderStyle, Origin, Option<Rc<TypeFace>>, bool);
+impl_unreachable_gvv!(Gradient<RGB, f32>, ViewState, Positioning, BorderStyle, Origin, Option<Arc<TypeFace>>, bool);
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,
-    pub parent: Option<RcMut<GuiElement>>
+    pub parent: Option<Arc<GuiElement>>
 }
 
 impl GuiValueComputeSupply {
-    pub fn new(dpi: f32, parent: Option<RcMut<GuiElement>>) -> Self {
+    pub fn new(dpi: f32, parent: Option<Arc<GuiElement>>) -> Self {
         GuiValueComputeSupply {
             dpi,
             parent
@@ -267,7 +336,7 @@ impl GuiValueComputeSupply {
         self.dpi
     }
 
-    fn get_parent(&self) -> &Option<RcMut<GuiElement>> {
+    fn get_parent(&self) -> &Option<Arc<GuiElement>> {
         &self.parent
     }
 }

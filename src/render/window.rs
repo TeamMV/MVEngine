@@ -17,6 +17,7 @@ use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFEC
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
+#[cfg(feature = "3d")]
 use crate::render::render3d::DeferredPass;
 use crate::render::text::FontLoader;
 
@@ -101,6 +102,7 @@ pub(crate) struct Window {
     start_time: SystemTime,
     draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
+    #[cfg(feature = "3d")]
     render_pass_3d_def: DeferredPass,
     effect_pass: EffectPass,
     effect_buffer: EBuffer,

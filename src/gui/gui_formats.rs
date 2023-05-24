@@ -1,12 +1,12 @@
 use alloc::rc::Rc;
-use mvutils::utils::{RcMut, TetrahedronOp};
-use crate::old_render::draw::Draw2D;
-use crate::old_render::text::{Font, TypeFace};
+use std::sync::Arc;
+use mvutils::utils::{TetrahedronOp};
 
 use bitflags::{bitflags};
-use mvutils::deref;
-use mvutils::serialize::{Deserializer, Serializable, Serializer};
-use crate::old_render::color::{Color, Gradient, RGB};
+use mvutils::save::{Loader, Savable, Saver};
+use crate::render::color::{Color, Gradient, RGB};
+use crate::render::draw::Draw2D;
+use crate::render::text::{Font, TypeFace};
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -54,7 +54,7 @@ impl Default for FontStyle {
     }
 }
 
-fn get_font(face: Rc<TypeFace>, style: FontStyle) -> Rc<Font> {
+fn get_font(face: Arc<TypeFace>, style: FontStyle) -> Arc<Font> {
     match style.bits() & 3 {
         0 => face.regular.clone(),
         1 => face.bold.clone(),
@@ -82,11 +82,11 @@ impl FormattedString {
         }
     }
 
-    pub fn draw(&self, ctx: RcMut<Draw2D>, x: i32, y: i32, height: i32, font: Option<Rc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: Gradient<RGB, f32>, chroma: bool) {
+    pub fn draw(&self, mut ctx: Arc<Draw2D>, x: i32, y: i32, height: i32, font: Option<Arc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: &Gradient<RGB, f32>, chroma: bool) {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
             if fmt.color.is_some() {
-                ctx.borrow_mut().color(deref!(fmt.color.clone().unwrap()));
+                ctx.borrow_mut().color(fmt.color.clone().unwrap());
             } else {
                 ctx.borrow_mut().get_mut_gradient().copy_of(col);
             }
@@ -97,15 +97,15 @@ impl FormattedString {
     }
 }
 
-impl Serializable for FormattedString {
-    fn serialize(&self, serializer: &mut impl Serializer) {
+impl Savable for FormattedString {
+    fn save(&self, serializer: &mut impl Saver) {
         serializer.push_u64(self.pieces.len() as u64);
         for piece in self.pieces.iter() {
             piece.serialize(serializer);
         }
     }
 
-    fn deserialize(deserializer: &mut impl Deserializer) -> Result<Self, String> {
+    fn load(deserializer: &mut impl Loader) -> Result<Self, String> {
         let mut pieces = Vec::new();
         let mut whole = String::new();
         let amount = deserializer.pop_u64().ok_or("Invalid formatted string format!".to_string())?;
@@ -124,11 +124,11 @@ impl Serializable for FormattedString {
 pub struct Format {
     pub style: FontStyle,
     pub text: String,
-    pub color: Option<Rc<Color<RGB, f32>>>,
+    pub color: Option<Arc<Color<RGB, f32>>>,
 }
 
-impl Serializable for Format {
-    fn serialize(&self, serializer: &mut impl Serializer) {
+impl Savable for Format {
+    fn save(&self, serializer: &mut impl Saver) {
         serializer.push_u8(self.style.raw());
         serializer.push_string(self.text.as_str());
         if self.color.is_some() {
@@ -140,7 +140,7 @@ impl Serializable for Format {
         }
     }
 
-    fn deserialize(deserializer: &mut impl Deserializer) -> Result<Self, String> {
+    fn load(deserializer: &mut impl Loader) -> Result<Self, String> {
         let mut style = FontStyle::default();
         style.set_raw(deserializer.pop_u8().ok_or("Invalid formatted string piece format!".to_string())?);
         let text = deserializer.pop_string().ok_or("Invalid formatted string piece format!".to_string())?;
@@ -148,7 +148,7 @@ impl Serializable for Format {
         let g = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
         let b = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
         let a = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
-        let color = Rc::new(Color::<RGB, f32>::new(r, g, b, a));
+        let color = Arc::new(Color::<RGB, f32>::new(r, g, b, a));
         Ok(Format { style, text, color: Some(color) })
     }
 }

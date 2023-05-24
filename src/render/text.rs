@@ -7,15 +7,15 @@ use crate::render::init::State;
 use crate::render::RenderCore;
 
 pub struct TypeFace {
-    pub regular: Rc<Font>,
-    pub bold: Rc<Font>,
-    pub italic: Rc<Font>,
-    pub italic_bold: Rc<Font>,
+    pub regular: Arc<Font>,
+    pub bold: Arc<Font>,
+    pub italic: Arc<Font>,
+    pub italic_bold: Arc<Font>,
 }
 
 impl TypeFace {
-    pub fn single(font: Rc<Font>) -> Rc<Self> {
-        Rc::new(TypeFace {
+    pub fn single(font: Arc<Font>) -> Arc<Self> {
+        Arc::new(TypeFace {
             regular: font.clone(),
             bold: font.clone(),
             italic: font.clone(),

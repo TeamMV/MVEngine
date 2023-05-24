@@ -19,8 +19,8 @@ use crate::render::window::WindowSpecs;
 pub mod input;
 //pub mod resource_loader;
 pub mod files;
-//#[cfg(feature = "gui")]
-//pub mod gui;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod render;
 
 pub struct MVCore {
