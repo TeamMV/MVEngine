@@ -23,6 +23,9 @@ pub(crate) static mut DUMMY_TEXTURE: Option<Arc<Texture>> = None;
 pub(crate) static mut MAX_TEXTURES: usize = 0;
 pub(crate) const TEXTURE_LIMIT: usize = 255;
 
+pub(crate) static mut MAX_LIGHTS: usize = 0;
+pub(crate) const LIGHT_LIMIT: usize = 255;
+
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
     array_stride: 80,
     step_mode: VertexStepMode::Vertex,
@@ -72,13 +75,14 @@ pub(crate) const VERTEX_LAYOUT_NONE: VertexBufferLayout = VertexBufferLayout {
 
 pub(crate) const BIND_GROUP_2D: u8 = 0;
 pub(crate) const BIND_GROUP_TEXTURES_2D: u8 = 1;
-pub(crate) const BIND_GROUP_GEOMETRY_MODEL_3D: u8 = 2;
-pub(crate) const BIND_GROUP_GEOMETRY_BATCH_3D: u8 = 3;
-pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 4;
-pub(crate) const BIND_GROUP_MODEL_3D: u8 = 5;
-pub(crate) const BIND_GROUP_BATCH_3D: u8 = 6;
-pub(crate) const BIND_GROUP_EFFECT: u8 = 7;
-pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 8;
+pub(crate) const BIND_GROUP_MODEL_MATRIX: u8 = 2;
+pub(crate) const BIND_GROUP_GEOMETRY_MODEL_3D: u8 = 3;
+pub(crate) const BIND_GROUP_GEOMETRY_BATCH_3D: u8 = 4;
+pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 5;
+pub(crate) const BIND_GROUP_MODEL_3D: u8 = 6;
+pub(crate) const BIND_GROUP_BATCH_3D: u8 = 7;
+pub(crate) const BIND_GROUP_EFFECT: u8 = 8;
+pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 9;
 
 pub(crate) static mut BIND_GROUPS: Lazy<HashMap<u8, BindGroupLayout>> = Lazy::new(HashMap::new);
 
@@ -93,13 +97,29 @@ pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayo
                 has_dynamic_offset: false,
                 min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(128) }),
             } ,
-            count: None,
+            count: None
         },
         BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            count: None,
+            count: None
+        }
+    ],
+};
+
+pub(crate) const BIND_GROUP_LAYOUT_MODEL_MATRIX: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
+    label: Some("Bind group layout model matrix"),
+    entries: &[
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None
+            },
+            count: None
         }
     ],
 };

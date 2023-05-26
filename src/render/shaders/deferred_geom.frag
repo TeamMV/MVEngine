@@ -22,25 +22,28 @@ struct Material {
     int normalTextureId;
 };
 
-in vec3 pos;
-in vec3 normal;
-in vec2 texCoord;
-in flat int matId;
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec3 normal;
+layout(location = 2) in vec2 texCoord;
+layout(location = 3) in flat int matId;
 
-uniform Material materials[MAX_MATERIALS];
-uniform sampler2D TEX_SAMPLER[MAX_TEXTURE_IMAGE_UNITS];
-uniform mat4 uModelMatrix;
-uniform vec4 uCanvasCoords;
-uniform vec2 uCanvasData;
+layout(set = 0, binding = 1) uniform UNIFORMS {
+    Material materials[MAX_MATERIALS];
+    vec4 uCanvasCoords;
+    vec2 uCanvasData;
+} uniforms;
+
+layout(set = 0, binding = 1) uniform sampler SAMPLER;
+layout(set = 2, binding = 0) uniform texture2D TEXTURES[MAX_TEXTURES];
 
 float sq(float x) {
     return x * x;
 }
 
 void main() {
-
-    float type = uCanvasData.x;
-    float r = uCanvasData.y;
+    float type = uniforms.uCanvasData.x;
+    float r = uniforms.uCanvasData.y;
+    vec4 uCanvasCoords = uniforms.uCanvasCoords;
     if (uCanvasCoords.x > gl_FragCoord.x || uCanvasCoords.x + uCanvasCoords.z < gl_FragCoord.x || uCanvasCoords.y > gl_FragCoord.y || uCanvasCoords.y + uCanvasCoords.w < gl_FragCoord.y) {
         discard;
     }
@@ -75,20 +78,20 @@ void main() {
         }
     }
 
-    Material mat = materials[matId];
+    Material mat = uniforms.materials[matId];
 
     //fancy calculations with material
     gPosition = pos;
     gNormal = normalize(normal);
     if (mat.normalTextureId > 0) {
-        gNormal.rgb -= texture(TEX_SAMPLER[mat.normalTextureId], texCoord).rgb;
+        gNormal.rgb -= texture(sampler2D(TEXTURES[mat.normalTextureId], SAMPLER), texCoord).rgb;
     }
     gAlbedoSpec.a = mat.metallic;
     if (mat.metallicRoughnessTextureId > 0) {
-        gAlbedoSpec.a = texture(TEX_SAMPLER[mat.metallicRoughnessTextureId], texCoord).a;
+        gAlbedoSpec.a = texture(sampler2D(TEXTURES[mat.metallicRoughnessTextureId], SAMPLER), texCoord).a;
     }
     gAlbedoSpec.rgb = mat.diffuse.rgb;
     if (mat.diffuseTextureId > 0) {
-        gAlbedoSpec.rgb = texture(TEX_SAMPLER[mat.diffuseTextureId], texCoord).rgb;
+        gAlbedoSpec.rgb = texture(sampler2D(TEXTURES[mat.diffuseTextureId], SAMPLER), texCoord).rgb;
     }
 }
