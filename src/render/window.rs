@@ -102,8 +102,8 @@ pub(crate) struct Window {
     start_time: SystemTime,
     draw_2d: Draw2D,
     render_pass_2d: RenderPass2D,
-    #[cfg(feature = "3d")]
-    render_pass_3d_def: DeferredPass,
+    //#[cfg(feature = "3d")]
+    //render_pass_3d_def: DeferredPass,
     effect_pass: EffectPass,
     effect_buffer: EBuffer,
     frame: u64,
@@ -156,10 +156,10 @@ impl Window {
             Mat4::default()
         );
 
-        let render_pass_3d_def = DeferredPass::new(
-            deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D]),
-            &state
-        );
+        //let render_pass_3d_def = DeferredPass::new(
+        //    deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D]),
+        //    &state
+        //);
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
@@ -192,7 +192,7 @@ impl Window {
             tex,
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
-            render_pass_3d_def,
+            //render_pass_3d_def,
         };
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
@@ -299,22 +299,22 @@ impl Window {
             label: Some("Command Encoder")
         });
 
-        #[cfg(feature = "3d")]
-        self.render_3d(&mut encoder, &view);
+        //#[cfg(feature = "3d")]
+        //self.render_3d(&mut encoder, &view);
 
         //self.enable_effect_2d("blur".to_string());
         //self.enable_effect_2d("pixelate".to_string());
         //self.enable_effect_2d("distort".to_string());
         //self.enable_effect_2d("wave".to_string());
 
-        //self.render_2d(&mut encoder, &view);
-        let mut array: [Option<_>; 255] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        self.render_2d(&mut encoder, &view);
+        //let mut array: [Option<_>; 255] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
 
-        for item in &mut array {
-            std::mem::replace(item, None);
-        }
-        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
-        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, &mut encoder);
+        //for item in &mut array {
+            //std::mem::replace(item, None);
+        //}
+        //self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
+        //self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, &mut encoder);
 
         self.state.queue.submit(once(encoder.finish()));
 

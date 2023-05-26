@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::io::{BorrowedCursor, Read, Write};
+use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::mem;
 use glam::{Vec3, Vec4};
@@ -92,7 +92,7 @@ pub trait Parse {
     fn parse(s: &str) -> Result<Self, &str> where Self: Sized;
 }
 
-impl<F, T: Savable> Savable for Color<F, T> {
+impl<F: Fmt, T: Savable> Savable for Color<F, T> {
     fn save(&self, saver: &mut impl Saver) {
         self.c1.save(saver);
         self.c2.save(saver);

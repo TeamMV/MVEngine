@@ -6,10 +6,13 @@ use mvutils::screen::{Measurement};
 use mvutils::utils::Percentage;
 
 use crate::gui::components::{GuiElement, GuiElementInfo};
+use crate::gui::ease::Easing;
 use crate::render::color::{Gradient, RGB};
+use crate::render::draw::CanvasStyle;
 use crate::render::text::TypeFace;
 
 pub struct GuiStyle {
+    //common
     pub background_color: GuiValue<Gradient<RGB, f32>>,
     pub foreground_color: GuiValue<Gradient<RGB, f32>>,
     pub text_color: GuiValue<Gradient<RGB, f32>>,
@@ -43,20 +46,31 @@ pub struct GuiStyle {
     //Layout
     pub vertical_align: GuiValue<VerticalAlign>,
     pub horizontal_align: GuiValue<HorizontalAlign>,
+    pub vertical_item_align: GuiValue<VerticalAlign>,
+    pub horizontal_item_align: GuiValue<HorizontalAlign>,
     pub scroll: GuiValue<Scroll>,
     pub overflow: GuiValue<Overflow>,
     pub size: GuiValue<Size>,
+    pub spacing: GuiValue<i32>,
+    pub item_direction: GuiValue<Direction>,
     //scrollbar
+    pub scrollbar_slider_style: GuiValue<ScrollbarSlider>,
     pub scrollbar_vertical_align: GuiValue<VerticalAlign>,
     pub scrollbar_horizontal_align: GuiValue<HorizontalAlign>,
     pub scrollbar_track_color: GuiValue<Gradient<RGB, f32>>,
-    pub scrollbar_border_width: GuiValue<i32>,
-    pub scrollbar_border_radius: GuiValue<i32>,
-    pub scrollbar_border_style: GuiValue<BorderStyle>,
-    pub scrollbar_border_color: GuiValue<Gradient<RGB, f32>>,
+    pub scrollbar_slider_color: GuiValue<Gradient<RGB, f32>>,
+    pub scrollbar_track_border_width: GuiValue<i32>,
+    pub scrollbar_track_border_radius: GuiValue<i32>,
+    pub scrollbar_track_border_style: GuiValue<BorderStyle>,
+    pub scrollbar_track_border_color: GuiValue<Gradient<RGB, f32>>,
+    pub scrollbar_slider_border_width: GuiValue<i32>,
+    pub scrollbar_slider_border_radius: GuiValue<i32>,
+    pub scrollbar_slider_border_style: GuiValue<BorderStyle>,
+    pub scrollbar_slider_border_color: GuiValue<Gradient<RGB, f32>>,
     pub scrollbar_width: GuiValue<i32>,
     pub scrollbar_mode: GuiValue<ScrollbarMode>,
-    pub scrollbar_leave_easing_func: GuiValue<>
+    pub scrollbar_leave_easing_func: GuiValue<Easing>,
+    pub scroll_easing_func: GuiValue<Easing>
 }
 
 #[macro_export]
@@ -150,9 +164,30 @@ impl Default for GuiStyle {
             z_index: Default::default(),
             vertical_align: Default::default(),
             horizontal_align: Default::default(),
+            vertical_item_align: Default::default(),
+            horizontal_item_align: Default::default(),
             scroll: Default::default(),
             overflow: Default::default(),
             size: Default::default(),
+            spacing: GuiValue::Just(5),
+            item_direction: Default::default(),
+            scrollbar_slider_style: Default::default(),
+            scrollbar_vertical_align: Default::default(),
+            scrollbar_horizontal_align: Default::default(),
+            scrollbar_track_color: Default::default(),
+            scrollbar_slider_color: Default::default(),
+            scrollbar_track_border_width: Default::default(),
+            scrollbar_track_border_radius: Default::default(),
+            scrollbar_track_border_style: Default::default(),
+            scrollbar_track_border_color: Default::default(),
+            scrollbar_slider_border_width: Default::default(),
+            scrollbar_slider_border_radius: Default::default(),
+            scrollbar_slider_border_style: Default::default(),
+            scrollbar_slider_border_color: Default::default(),
+            scrollbar_width: Default::default(),
+            scrollbar_mode: Default::default(),
+            scrollbar_leave_easing_func: Default::default(),
+            scroll_easing_func: Default::default(),
         }
     }
 }
@@ -179,6 +214,16 @@ pub enum BorderStyle {
     Square,
     Round,
     Triangle
+}
+
+impl BorderStyle {
+    pub fn as_cnvs_style(&self) -> CanvasStyle {
+        return match self {
+            BorderStyle::Square => CanvasStyle::Square,
+            BorderStyle::Round => CanvasStyle::Round,
+            BorderStyle::Triangle => CanvasStyle::Triangle,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
@@ -256,6 +301,20 @@ pub enum ScrollbarMode {
     HideOnLeave,
 }
 
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum ScrollbarSlider {
+    #[default]
+    Slider,
+    Thumb,
+}
+
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Direction {
+    #[default]
+    LeftRight,
+    UpDown,
+}
+
 pub trait GuiValueValue<T> {
     fn compute_measurement(&self, dpi: f32, mes: &Measurement) -> T;
     fn compute_percentage_value(&self, total: T, percentage: u8) -> T;
@@ -317,7 +376,22 @@ macro_rules! impl_unreachable_gvv {
     };
 }
 
-impl_unreachable_gvv!(Gradient<RGB, f32>, ViewState, Positioning, BorderStyle, Origin, Option<Arc<TypeFace>>, bool);
+impl_unreachable_gvv!(
+    Gradient<RGB, f32>,
+    ViewState,
+    Positioning,
+    BorderStyle,
+    Origin,
+    Option<Arc<TypeFace>>,
+    bool,
+    VerticalAlign,
+    HorizontalAlign,
+    Scroll,
+    ScrollbarMode,
+    ScrollbarSlider,
+    Overflow,
+    Size,
+    Direction, Easing);
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,
@@ -356,8 +430,8 @@ impl<T: Clone + GuiValueValue<T>> GuiValue<T> {
             GuiValue::Just(t) => {t.clone()},
             GuiValue::Measurement(t, mes) => {t.compute_measurement(compute_supply.get_dpi(), mes)},
             GuiValue::Percentage(t, perc) => {t.compute_percentage_value(t.clone(), perc.clone())},
-            GuiValue::ParentPercentage(p) => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'ParentPercentage' on element without parent!").borrow().info().style).unwrap(compute_supply, resolve_supply).compute_percentage_value_self(p.clone())}
-            GuiValue::Inherit() => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'Inherit' on element without parent!").borrow().info().style).unwrap(compute_supply, resolve_supply)},
+            GuiValue::ParentPercentage(p) => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'ParentPercentage' on element without parent!").info().style).unwrap(compute_supply, resolve_supply).compute_percentage_value_self(p.clone())}
+            GuiValue::Inherit() => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'Inherit' on element without parent!").info().style).unwrap(compute_supply, resolve_supply)},
             GuiValue::Clone(other) => {resolve_supply(other).unwrap(compute_supply, resolve_supply)}
         }
     }

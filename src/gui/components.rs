@@ -1,11 +1,11 @@
 use std::ops::Range;
 use std::process::id;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use itertools::Itertools;
 use mvutils::utils::{IncDec, TetrahedronOp};
 use crate::gui::components::GuiElement::{Void, Paragraph, Layout};
 use crate::gui::gui_formats::FormattedString;
-use crate::gui::styles::{BorderStyle, GuiStyle, GuiValueComputeSupply, Positioning, Size, ViewState};
+use crate::gui::styles::{BorderStyle, Direction, GuiStyle, GuiValueComputeSupply, HorizontalAlign, Overflow, Positioning, Size, VerticalAlign, ViewState};
 use crate::gui::styles::BorderStyle::{Round, Triangle};
 use crate::render::draw::Draw2D;
 use crate::resolve;
@@ -91,8 +91,8 @@ impl GuiElementInfo {
         &self.style
     }
 
-    pub(crate) fn recalculate_bounds(&mut self, ctx: Arc<Draw2D>) {
-        self.compute_supply.dpi = ctx.dpi();
+    pub(crate) fn recalculate_bounds(&mut self, ctx: &Mutex<Draw2D>) {
+        self.compute_supply.dpi = ctx.lock().unwrap().dpi();
         self.compute_supply.parent = self.parent.clone();
 
         let mut paddings: [i32; 4] = [0; 4];
@@ -175,7 +175,7 @@ impl GuiElement {
         ge_fn!(self, info_mut)
     }
 
-    pub fn draw(&mut self, ctx: Arc<Draw2D>) {
+    pub fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
         ge_fn!(self, draw, ctx)
     }
 
@@ -196,7 +196,7 @@ impl GuiElement {
 //GuiLayout
 
 pub struct GuiElements {
-    elements: Vec<&'static GuiElement>,
+    elements: Vec<&'static mut GuiElement>,
 }
 
 impl GuiElements {
@@ -206,23 +206,23 @@ impl GuiElements {
         }
     }
 
-    pub fn add_element(&mut self, element: &GuiElement) {
+    pub fn add_element(&mut self, element: &'static mut GuiElement) {
         self.elements.push(element)
     }
 
-    pub fn add_elements(&mut self, elements: Vec<&GuiElement>) {
+    pub fn add_elements(&mut self, elements: Vec<&'static mut GuiElement>) {
         self.elements.extend(elements);
     }
 
-    pub fn get_element_by_index(&self, idx: usize) -> &GuiElement {
+    pub fn get_element_by_index(&self, idx: usize) -> &'static mut GuiElement {
         self.elements[idx]
     }
 
-    pub fn get_elements_by_range(&self, range: Range<usize>) -> Vec<&GuiElement> {
+    pub fn get_elements_by_range(&self, range: Range<usize>) -> Vec<&'static mut GuiElement> {
         self.elements[range].to_vec()
     }
 
-    pub fn get_element_by_id(&self, id: &String) -> Option<&GuiElement> {
+    pub fn get_element_by_id(&self, id: &String) -> Option<&'static mut GuiElement> {
         for element in self.elements {
             if &element.info().id == id {
                 return Some(element);
@@ -231,8 +231,8 @@ impl GuiElements {
         None
     }
 
-    pub fn get_elements_by_tag(&self, tag: &String) -> Vec<&GuiElement> {
-        let mut vec: Vec<&GuiElement> = vec![];
+    pub fn get_elements_by_tag(&self, tag: &String) -> Vec<&'static mut GuiElement> {
+        let mut vec: Vec<&'static mut GuiElement> = vec![];
         for element in self.elements {
             if element.info().tags.contains(tag) {
                 vec.push(element);
@@ -241,15 +241,20 @@ impl GuiElements {
         vec
     }
 
-    pub fn get_elements(&self) -> &Vec<&GuiElement> {
+    pub fn get_elements(&self) -> &Vec<&'static mut GuiElement> {
         &self.elements
     }
 
     pub fn remove_element_by_id(&mut self, id: &String) {
+        let mut indices: Vec<usize> = vec![];
         for (i, element) in self.elements.iter().enumerate() {
             if &element.info().id == id {
-                self.elements.remove(i);
+                indices.push(i);
             }
+        }
+
+        for index in indices {
+            self.elements.remove(index);
         }
     }
 
@@ -260,10 +265,15 @@ impl GuiElements {
     }
 
     pub fn remove_elements_by_tag(&mut self, tag: &String) {
+        let mut indices: Vec<usize> = vec![];
         for (i, element) in self.elements.iter().enumerate() {
             if element.info().tags.contains(tag) {
-                self.elements.remove(i);
+                indices.push(i);
             }
+        }
+
+        for index in indices {
+            self.elements.remove(index);
         }
     }
 
@@ -292,33 +302,6 @@ impl GuiElements {
     }
 }
 
-pub struct Iter {
-    layout: &'static GuiLayout,
-    idx: usize
-}
-
-impl Iter {
-    pub fn new(layout: &GuiLayout) -> Self {
-        Self {
-            layout,
-            idx: 0,
-        }
-    }
-}
-
-impl Iterator for Iter {
-    type Item = &'static GuiElement;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.idx < self.layout.elements().count_elements() {
-            self.idx.inc();
-            return Some(self.layout.elements().get_element_by_index(self.idx - 1));
-        }
-        None
-    }
-}
-
-#[derive(Copy, Clone)]
 pub enum GuiLayout {
     Void(GuiVoid),
     Section(GuiSection),
@@ -327,8 +310,8 @@ pub enum GuiLayout {
 macro_rules! gl_fn {
     ($s:expr, $name:ident) => {
         return match $s {
-            GuiLayoutt::Void(e) => {e.$name()}
-            GuiLayoutt::Section(e) => {e.$name()}
+            GuiLayout::Void(e) => {e.$name()}
+            GuiLayout::Section(e) => {e.$name()}
             _ => {unreachable!()}
         }
     };
@@ -343,6 +326,22 @@ macro_rules! gl_fn {
 }
 
 impl GuiLayout {
+    pub fn info(&self) -> &GuiElementInfo {
+        gl_fn!(self, info)
+    }
+
+    pub fn info_mut(&mut self) -> &mut GuiElementInfo {
+        gl_fn!(self, info_mut)
+    }
+
+    pub fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+        gl_fn!(self, draw, ctx)
+    }
+
+    pub fn handle(&mut self, event: GuiEvent) {
+        gl_fn!(self, handle, event)
+    }
+
     pub fn elements(&self) -> &GuiElements {
         gl_fn!(self, elements);
     }
@@ -350,20 +349,21 @@ impl GuiLayout {
     pub fn elements_mut(&mut self) -> &mut GuiElements {
         gl_fn!(self, elements_mut);
     }
-
-    pub fn iter(&self) -> Iter {
-        return gl_fn!(self);
-    }
 }
 
 pub trait GuiComponent {
     fn create() -> Self;
     fn info(&self) -> &GuiElementInfo;
     fn info_mut(&mut self) -> &mut GuiElementInfo;
-    fn draw(&mut self, ctx: Arc<Draw2D>);
+    fn draw(&mut self, ctx: &mut Mutex<Draw2D>);
     fn handle(&mut self, event: GuiEvent) {
         self.info_mut().handles.push(event);
     }
+}
+
+pub trait GuiLayoutComponent {
+    fn elements(&self) -> &GuiElements;
+    fn elements_mut(&mut self) -> &mut GuiElements;
 }
 
 pub struct GuiVoid;
@@ -380,48 +380,49 @@ impl GuiComponent for GuiVoid {
         todo!()
     }
 
-    fn draw(&mut self, ctx: Arc<Draw2D>) {
+    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
         todo!()
     }
 }
 
-pub trait GuiLayoutComponent {
-    fn elements(&self) -> &GuiElements;
-    fn elements_mut(&mut self) -> &mut GuiElements;
+impl GuiLayoutComponent for GuiVoid {
+    fn elements(&self) -> &GuiElements {
+        todo!()
+    }
 
-    fn iter(&self) -> Iter {
-        Iter::new(Self)
+    fn elements_mut(&mut self) -> &mut GuiElements {
+        todo!()
     }
 }
 
-pub(crate) fn draw_component_body(mut ctx: Arc<Draw2D>, info: &GuiElementInfo) {
+pub(crate) fn draw_component_body(ctx: &mut Mutex<Draw2D>, info: &GuiElementInfo) {
 
     let br = resolve!(info, border_radius);
     let bs: BorderStyle = resolve!(info, border_style);
 
     if bs == Round {
-        ctx.get_mut_gradient().copy_of(&resolve!(info, background_color));
+        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));
         let bw: i32 = resolve!(info, border_width);
-        ctx.rounded_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, br as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().rounded_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, br as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.void_rounded_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
+            ctx.get_mut().unwrap().void_rounded_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else if bs == Triangle {
-        ctx.get_mut_gradient().copy_of(&resolve!(info, background_color));
+        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));
         let bw: i32 = resolve!(info, border_width);
-        ctx.triangular_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().triangular_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.void_triangular_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
+            ctx.get_mut().unwrap().void_triangular_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     } else {
-        ctx.get_mut_gradient().copy_of(&resolve!(info, background_color));;
+        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));;
         let bw: i32 = resolve!(info, border_width);
-        ctx.rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, info.rotation, info.rotation_center.0, info.rotation_center.1);
         if br > 0 {
-            ctx.get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.void_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
+            ctx.get_mut().unwrap().void_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
         }
     }
 }
@@ -464,24 +465,25 @@ impl GuiComponent for GuiMarkdown {
         &mut self.info
     }
 
-    fn draw(&mut self, mut ctx: Arc<Draw2D>) {
-        if self.info.style.view_state != ViewState::Gone {
+    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+        let view_state = resolve!(self.info, view_state);
+        if view_state != ViewState::Gone {
             self.info_mut().content_width = resolve!(self.info, font).unwrap().regular.get_metrics(self.text.whole.as_str()).width(self.info.content_height);
             self.info_mut().content_height = resolve!(self.info, text_size);
         } else {
             self.info_mut().content_width = 0;
             self.info_mut().content_height = 0;
         }
-        self.info_mut().recalculate_bounds(ctx.clone());
+        self.info_mut().recalculate_bounds(ctx);
 
-        if self.info.style.view_state == ViewState::Visible {
-            draw_component_body(ctx.clone(), self.info());
+        if view_state == ViewState::Visible {
+            draw_component_body(ctx, self.info());
             let left = resolve!(self.info, padding_left);
             let bottom = resolve!(self.info, padding_bottom);
 
-            ctx.chroma_tilt(resolve!(self.info, text_chroma_tilt));
-            ctx.chroma_compress(resolve!(self.info, text_chroma_compress));
-            self.text.draw(ctx.clone(), self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, &resolve!(self.info, text_color), resolve!(self.info, text_chroma));
+            ctx.get_mut().unwrap().chroma_tilt(resolve!(self.info, text_chroma_tilt));
+            ctx.get_mut().unwrap().chroma_compress(resolve!(self.info, text_chroma_compress));
+            self.text.draw(&ctx, self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, &resolve!(self.info, text_color), resolve!(self.info, text_chroma));
         }
     }
 }
@@ -500,7 +502,8 @@ impl GuiTextComponent for GuiMarkdown {
 
 pub struct GuiSection {
     info: GuiElementInfo,
-    elements: GuiElements
+    elements: GuiElements,
+    max_size: (i32, i32)
 }
 
 impl GuiLayoutComponent for GuiSection {
@@ -513,15 +516,15 @@ impl GuiLayoutComponent for GuiSection {
     }
 }
 
-fn calc_size(elements: &GuiElements) -> (i32, i32) {
+fn calc_size(elements: &GuiElements, spacing: i32) -> (i32, i32) {
     let mut width = 0;
     let mut height = 0;
     for i in 0..elements.count_elements() {
         let e = elements.get_element_by_index(i);
-        width += e.info().width;
-        height += e.info().height;
+        width += e.info().width + spacing;
+        height += e.info().height + spacing;
     }
-    (width, height)
+    (width - spacing, height - spacing)
 }
 
 impl GuiComponent for GuiSection {
@@ -529,6 +532,7 @@ impl GuiComponent for GuiSection {
         GuiSection {
             info: GuiElementInfo::default(),
             elements: GuiElements::new(),
+            max_size: (0, 0),
         }
     }
 
@@ -540,13 +544,18 @@ impl GuiComponent for GuiSection {
         &mut self.info
     }
 
-    fn draw(&mut self, ctx: Arc<Draw2D>) {
-        if self.info.style.view_state == ViewState::Gone {
+    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+        let view_state = resolve!(self.info, view_state);
+        let spacing = resolve!(self.info, spacing);
+
+        if view_state == ViewState::Gone {
             self.info_mut().content_width = 0;
             self.info_mut().content_height = 0;
         } else {
-            if self.info.style.size == Size::Content {
-                let size = calc_size(self.elements());
+            let sizing = resolve!(self.info, size);
+            let size = calc_size(self.elements(), spacing);
+            self.max_size = size;
+            if sizing == Size::Content {
                 self.info_mut().content_width = size.0;
                 self.info_mut().content_height = size.1;
             } else {
@@ -554,13 +563,118 @@ impl GuiComponent for GuiSection {
                 self.info_mut().content_height = resolve!(self.info, height);
             }
 
-            self.info.recalculate_bounds(ctx.clone());
+            self.info.recalculate_bounds(ctx);
         }
 
-        if self.info.style.view_state == ViewState::Visible {
-            draw_component_body(ctx.clone(), self.info());
+        if view_state == ViewState::Visible {
+            draw_component_body(ctx, self.info());
 
+            let ha = resolve!(self.info, horizontal_align);
+            let va = resolve!(self.info, vertical_align);
+            let hia = resolve!(self.info, horizontal_item_align);
+            let via = resolve!(self.info, vertical_item_align);
+            let dir = resolve!(self.info, item_direction);
 
+            let overflow = resolve!(self.info, overflow);
+
+            let border_radius = resolve!(self.info, border_radius);
+            let border_style = resolve!(self.info, border_style);
+
+            if dir == Direction::LeftRight {
+                let mut x = (ha == HorizontalAlign::Right).yn(self.info.x + self.info.content_width - self.max_size.0, (ha == HorizontalAlign::Center).yn(self.info.x + self.info.content_width / 2 - self.max_size.0 / 2, self.info.x));
+                let mut y = 0;
+
+                for i in 0..self.elements.count_elements() {
+                    let mut element = self.elements.get_element_by_index(i).as_mut();
+                    if va == VerticalAlign::Bottom {
+                        if via == VerticalAlign::Bottom {
+                            y = self.info.y;
+                        } else if via == VerticalAlign::Center {
+                            y = self.info.y + (self.max_size.1 - element.info().height) / 2;
+                        } else {
+                            y = self.info.y + (self.max_size.1 - element.info().height);
+                        }
+                    } else if va == VerticalAlign::Center {
+                        if via == VerticalAlign::Bottom {
+                            y = self.info.y + self.info.content_height / 2 - self.max_size.1 / 2;
+                        } else if via == VerticalAlign::Center {
+                            y = self.info.y + (self.max_size.1 - element.info().height) / 2 + self.info.content_height / 2 - self.max_size.1 / 2;
+                        } else {
+                            y = self.info.y + (self.max_size.1 - element.info().height) + self.info.content_height / 2 - self.max_size.1 / 2;
+                        }
+                    } else {
+                        if via == VerticalAlign::Bottom {
+                            y = self.info.y + self.info.content_height - self.max_size.1;
+                        } else if via == VerticalAlign::Center {
+                            y = self.info.y + (self.max_size.1 - element.info().height) / 2 + self.info.content_height - self.max_size.1;
+                        } else {
+                            y = self.info.y + (self.max_size.1 - element.info().height) + self.info.content_height - self.max_size.1;
+                        }
+                    }
+
+                    if overflow == Overflow::Clamp {
+                        x = x.clamp(self.info.x, self.info.x + self.info.content_width - element.info().width);
+                        y = y.clamp(self.info.y, self.info.y + self.info.content_height - element.info().height);
+                    } else if overflow == Overflow::Cut {
+                        ctx.get_mut().unwrap().canvas(self.info.x, self.info.y, self.info.content_width as u32, self.info.content_height as u32);
+                        ctx.get_mut().unwrap().style_canvas(border_style.as_cnvs_style(), border_radius as f32);
+                    }
+
+                    element.info_mut().x = x;
+                    element.info_mut().y = y;
+
+                    element.draw(ctx);
+
+                    x += element.info().width + spacing;
+                }
+            } else {
+                let mut x = 0;
+                let mut y = (va == VerticalAlign::Top).yn(self.info.y + self.info.content_height - self.max_size.1, (va == VerticalAlign::Center).yn(self.info.y + self.info.content_height / 2 - self.max_size.1 / 2, self.info.y));
+
+                for i in 0..self.elements.count_elements() {
+                    let mut element = self.elements.get_element_by_index(i);
+                    if ha == HorizontalAlign::Left {
+                        if hia == HorizontalAlign::Left {
+                            x = self.info.x;
+                        } else if hia == HorizontalAlign::Center {
+                            x = self.info.x + (self.max_size.0 - element.info().width) / 2;
+                        } else {
+                            x = self.info.x + (self.max_size.0 - element.info().width);
+                        }
+                    } else if ha == HorizontalAlign::Center {
+                        if hia == HorizontalAlign::Left {
+                            x = self.info.x + self.info.content_width / 2 - self.max_size.0 / 2;
+                        } else if hia == HorizontalAlign::Center {
+                            x = self.info.x + (self.max_size.0 - element.info().width) / 2 + self.info.content_width / 2 - self.max_size.0 / 2;
+                        } else {
+                            x = self.info.x + (self.max_size.0 - element.info().width) + self.info.content_width / 2 - self.max_size.0 / 2;
+                        }
+                    } else {
+                        if hia == HorizontalAlign::Left {
+                            x = self.info.x + self.info.content_width - self.max_size.0;
+                        } else if hia == HorizontalAlign::Center {
+                            x = self.info.x + (self.max_size.0 - element.info().width) / 2 + self.info.content_width - self.max_size.0;
+                        } else {
+                            x = self.info.x + (self.max_size.0 - element.info().width) + self.info.content_width - self.max_size.0;
+                        }
+                    }
+
+                    if overflow == Overflow::Clamp {
+                        x = x.clamp(self.info.x, self.info.x + self.info.content_width - element.info().width);
+                        y = y.clamp(self.info.y, self.info.y + self.info.content_height - element.info().height);
+                    } else if overflow == Overflow::Cut {
+                        ctx.get_mut().unwrap().canvas(self.info.x, self.info.y, self.info.content_width as u32, self.info.content_height as u32);
+                        ctx.get_mut().unwrap().style_canvas(border_style.as_cnvs_style(), border_radius as f32);
+                    }
+
+                    element.info_mut().x = x;
+                    element.info_mut().y = y;
+
+                    element.draw(ctx);
+
+                    y += element.info().height + spacing;
+                }
+            }
         }
     }
 }

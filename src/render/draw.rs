@@ -46,8 +46,8 @@ impl Draw2D {
         }
     }
 
-    pub(crate) fn get_default_font(ctx: *mut Draw2D) -> Arc<Font> {
-        unsafe { ctx.as_ref().unwrap().font.clone() }
+    pub(crate) fn get_default_font(&self) -> Arc<Font> {
+        self.font.clone()
     }
 
     pub(crate) fn render(&mut self, render_pass: &mut RenderPass2D) {
