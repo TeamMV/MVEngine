@@ -8,7 +8,7 @@ layout(location = 3) in float materialId;
 layout(location = 0) out vec3 pos;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out vec2 texCoord;
-layout(location = 3) out int matId;
+layout(location = 3) out float matId;
 
 layout(set = 0, binding = 0) uniform UNIFORMS {
     mat4 uProjection;
@@ -20,7 +20,7 @@ layout(std140, set = 1, binding = 0) buffer ModelMatrices {
 } models;
 
 void main() {
-    matId = int(materialId);
+    matId = materialId;
     texCoord = uv;
     normal = normalVec;
     vec4 fragPos = uniforms.uProjection * uniforms.uView * models.matrices[gl_InstanceIndex] * vec4(position, 1.0);

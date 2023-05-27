@@ -1,7 +1,5 @@
 #version 450
 
-const int MAX_NUM_LIGHTS = 1;
-
 layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec2 fTexCoord;
@@ -13,7 +11,7 @@ struct Light {
     float attenuation;
     float cutoff; //if > 0 -> spotlight
     float radius; //if 0 -> direction light
-};
+};//64 size
 
 layout(set = 0, binding = 0) uniform texture2D gAlbedoSpec;
 layout(set = 0, binding = 1) uniform texture2D gNormals;
@@ -21,10 +19,10 @@ layout(set = 0, binding = 2) uniform texture2D gPosition;
 layout(set = 0, binding = 3) uniform sampler SAMPLER;
 
 layout(set = 0, binding = 4) uniform UNIFORMS {
-   float ambient;
    vec3 viewPos;
-   Light lights[MAX_NUM_LIGHTS]; //replaced in shader loader
-   int numLights;
+   float numLights;
+   float ambient;
+   Light lights[MAX_LIGHTS]; //replaced in shader loader
 } uniforms;
 
 void main() {

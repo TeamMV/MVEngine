@@ -1,7 +1,8 @@
+use alloc::borrow::Cow;
 use std::cmp::Ordering;
 use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
 use wgpu::util::{make_spirv, make_spirv_raw};
-use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, EFFECT_VERT};
+use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, DUMMY_VERT};
 use crate::render::init::{PipelineBuilder, State};
 
 use std::io::Read;
@@ -51,7 +52,7 @@ impl Into<ShaderKind> for ShaderType {
 }
 
 
-fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u8> {
+fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
     let processed = preprocessor::process(src);
     let compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
@@ -59,14 +60,14 @@ fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u8> {
     let binary_result = compiler.compile_into_spirv(
         processed.as_str(), type_of_shader.into(),
         "shader.glsl", "main", Some(&options)).unwrap();
-    binary_result.as_binary_u8().to_vec()
+    binary_result.as_binary().to_vec()
 }
 
 mod preprocessor {
     use crate::render::consts::{MAX_LIGHTS, MAX_TEXTURES};
 
     const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURES";
-    const MAX_LIGHTS_IDENTIFIER: &str = "MAX_NUM_LIGHTS";
+    const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";
 
     pub fn process(src: &str) -> String {
         unsafe {
@@ -105,8 +106,8 @@ macro_rules! epecpc {
 
 pub struct Shader {
     id: u64,
-    vert: Option<Vec<u8>>,
-    frag: Option<Vec<u8>>,
+    vert: Option<Vec<u32>>,
+    frag: Option<Vec<u32>>,
     pipeline: Option<RenderPipeline>,
     stripped_pipeline: Option<RenderPipeline>,
 }
@@ -127,11 +128,11 @@ impl Clone for Shader {
 }
 
 impl Shader {
-    pub(crate) fn compile_glsl(code: &String, shader_type: ShaderType) -> Vec<u8> {
+    pub(crate) fn compile_glsl(code: &String, shader_type: ShaderType) -> Vec<u32> {
         compile(code.as_str(), shader_type)
     }
 
-    pub(crate) fn new(vert: Vec<u8>, frag: Vec<u8>) -> Self {
+    pub(crate) fn new(vert: Vec<u32>, frag: Vec<u32>) -> Self {
         Self {
             id: next_id("MVCore::Shader"),
             vert: Some(vert),
@@ -153,7 +154,7 @@ impl Shader {
         }
     }
 
-    pub(crate) fn setup_pipeline(mut self, state: &State, layout: VertexBufferLayout<'static>, bind_groups:  &[u8]) -> Self {
+    pub(crate) fn setup_pipeline(mut self, state: &State, layout: VertexBufferLayout<'static>, bind_groups: &[u8]) -> Self {
         unsafe {
             if self.vert.is_none() || self.frag.is_none() {
                 return self;
@@ -163,14 +164,14 @@ impl Shader {
 
             let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
                 label: Some("vert"),
-                source: make_spirv_raw(&vert),
+                source: Cow::from(&vert),
             });
 
             let frag = self.frag.take().unwrap();
 
             let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
                 label: Some("frag"),
-                source: make_spirv_raw(&frag),
+                source: Cow::from(&frag),
             });
 
             self.pipeline = Some(
@@ -207,7 +208,7 @@ impl Shader {
 
 pub struct EffectShader {
     id: u64,
-    shader: Option<Vec<u8>>,
+    shader: Option<Vec<u32>>,
     pipeline: Option<RenderPipeline>,
     uniform_size: u64,
     buffer: Option<Buffer>,
@@ -231,7 +232,7 @@ impl Clone for EffectShader {
 }
 
 impl EffectShader {
-    pub(crate) fn new(shader: Vec<u8>, uniform_size: u64) -> Self {
+    pub(crate) fn new(shader: Vec<u32>, uniform_size: u64) -> Self {
         Self {
             id: next_id("MVCore::EffectShader"),
             shader: Some(shader),
@@ -260,18 +261,18 @@ impl EffectShader {
                 return self;
             }
 
-            let vert = compile(EFFECT_VERT, ShaderType::Vertex);
+            let vert = compile(DUMMY_VERT, ShaderType::Vertex);
 
             let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
                 label: Some("effect_vert"),
-                source: make_spirv_raw(&vert),
+                source: Cow::from(&vert),
             });
 
             let frag = self.shader.take().unwrap();
 
             let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
                 label: Some("effect_frag"),
-                source: make_spirv_raw(&frag),
+                source: Cow::from(&frag),
             });
 
             self.pipeline = Some(
@@ -437,7 +438,7 @@ impl Texture {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::R8Unorm,
-            usage: TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
 
@@ -464,9 +465,9 @@ impl Texture {
             },
             mip_level_count: 1,
             sample_count: 1,
-            dimension: TextureDimension::D1,
+            dimension: TextureDimension::D2,
             format: TextureFormat::Depth32Float,
-            usage: TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
 

@@ -13,7 +13,7 @@ use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, Windo
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
@@ -148,25 +148,17 @@ impl Window {
             maker.set_float(0, 5.0);
         });
 
-        println!("a");
-
-        let s = deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_MODEL_MATRIX]);
-
-        println!("b");
-
         let render_pass_2d = RenderPass2D::new(
-            shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
+            shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES]),
             &state,
             Mat4::default(),
             Mat4::default()
         );
 
         let render_pass_3d_def = DeferredPass::new(
-            s,
+            deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES]),
             &state
         );
-
-        println!("c");
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
@@ -316,13 +308,6 @@ impl Window {
         //self.enable_effect_2d("wave".to_string());
 
         self.render_2d(&mut encoder, &view);
-        let mut array: [Option<_>; 255] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-
-        for item in &mut array {
-            std::mem::replace(item, None);
-        }
-        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
-        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, &mut encoder);
 
         self.state.queue.submit(once(encoder.finish()));
 
@@ -420,13 +405,16 @@ impl Window {
 
     #[cfg(feature = "3d")]
     fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
+        let mut array: [Option<_>; 255] = [0; 255].map(|_| None);
 
+        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
+        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, encoder);
     }
 
     pub fn create_shader(&self, vert: ShaderSource, frag: ShaderSource, usage: ShaderUsage) -> CreatedShader {
         let mut shader = Shader::new(vert.compile(ShaderType::Vertex), frag.compile(ShaderType::Fragment));
         match usage {
-            ShaderUsage::Render2D => CreatedShader::Render2D(shader.setup_pipeline(&self.state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D])),
+            ShaderUsage::Render2D => CreatedShader::Render2D(shader.setup_pipeline(&self.state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES])),
             ShaderUsage::Render3D => CreatedShader::Render3D {
                 batch: shader.clone().setup_pipeline(&self.state, VERTEX_LAYOUT_BATCH_3D, &[BIND_GROUP_BATCH_3D]),
                 model: shader.setup_pipeline(&self.state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_MODEL_3D]),
@@ -464,12 +452,12 @@ impl Window {
 }
 
 pub enum ShaderSource {
-    Spirv(Vec<u8>),
+    Spirv(Vec<u32>),
     Glsl(String)
 }
 
 impl ShaderSource {
-    fn compile(self, shader_type: ShaderType) -> Vec<u8> {
+    fn compile(self, shader_type: ShaderType) -> Vec<u32> {
         match self {
             ShaderSource::Spirv(v) => v,
             ShaderSource::Glsl(c) => Shader::compile_glsl(&c, shader_type)

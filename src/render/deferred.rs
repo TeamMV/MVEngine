@@ -7,12 +7,10 @@ use mvutils::utils::TetrahedronOp;
 use mvutils::unsafe_utils::{Nullable, Unsafe, UnsafeRef};
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer, BufferDescriptor, BufferSlice, BufferUsages, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView};
 use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::consts::{BIND_GROUP_EFFECT, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_VERT, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_NONE};
+use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUP_LIGHTING_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, DUMMY_VERT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_NONE};
 use crate::render::init::State;
 use crate::render::render::TextureBindGroup;
 use crate::render::render3d::RenderPass3D;
-
-const LIGHT_PASS_SHADER_FRAG_RAW: &str = include_str!("shaders/light.frag");
 
 pub(crate) struct DeferredPass {
     state: &'static State,
@@ -22,31 +20,34 @@ pub(crate) struct DeferredPass {
     texture_groups: Vec<TextureBindGroup>,
     uniform: BindGroup,
     uniform_buffer: Buffer,
+    material_buffer: Buffer,
     geom_pass: Nullable<RenderPass<'static>>,
     light_pass: Nullable<RenderPass<'static>>,
     projection: Mat4,
     view: Mat4,
     pass: usize,
     sibo: Buffer,
-    sbind_group: Option<BindGroup>,
 
     albedo: Texture,
     position: Texture,
     normal: Texture,
     depth: Texture,
 
+    light_group: BindGroup,
+    light_buffer: Buffer,
     light_shader: Shader
 }
 
 impl DeferredPass {
     pub(crate) fn new(shader: Shader, state: &State) -> Self {
-        println!("a");
         let (vbo, ibo) = state.gen_buffers();
 
         let uniform = state.gen_uniform_buffer_sized(128);
 
         state.queue.write_buffer(&uniform, 0, Mat4::default().cast_bytes());
         state.queue.write_buffer(&uniform, 64, Mat4::default().cast_bytes());
+
+        let material = state.gen_uniform_buffer_sized(9632);
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("geometry pass bind group"),
@@ -58,12 +59,51 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 1,
+                    resource: material.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 2,
                     resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap() }),
                 }
             ],
         });
 
-        let texture_group = TextureBindGroup::new(&shader, state);
+        let albedo = Texture::buffer(state);
+        let normal = Texture::buffer(state);
+        let position = Texture::buffer(state);
+
+        let texture_group = TextureBindGroup::new(&shader, state, 2);
+
+        let light_shader = Shader::new_glsl(DUMMY_VERT, include_str!("shaders/light.frag")).setup_pipeline(state, VERTEX_LAYOUT_NONE, &[BIND_GROUP_LIGHTING_3D]);
+
+        let light_buffer = state.gen_uniform_buffer_sized((32 + 64 * unsafe { MAX_LIGHTS }) as u64);
+
+        let light_group = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("lighting pass bind group"),
+            layout: &light_shader.get_pipeline().get_bind_group_layout(0),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(albedo.get_view()),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(normal.get_view()),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(position.get_view()),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap()})
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: light_buffer.as_entire_binding()
+                }
+            ],
+        });
 
         let mut inst = Self {
             state: unsafe { (state as *const State).as_ref() }.unwrap(),
@@ -73,46 +113,29 @@ impl DeferredPass {
             texture_groups: vec![texture_group],
             uniform: bind_group,
             uniform_buffer: uniform,
+            material_buffer: material,
             geom_pass: Nullable::null(),
             light_pass: Nullable::null(),
             projection: Mat4::default(),
             view: Mat4::default(),
             pass: 0,
             sibo: state.gen_ibo(),
-            sbind_group: None,
 
-            albedo: Texture::buffer(state),
-            position: Texture::buffer(state),
-            normal: Texture::buffer(state),
+            albedo,
+            position,
+            normal,
             depth: Texture::gen_depth(state),
 
-            light_shader: Shader::new_glsl(EFFECT_VERT, LIGHT_PASS_SHADER_FRAG_RAW).setup_pipeline(state, VERTEX_LAYOUT_NONE, &[BIND_GROUP_EFFECT])
+            light_group,
+            light_buffer,
+            light_shader
         };
-
-        inst.sbind_group = Some(state.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("lighting pass bind group"),
-            layout: &inst.light_shader.get_pipeline().get_bind_group_layout(0),
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(inst.position.get_view()),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(inst.normal.get_view()),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(inst.albedo.get_view()),
-                }
-            ],
-        }));
 
         inst
     }
 
     fn begin_geom(&self, enc: &mut CommandEncoder) -> Nullable<RenderPass<'static>> {
-        let geom = enc.begin_render_pass(&RenderPassDescriptor {
+        let mut geom = enc.begin_render_pass(&RenderPassDescriptor {
             label: Some("Geometry Pass"),
             color_attachments: &[
                 Some(RenderPassColorAttachment {
@@ -149,6 +172,8 @@ impl DeferredPass {
                 stencil_ops: None,
             }),
         });
+
+        unsafe { geom.set_bind_group(0, Unsafe::cast_static(&self.uniform), &[]) };
 
         unsafe { Nullable::new(geom).cast_bytes() }
     }
@@ -189,8 +214,6 @@ impl DeferredPass {
             self.view = view;
             self.state.queue.write_buffer(&self.uniform_buffer, 64, proj.cast_bytes());
         }
-
-        unsafe { self.geom_pass.set_bind_group(0, UnsafeRef::new(&self.uniform).as_static(), &[]) };
     }
 
     pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool, instances: u32, target_view: &TextureView, enc: &mut CommandEncoder) {
@@ -202,7 +225,7 @@ impl DeferredPass {
                 let (vbo, ibo) = self.state.gen_buffers();
                 self.vbo.push(vbo);
                 self.ibo.push(ibo);
-                self.texture_groups.push(TextureBindGroup::new(&self.shader, self.state));
+                self.texture_groups.push(TextureBindGroup::new(&self.shader, self.state, 2));
             }
             let ibo = &self.ibo[self.pass];
             let vbo = &self.vbo[self.pass];
@@ -230,7 +253,7 @@ impl DeferredPass {
                 texture_group.remake(self.state, &self.shader);
             }
 
-            self.geom_pass.set_bind_group(1, Unsafe::cast_static(&texture_group.bind_group), &[]);
+            self.geom_pass.set_bind_group(2, Unsafe::cast_static(&texture_group.bind_group), &[]);
             self.geom_pass.set_pipeline(Unsafe::cast_static(stripped.yn(self.shader.get_stripped_pipeline(), self.shader.get_pipeline())));
             self.geom_pass.set_vertex_buffer(0, Unsafe::cast(vbo.slice(..)));
             self.geom_pass.set_index_buffer(Unsafe::cast(ibo.slice(..)), IndexFormat::Uint32);
@@ -242,7 +265,7 @@ impl DeferredPass {
 
             self.light_pass = self.begin_light(enc, target_view);
 
-            self.light_pass.set_bind_group(1, Unsafe::cast_static(self.sbind_group.as_ref().unwrap()), &[]);
+            self.light_pass.set_bind_group(1, Unsafe::cast_static(&self.light_group), &[]);
             self.light_pass.set_pipeline(Unsafe::cast_static(self.light_shader.get_pipeline()));
             self.light_pass.set_index_buffer(Unsafe::cast(self.sibo.slice(..)), IndexFormat::Uint16);
             self.light_pass.draw_indexed(0..6, 0, 0..1);

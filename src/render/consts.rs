@@ -13,7 +13,7 @@ pub(crate) const VERT_LIMIT_MODEL_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_MOD
 pub(crate) const VERT_LIMIT_BATCH_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_BATCH_3D.array_stride;
 pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 
-pub(crate) const EFFECT_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
+pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
 
 pub(crate) const EFFECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
 
@@ -74,7 +74,7 @@ pub(crate) const VERTEX_LAYOUT_NONE: VertexBufferLayout = VertexBufferLayout {
 };
 
 pub(crate) const BIND_GROUP_2D: u8 = 0;
-pub(crate) const BIND_GROUP_TEXTURES_2D: u8 = 1;
+pub(crate) const BIND_GROUP_TEXTURES: u8 = 1;
 pub(crate) const BIND_GROUP_MODEL_MATRIX: u8 = 2;
 pub(crate) const BIND_GROUP_GEOMETRY_MODEL_3D: u8 = 3;
 pub(crate) const BIND_GROUP_GEOMETRY_BATCH_3D: u8 = 4;
@@ -126,7 +126,34 @@ pub(crate) const BIND_GROUP_LAYOUT_MODEL_MATRIX: BindGroupLayoutDescriptor = Bin
 
 pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout geometry pass (model) 3D"),
-    entries: &[],
+    entries: &[
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(128) }),
+            } ,
+            count: None
+        },
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            } ,
+            count: None
+        },
+        BindGroupLayoutEntry {
+            binding: 2,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None
+        }
+    ],
 };
 
 pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
@@ -136,7 +163,54 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D: BindGroupLayoutDescriptor 
 
 pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout lighting pass (model) 3D"),
-    entries: &[],
+    entries: &[
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                view_dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                view_dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 2,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                view_dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 3,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 4,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None
+        }
+    ],
 };
 
 pub(crate) const BIND_GROUP_LAYOUT_MODEL_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {

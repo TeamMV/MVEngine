@@ -3,6 +3,7 @@ use mvcore::render::RenderCore;
 use mvcore::render::window::{CreatedShader, WindowSpecs};
 
 fn main() {
+    env_logger::init();
     let core = RenderCore::new();
     let mut specs = WindowSpecs::default();
     specs.vsync = false;
