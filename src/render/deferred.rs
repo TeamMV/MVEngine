@@ -40,6 +40,7 @@ pub(crate) struct DeferredPass {
 
 impl DeferredPass {
     pub(crate) fn new(shader: Shader, state: &State) -> Self {
+        println!("a");
         let (vbo, ibo) = state.gen_buffers();
 
         let uniform = state.gen_uniform_buffer_sized(128);

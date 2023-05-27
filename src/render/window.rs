@@ -13,7 +13,7 @@ use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, Windo
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES_2D, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
@@ -146,8 +146,13 @@ impl Window {
 
         pixelate.setup(&state, |maker| {
             maker.set_float(0, 5.0);
-
         });
+
+        println!("a");
+
+        let s = deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_MODEL_MATRIX]);
+
+        println!("b");
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES_2D]),
@@ -157,9 +162,11 @@ impl Window {
         );
 
         let render_pass_3d_def = DeferredPass::new(
-            deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D]),
+            s,
             &state
         );
+
+        println!("c");
 
         let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         tex.make(&state);
@@ -299,6 +306,7 @@ impl Window {
             label: Some("Command Encoder")
         });
 
+        println!("s");
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);
 
