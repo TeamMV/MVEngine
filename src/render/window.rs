@@ -10,6 +10,7 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
+use crate::MVCore;
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
@@ -17,7 +18,9 @@ use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFEC
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
+use crate::render::model::{ModelFileType, ModelLoader, Model};
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
+use crate::render::RenderCore;
 #[cfg(feature = "3d")]
 use crate::render::text::FontLoader;
 
@@ -110,13 +113,14 @@ pub(crate) struct Window {
     pub camera_2d: Camera2D,
     pub camera_3d: Camera3D,
     tex: Arc<TextureRegion>,
+    model: Arc<Model>,
     effect_shaders: HashMap<String, Arc<EffectShader>>,
     enabled_effects_2d: Vec<String>
 }
 
 impl Window {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
-    pub fn run(mut specs: WindowSpecs) {
+    pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
@@ -168,6 +172,8 @@ impl Window {
         tex2.make(&state);
         let tex2 = Arc::new(tex2);
 
+        let model = Arc::new(ModelLoader::new(core.clone()).load_model("models/fig.obj", ModelFileType::Obj));
+
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
@@ -189,6 +195,7 @@ impl Window {
             camera_2d,
             camera_3d,
             tex,
+            model,
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
             render_pass_3d_def,
@@ -298,7 +305,6 @@ impl Window {
             label: Some("Command Encoder")
         });
 
-        println!("s");
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);
 
@@ -407,8 +413,8 @@ impl Window {
     fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut array: [Option<_>; 255] = [0; 255].map(|_| None);
 
-        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
-        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, encoder);
+        self.render_pass_3d_def.new_frame(encoder, view, Mat4::default(), Mat4::default());
+        self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
     }
 
     pub fn create_shader(&self, vert: ShaderSource, frag: ShaderSource, usage: ShaderUsage) -> CreatedShader {
