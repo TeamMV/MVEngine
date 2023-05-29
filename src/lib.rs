@@ -12,7 +12,7 @@ use mvutils::version::Version;
 
 //use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::RenderCore;
-use crate::render::window::WindowSpecs;
+use crate::render::window::{Window, WindowSpecs};
 //use crate::resource_loader::{AssetManager, LoadRequest, ResourceLoader};
 
 //pub mod assets;
@@ -22,6 +22,7 @@ pub mod files;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod render;
+pub mod r;
 
 pub struct MVCore {
     render: Arc<RenderCore>,
@@ -101,4 +102,11 @@ impl Default for ApplicationInfo {
             version: Version::default()
         }
     }
+}
+
+pub trait ApplicationLoopCallbacks {
+    fn start(&self, window: &Window<Self>);
+    fn update(&self, window: &Window<Self>);
+    fn draw(&self, window: &Window<Self>);
+    fn exit(&self, window: &Window<Self>);
 }

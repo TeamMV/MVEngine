@@ -10,10 +10,12 @@ use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
 use include_dir::File;
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
+use crate::ApplicationLoopCallbacks;
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
 use crate::render::consts::MAX_TEXTURES;
 use crate::render::RenderCore;
+use crate::render::window::Window;
 
 pub struct Model {
     pub(crate) mesh: Mesh,
@@ -194,9 +196,9 @@ impl TextureType {
     }
 }
 
-pub(crate) struct ModelLoader {
-    obj: OBJModelLoader,
-    gltf: GLTFModelLoader
+pub(crate) struct ModelLoader<I> {
+    obj: OBJModelLoader<I>,
+    gltf: GLTFModelLoader<I>
 }
 
 pub enum ModelFileType {
@@ -204,30 +206,30 @@ pub enum ModelFileType {
     Gltf
 }
 
-impl ModelLoader {
-    pub(crate) fn new(core: Arc<RenderCore>) -> Self {
+impl<I> ModelLoader<I> {
+    pub(crate) fn new(win: &Window<I>) -> Self {
         ModelLoader {
-            obj: OBJModelLoader::new(core.clone()),
-            gltf: GLTFModelLoader::new(core)
+            obj: OBJModelLoader::new(win),
+            gltf: GLTFModelLoader::new(win)
         }
     }
 
-    pub(crate) fn load_model(&self, path: &str, file_type: ModelFileType) -> Model {
+    pub(crate) fn load_model(&self, path: &str, file_type: ModelFileType, code: &str) -> Model {
         match file_type {
-            ModelFileType::Obj => self.obj.load_model(include_str!(path), path),
-            ModelFileType::Gltf => self.gltf.load_model(include_bytes!(path).to_vec()),
+            ModelFileType::Obj => self.obj.load_model(code, path),
+            ModelFileType::Gltf => self.gltf.load_model(vec![]),
         }
     }
 }
 
-struct OBJModelLoader {
-    core: Arc<RenderCore>,
+struct OBJModelLoader<I> {
+    win: &'static Window<I>,
 }
 
-impl OBJModelLoader {
-    fn new(core: Arc<RenderCore>) -> Self {
+impl<I> OBJModelLoader<I> {
+    fn new(win:&Window<I>) -> Self {
         OBJModelLoader {
-            core,
+            win,
         }
     }
 
@@ -273,7 +275,7 @@ impl OBJModelLoader {
                 "mtllib" => {
                     let full_path = path.to_string() + tokens[1];
                     self.load_materials(
-                        include_str!(full_path),
+                        "",
                         path,
                         &mut material_map,
                         &mut available_materials
@@ -434,7 +436,7 @@ impl OBJModelLoader {
                 //    material.sharpness = tokens[1].parse::<i32>().unwrap();
                 //}
                 "map_Kd" => {
-                    material.diffuse_texture = Some(self.load_texture(path.to_string() + tokens[1]));
+                    //material.diffuse_texture = Some(self.load_texture(path.to_string() + tokens[1]));
                 }
                 //"map_Ks" => {
                 //    material.specular_texture = Some(self.load_texture(path + tokens[1]));
@@ -446,7 +448,7 @@ impl OBJModelLoader {
                 //    material.reflection_texture = Some(self.load_texture(path + tokens[1]));
                 //}
                 "normal" => {
-                    material.normal_texture = Some(self.load_texture(path.to_string() + tokens[1]));
+                    //material.normal_texture = Some(self.load_texture(path.to_string() + tokens[1]));
                 }
                 _ => {}
             }
@@ -457,8 +459,8 @@ impl OBJModelLoader {
         }
     }
 
-    fn load_texture(&self, path: String) -> Arc<Texture> {
-        Arc::new(Texture::new(include_bytes!(path.as_str()).to_vec()))
+    fn load_texture(&self, bytes: Bytecode) -> Arc<Texture> {
+        Arc::new(Texture::new(bytes))
         //if let Some(texture) = unsafe { self.manager.as_mut() }.unwrap().textures.get(path.as_str()) {
         //    texture.clone()
         //}
@@ -471,14 +473,14 @@ impl OBJModelLoader {
     }
 }
 
-struct GLTFModelLoader {
-    core: Arc<RenderCore>
+struct GLTFModelLoader<I> {
+    win: &'static Window<I>
 }
 
-impl GLTFModelLoader {
-    fn new(core: Arc<RenderCore>) -> Self {
+impl<I> GLTFModelLoader<I> {
+    fn new(win: &Window<I>) -> Self {
         GLTFModelLoader {
-            core
+            win
         }
     }
 
@@ -500,13 +502,13 @@ impl GLTFModelLoader {
             //    mat.occlusion_texture = Some(rc_mut(self.construct_texture_occ(&gltf, &info)));
             //}
             if let Some(info) = material.pbr_metallic_roughness().metallic_roughness_texture() {
-                mat.metallic_roughness_texture = Some(rc_mut(self.construct_texture(&gltf, &info)));
+                mat.metallic_roughness_texture = Some(Arc::new(self.construct_texture(&gltf, &info)));
             }
             if let Some(info) = material.normal_texture() {
-                mat.normal_texture = Some(rc_mut(self.construct_texture_nor(&gltf, &info)));
+                mat.normal_texture = Some(Arc::new(self.construct_texture_nor(&gltf, &info)));
             }
             if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
-                mat.diffuse_texture = Some(rc_mut(self.construct_texture(&gltf, &info)));
+                mat.diffuse_texture = Some(Arc::new(self.construct_texture(&gltf, &info)));
             }
         }
 
@@ -581,21 +583,21 @@ impl GLTFModelLoader {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.core.create_texture(binary.as_slice())
+        Texture::new(binary)
     }
 
     fn construct_texture_occ(&self, gltf: &Gltf, src: &OcclusionTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.core.create_texture(binary.as_slice())
+        self.win.create_texture(binary.as_slice())
     }
 
     fn construct_texture_nor(&self, gltf: &Gltf, src: &NormalTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.core.create_texture(binary.as_slice())
+        self.win.create_texture(binary.as_slice())
     }
 }
 

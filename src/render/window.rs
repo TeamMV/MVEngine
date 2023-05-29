@@ -10,7 +10,7 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
-use crate::MVCore;
+use crate::{ApplicationLoop, ApplicationLoopCallbacks, MVCore};
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
@@ -99,8 +99,9 @@ impl Default for WindowSpecs {
     }
 }
 
-pub(crate) struct Window {
+pub struct Window<ApplicationLoop: ApplicationLoopCallbacks> {
     specs: WindowSpecs,
+    application_loop: ApplicationLoop,
     state: State,
     start_time: SystemTime,
     draw_2d: Draw2D,
@@ -115,12 +116,13 @@ pub(crate) struct Window {
     tex: Arc<TextureRegion>,
     model: Arc<Model>,
     effect_shaders: HashMap<String, Arc<EffectShader>>,
-    enabled_effects_2d: Vec<String>
+    enabled_effects_2d: Vec<String>,
+    model_loader: Option<ModelLoader<ApplicationLoop>>
 }
 
-impl Window {
+impl<T: ApplicationLoopCallbacks> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
-    pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>) {
+    pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>, application_loop: T) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
@@ -172,7 +174,7 @@ impl Window {
         tex2.make(&state);
         let tex2 = Arc::new(tex2);
 
-        let model = Arc::new(ModelLoader::new(core.clone()).load_model("models/fig.obj", ModelFileType::Obj));
+        let t = unsafe { &crate::r::TEXTURES }.get("hello").unwrap();
 
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
@@ -185,6 +187,7 @@ impl Window {
 
         let mut window = Window {
             specs,
+            application_loop,
             state,
             start_time: SystemTime::now(),
             draw_2d,
@@ -199,7 +202,10 @@ impl Window {
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
             render_pass_3d_def,
+            model_loader: None,
         };
+
+        window.model_loader = Some(ModelLoader::new(&window));
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
@@ -213,6 +219,8 @@ impl Window {
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
         let mut timer = u128::time_millis();
+
+        application_loop.start(&window);
 
         event_loop.run(move |event, _, control_flow| {
             match event {
@@ -304,6 +312,8 @@ impl Window {
         let mut encoder = self.state.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Command Encoder")
         });
+
+        self.application_loop.draw(&self);
 
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);

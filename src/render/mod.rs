@@ -18,6 +18,7 @@ pub mod common3d;
 pub mod model;
 
 use std::sync::Arc;
+use crate::{ApplicationLoop, ApplicationLoopCallbacks};
 use crate::render::window::{Window, WindowSpecs};
 
 pub struct RenderCore;
@@ -27,7 +28,7 @@ impl RenderCore {
         Arc::new(RenderCore)
     }
 
-    pub fn run_window(self: &Arc<RenderCore>, info: WindowSpecs) {
-        Window::run(info, self.clone())
+    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks>(self: &Arc<RenderCore>, info: WindowSpecs, application_loop: ApplicationLoop) {
+        Window::run(info, self.clone(), application_loop)
     }
 }
