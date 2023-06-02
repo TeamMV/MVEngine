@@ -19,8 +19,8 @@ pub(crate) struct TextureBindGroup {
 
 impl TextureBindGroup {
     pub(crate) fn new(shader: &Shader, state: &State, index: u32) -> Self {
-        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| unsafe { DUMMY_TEXTURE.clone().unwrap() });
-        let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.as_ref().unwrap().get_view() }; TEXTURE_LIMIT];
+        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| unsafe { DUMMY_TEXTURE.clone() });
+        let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.get_view() }; TEXTURE_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Texture bind group"),
@@ -28,7 +28,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&views[..unsafe { MAX_TEXTURES }]),
+                    resource: BindingResource::TextureViewArray(&views[..unsafe { *MAX_TEXTURES }]),
                 }
             ],
         });
@@ -52,7 +52,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&self.views[..unsafe { MAX_TEXTURES }]),
+                    resource: BindingResource::TextureViewArray(&self.views[..unsafe { *MAX_TEXTURES }]),
                 }
             ],
         });
@@ -92,7 +92,7 @@ impl RenderPass2D {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap() }),
+                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER }),
                 }
             ],
         });
@@ -149,15 +149,15 @@ impl RenderPass2D {
 
             let mut changed = false;
 
-            for i in 0..MAX_TEXTURES {
+            for i in 0..*MAX_TEXTURES {
                 if let Some(ref texture) = textures[i] {
                     if &texture_group.textures[i] != texture {
                         texture_group.set(i, texture.clone());
                         changed = true;
                     }
                 }
-                else if texture_group.textures[i] != DUMMY_TEXTURE.clone().unwrap() {
-                    texture_group.set(i, DUMMY_TEXTURE.clone().unwrap());
+                else if texture_group.textures[i] != DUMMY_TEXTURE.clone() {
+                    texture_group.set(i, DUMMY_TEXTURE.clone());
                     changed = true;
                 }
             }
@@ -207,7 +207,7 @@ impl EffectPass {
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
                     },
                     BindGroupEntry {
                         binding: 2,
@@ -225,7 +225,7 @@ impl EffectPass {
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
                     },
                     BindGroupEntry {
                         binding: 2,
@@ -258,7 +258,7 @@ impl EffectPass {
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
                     },
                     BindGroupEntry {
                         binding: 2,
@@ -276,7 +276,7 @@ impl EffectPass {
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(DEFAULT_SAMPLER.as_ref().unwrap())
+                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
                     },
                     BindGroupEntry {
                         binding: 2,

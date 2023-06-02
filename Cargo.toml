@@ -40,7 +40,6 @@ mvsync = { path = "../MVSync" }
 include_dir = "0.7.3"
 regex = "1.7.3"
 glam = "0.24.0"
-once_cell = "1.17.1"
 bytebuffer = "2.1.1"
 json = "0.12.4"
 image = "0.24.6"

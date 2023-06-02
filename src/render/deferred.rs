@@ -63,7 +63,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap() }),
+                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER }),
                 }
             ],
         });
@@ -76,7 +76,7 @@ impl DeferredPass {
 
         let light_shader = Shader::new_glsl(DUMMY_VERT, include_str!("shaders/light.frag")).setup_pipeline(state, VERTEX_LAYOUT_NONE, &[BIND_GROUP_LIGHTING_3D]);
 
-        let light_buffer = state.gen_uniform_buffer_sized((32 + 64 * unsafe { MAX_LIGHTS }) as u64);
+        let light_buffer = state.gen_uniform_buffer_sized((32 + 64 * unsafe { *MAX_LIGHTS }) as u64);
 
         let light_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("lighting pass bind group"),
@@ -96,7 +96,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(unsafe { DEFAULT_SAMPLER.as_ref().unwrap()})
+                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER })
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -175,7 +175,8 @@ impl DeferredPass {
 
         unsafe { geom.set_bind_group(0, Unsafe::cast_static(&self.uniform), &[]) };
 
-        unsafe { Nullable::new(geom).cast_bytes() }
+        let g =unsafe { Nullable::new(geom) };
+        unsafe { g.cast_bytes() }
     }
 
     fn begin_light(&self, enc: &mut CommandEncoder, target: &TextureView) -> Nullable<RenderPass<'static>> {
@@ -236,15 +237,15 @@ impl DeferredPass {
 
             let mut changed = false;
 
-            for i in 0..MAX_TEXTURES {
+            for i in 0..*MAX_TEXTURES {
                 if let Some(ref texture) = textures[i] {
                     if &texture_group.textures[i] != texture {
                         texture_group.set(i, texture.clone());
                         changed = true;
                     }
                 }
-                else if texture_group.textures[i] != DUMMY_TEXTURE.clone().unwrap() {
-                    texture_group.set(i, DUMMY_TEXTURE.clone().unwrap());
+                else if texture_group.textures[i] != DUMMY_TEXTURE.clone() {
+                    texture_group.set(i, DUMMY_TEXTURE.clone());
                     changed = true;
                 }
             }

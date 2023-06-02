@@ -181,7 +181,7 @@ impl Batch2D {
     }
 
     fn is_full_tex_for(&self, amount: u32) -> bool {
-        self.next_tex + amount > unsafe { MAX_TEXTURES } as u32
+        self.next_tex + amount > unsafe { *MAX_TEXTURES } as u32
     }
 
     fn can_hold(&self, vertices: u32, textures: u32) -> bool {
@@ -229,7 +229,7 @@ impl Batch2D {
             return 0;
         }
 
-        for i in 0..unsafe { MAX_TEXTURES as usize } {
+        for i in 0..unsafe { *MAX_TEXTURES } {
             if let Some(tex) = &self.textures[i] {
                 if tex == &texture {
                     return i as u32 + 1;
@@ -241,7 +241,7 @@ impl Batch2D {
         self.tex_ids[self.next_tex as usize] = self.next_tex;
         self.next_tex += 1;
 
-        if self.next_tex > unsafe { MAX_TEXTURES } as u32 {
+        if self.next_tex > unsafe { *MAX_TEXTURES } as u32 {
             self.full_tex = true;
         }
 

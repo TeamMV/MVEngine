@@ -298,7 +298,6 @@ impl Window {
             label: Some("Command Encoder")
         });
 
-        println!("s");
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);
 
