@@ -45,10 +45,10 @@ impl TextureBindGroup {
         self.textures[index] = texture;
     }
 
-    pub(crate) fn remake(&mut self, state: &State, shader: &Shader) {
+    pub(crate) fn remake(&mut self, state: &State, shader: &Shader, index: u32) {
         self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
-            layout: &shader.get_pipeline().get_bind_group_layout(1),
+            layout: &shader.get_pipeline().get_bind_group_layout(index),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -163,7 +163,7 @@ impl RenderPass2D {
             }
 
             if changed {
-                texture_group.remake(self.state, &self.shader);
+                texture_group.remake(self.state, &self.shader, 1);
             }
 
             render_pass.set_bind_group(1, &texture_group.bind_group, &[]);

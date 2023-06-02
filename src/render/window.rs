@@ -10,6 +10,7 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
+use crate::{ApplicationLoop, ApplicationLoopCallbacks, MVCore};
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
@@ -17,7 +18,9 @@ use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFEC
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::{State};
+use crate::render::model::{ModelFileType, ModelLoader, Model};
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
+use crate::render::RenderCore;
 #[cfg(feature = "3d")]
 use crate::render::text::FontLoader;
 
@@ -96,8 +99,9 @@ impl Default for WindowSpecs {
     }
 }
 
-pub(crate) struct Window {
+pub struct Window<ApplicationLoop: ApplicationLoopCallbacks> {
     specs: WindowSpecs,
+    application_loop: ApplicationLoop,
     state: State,
     start_time: SystemTime,
     draw_2d: Draw2D,
@@ -110,13 +114,15 @@ pub(crate) struct Window {
     pub camera_2d: Camera2D,
     pub camera_3d: Camera3D,
     tex: Arc<TextureRegion>,
+    model: Arc<Model>,
     effect_shaders: HashMap<String, Arc<EffectShader>>,
-    enabled_effects_2d: Vec<String>
+    enabled_effects_2d: Vec<String>,
+    model_loader: Option<ModelLoader<ApplicationLoop>>
 }
 
-impl Window {
+impl<T: ApplicationLoopCallbacks> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
-    pub fn run(mut specs: WindowSpecs) {
+    pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>, application_loop: T) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
@@ -168,6 +174,8 @@ impl Window {
         tex2.make(&state);
         let tex2 = Arc::new(tex2);
 
+        let t = unsafe { &crate::r::TEXTURES }.get("hello").unwrap();
+
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
@@ -179,6 +187,7 @@ impl Window {
 
         let mut window = Window {
             specs,
+            application_loop,
             state,
             start_time: SystemTime::now(),
             draw_2d,
@@ -189,10 +198,14 @@ impl Window {
             camera_2d,
             camera_3d,
             tex,
+            model,
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
             render_pass_3d_def,
+            model_loader: None,
         };
+
+        window.model_loader = Some(ModelLoader::new(&window));
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
@@ -206,6 +219,8 @@ impl Window {
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
         let mut timer = u128::time_millis();
+
+        application_loop.start(&window);
 
         event_loop.run(move |event, _, control_flow| {
             match event {
@@ -298,6 +313,11 @@ impl Window {
             label: Some("Command Encoder")
         });
 
+<<<<<<< HEAD
+=======
+        self.application_loop.draw(&self);
+
+>>>>>>> 03005e5400d2467cf899a1a2a678cbae4a34502c
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);
 
@@ -406,8 +426,8 @@ impl Window {
     fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut array: [Option<_>; 255] = [0; 255].map(|_| None);
 
-        self.render_pass_3d_def.new_frame(Mat4::default(), Mat4::default());
-        self.render_pass_3d_def.render(&[], &[], &array, false, 1, &view, encoder);
+        self.render_pass_3d_def.new_frame(encoder, view, Mat4::default(), Mat4::default());
+        self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
     }
 
     pub fn create_shader(&self, vert: ShaderSource, frag: ShaderSource, usage: ShaderUsage) -> CreatedShader {

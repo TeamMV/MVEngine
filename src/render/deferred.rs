@@ -3,6 +3,7 @@ use std::ptr::null_mut;
 use std::sync::Arc;
 use glam::{Mat4, Vec2, Vec4};
 use json::Null;
+use mvutils::id_eq;
 use mvutils::utils::TetrahedronOp;
 use mvutils::unsafe_utils::{Nullable, Unsafe, UnsafeRef};
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer, BufferDescriptor, BufferSlice, BufferUsages, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView};
@@ -203,7 +204,7 @@ impl DeferredPass {
         unsafe { Nullable::new(light).cast_bytes() }
     }
 
-    pub(crate) fn new_frame(&mut self, proj: Mat4, view: Mat4) {
+    pub(crate) fn new_frame(&mut self, enc: &mut CommandEncoder, target: &TextureView, proj: Mat4, view: Mat4) {
         self.pass = 0;
 
         if self.projection != proj {
@@ -211,17 +212,17 @@ impl DeferredPass {
             self.state.queue.write_buffer(&self.uniform_buffer, 0, proj.cast_bytes());
         }
 
-        if self.view!= view {
+        if self.view != view {
             self.view = view;
             self.state.queue.write_buffer(&self.uniform_buffer, 64, proj.cast_bytes());
         }
+
+        self.geom_pass = self.begin_geom(enc);
+        self.light_pass = self.begin_light(enc, target);
     }
 
-    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool, instances: u32, target_view: &TextureView, enc: &mut CommandEncoder) {
+    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool, instances: u32) {
         unsafe {
-            //geom pass
-            self.geom_pass = self.begin_geom(enc);
-
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
                 self.vbo.push(vbo);
@@ -251,7 +252,7 @@ impl DeferredPass {
             }
 
             if changed {
-                texture_group.remake(self.state, &self.shader);
+                texture_group.remake(self.state, &self.shader, 2);
             }
 
             self.geom_pass.set_bind_group(2, Unsafe::cast_static(&texture_group.bind_group), &[]);
@@ -261,10 +262,7 @@ impl DeferredPass {
             self.geom_pass.draw_indexed(0..indices.len() as u32, 0, 0..instances);
             self.pass += 1;
 
-            //lighting pass
             self.state.queue.write_buffer(&self.sibo, 0, &[0, 1, 2, 0, 2, 3].as_slice().cast_bytes());
-
-            self.light_pass = self.begin_light(enc, target_view);
 
             self.light_pass.set_bind_group(1, Unsafe::cast_static(&self.light_group), &[]);
             self.light_pass.set_pipeline(Unsafe::cast_static(self.light_shader.get_pipeline()));

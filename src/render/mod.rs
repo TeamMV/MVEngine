@@ -14,17 +14,21 @@ pub mod render3d;
 pub mod deferred;
 #[cfg(feature = "3d")]
 pub mod common3d;
+#[cfg(feature = "3d")]
+pub mod model;
 
 use std::sync::Arc;
+use crate::{ApplicationLoop, ApplicationLoopCallbacks};
 use crate::render::window::{Window, WindowSpecs};
 
 pub struct RenderCore;
 
 impl RenderCore {
-    pub fn new() -> Self {
-        RenderCore
+    pub fn new() -> Arc<Self> {
+        Arc::new(RenderCore)
     }
-   pub fn run_window(&self, info: WindowSpecs) {
-       Window::run(info)
-   }
+
+    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks>(self: &Arc<RenderCore>, info: WindowSpecs, application_loop: ApplicationLoop) {
+        Window::run(info, self.clone(), application_loop)
+    }
 }

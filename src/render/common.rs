@@ -10,7 +10,7 @@ use std::mem;
 use std::sync::Arc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
-use mvutils::utils::next_id;
+use mvutils::utils::{Bytecode, next_id};
 use regex::internal::Input;
 use shaderc::ShaderKind;
 
@@ -408,13 +408,13 @@ pub struct Texture {
     id: u64,
     width: u32,
     height: u32,
-    image: Option<Vec<u8>>,
+    image: Option<Bytecode>,
     texture: Option<wgpu::Texture>,
     view: Option<TextureView>
 }
 
 impl Texture {
-    pub(crate) fn new(image: Vec<u8>) -> Self {
+    pub(crate) fn new(image: Bytecode) -> Self {
         Self {
             id: next_id("MVCore::Texture"),
             width: 0,
@@ -534,9 +534,7 @@ impl Texture {
                 origin: Origin3d::ZERO,
                 aspect: TextureAspect::All,
             },
-            // The actual pixel data
             &bytes,
-            // The layout of the texture
             ImageDataLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * dimensions.0),
