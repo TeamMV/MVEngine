@@ -18,7 +18,7 @@ pub mod common3d;
 pub mod model;
 
 use std::sync::Arc;
-use crate::{ApplicationLoop, ApplicationLoopCallbacks};
+use crate::{ ApplicationLoopCallbacks};
 use crate::render::window::{Window, WindowSpecs};
 
 pub struct RenderCore;

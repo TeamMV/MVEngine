@@ -4,13 +4,13 @@ use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 use glam::Mat4;
 use mvsync::block::AwaitSync;
-use mvutils::utils::{TetrahedronOp, Time};
+use mvutils::utils::{Bytecode, TetrahedronOp, Time};
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, CommandEncoder, CommandEncoderDescriptor, IndexFormat, LoadOp, Maintain, MaintainBase, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
-use crate::{ApplicationLoop, ApplicationLoopCallbacks, MVCore};
+use crate::{ApplicationLoopCallbacks, MVCore};
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
@@ -99,7 +99,7 @@ impl Default for WindowSpecs {
     }
 }
 
-pub struct Window<ApplicationLoop: ApplicationLoopCallbacks> {
+pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     specs: WindowSpecs,
     application_loop: ApplicationLoop,
     state: State,
@@ -114,13 +114,12 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks> {
     pub camera_2d: Camera2D,
     pub camera_3d: Camera3D,
     tex: Arc<TextureRegion>,
-    model: Arc<Model>,
     effect_shaders: HashMap<String, Arc<EffectShader>>,
     enabled_effects_2d: Vec<String>,
     model_loader: Option<ModelLoader<ApplicationLoop>>
 }
 
-impl<T: ApplicationLoopCallbacks> Window<T> {
+impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
     pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>, application_loop: T) {
         let event_loop = EventLoop::new();
@@ -198,7 +197,6 @@ impl<T: ApplicationLoopCallbacks> Window<T> {
             camera_2d,
             camera_3d,
             tex,
-            model,
             effect_shaders: HashMap::new(),
             enabled_effects_2d: Vec::new(),
             render_pass_3d_def,
@@ -220,7 +218,7 @@ impl<T: ApplicationLoopCallbacks> Window<T> {
         let mut frames = 0;
         let mut timer = u128::time_millis();
 
-        application_loop.start(&window);
+        window.application_loop.start(&window);
 
         event_loop.run(move |event, _, control_flow| {
             match event {
@@ -421,10 +419,16 @@ impl<T: ApplicationLoopCallbacks> Window<T> {
 
     #[cfg(feature = "3d")]
     fn render_3d(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
-        let mut array: [Option<_>; 255] = [0; 255].map(|_| None);
+        let mut array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
         self.render_pass_3d_def.new_frame(encoder, view, Mat4::default(), Mat4::default());
-        self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+        //self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+    }
+
+    pub fn create_texture(&self, binary: Bytecode) -> Texture {
+        let mut tex = Texture::new(binary);
+        tex.make(&self.state);
+        tex
     }
 
     pub fn create_shader(&self, vert: ShaderSource, frag: ShaderSource, usage: ShaderUsage) -> CreatedShader {

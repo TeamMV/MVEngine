@@ -23,17 +23,17 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn vertices_f32(&self) -> &[f32] {
+    pub fn vertices_f32(&self) -> Vec<f32> {
         let mut vec: Vec<f32> = vec![];
-        for vertex in self.mesh.vertices {
+        for vertex in self.mesh.vertices.iter() {
             vec.push(vertex.x);
             vec.push(vertex.y);
             vec.push(vertex.z);
         }
-        vec.as_slice()
+        vec
     }
 
-    pub(crate) fn data_array(&self) -> &[f32] {
+    pub(crate) fn data_array(&self) -> Vec<f32> {
         //pos, normal, uv, mat_id
         let mut vec: Vec<f32> = vec![];
         for m_data in self.mesh.enumerate() {
@@ -47,7 +47,7 @@ impl Model {
             vec.push(m_data.3.y);
             vec.push(m_data.4 as f32);
         }
-        vec.as_slice()
+        vec
     }
 }
 
@@ -61,7 +61,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub(crate) fn enumerate(&self) -> &[(usize, Vec3, Vec3, Vec2, u16)] {
+    pub(crate) fn enumerate(&self) -> Vec<(usize, Vec3, Vec3, Vec2, u16)> {
         let mut vec: Vec<(usize, Vec3, Vec3, Vec2, u16)> = vec![];
         for i in 0..self.vertices.len() {
             vec.push((
@@ -72,7 +72,7 @@ impl Mesh {
                 self.materials[i],)
             );
         }
-        vec.as_slice()
+        vec
     }
 }
 
@@ -196,7 +196,7 @@ impl TextureType {
     }
 }
 
-pub(crate) struct ModelLoader<I> {
+pub(crate) struct ModelLoader<I: ApplicationLoopCallbacks + 'static> {
     obj: OBJModelLoader<I>,
     gltf: GLTFModelLoader<I>
 }
@@ -206,8 +206,8 @@ pub enum ModelFileType {
     Gltf
 }
 
-impl<I> ModelLoader<I> {
-    pub(crate) fn new(win: &Window<I>) -> Self {
+impl<I: ApplicationLoopCallbacks> ModelLoader<I> {
+    pub(crate) fn new(win: &'static Window<I>) -> Self {
         ModelLoader {
             obj: OBJModelLoader::new(win),
             gltf: GLTFModelLoader::new(win)
@@ -222,12 +222,12 @@ impl<I> ModelLoader<I> {
     }
 }
 
-struct OBJModelLoader<I> {
+struct OBJModelLoader<I: ApplicationLoopCallbacks + 'static> {
     win: &'static Window<I>,
 }
 
-impl<I> OBJModelLoader<I> {
-    fn new(win:&Window<I>) -> Self {
+impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
+    fn new(win:&'static Window<I>) -> Self {
         OBJModelLoader {
             win,
         }
@@ -473,11 +473,11 @@ impl<I> OBJModelLoader<I> {
     }
 }
 
-struct GLTFModelLoader<I> {
+struct GLTFModelLoader<I: ApplicationLoopCallbacks + 'static> {
     win: &'static Window<I>
 }
 
-impl<I> GLTFModelLoader<I> {
+impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
     fn new(win: &Window<I>) -> Self {
         GLTFModelLoader {
             win
@@ -583,21 +583,21 @@ impl<I> GLTFModelLoader<I> {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        Texture::new(binary)
+        self.win.create_texture(binary)
     }
 
     fn construct_texture_occ(&self, gltf: &Gltf, src: &OcclusionTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.win.create_texture(binary.as_slice())
+        self.win.create_texture(binary)
     }
 
     fn construct_texture_nor(&self, gltf: &Gltf, src: &NormalTexture) -> Texture {
         let img_idx = src.texture().source().index();
         let buffer_view = gltf.images().nth(img_idx).unwrap().index();
         let binary = self.get_data_from_buffer_view(gltf, buffer_view);
-        self.win.create_texture(binary.as_slice())
+        self.win.create_texture(binary)
     }
 }
 

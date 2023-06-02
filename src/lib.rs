@@ -104,7 +104,7 @@ impl Default for ApplicationInfo {
     }
 }
 
-pub trait ApplicationLoopCallbacks {
+pub trait ApplicationLoopCallbacks: Sized {
     fn start(&self, window: &Window<Self>);
     fn update(&self, window: &Window<Self>);
     fn draw(&self, window: &Window<Self>);
