@@ -120,11 +120,11 @@ macro_rules! value {
 macro_rules! setup {
     (
         $s:expr => {
-            $($key:ident: $value:tt $($suffix:ident)*),*
+            $($key:ident$(: $value:tt $($suffix:ident)*)?),*
         }
     ) => {
         $(
-            $s.$key = $crate::value!($value $($suffix)*);
+            $s.$key$( = $crate::value!($value $($suffix)*))?;
         )*
     }
 }

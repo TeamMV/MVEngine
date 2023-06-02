@@ -15,7 +15,7 @@ use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
 
-use crate::{ApplicationLoopCallbacks, MVCore};
+use crate::{ApplicationLoopCallbacks, MVCore, setup};
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
@@ -489,24 +489,29 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             chroma_tilt tilt;
             canvas 0, 0, tilt as u32 + 100, (200 * 534) / 358;
         });
-        self.do_draw_2d_procedure(|draw| {
-            draw.rectangle()
-        })
+
+        self.do_draw_2d_procedure(|draw: &mut Draw2D| {
+            draw.reset_canvas();
+            draw.reset_color();
+            draw.use_camera(true);
+            draw.chroma_tilt(tilt);
+            draw.canvas(0, 0, (tilt as u32 + 100), ((200 * 534) / 358));
+        });
     }
 }
 
 #[macro_export]
 macro_rules! draw_2d {
-    ($win:ident => {
+    ($win:expr => {
         $(
-            $func:ident $($param:expr),*;
+            $func:ident$($($param:expr),*;)?
         )*
     }) => {
-        $win.do_draw_2d_procedure(|draw: &mut $crate::render::draw::Draw2D| {
+        $win.do_draw_2d_procedure(|draw| {
             $(
-                $crate::render::draw::Draw2D::$func(draw $(,$param)*);
+                draw.$func($($($param),*)?);
             )*
-        })
+        });
     };
 }
 
