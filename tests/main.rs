@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use log::LevelFilter::Trace;
+
 use mvcore::ApplicationLoopCallbacks;
 use mvcore::render::RenderCore;
-use mvcore::render::window::{CreatedShader, Window, WindowSpecs};
+use mvcore::render::window::{Window, WindowSpecs};
 
 fn main() {
     env_logger::init();
@@ -19,19 +19,19 @@ fn main() {
 
 struct ApplicationLoop;
 impl ApplicationLoopCallbacks for ApplicationLoop {
-    fn start(&self, window: &Window<Self>) {
-        todo!()
+    fn start(&self, window: Arc<Window<Self>>) {
+
     }
 
-    fn update(&self, window: &Window<Self>) {
-        todo!()
+    fn update(&self, window: Arc<Window<Self>>) {
+
     }
 
-    fn draw(&self, window: &Window<Self>) {
-        todo!()
+    fn draw(&self, window: Arc<Window<Self>>) {
+
     }
 
-    fn exit(&self, window: &Window<Self>) {
-        todo!()
+    fn exit(&self, window: Arc<Window<Self>>) {
+
     }
 }

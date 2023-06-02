@@ -1,7 +1,9 @@
-use std::{cell::RefCell, rc::Rc, collections::HashMap};
+use std::collections::HashMap;
 use std::cmp::max;
 use std::sync::Arc;
+
 use mvutils::utils::TetrahedronOp;
+
 use crate::render::common::Texture;
 use crate::render::init::State;
 use crate::render::RenderCore;

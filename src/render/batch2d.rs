@@ -2,52 +2,16 @@ use std::cell::RefCell;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use std::sync::Arc;
+
 use itertools::Itertools;
-
 use mvutils::init_arr;
-use mvutils::utils::{TetrahedronOp};
-use crate::render::color::{Color, RGB};
+use mvutils::utils::TetrahedronOp;
 
+use crate::render::color::{Color, RGB};
 use crate::render::common::{Shader, Texture};
-use crate::render::consts::{INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT, VERT_LIMIT_2D_BYTES, VERT_LIMIT_2D_FLOATS};
+use crate::render::consts::{INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT, VERT_LIMIT_2D_BYTES, VERT_LIMIT_2D_FLOATS, VERTEX_2D_SIZE_FLOATS};
 use crate::render::init::PipelineBuilder;
 use crate::render::render::RenderPass2D;
-
-pub(crate) const FLOAT_BYTES: u16 = 4;
-
-pub mod batch_layout_2d {
-    const FLOAT_BYTES: u16 = 4;
-
-    pub(crate) const POSITION_SIZE: u16 = 3;
-    pub(crate) const ROTATION_SIZE: u16 = 1;
-    pub(crate) const ROTATION_ORIGIN_SIZE: u16 = 2;
-    pub(crate) const COLOR_SIZE: u16 = 4;
-    pub(crate) const UV_SIZE: u16 = 2;
-    pub(crate) const TEX_ID_SIZE: u16 = 1;
-    pub(crate) const CANVAS_COORDS_SIZE: u16 = 4;
-    pub(crate) const CANVAS_DATA_SIZE: u16 = 2;
-    pub(crate) const USE_CAMERA_SIZE: u16 = 1;
-    pub(crate) const VERTEX_SIZE_FLOATS: u16 = POSITION_SIZE + ROTATION_SIZE + ROTATION_ORIGIN_SIZE + COLOR_SIZE + UV_SIZE + TEX_ID_SIZE + CANVAS_COORDS_SIZE + CANVAS_DATA_SIZE + USE_CAMERA_SIZE;
-    pub(crate) const VERTEX_SIZE_BYTES: u16 = VERTEX_SIZE_FLOATS * FLOAT_BYTES;
-    pub(crate) const POSITION_OFFSET: u16 = 0;
-    pub(crate) const POSITION_OFFSET_BYTES: u16 = POSITION_OFFSET * FLOAT_BYTES;
-    pub(crate) const ROTATION_OFFSET: u16 = POSITION_SIZE;
-    pub(crate) const ROTATION_OFFSET_BYTES: u16 = ROTATION_OFFSET * FLOAT_BYTES;
-    pub(crate) const ROTATION_ORIGIN_OFFSET: u16 = ROTATION_OFFSET + ROTATION_SIZE;
-    pub(crate) const ROTATION_ORIGIN_OFFSET_BYTES: u16 = ROTATION_ORIGIN_OFFSET * FLOAT_BYTES;
-    pub(crate) const COLOR_OFFSET: u16 = ROTATION_ORIGIN_OFFSET + ROTATION_ORIGIN_SIZE;
-    pub(crate) const COLOR_OFFSET_BYTES: u16 = COLOR_OFFSET * FLOAT_BYTES;
-    pub(crate) const UV_OFFSET: u16 = COLOR_OFFSET + COLOR_SIZE;
-    pub(crate) const UV_OFFSET_BYTES: u16 = UV_OFFSET * FLOAT_BYTES;
-    pub(crate) const TEX_ID_OFFSET: u16 = UV_OFFSET + UV_SIZE;
-    pub(crate) const TEX_ID_OFFSET_BYTES: u16 = TEX_ID_OFFSET * FLOAT_BYTES;
-    pub(crate) const CANVAS_COORDS_OFFSET: u16 = TEX_ID_OFFSET + TEX_ID_SIZE;
-    pub(crate) const CANVAS_COORDS_OFFSET_BYTES: u16 = CANVAS_COORDS_OFFSET * FLOAT_BYTES;
-    pub(crate) const CANVAS_DATA_OFFSET: u16 = CANVAS_COORDS_OFFSET + CANVAS_COORDS_SIZE;
-    pub(crate) const CANVAS_DATA_OFFSET_BYTES: u16 = CANVAS_DATA_OFFSET * FLOAT_BYTES;
-    pub(crate) const USE_CAMERA_OFFSET: u16 = CANVAS_DATA_OFFSET + CANVAS_DATA_SIZE;
-    pub(crate) const USE_CAMERA_OFFSET_BYTES: u16 = USE_CAMERA_OFFSET * FLOAT_BYTES;
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum BatchType {
@@ -181,7 +145,7 @@ impl Batch2D {
     }
 
     fn is_full_tex_for(&self, amount: u32) -> bool {
-        self.next_tex + amount > unsafe { *MAX_TEXTURES } as u32
+        self.next_tex + amount > *MAX_TEXTURES as u32
     }
 
     fn can_hold(&self, vertices: u32, textures: u32) -> bool {
@@ -189,8 +153,8 @@ impl Batch2D {
     }
 
     fn add_vertex(&mut self, vertex: &Vertex2D) {
-        for i in 0..batch_layout_2d::VERTEX_SIZE_FLOATS {
-            self.data.insert(i as usize + (self.vert_count * batch_layout_2d::VERTEX_SIZE_FLOATS as u32) as usize, vertex.data[i as usize]);
+        for i in 0..VERTEX_2D_SIZE_FLOATS {
+            self.data.insert(i as usize + (self.vert_count * VERTEX_2D_SIZE_FLOATS as u32) as usize, vertex.data[i as usize]);
         }
         self.vert_count += 1;
     }
@@ -229,7 +193,7 @@ impl Batch2D {
             return 0;
         }
 
-        for i in 0..unsafe { *MAX_TEXTURES } {
+        for i in 0..*MAX_TEXTURES {
             if let Some(tex) = &self.textures[i] {
                 if tex == &texture {
                     return i as u32 + 1;
@@ -241,7 +205,7 @@ impl Batch2D {
         self.tex_ids[self.next_tex as usize] = self.next_tex;
         self.next_tex += 1;
 
-        if self.next_tex > unsafe { *MAX_TEXTURES } as u32 {
+        if self.next_tex > *MAX_TEXTURES as u32 {
             self.full_tex = true;
         }
 
@@ -262,16 +226,16 @@ impl Batch2D {
 //data storage
 
 pub(crate) struct Vertex2D {
-    data: [f32; batch_layout_2d::VERTEX_SIZE_FLOATS as usize],
+    data: [f32; VERTEX_2D_SIZE_FLOATS],
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Vertex2D {
     pub(crate) fn new() -> Self {
-        Vertex2D { data: [0.0; batch_layout_2d::VERTEX_SIZE_FLOATS as usize] }
+        Vertex2D { data: [0.0; VERTEX_2D_SIZE_FLOATS] }
     }
 
-    pub(crate) fn set(&mut self, data: [f32; batch_layout_2d::VERTEX_SIZE_FLOATS as usize]) {
+    pub(crate) fn set(&mut self, data: [f32; VERTEX_2D_SIZE_FLOATS]) {
         self.data = data;
     }
 
@@ -367,11 +331,9 @@ impl BatchController2D {
         match batch_type {
             BatchType::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous_regular >= 0 {
-                        if self.batches[self.previous_regular as usize].can_hold(vertices, textures) {
-                            self.inc_z();
-                            return;
-                        }
+                    if self.previous_regular >= 0 && self.batches[self.previous_regular as usize].can_hold(vertices, textures) {
+                        self.inc_z();
+                        return;
                     }
                     self.advance(batch_type);
                     self.previous_regular = self.current as i32;
@@ -379,7 +341,6 @@ impl BatchController2D {
                 else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         self.inc_z();
-                        //NEW!
                         self.previous_regular = self.current as i32;
                         return;
                     }
@@ -388,10 +349,8 @@ impl BatchController2D {
                 }
             }
             BatchType::Stripped => {
-                if self.batches[self.current as usize].batch_type() == batch_type {
-                    if self.batches[self.current as usize].is_empty() {
-                        return;
-                    }
+                if self.batches[self.current as usize].batch_type() == batch_type && self.batches[self.current as usize].is_empty() {
+                    return;
                 }
                 self.advance(batch_type);
             }

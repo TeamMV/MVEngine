@@ -1,18 +1,19 @@
 use alloc::borrow::Cow;
 use std::cmp::Ordering;
-use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
-use wgpu::util::{make_spirv, make_spirv_raw};
-use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, DUMMY_VERT};
-use crate::render::init::{PipelineBuilder, State};
-
 use std::io::Read;
 use std::mem;
 use std::sync::Arc;
+
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
 use mvutils::utils::{Bytecode, next_id};
 use regex::internal::Input;
 use shaderc::ShaderKind;
+use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
+use wgpu::util::{make_spirv, make_spirv_raw};
+
+use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, DUMMY_VERT};
+use crate::render::init::{PipelineBuilder, State};
 
 pub enum ShaderType {
     Fragment,
@@ -70,11 +71,9 @@ mod preprocessor {
     const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";
 
     pub fn process(src: &str) -> String {
-        unsafe {
-            src
-                .replace(MAX_TEXTURES_IDENTIFIER, &format!("{}", MAX_TEXTURES))
-                .replace(MAX_LIGHTS_IDENTIFIER, &format!("{}", MAX_LIGHTS))
-        }
+        src
+            .replace(MAX_TEXTURES_IDENTIFIER, &format!("{}", MAX_TEXTURES))
+            .replace(MAX_LIGHTS_IDENTIFIER, &format!("{}", MAX_LIGHTS))
     }
 }
 

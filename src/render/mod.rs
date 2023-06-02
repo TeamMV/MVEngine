@@ -28,7 +28,7 @@ impl RenderCore {
         Arc::new(RenderCore)
     }
 
-    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks>(self: &Arc<RenderCore>, info: WindowSpecs, application_loop: ApplicationLoop) {
+    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks + Sized + 'static>(self: &Arc<RenderCore>, info: WindowSpecs, application_loop: ApplicationLoop) {
         Window::run(info, self.clone(), application_loop)
     }
 }

@@ -3,13 +3,15 @@ use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
+
 use glam::{IVec3, IVec4, Mat4, Vec2, Vec3};
-use gltf::buffer::View;
 use gltf::{Gltf, Semantic};
+use gltf::buffer::View;
 use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
 use include_dir::File;
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
+
 use crate::ApplicationLoopCallbacks;
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
@@ -163,7 +165,7 @@ impl Model {
     pub fn is_simple_geometry(&self) -> bool {
         self.vertex_count() < 5000
         && self.materials.len() < 16
-        && self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES / 4 } as u32
+        && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
     }
 
     pub fn texture_count(&self, texture_type: TextureType) -> u32 {
@@ -171,11 +173,11 @@ impl Model {
     }
 
     pub fn single_batch(&self) -> bool {
-        self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES } as u32
+        self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32
     }
 
     pub fn min_batches(&self) -> u32 {
-        (self.texture_count(TextureType::Geometry) as f32 / unsafe { MAX_TEXTURES as f32 }).ceil() as u32
+        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32).ceil() as u32
     }
 }
 
@@ -207,9 +209,9 @@ pub enum ModelFileType {
 }
 
 impl<I: ApplicationLoopCallbacks> ModelLoader<I> {
-    pub(crate) fn new(win: &'static Window<I>) -> Self {
+    pub(crate) fn new(win: Arc<Window<I>>) -> Self {
         ModelLoader {
-            obj: OBJModelLoader::new(win),
+            obj: OBJModelLoader::new(win.clone()),
             gltf: GLTFModelLoader::new(win)
         }
     }
@@ -223,11 +225,11 @@ impl<I: ApplicationLoopCallbacks> ModelLoader<I> {
 }
 
 struct OBJModelLoader<I: ApplicationLoopCallbacks + 'static> {
-    win: &'static Window<I>,
+    win: Arc<Window<I>>,
 }
 
 impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
-    fn new(win:&'static Window<I>) -> Self {
+    fn new(win: Arc<Window<I>>) -> Self {
         OBJModelLoader {
             win,
         }
@@ -474,11 +476,11 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 }
 
 struct GLTFModelLoader<I: ApplicationLoopCallbacks + 'static> {
-    win: &'static Window<I>
+    win: Arc<Window<I>>
 }
 
 impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
-    fn new(win: &Window<I>) -> Self {
+    fn new(win: Arc<Window<I>>) -> Self {
         GLTFModelLoader {
             win
         }

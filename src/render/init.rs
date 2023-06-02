@@ -1,15 +1,17 @@
 use std::cmp::min;
 use std::io::Read;
-use std::ops::Deref;
 use std::num::NonZeroU32;
+use std::ops::Deref;
 use std::sync::Arc;
+
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{Queue, Surface, Device, SurfaceConfiguration, InstanceDescriptor, PowerPreference, Backends, Backend, RequestAdapterOptions, DeviceDescriptor, Features, Limits, TextureUsages, PresentMode, CompositeAlphaMode, RenderPipeline, ShaderModuleDescriptor, ShaderSource, ShaderModule, PrimitiveTopology, PolygonMode, FrontFace, Face, IndexFormat, DepthStencilState, VertexState, FragmentState, PrimitiveState, include_spirv, Buffer, BufferUsages, VertexBufferLayout, VertexAttribute, VertexStepMode, VertexFormat, vertex_attr_array, BufferDescriptor, BindGroupLayoutDescriptor, BindGroupLayout, TextureDescriptor, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BlendComponent, BlendFactor, BlendOperation, ColorWrites, BlendState, BindGroupLayoutEntry, ShaderStages, BindingType, TextureViewDimension, TextureSampleType};
+use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, Features, FilterMode, FragmentState, FrontFace, include_spirv, IndexFormat, InstanceDescriptor, Limits, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, vertex_attr_array, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode};
 use wgpu::Instance;
 use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
 use winit::dpi::PhysicalSize;
+
 use crate::render::common::Texture;
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_NONE};
 use crate::render::window::{Window, WindowSpecs};
@@ -99,7 +101,7 @@ impl State {
                                 view_dimension: TextureViewDimension::D2,
                                 sample_type: TextureSampleType::Float { filterable: true },
                             },
-                            count: Some(unsafe { NonZeroU32::new_unchecked(*MAX_TEXTURES as u32) }),
+                            count: Some(NonZeroU32::new_unchecked(*MAX_TEXTURES as u32)),
                         }
                     ],
                 }));
@@ -218,7 +220,7 @@ impl State {
         })
     }
 
-    fn create_render_pipeline(&self, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, mut cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode, vertex_layout: VertexBufferLayout, bind_groups: Vec<&'static BindGroupLayout>) -> RenderPipeline {
+    fn create_render_pipeline(&self, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode, vertex_layout: VertexBufferLayout, bind_groups: Vec<&'static BindGroupLayout>) -> RenderPipeline {
         let render_pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &bind_groups,
@@ -422,7 +424,7 @@ impl<'a> PipelineBuilder<'a> {
             panic!("Vertex/Common shader can't be None when creating pipeline!");
         }
 
-        let bindings = self.bind_group.into_iter().map(|b| unsafe { BIND_GROUPS.get(&b).expect("Illegal bind group id!") } ).collect_vec();
+        let bindings = self.bind_group.into_iter().map(|b| BIND_GROUPS.get(&b).expect("Illegal bind group id!")).collect_vec();
 
         self.state.create_render_pipeline(self.vert.unwrap(), self.frag, self.render_mode, self.cull_direction, self.cull_mode, self.polygon_mode, self.vertex_layout,  bindings)
     }

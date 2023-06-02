@@ -30,7 +30,6 @@ path = "tests/main.rs"
 harness = false
 
 [features]
-vulkan = []
 gui = ["dep:roxmltree"]
 3d = ["dep:gltf"]
 

@@ -2,11 +2,12 @@ use core::fmt::Debug;
 use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::mem;
+
 use glam::{Vec3, Vec4};
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::SplitSized;
-
 use regex::Regex;
+
 use crate::render::common::Bytes;
 
 pub trait Fmt {}

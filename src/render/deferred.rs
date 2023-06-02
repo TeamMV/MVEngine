@@ -1,17 +1,19 @@
 use std::ffi::c_void;
 use std::ptr::null_mut;
 use std::sync::Arc;
+
 use glam::{Mat4, Vec2, Vec4};
 use json::Null;
 use mvutils::id_eq;
-use mvutils::utils::TetrahedronOp;
 use mvutils::unsafe_utils::{Nullable, Unsafe, UnsafeRef};
+use mvutils::utils::TetrahedronOp;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer, BufferDescriptor, BufferSlice, BufferUsages, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView};
+
 use crate::render::common::{Bytes, Shader, Texture};
 use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUP_LIGHTING_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, DUMMY_VERT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_NONE};
 use crate::render::init::State;
-use crate::render::render::TextureBindGroup;
 use crate::render::render3d::RenderPass3D;
+use crate::render::render::TextureBindGroup;
 
 pub(crate) struct DeferredPass {
     state: &'static State,
@@ -64,7 +66,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER }),
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
                 }
             ],
         });
@@ -77,7 +79,7 @@ impl DeferredPass {
 
         let light_shader = Shader::new_glsl(DUMMY_VERT, include_str!("shaders/light.frag")).setup_pipeline(state, VERTEX_LAYOUT_NONE, &[BIND_GROUP_LIGHTING_3D]);
 
-        let light_buffer = state.gen_uniform_buffer_sized((32 + 64 * unsafe { *MAX_LIGHTS }) as u64);
+        let light_buffer = state.gen_uniform_buffer_sized((32 + *MAX_LIGHTS * 64) as u64);
 
         let light_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("lighting pass bind group"),
@@ -97,7 +99,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER })
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -106,7 +108,7 @@ impl DeferredPass {
             ],
         });
 
-        let mut inst = Self {
+        let inst = Self {
             state: unsafe { (state as *const State).as_ref() }.unwrap(),
             shader,
             vbo: vec![vbo],
@@ -176,7 +178,7 @@ impl DeferredPass {
 
         unsafe { geom.set_bind_group(0, Unsafe::cast_static(&self.uniform), &[]) };
 
-        let g =unsafe { Nullable::new(geom) };
+        let g = Nullable::new(geom);
         unsafe { g.cast_bytes() }
     }
 

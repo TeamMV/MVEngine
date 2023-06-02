@@ -1,10 +1,7 @@
 extern crate alloc;
 extern crate core;
 
-use std::cell::{Ref, RefCell};
-use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender};
 use std::thread::{JoinHandle, spawn};
 
 use include_dir::{Dir, include_dir};
@@ -13,6 +10,7 @@ use mvutils::version::Version;
 //use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::RenderCore;
 use crate::render::window::{Window, WindowSpecs};
+
 //use crate::resource_loader::{AssetManager, LoadRequest, ResourceLoader};
 
 //pub mod assets;
@@ -105,8 +103,8 @@ impl Default for ApplicationInfo {
 }
 
 pub trait ApplicationLoopCallbacks: Sized {
-    fn start(&self, window: &Window<Self>);
-    fn update(&self, window: &Window<Self>);
-    fn draw(&self, window: &Window<Self>);
-    fn exit(&self, window: &Window<Self>);
+    fn start(&self, window: Arc<Window<Self>>);
+    fn update(&self, window: Arc<Window<Self>>);
+    fn draw(&self, window: Arc<Window<Self>>);
+    fn exit(&self, window: Arc<Window<Self>>);
 }

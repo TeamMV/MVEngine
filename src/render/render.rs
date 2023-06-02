@@ -3,11 +3,13 @@ use std::mem;
 use std::ops::Deref;
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
+
 use glam::Mat4;
 use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, Extent3d, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
-use crate::render::common::{Shader, Bytes, Texture, EffectShader};
+
+use crate::render::common::{Bytes, EffectShader, Shader, Texture};
 use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES, TEXTURE_LIMIT};
 use crate::render::init::State;
 
@@ -19,8 +21,8 @@ pub(crate) struct TextureBindGroup {
 
 impl TextureBindGroup {
     pub(crate) fn new(shader: &Shader, state: &State, index: u32) -> Self {
-        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| unsafe { DUMMY_TEXTURE.clone() });
-        let views: [&'static TextureView; TEXTURE_LIMIT] = [unsafe { DUMMY_TEXTURE.get_view() }; TEXTURE_LIMIT];
+        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| DUMMY_TEXTURE.clone());
+        let views: [&'static TextureView; TEXTURE_LIMIT] = [DUMMY_TEXTURE.get_view(); TEXTURE_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Texture bind group"),
@@ -28,7 +30,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&views[..unsafe { *MAX_TEXTURES }]),
+                    resource: BindingResource::TextureViewArray(&views[..*MAX_TEXTURES]),
                 }
             ],
         });
@@ -52,7 +54,7 @@ impl TextureBindGroup {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureViewArray(&self.views[..unsafe { *MAX_TEXTURES }]),
+                    resource: BindingResource::TextureViewArray(&self.views[..*MAX_TEXTURES]),
                 }
             ],
         });
@@ -92,7 +94,7 @@ impl RenderPass2D {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(unsafe { &*DEFAULT_SAMPLER }),
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
                 }
             ],
         });
@@ -193,98 +195,94 @@ pub(crate) struct EffectPass {
 
 impl EffectPass {
     pub(crate) fn new(state: &State, buffer: &EBuffer) -> Self {
-        unsafe {
-            let ibo = state.gen_ibo_sized(24);
-            let vbo = state.gen_vbo_sized(0);
-            let uniform = state.gen_uniform_buffer_sized(16);
-            let bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Effect bind group"),
-                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(buffer.get_read())
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: uniform.as_entire_binding()
-                    }
-                ],
-            });
-            let bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Effect bind group"),
-                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(buffer.get_write())
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: uniform.as_entire_binding()
-                    }
-                ],
-            });
-            EffectPass {
-                state: unsafe { (state as *const State).as_ref() }.unwrap(),
-                render_pass: null_mut(),
-                ibo: vec![ibo],
-                vbo,
-                pass: 0,
-                bind_group_a,
-                bind_group_b,
-                uniform
-            }
+        let ibo = state.gen_ibo_sized(24);
+        let vbo = state.gen_vbo_sized(0);
+        let uniform = state.gen_uniform_buffer_sized(16);
+        let bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Effect bind group"),
+            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(buffer.get_read())
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: uniform.as_entire_binding()
+                }
+            ],
+        });
+        let bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Effect bind group"),
+            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(buffer.get_write())
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: uniform.as_entire_binding()
+                }
+            ],
+        });
+        EffectPass {
+            state: unsafe { (state as *const State).as_ref() }.unwrap(),
+            render_pass: null_mut(),
+            ibo: vec![ibo],
+            vbo,
+            pass: 0,
+            bind_group_a,
+            bind_group_b,
+            uniform
         }
     }
 
     pub(crate) fn rebind(&mut self, state: &State, buffer: &EBuffer) {
-        unsafe {
-            self.bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Effect bind group"),
-                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(buffer.get_read())
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: self.uniform.as_entire_binding()
-                    }
-                ],
-            });
-            self.bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Effect bind group"),
-                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(buffer.get_write())
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: self.uniform.as_entire_binding()
-                    }
-                ],
-            });
-        }
+        self.bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Effect bind group"),
+            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(buffer.get_read())
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: self.uniform.as_entire_binding()
+                }
+            ],
+        });
+        self.bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Effect bind group"),
+            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(buffer.get_write())
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: self.uniform.as_entire_binding()
+                }
+            ],
+        });
     }
 
     pub(crate) fn swap(&mut self) {
