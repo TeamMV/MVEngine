@@ -311,8 +311,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             label: Some("Command Encoder")
         });
 
+<<<<<<< HEAD
+=======
         self.application_loop.draw(&self);
 
+>>>>>>> 03005e5400d2467cf899a1a2a678cbae4a34502c
         #[cfg(feature = "3d")]
         self.render_3d(&mut encoder, &view);
 

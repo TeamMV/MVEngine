@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::Arc;
-use once_cell::unsync::Lazy;
+use mvutils::once::{LazyInitOnce, CreateOnce};
+use mvutils::{create_once, lazy_init};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferSize, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension, vertex_attr_array, VertexBufferLayout, VertexStepMode};
 use crate::render::common::ShaderType::Fragment;
 use crate::render::common::Texture;
@@ -17,13 +18,14 @@ pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fT
 
 pub(crate) const EFFECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
 
-pub(crate) static mut DEFAULT_SAMPLER: Option<Sampler> = None;
-pub(crate) static mut DUMMY_TEXTURE: Option<Arc<Texture>> = None;
+create_once! {
+    pub(crate) static DEFAULT_SAMPLER: Sampler;
+    pub(crate) static DUMMY_TEXTURE: Arc<Texture>;
+    pub(crate) static MAX_TEXTURES: usize;
+    pub(crate) static MAX_LIGHTS: usize;
+}
 
-pub(crate) static mut MAX_TEXTURES: usize = 0;
 pub(crate) const TEXTURE_LIMIT: usize = 255;
-
-pub(crate) static mut MAX_LIGHTS: usize = 0;
 pub(crate) const LIGHT_LIMIT: usize = 255;
 
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
@@ -84,7 +86,9 @@ pub(crate) const BIND_GROUP_BATCH_3D: u8 = 7;
 pub(crate) const BIND_GROUP_EFFECT: u8 = 8;
 pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 9;
 
-pub(crate) static mut BIND_GROUPS: Lazy<HashMap<u8, BindGroupLayout>> = Lazy::new(HashMap::new);
+lazy_init! {
+    pub(crate) static BIND_GROUPS: HashMap<u8, BindGroupLayout> = HashMap::new();
+}
 
 pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout 2D"),

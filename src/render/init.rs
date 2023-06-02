@@ -46,13 +46,13 @@ impl State {
                     compatible_surface: Some(&surface),
                     force_fallback_adapter: false,
                 }
-            ).await.expect("Graphical adapter cannot be found for this window! (This is usually a driver issue, or you are missing hardware)");
+            ).await.expect("Graphical adapter cannot be found! (This is usually a driver issue, or you are missing hardware)");
 
             let textures = adapter.limits().max_sampled_textures_per_shader_stage;
 
-            MAX_TEXTURES = min(textures as usize - 1, TEXTURE_LIMIT);
+            let _ = MAX_TEXTURES.try_create(|| min(textures as usize - 1, TEXTURE_LIMIT));
 
-            MAX_LIGHTS = LIGHT_LIMIT;
+            let _ = MAX_LIGHTS.try_create(|| LIGHT_LIMIT);
 
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor {
@@ -86,30 +86,32 @@ impl State {
             };
             surface.configure(&device, &config);
 
-            BIND_GROUPS.insert(BIND_GROUP_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D));
-            BIND_GROUPS.insert(BIND_GROUP_TEXTURES, device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Bind group layout textures 2D"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: TextureViewDimension::D2,
-                            sample_type: TextureSampleType::Float { filterable: true },
-                        },
-                        count: Some(unsafe { NonZeroU32::new_unchecked(MAX_TEXTURES as u32) }),
-                    }
-                ],
-            }));
-            BIND_GROUPS.insert(BIND_GROUP_MODEL_MATRIX, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX));
-            BIND_GROUPS.insert(BIND_GROUP_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D));
-            BIND_GROUPS.insert(BIND_GROUP_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D));
-            BIND_GROUPS.insert(BIND_GROUP_GEOMETRY_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D));
-            BIND_GROUPS.insert(BIND_GROUP_GEOMETRY_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D));
-            BIND_GROUPS.insert(BIND_GROUP_LIGHTING_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_LIGHTING_3D));
-            BIND_GROUPS.insert(BIND_GROUP_EFFECT, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT));
-            BIND_GROUPS.insert(BIND_GROUP_EFFECT_CUSTOM, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT_CUSTOM));
+            let _ = BIND_GROUPS.try_init(|groups| {
+                groups.insert(BIND_GROUP_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D));
+                groups.insert(BIND_GROUP_TEXTURES, device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: Some("Bind group layout textures 2D"),
+                    entries: &[
+                        BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: ShaderStages::FRAGMENT,
+                            ty: BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: TextureViewDimension::D2,
+                                sample_type: TextureSampleType::Float { filterable: true },
+                            },
+                            count: Some(unsafe { NonZeroU32::new_unchecked(*MAX_TEXTURES as u32) }),
+                        }
+                    ],
+                }));
+                groups.insert(BIND_GROUP_MODEL_MATRIX, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX));
+                groups.insert(BIND_GROUP_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D));
+                groups.insert(BIND_GROUP_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D));
+                groups.insert(BIND_GROUP_GEOMETRY_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D));
+                groups.insert(BIND_GROUP_GEOMETRY_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D));
+                groups.insert(BIND_GROUP_LIGHTING_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_LIGHTING_3D));
+                groups.insert(BIND_GROUP_EFFECT, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT));
+                groups.insert(BIND_GROUP_EFFECT_CUSTOM, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT_CUSTOM));
+            });
 
             let texture = device.create_texture(&TextureDescriptor {
                 label: Some("Dummy texture"),
@@ -128,9 +130,9 @@ impl State {
 
             let view = texture.create_view(&TextureViewDescriptor::default());
 
-            DUMMY_TEXTURE = Some(Arc::new(Texture::premade(texture, view)));
+            let _ = DUMMY_TEXTURE.try_create(|| Arc::new(Texture::premade(texture, view)));
 
-            DEFAULT_SAMPLER = Some(device.create_sampler(&SamplerDescriptor {
+            let _ = DEFAULT_SAMPLER.try_create(|| device.create_sampler(&SamplerDescriptor {
                 label: Some("Texture sampler"),
                 address_mode_u: AddressMode::Repeat,
                 address_mode_v: AddressMode::Repeat,
