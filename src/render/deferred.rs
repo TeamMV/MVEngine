@@ -1,16 +1,12 @@
-use std::ffi::c_void;
-use std::ptr::null_mut;
 use std::sync::Arc;
 
-use glam::{Mat4, Vec2, Vec4};
-use json::Null;
-use mvutils::id_eq;
-use mvutils::unsafe_utils::{Nullable, Unsafe, UnsafeRef};
+use glam::Mat4;
+use mvutils::unsafe_utils::{Nullable, Unsafe};
 use mvutils::utils::TetrahedronOp;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer, BufferDescriptor, BufferSlice, BufferUsages, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView};
 
 use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUP_LIGHTING_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, DUMMY_VERT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_NONE};
+use crate::render::consts::{BIND_GROUP_LIGHTING_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, DUMMY_VERT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_NONE};
 use crate::render::init::State;
 use crate::render::render3d::RenderPass3D;
 use crate::render::render::TextureBindGroup;

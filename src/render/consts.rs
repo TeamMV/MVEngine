@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num:: NonZeroU64;
 use std::sync::Arc;
 
 use mvutils::{create_once, lazy_init};
 use mvutils::once::{CreateOnce, LazyInitOnce};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferSize, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension, vertex_attr_array, VertexBufferLayout, VertexStepMode};
+use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension, vertex_attr_array, VertexBufferLayout, VertexStepMode};
 
-use crate::render::common::ShaderType::Fragment;
 use crate::render::common::Texture;
 
 pub(crate) const VERT_LIMIT: u64 = 10000;

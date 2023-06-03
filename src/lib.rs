@@ -2,14 +2,13 @@ extern crate alloc;
 extern crate core;
 
 use std::sync::Arc;
-use std::thread::{JoinHandle, spawn};
+use std::thread::JoinHandle;
 
-use include_dir::{Dir, include_dir};
 use mvutils::version::Version;
 
 //use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::RenderCore;
-use crate::render::window::{Window, WindowSpecs};
+use crate::render::window::Window;
 
 //use crate::resource_loader::{AssetManager, LoadRequest, ResourceLoader};
 
@@ -32,7 +31,7 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> MVCore {
-        static DIR: Dir = include_dir!("assets");
+        //static DIR: Dir = include_dir!("assets");
         //let mut assets = AssetManager::semi_automatic(DIR.clone());
         todo!()
     }

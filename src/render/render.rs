@@ -1,13 +1,11 @@
 use std::ffi::c_void;
 use std::mem;
-use std::ops::Deref;
-use std::ptr::{null, null_mut};
+use std::ptr::null_mut;
 use std::sync::Arc;
 
 use glam::Mat4;
-use image::EncodableLayout;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, CommandEncoder, Extent3d, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, Sampler, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Extent3d, IndexFormat, RenderPass, TextureDescriptor, TextureDimension, TextureUsages, TextureView, TextureViewDescriptor};
 
 use crate::render::common::{Bytes, EffectShader, Shader, Texture};
 use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES, TEXTURE_LIMIT};

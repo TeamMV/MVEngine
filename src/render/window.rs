@@ -1,31 +1,27 @@
-use std::cell::{Cell, UnsafeCell};
 use std::collections::HashMap;
 use std::iter::once;
 use std::sync::{Arc, RwLock};
-use std::time::{Instant, SystemTime};
+use std::time:: SystemTime;
 
 use glam::Mat4;
-use mvsync::block::AwaitSync;
-use mvutils::once::{CreateOnce, Lazy};
+use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
-use mvutils::utils::{Bytecode, Recover, TetrahedronOp, Time};
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, CommandEncoder, CommandEncoderDescriptor, IndexFormat, LoadOp, Maintain, MaintainBase, Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
+use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Fullscreen, Icon, Theme, WindowBuilder, WindowButtons, WindowId};
+use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
-use crate::{ApplicationLoopCallbacks, MVCore, setup};
+use crate::ApplicationLoopCallbacks;
 use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::color::{Color, RGB};
-use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::State;
-use crate::render::model::{Model, ModelFileType, ModelLoader};
+use crate::render::model::ModelLoader;
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
-use crate::render::RenderCore;
 #[cfg(feature = "3d")]
 use crate::render::text::FontLoader;
 
@@ -106,21 +102,28 @@ impl Default for WindowSpecs {
 
 pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     specs: DangerousCell<WindowSpecs>,
-    application_loop: ApplicationLoop,
-    state: DangerousCell<State>,
     start_time: SystemTime,
-    draw_2d: RwLock<Draw2D>,
-    render_pass_2d: DangerousCell<RenderPass2D>,
-    #[cfg(feature = "3d")]
-    deferred_pass_3d: DangerousCell<DeferredPass>,
-    effect_pass: DangerousCell<EffectPass>,
-    effect_buffer: DangerousCell<EBuffer>,
+
     frame: DangerousCell<u64>,
+    fps: DangerousCell<u64>,
+
+    application_loop: ApplicationLoop,
+    model_loader: CreateOnce<ModelLoader<ApplicationLoop>>,
+
+    state: DangerousCell<State>,
     camera_2d: RwLock<Camera2D>,
     camera_3d: RwLock<Camera3D>,
-    effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
+
+    render_pass_2d: DangerousCell<RenderPass2D>,
+    draw_2d: RwLock<Draw2D>,
     enabled_effects_2d: RwLock<Vec<String>>,
-    model_loader: CreateOnce<ModelLoader<ApplicationLoop>>
+
+    #[cfg(feature = "3d")]
+    deferred_pass_3d: DangerousCell<DeferredPass>,
+
+    effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
+    effect_pass: DangerousCell<EffectPass>,
+    effect_buffer: DangerousCell<EBuffer>,
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
@@ -128,7 +131,7 @@ unsafe impl<T: ApplicationLoopCallbacks> Sync for Window<T> {}
 
 impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
-    pub fn run(mut specs: WindowSpecs, core: Arc<RenderCore>, application_loop: T) {
+    pub fn run(mut specs: WindowSpecs, application_loop: T) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
@@ -172,13 +175,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             &state
         );
 
-        let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
-        tex.make(&state);
-        let tex = TextureRegion::from(Arc::new(tex));
-        let tex = Arc::new(tex);
-        let mut tex2 = Texture::new(include_bytes!("textures/mqxf.png").to_vec());
-        tex2.make(&state);
-        let tex2 = Arc::new(tex2);
+        //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
+        //tex.make(&state);
+        //let tex = TextureRegion::from(Arc::new(tex));
+        //let tex = Arc::new(tex);
+        //let mut tex2 = Texture::new(include_bytes!("textures/mqxf.png").to_vec());
+        //tex2.make(&state);
+        //let tex2 = Arc::new(tex2);
 
         //let t = unsafe { &crate::r::TEXTURES }.get("hello").unwrap();
 
@@ -201,6 +204,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             effect_buffer: effect_buffer.into(),
             effect_pass: effect_pass.into(),
             frame: 0.into(),
+            fps: 0.into(),
             camera_2d: camera_2d.into(),
             camera_3d: camera_3d.into(),
             effect_shaders: HashMap::new().into(),
@@ -216,12 +220,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
         window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
 
-        let mut init_time: u128 = u128::time_nanos();
-        let mut current_time: u128 = init_time;
+        let mut now = SystemTime::now();
+        let mut timer = SystemTime::now();
         let time_f = 1000000000.0 / window.specs.get().fps as f32;
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
-        let mut timer = u128::time_millis();
 
         window.application_loop.start(window.clone());
 
@@ -232,19 +235,19 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                    window.process_window_event(event, window_id, control_flow);
                 }
                 Event::MainEventsCleared => {
-                    current_time = u128::time_nanos();
-                    delta_f += (current_time - init_time) as f32 / time_f;
-                    init_time = current_time;
+                    delta_f += now.elapsed().unwrap_or_else(|e| panic!("System clock error: Time elapsed of -{}ns is not valid!", e.duration().as_nanos())).as_nanos() as f32 / time_f;
+                    now = SystemTime::now();
                     if delta_f >= 1.0 {
                         internal_window.request_redraw();
                         frames += 1;
                         delta_f -= 1.0;
                         *window.frame.get_mut() += 1;
                     }
-                    if u128::time_millis() - timer > 1000 {
+                    if timer.elapsed().unwrap_or_else(|e| panic!("System clock error: Time elapsed of -{}ms is not valid!", e.duration().as_millis())).as_millis() >= 1000 {
                         println!("{}", frames);
+                        *window.fps.get_mut() = frames;
                         frames = 0;
-                        timer += 1000;
+                        timer = SystemTime::now();
                     }
                 }
                 Event::RedrawRequested(window_id) => if window_id == internal_window.id() {
@@ -474,29 +477,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         self.enabled_effects_2d.write().recover().push(name);
     }
 
-    pub fn do_draw_2d_procedure<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
+    pub fn draw_2d_pass<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
         let mut draw = self.draw_2d.write().recover();
         f(&mut *draw);
-    }
-
-    fn a(self: &Arc<Self>) {
-        use crate::draw_2d;
-        let tilt = 0.5;
-        draw_2d!(self => {
-            reset_canvas;
-            reset_color;
-            use_camera true;
-            chroma_tilt tilt;
-            canvas 0, 0, tilt as u32 + 100, (200 * 534) / 358;
-        });
-
-        self.do_draw_2d_procedure(|draw: &mut Draw2D| {
-            draw.reset_canvas();
-            draw.reset_color();
-            draw.use_camera(true);
-            draw.chroma_tilt(tilt);
-            draw.canvas(0, 0, (tilt as u32 + 100), ((200 * 534) / 358));
-        });
     }
 }
 
@@ -504,12 +487,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 macro_rules! draw_2d {
     ($win:expr => {
         $(
-            $func:ident$($($param:expr),*;)?
-        )*
+            $func:ident $($param:expr),*
+        );*;
     }) => {
-        $win.do_draw_2d_procedure(|draw| {
+        $win.draw_2d_pass(|draw| {
             $(
-                draw.$func($($($param),*)?);
+                draw.$func($($param),*);
             )*
         });
     };

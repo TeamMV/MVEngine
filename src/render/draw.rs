@@ -1,14 +1,10 @@
-use std::cell::RefCell;
-use std::cmp::max;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use mvutils::utils::Overlap;
 
 use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
-use crate::render::common::{Shader, TextureRegion};
-use crate::render::consts::VERT_LIMIT;
+use crate::render::common::TextureRegion;
 use crate::render::render::RenderPass2D;
 use crate::render::text::Font;
 

@@ -1,20 +1,18 @@
 use std::cmp::min;
-use std::io::Read;
 use std::num::NonZeroU32;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, Features, FilterMode, FragmentState, FrontFace, include_spirv, IndexFormat, InstanceDescriptor, Limits, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, vertex_attr_array, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode};
+use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
 use wgpu::Instance;
-use wgpu::util::{BufferInitDescriptor, DeviceExt, make_spirv};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_NONE};
-use crate::render::window::{Window, WindowSpecs};
+use crate::render::window::WindowSpecs;
 
 pub(crate) struct State {
     pub(crate) surface: Surface,

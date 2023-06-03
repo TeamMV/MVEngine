@@ -6,7 +6,6 @@ use mvutils::utils::TetrahedronOp;
 
 use crate::render::common::Texture;
 use crate::render::init::State;
-use crate::render::RenderCore;
 
 pub struct TypeFace {
     pub regular: Arc<Font>,

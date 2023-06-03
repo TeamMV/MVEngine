@@ -1,15 +1,11 @@
-use std::cell::RefCell;
-use std::ops::DerefMut;
-use std::rc::Rc;
 use std::sync::Arc;
 
-use itertools::Itertools;
 use mvutils::init_arr;
 use mvutils::utils::TetrahedronOp;
 
 use crate::render::color::{Color, RGB};
-use crate::render::common::{Shader, Texture};
-use crate::render::consts::{INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT, VERT_LIMIT_2D_BYTES, VERT_LIMIT_2D_FLOATS, VERTEX_2D_SIZE_FLOATS};
+use crate::render::common::Texture;
+use crate::render::consts::{INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT, VERT_LIMIT_2D_FLOATS, VERTEX_2D_SIZE_FLOATS};
 use crate::render::init::PipelineBuilder;
 use crate::render::render::RenderPass2D;
 

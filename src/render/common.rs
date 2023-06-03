@@ -1,16 +1,13 @@
 use alloc::borrow::Cow;
 use std::cmp::Ordering;
-use std::io::Read;
 use std::mem;
 use std::sync::Arc;
 
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
 use mvutils::utils::{Bytecode, next_id};
-use regex::internal::Input;
 use shaderc::ShaderKind;
-use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, Sampler, SamplerDescriptor, ShaderModuleDescriptor, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
-use wgpu::util::{make_spirv, make_spirv_raw};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
 
 use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, DUMMY_VERT};
 use crate::render::init::{PipelineBuilder, State};

@@ -1,14 +1,9 @@
-use alloc::rc::Rc;
-use std::any::{Any, TypeId};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use glam::{IVec3, IVec4, Mat4, Vec2, Vec3};
+use glam::{IVec4, Vec2, Vec3};
 use gltf::{Gltf, Semantic};
-use gltf::buffer::View;
-use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
-use include_dir::File;
+use gltf::material::{NormalTexture, OcclusionTexture};
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
 
@@ -16,7 +11,6 @@ use crate::ApplicationLoopCallbacks;
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
 use crate::render::consts::MAX_TEXTURES;
-use crate::render::RenderCore;
 use crate::render::window::Window;
 
 pub struct Model {
