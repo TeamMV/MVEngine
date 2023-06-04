@@ -43,6 +43,9 @@ impl RenderCore {
     }
 }
 
+unsafe impl Send for RenderCore {}
+unsafe impl Sync for RenderCore {}
+
 pub trait ApplicationLoopCallbacks: Sized {
     fn start(&self, window: Arc<Window<Self>>);
     fn update(&self, window: Arc<Window<Self>>);

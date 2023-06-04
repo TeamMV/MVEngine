@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::time:: SystemTime;
 
 use glam::Mat4;
+use mvsync::utils::async_yield;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
@@ -106,6 +107,8 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     specs: DangerousCell<WindowSpecs>,
     start_time: SystemTime,
 
+    close: DangerousCell<bool>,
+
     frame: DangerousCell<u64>,
     fps: DangerousCell<u64>,
 
@@ -199,6 +202,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let window = Arc::new(Window {
             specs: specs.into(),
             application_loop,
+            close: false.into(),
             state: state.into(),
             start_time: SystemTime::now(),
             draw_2d: draw_2d.into(),
@@ -237,6 +241,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                    window.process_window_event(event, window_id, control_flow);
                 }
                 Event::MainEventsCleared => {
+                    if *window.close.get() {
+                        *control_flow = ControlFlow::Exit;
+                        return;
+                    }
                     delta_f += now.elapsed().unwrap_or_else(|e| panic!("System clock error: Time elapsed of -{}ns is not valid!", e.duration().as_nanos())).as_nanos() as f32 / time_f;
                     now = SystemTime::now();
                     if delta_f >= 1.0 {
@@ -482,6 +490,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn draw_2d_pass<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
         let mut draw = self.draw_2d.write().recover();
         f(&mut *draw);
+    }
+
+    pub fn close(self: &Arc<Self>) {
+        *self.close.get_mut() = true;
     }
 }
 

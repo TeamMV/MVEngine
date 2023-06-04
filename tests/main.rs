@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use mvsync::MVSync;
 use mvutils::version::Version;
 
 use mvcore::{ApplicationInfo, MVCore};
@@ -20,7 +21,7 @@ fn main() {
     specs.resizable = true;
     specs.width = 800;
     specs.height = 600;
-    core.get_render().run_window(specs, ApplicationLoop);
+    core.get_render().run_window(specs, ApplicationLoop)
 }
 
 struct ApplicationLoop;

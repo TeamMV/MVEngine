@@ -7,13 +7,14 @@ use mvsync::{MVSync, MVSyncSpecs};
 use mvsync::queue::Queue;
 
 use mvutils::version::Version;
+use crate::load::{LoadingScreen, LoadingScreenSpecs};
 
 use crate::render::RenderCore;
 use crate::render::window::Window;
 
 pub mod input;
-pub mod files;
 pub mod render;
+pub mod load;
 #[cfg(feature = "gui")]
 pub mod gui;
 
@@ -50,6 +51,10 @@ impl MVCore {
         core
     }
 
+    pub fn loading_screen(self: &Arc<MVCore>, specs: LoadingScreenSpecs) -> Arc<LoadingScreen> {
+        LoadingScreen::new(self.clone(), specs)
+    }
+
     pub fn get_app_version(self: &Arc<MVCore>) -> Version {
         self.info.version
     }
@@ -68,6 +73,9 @@ impl Drop for MVCore {
 
     }
 }
+
+unsafe impl Send for MVCore {}
+unsafe impl Sync for MVCore {}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ApplicationInfo {
