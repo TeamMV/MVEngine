@@ -13,13 +13,15 @@ use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
-use crate::ApplicationLoopCallbacks;
+use crate::render::ApplicationLoopCallbacks;
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+#[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw::Draw2D;
 use crate::render::init::State;
+#[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
 #[cfg(feature = "3d")]

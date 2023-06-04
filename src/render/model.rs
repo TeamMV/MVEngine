@@ -7,7 +7,7 @@ use gltf::material::{NormalTexture, OcclusionTexture};
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
 
-use crate::ApplicationLoopCallbacks;
+use crate::render::ApplicationLoopCallbacks;
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
 use crate::render::consts::MAX_TEXTURES;

@@ -255,8 +255,8 @@ impl DeferredPass {
 
             self.geom_pass.set_bind_group(2, Unsafe::cast_static(&texture_group.bind_group), &[]);
             self.geom_pass.set_pipeline(Unsafe::cast_static(stripped.yn(self.shader.get_stripped_pipeline(), self.shader.get_pipeline())));
-            self.geom_pass.set_vertex_buffer(0, Unsafe::cast(vbo.slice(..)));
-            self.geom_pass.set_index_buffer(Unsafe::cast(ibo.slice(..)), IndexFormat::Uint32);
+            self.geom_pass.set_vertex_buffer(0, std::mem::transmute(vbo.slice(..)));
+            self.geom_pass.set_index_buffer(std::mem::transmute(ibo.slice(..)), IndexFormat::Uint32);
             self.geom_pass.draw_indexed(0..indices.len() as u32, 0, 0..instances);
             self.pass += 1;
 
@@ -264,7 +264,7 @@ impl DeferredPass {
 
             self.light_pass.set_bind_group(1, Unsafe::cast_static(&self.light_group), &[]);
             self.light_pass.set_pipeline(Unsafe::cast_static(self.light_shader.get_pipeline()));
-            self.light_pass.set_index_buffer(Unsafe::cast(self.sibo.slice(..)), IndexFormat::Uint16);
+            self.light_pass.set_index_buffer(std::mem::transmute(self.sibo.slice(..)), IndexFormat::Uint16);
             self.light_pass.draw_indexed(0..6, 0, 0..1);
         }
     }

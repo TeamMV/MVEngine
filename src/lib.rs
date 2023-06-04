@@ -3,107 +3,98 @@ extern crate core;
 
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use mvsync::{MVSync, MVSyncSpecs};
+use mvsync::queue::Queue;
 
 use mvutils::version::Version;
 
-//use crate::assets::{AssetManager, ReadableAssetManager, SemiAutomaticAssetManager};
 use crate::render::RenderCore;
 use crate::render::window::Window;
 
-//use crate::resource_loader::{AssetManager, LoadRequest, ResourceLoader};
-
-//pub mod assets;
 pub mod input;
-//pub mod resource_loader;
 pub mod files;
+pub mod render;
 #[cfg(feature = "gui")]
 pub mod gui;
-pub mod render;
-pub mod r;
 
 pub struct MVCore {
     render: Arc<RenderCore>,
-    //load_request: Sender<LoadRequest>,
-    resource_thread: JoinHandle<()>,
-    //resource_loader: Arc<ResourceLoader>,
+    sync: Arc<MVSync>,
     info: ApplicationInfo
 }
 
 impl MVCore {
-    pub fn new(info: ApplicationInfo) -> MVCore {
-        //static DIR: Dir = include_dir!("assets");
-        //let mut assets = AssetManager::semi_automatic(DIR.clone());
-        todo!()
+    pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
+        let core = if info.multithreaded {
+            MVCore {
+                render: RenderCore::new(),
+                sync: MVSync::labelled(MVSyncSpecs {
+                    thread_count: info.extra_threads + 1,
+                    workers_per_thread: 16,
+                }, vec!["update"]),
+                info
+            }
+        }
+        else {
+            MVCore {
+                render: RenderCore::new(),
+                sync: MVSync::new(MVSyncSpecs {
+                    thread_count: info.extra_threads,
+                    workers_per_thread: 16,
+                }),
+                info
+            }
+        };
+        let core = Arc::new(core);
+        core.render.set_core(core.clone());
+        core
     }
 
-    pub fn get_app_version(&self) -> Version {
+    pub fn get_app_version(self: &Arc<MVCore>) -> Version {
         self.info.version
     }
 
-    pub fn get_render(&self) -> Arc<RenderCore> {
+    pub fn get_render(self: &Arc<MVCore>) -> Arc<RenderCore> {
         self.render.clone()
     }
 
-    //pub fn get_asset_manager(&self) -> &dyn ReadableAssetManager {
-    //    self.resource_loader.get_asset_manager("MVCore")
-    //}
-
-    //pub fn get_resource_loader(&self) -> Arc<ResourceLoader> {
-    //    self.resource_loader.clone()
-    //}
-
-    //pub fn get_load_request(&self) -> Sender<LoadRequest> {
-    //    self.load_request.clone()
-    //}
-
-    pub fn terminate(mut self) {
-        self.term();
-        drop(self);
-    }
-
-    fn term(&mut self) {
-        //self.render.terminate();
+    pub fn get_sync(self: &Arc<MVCore>) -> Arc<MVSync> {
+        self.sync.clone()
     }
 }
 
 impl Drop for MVCore {
     fn drop(&mut self) {
-        self.term();
+
     }
 }
 
-impl Default for MVCore {
-    fn default() -> Self {
-        Self::new(ApplicationInfo::default())
-    }
-}
-
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ApplicationInfo {
-    name: String,
-    version: Version
-}
-
-impl ApplicationInfo {
-    fn new(name: &str, version: Version) -> ApplicationInfo {
-        ApplicationInfo {
-            name: name.to_string(),
-            version
-        }
-    }
+    pub name: String,
+    pub version: Version,
+    pub multithreaded: bool,
+    pub extra_threads: u32
 }
 
 impl Default for ApplicationInfo {
     fn default() -> Self {
         ApplicationInfo {
-            name: String::new(),
-            version: Version::default()
+            name: "MVCore application".to_string(),
+            version: Version::default(),
+            multithreaded: true,
+            extra_threads: 1
         }
     }
 }
 
-pub trait ApplicationLoopCallbacks: Sized {
-    fn start(&self, window: Arc<Window<Self>>);
-    fn update(&self, window: Arc<Window<Self>>);
-    fn draw(&self, window: Arc<Window<Self>>);
-    fn exit(&self, window: Arc<Window<Self>>);
+impl ApplicationInfo {
+    fn new(name: &str, version: Version, multithreaded: bool, extra_threads: u32) -> ApplicationInfo {
+        ApplicationInfo {
+            name: name.to_string(),
+            version,
+            multithreaded,
+            extra_threads
+        }
+    }
 }
