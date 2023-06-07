@@ -269,7 +269,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     }
                 }
                 Event::LoopDestroyed => {
-
+                    window.application_loop.exit(window.clone());
                 }
                 _ => {}
             }
@@ -442,6 +442,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         self.deferred_pass_3d.get_mut().new_frame(encoder, view, Mat4::default(), Mat4::default());
         //self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+        self.deferred_pass_3d.get_mut().finish();
     }
 
     pub fn create_texture(self: &Arc<Self>, binary: Bytecode) -> Texture {

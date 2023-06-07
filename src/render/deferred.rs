@@ -268,6 +268,11 @@ impl DeferredPass {
             self.light_pass.draw_indexed(0..6, 0, 0..1);
         }
     }
+
+    pub(crate) fn finish(&mut self) {
+        self.geom_pass.replace_null();
+        self.light_pass.replace_null();
+    }
 }
 
 impl RenderPass3D for DeferredPass {
