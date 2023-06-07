@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::iter::once;
+use std::ops::Range;
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time:: SystemTime;
 
 use glam::Mat4;
-use mvsync::utils::async_yield;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
@@ -103,6 +104,13 @@ impl Default for WindowSpecs {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum OperateState {
+    Loading,
+    Running,
+    Paused
+}
+
 pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     specs: DangerousCell<WindowSpecs>,
     start_time: SystemTime,
@@ -113,6 +121,8 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     fps: DangerousCell<u64>,
 
     application_loop: ApplicationLoop,
+    operate_state: RwLock<OperateState>,
+    load_fn: fn(Arc<Window<ApplicationLoop>>),
     model_loader: CreateOnce<ModelLoader<ApplicationLoop>>,
 
     state: DangerousCell<State>,
@@ -202,6 +212,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let window = Arc::new(Window {
             specs: specs.into(),
             application_loop,
+            operate_state: OperateState::Loading.into(),
+            load_fn: |_| {},
             close: false.into(),
             state: state.into(),
             start_time: SystemTime::now(),
@@ -232,7 +244,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
 
-        window.application_loop.start(window.clone());
+        let clone = window.clone();
+        thread::spawn(move || {
+            clone.application_loop.start(clone.clone());
+            *clone.operate_state.write().recover() = OperateState::Running
+        });
 
         event_loop.run(move |event, _, control_flow| {
             match event {
@@ -322,23 +338,32 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     }
 
     fn render(self: &Arc<Self>) -> Result<(), SurfaceError> {
+        let state = *self.operate_state.read().recover();
+        if state == OperateState::Paused {
+            return Ok(());
+        }
         let output = self.state.get().surface.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor::default());
         let mut encoder = self.state.get().device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Command Encoder")
         });
 
-        self.application_loop.draw(self.clone());
+        if state == OperateState::Running {
+            self.application_loop.draw(self.clone());
 
-        #[cfg(feature = "3d")]
-        self.render_3d(&mut encoder, &view);
+            #[cfg(feature = "3d")]
+            self.render_3d(&mut encoder, &view);
 
-        //self.enable_effect_2d("blur".to_string());
-        //self.enable_effect_2d("pixelate".to_string());
-        //self.enable_effect_2d("distort".to_string());
-        //self.enable_effect_2d("wave".to_string());
+            //self.enable_effect_2d("blur".to_string());
+            //self.enable_effect_2d("pixelate".to_string());
+            //self.enable_effect_2d("distort".to_string());
+            //self.enable_effect_2d("wave".to_string());
 
-        self.render_2d(&mut encoder, &view);
+            self.render_2d(&mut encoder, &view);
+        }
+        else {
+            (self.load_fn)(self.clone());
+        }
 
         self.state.get().queue.submit(once(encoder.finish()));
 
@@ -438,10 +463,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     #[cfg(feature = "3d")]
     fn render_3d(self: &Arc<Self>, encoder: &mut CommandEncoder, view: &TextureView) {
-        //let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
+        let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
         self.deferred_pass_3d.get_mut().new_frame(encoder, view, Mat4::default(), Mat4::default());
-        //self.render_pass_3d_def.render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+        //self.deferred_pass_3d.get_mut().render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
         self.deferred_pass_3d.get_mut().finish();
     }
 

@@ -29,6 +29,11 @@ name = "test"
 path = "tests/main.rs"
 harness = false
 
+[profile.release]
+strip = true
+lto = true
+panic = "unwind"
+
 [features]
 gui = ["dep:roxmltree"]
 3d = ["dep:gltf"]

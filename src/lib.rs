@@ -14,9 +14,9 @@ use crate::render::window::Window;
 
 pub mod input;
 pub mod render;
-pub mod load;
 #[cfg(feature = "gui")]
 pub mod gui;
+pub mod resources;
 
 pub struct MVCore {
     render: Arc<RenderCore>,
