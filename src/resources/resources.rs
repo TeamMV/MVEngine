@@ -1,8 +1,10 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use mvutils::once::Lazy;
 use mvutils::lazy;
-use mvutils::utils::Recover;
+use mvutils::unsafe_utils::DangerousCell;
+use mvutils::utils::{MUTARC, Recover, RW};
+use crate::gui::Gui;
 use crate::render::color::{Color, Gradient, RGB};
 use crate::render::common3d::{Material, Model};
 use crate::render::common::{Texture, TextureRegion};
@@ -17,8 +19,8 @@ macro_rules! impl_R {
         impl_R!($name, $name, $t);
     };
     ($name:ident, $path:ident, $t:ty) => {
-        pub fn $name() -> Arc<Ref<$t>> {
-            GLOBAL_RESOURCES.read().recover().$path.clone()
+        pub fn $name() -> Res<$t> {
+            GLOBAL_RESOURCES.change().$path.clone()
         }
     };
 }
@@ -29,67 +31,77 @@ impl R {
     impl_R!(materials, Material);
     impl_R!(colors, Color<RGB, f32>);
     impl_R!(gradients, Gradient<RGB, f32>);
+    impl_R!(guis, Gui);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let mut res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.insert_core(id, region);
+        res.texture_regions.register_core(id, Arc::new(region));
     }
 
     pub fn convert_texture(texture: &str, id: String) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let mut res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.insert(id, region);
+        res.texture_regions.register(id, Arc::new(region));
     }
 
     pub(crate) fn crop_texture_core(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let mut res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.insert_core(id, region);
+        res.texture_regions.register_core(id, Arc::new(region));
     }
 
     pub fn crop_texture(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let mut res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.insert(id, region);
+        res.texture_regions.register(id, Arc::new(region));
     }
 }
 
+type Res<T> = Arc<Ref<T>>;
+
 #[derive(Default)]
 struct GlobalResources {
-    textures: Arc<Ref<Texture>>,
-    texture_regions: Arc<Ref<TextureRegion>>,
-    models: Arc<Ref<Model>>,
-    materials: Arc<Ref<Material>>,
-    colors: Arc<Ref<Color<RGB, f32>>>,
-    gradients: Arc<Ref<Gradient<RGB, f32>>>,
-
+    textures: Res<Texture>,
+    texture_regions: Res<TextureRegion>,
+    models: Res<Model>,
+    materials: Res<Material>,
+    colors: Res<Color<RGB, f32>>,
+    gradients: Res<Gradient<RGB, f32>>,
+    guis: Res<Gui>,
     //...
 }
 
-#[derive(Default)]
 pub struct Ref<T> {
-    map: HashMap<String, Arc<T>>
+    map: RwLock<HashMap<String, Arc<T>>>
 }
 
 impl<T> Ref<T> {
     pub fn get_core(&self, key: &str) -> Arc<T> {
-        self.map.get( &"mvcore:".to_string() + key).expect("Could not find resource with id \"" + key.as_str() + "\".").clone()
+        self.map.see().get( &("mvcore:".to_string() + key)).expect(&("Could not find resource with id \"".to_owned() + key + "\".")).clone()
     }
 
     pub fn get(&self, key: &str) -> Arc<T> {
-        self.map.get(&key.to_string()).expect("Could not find resource with id \"" + key.as_str() + "\".").clone()
+        self.map.see().get(&key.to_string()).expect(&("Could not find resource with id \"".to_owned() + key + "\".")).clone()
     }
 
-    pub(crate) fn register_core(&mut self, key: String, res: Arc<T>) {
-        self.map.insert("mvcore:".to_string() + &*key, res);
+    pub(crate) fn register_core(&self, key: String, res: Arc<T>) {
+        self.map.change().insert("mvcore:".to_string() + &*key, res);
     }
 
-    pub(crate) fn register(&mut self, key: String, res: Arc<T>) {
-        self.map.insert(key, res);
+    pub(crate) fn register(&self, key: String, res: Arc<T>) {
+        self.map.change().insert(key, res);
+    }
+}
+
+impl<T> Default for Ref<T> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new().into(),
+        }
     }
 }

@@ -7,7 +7,6 @@ use mvsync::{MVSync, MVSyncSpecs};
 use mvsync::queue::Queue;
 
 use mvutils::version::Version;
-use crate::load::{LoadingScreen, LoadingScreenSpecs};
 
 use crate::render::RenderCore;
 use crate::render::window::Window;
@@ -51,9 +50,9 @@ impl MVCore {
         core
     }
 
-    pub fn loading_screen(self: &Arc<MVCore>, specs: LoadingScreenSpecs) -> Arc<LoadingScreen> {
-        LoadingScreen::new(self.clone(), specs)
-    }
+    //pub fn loading_screen(self: &Arc<MVCore>, specs: LoadingScreenSpecs) -> Arc<LoadingScreen> {
+    //    LoadingScreen::new(self.clone(), specs)
+    //}
 
     pub fn get_app_version(self: &Arc<MVCore>) -> Version {
         self.info.version

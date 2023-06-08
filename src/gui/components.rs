@@ -91,7 +91,7 @@ impl GuiElementInfo {
         &self.style
     }
 
-    pub(crate) fn recalculate_bounds(&mut self, ctx: &Mutex<Draw2D>) {
+    pub(crate) fn recalculate_bounds(&mut self, ctx: &Draw2D) {
         self.compute_supply.dpi = ctx.lock().unwrap().dpi();
         self.compute_supply.parent = self.parent.clone();
 
@@ -175,7 +175,7 @@ impl GuiElement {
         ge_fn!(self, info_mut)
     }
 
-    pub fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+    pub fn draw(&mut self, ctx: &mut Draw2D) {
         ge_fn!(self, draw, ctx)
     }
 
@@ -334,7 +334,7 @@ impl GuiLayout {
         gl_fn!(self, info_mut)
     }
 
-    pub fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+    pub fn draw(&mut self, ctx: &mut Draw2D) {
         gl_fn!(self, draw, ctx)
     }
 
@@ -355,7 +355,7 @@ pub trait GuiComponent {
     fn create() -> Self;
     fn info(&self) -> &GuiElementInfo;
     fn info_mut(&mut self) -> &mut GuiElementInfo;
-    fn draw(&mut self, ctx: &mut Mutex<Draw2D>);
+    fn draw(&mut self, ctx: &mut Draw2D);
     fn handle(&mut self, event: GuiEvent) {
         self.info_mut().handles.push(event);
     }
@@ -380,7 +380,7 @@ impl GuiComponent for GuiVoid {
         todo!()
     }
 
-    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+    fn draw(&mut self, ctx: &mut Draw2D) {
         todo!()
     }
 }
@@ -395,7 +395,7 @@ impl GuiLayoutComponent for GuiVoid {
     }
 }
 
-pub(crate) fn draw_component_body(ctx: &mut Mutex<Draw2D>, info: &GuiElementInfo) {
+pub(crate) fn draw_component_body(ctx: &mut Draw2D, info: &GuiElementInfo) {
 
     let br = resolve!(info, border_radius);
     let bs: BorderStyle = resolve!(info, border_style);
@@ -465,7 +465,7 @@ impl GuiComponent for GuiMarkdown {
         &mut self.info
     }
 
-    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+    fn draw(&mut self, ctx: &mut Draw2D) {
         let view_state = resolve!(self.info, view_state);
         if view_state != ViewState::Gone {
             self.info_mut().content_width = resolve!(self.info, font).unwrap().regular.get_metrics(self.text.whole.as_str()).width(self.info.content_height);
@@ -544,7 +544,7 @@ impl GuiComponent for GuiSection {
         &mut self.info
     }
 
-    fn draw(&mut self, ctx: &mut Mutex<Draw2D>) {
+    fn draw(&mut self, ctx: &mut Draw2D) {
         let view_state = resolve!(self.info, view_state);
         let spacing = resolve!(self.info, spacing);
 

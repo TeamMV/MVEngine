@@ -111,6 +111,9 @@ macro_rules! value {
     ($val:tt clone) => {
         GuiValue::Clone($val)
     };
+    (inherit) => {
+        GuiValue::Inherit()
+    }
     ($val:expr) => {
         GuiValue::Just($val)
     };

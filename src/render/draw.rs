@@ -7,6 +7,7 @@ use crate::render::color::{Color, RGB};
 use crate::render::common::TextureRegion;
 use crate::render::render::RenderPass2D;
 use crate::render::text::Font;
+use crate::resources::resources::R;
 
 use super::color::Gradient;
 
@@ -569,6 +570,11 @@ impl Draw2D {
     //}
     pub fn dpi(&self) -> f32 {
         self.dpi
+    }
+
+    pub fn gui(&mut self, resource_id: &str) {
+        let gui = R::guis().get(resource_id);
+        gui.draw(self);
     }
 }
 

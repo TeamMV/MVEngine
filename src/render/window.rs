@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::iter::once;
 use std::ops::Range;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time:: SystemTime;
 
@@ -130,7 +130,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     camera_3d: RwLock<Camera3D>,
 
     render_pass_2d: DangerousCell<RenderPass2D>,
-    draw_2d: RwLock<Draw2D>,
+    draw_2d: Mutex<Draw2D>,
     enabled_effects_2d: RwLock<Vec<String>>,
 
     #[cfg(feature = "3d")]
@@ -351,8 +351,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         if state == OperateState::Running {
             self.application_loop.draw(self.clone());
 
-            #[cfg(feature = "3d")]
-            self.render_3d(&mut encoder, &view);
+            //#[cfg(feature = "3d")]
+            //self.render_3d(&mut encoder, &view);
 
             //self.enable_effect_2d("blur".to_string());
             //self.enable_effect_2d("pixelate".to_string());
@@ -405,7 +405,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     load: LoadOp::Clear(wgpu::Color {
                         r: 0.0,
                         g: 0.0,
-                        b: 0.0,
+                        b: 1.0,
                         a: 1.0,
                     }),
                     store: true,
@@ -428,9 +428,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         drop(cam);
 
-        self.draw_2d.write().recover().reset_canvas();
+        self.draw_2d.lock().recover().reset_canvas();
 
-        self.draw_2d.write().recover().render(self.render_pass_2d.get_mut());
+        self.draw_2d.lock().recover().render(self.render_pass_2d.get_mut());
 
         self.render_pass_2d.get_mut().finish();
 
@@ -514,7 +514,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     }
 
     pub fn draw_2d_pass<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
-        let mut draw = self.draw_2d.write().recover();
+        let mut draw = self.draw_2d.lock().recover();
         f(&mut *draw);
     }
 
@@ -528,7 +528,7 @@ macro_rules! draw_2d {
     ($win:expr => {
         $(
             $func:ident $($param:expr),*
-        );*;
+        );*$(;)?
     }) => {
         $win.draw_2d_pass(|draw| {
             $(
