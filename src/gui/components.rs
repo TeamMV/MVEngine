@@ -1,6 +1,6 @@
 use std::ops::Range;
 use std::process::id;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use itertools::Itertools;
 use mvutils::utils::{IncDec, TetrahedronOp};
 use crate::gui::components::GuiElement::{Void, Paragraph, Layout};
@@ -92,7 +92,7 @@ impl GuiElementInfo {
     }
 
     pub(crate) fn recalculate_bounds(&mut self, ctx: &Draw2D) {
-        self.compute_supply.dpi = ctx.lock().unwrap().dpi();
+        self.compute_supply.dpi = ctx.dpi();
         self.compute_supply.parent = self.parent.clone();
 
         let mut paddings: [i32; 4] = [0; 4];
@@ -123,8 +123,8 @@ impl GuiElementInfo {
     }
 }
 
-pub type ClickFn = *const dyn FnMut(i32, i32, u8);
-pub type MouseFn = *const dyn FnMut(i32, i32);
+pub type ClickFn = Box<dyn FnMut(i32, i32, u8)>;
+pub type MouseFn = Box<dyn FnMut(i32, i32)>;
 
 pub enum GuiEvent {
     OnClick(ClickFn),
@@ -218,8 +218,8 @@ impl GuiElements {
         self.elements[idx]
     }
 
-    pub fn get_elements_by_range(&self, range: Range<usize>) -> Vec<&'static mut GuiElement> {
-        self.elements[range].to_vec()
+    pub fn get_elements_by_range(&self, range: Range<usize>) -> &[&'static mut GuiElement] {
+        self.elements[range]
     }
 
     pub fn get_element_by_id(&self, id: &String) -> Option<&'static mut GuiElement> {
@@ -231,17 +231,11 @@ impl GuiElements {
         None
     }
 
-    pub fn get_elements_by_tag(&self, tag: &String) -> Vec<&'static mut GuiElement> {
-        let mut vec: Vec<&'static mut GuiElement> = vec![];
-        for element in self.elements {
-            if element.info().tags.contains(tag) {
-                vec.push(element);
-            }
-        }
-        vec
+    pub fn get_elements_by_tag(&self, tag: &String) -> impl Iterator<Item = &'static mut GuiElement> {
+        self.elements.iter().filter(|e| e.info().tags.contains(&tag.to_string()))
     }
 
-    pub fn get_elements(&self) -> &Vec<&'static mut GuiElement> {
+    pub fn get_elements(&self) -> &[&'static mut GuiElement] {
         &self.elements
     }
 
@@ -483,7 +477,7 @@ impl GuiComponent for GuiMarkdown {
 
             ctx.get_mut().unwrap().chroma_tilt(resolve!(self.info, text_chroma_tilt));
             ctx.get_mut().unwrap().chroma_compress(resolve!(self.info, text_chroma_compress));
-            self.text.draw(&ctx, self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, &resolve!(self.info, text_color), resolve!(self.info, text_chroma));
+            self.text.draw(ctx, self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, &resolve!(self.info, text_color), resolve!(self.info, text_chroma));
         }
     }
 }

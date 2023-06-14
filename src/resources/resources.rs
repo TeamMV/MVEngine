@@ -8,15 +8,16 @@ use crate::gui::Gui;
 use crate::render::color::{Color, Gradient, RGB};
 use crate::render::common3d::{Material, Model};
 use crate::render::common::{Texture, TextureRegion};
+
 lazy! {
     static GLOBAL_RESOURCES: RwLock<GlobalResources> = GlobalResources::default().into();
 }
 
 pub struct R;
 
-macro_rules! impl_R {
+macro_rules! impl_r {
     ($name:ident, $t:ty) => {
-        impl_R!($name, $name, $t);
+        impl_r!($name, $name, $t);
     };
     ($name:ident, $path:ident, $t:ty) => {
         pub fn $name() -> Res<$t> {
@@ -26,12 +27,12 @@ macro_rules! impl_R {
 }
 
 impl R {
-    impl_R!(textures, texture_regions, TextureRegion);
-    impl_R!(models, Model);
-    impl_R!(materials, Material);
-    impl_R!(colors, Color<RGB, f32>);
-    impl_R!(gradients, Gradient<RGB, f32>);
-    impl_R!(guis, Gui);
+    impl_r!(textures, texture_regions, TextureRegion);
+    impl_r!(models, Model);
+    impl_r!(materials, Material);
+    impl_r!(colors, Color<RGB, f32>);
+    impl_r!(gradients, Gradient<RGB, f32>);
+    impl_r!(guis, Gui);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
         let mut res = GLOBAL_RESOURCES.write().recover();
@@ -89,11 +90,11 @@ impl<T> Ref<T> {
         self.map.see().get(&key.to_string()).expect(&("Could not find resource with id \"".to_owned() + key + "\".")).clone()
     }
 
-    pub(crate) fn register_core(&self, key: String, res: Arc<T>) {
+    pub fn register_core(&self, key: String, res: Arc<T>) {
         self.map.change().insert("mvcore:".to_string() + &*key, res);
     }
 
-    pub(crate) fn register(&self, key: String, res: Arc<T>) {
+    pub fn register(&self, key: String, res: Arc<T>) {
         self.map.change().insert(key, res);
     }
 }

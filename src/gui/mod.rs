@@ -9,10 +9,17 @@ pub mod archive;
 pub mod ease;
 
 pub struct Gui {
-    root: GuiLayout
+    root: &'static GuiLayout
 }
 
+unsafe impl Send for Gui {}
+unsafe impl Sync for Gui {}
+
 impl Gui {
+    pub fn new(root: &GuiLayout) -> Self {
+        Self { root }
+    }
+
     pub(crate) fn draw(&mut self, draw_2d: &mut Draw2D) {
         self.root.draw(draw_2d);
     }

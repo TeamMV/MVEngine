@@ -573,7 +573,7 @@ impl Draw2D {
     }
 
     pub fn gui(&mut self, resource_id: &str) {
-        let gui = R::guis().get(resource_id);
+        let mut gui = R::guis().get(resource_id);
         gui.draw(self);
     }
 }

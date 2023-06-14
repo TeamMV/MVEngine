@@ -334,7 +334,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         self.camera_2d.write().recover().update_projection(size.width, size.height);
         self.camera_3d.write().recover().update_projection(size.width, size.height);
 
-        self.draw_2d.write().recover().resize(size.width, size.height);
+        self.draw_2d.lock().recover().resize(size.width, size.height);
     }
 
     fn render(self: &Arc<Self>) -> Result<(), SurfaceError> {

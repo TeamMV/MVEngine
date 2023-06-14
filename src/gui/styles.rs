@@ -113,7 +113,7 @@ macro_rules! value {
     };
     (inherit) => {
         GuiValue::Inherit()
-    }
+    };
     ($val:expr) => {
         GuiValue::Just($val)
     };
@@ -208,7 +208,6 @@ pub enum Positioning {
     #[default]
     Relative,
     Absolute,
-    Sticky(*const dyn FnMut(i32, i32, i32, i32) -> bool)
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Default)]

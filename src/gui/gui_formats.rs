@@ -82,7 +82,7 @@ impl FormattedString {
         }
     }
 
-    pub fn draw(&self, mut ctx: &Mutex<Draw2D>, x: i32, y: i32, height: i32, font: Option<Arc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: &Gradient<RGB, f32>, chroma: bool) {
+    pub fn draw(&self, mut ctx: &mut Draw2D, x: i32, y: i32, height: i32, font: Option<Arc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: &Gradient<RGB, f32>, chroma: bool) {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
             if fmt.color.is_some() {
