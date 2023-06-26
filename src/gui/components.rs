@@ -7,7 +7,7 @@ use crate::gui::components::GuiElement::{Void, Paragraph, Layout};
 use crate::gui::gui_formats::FormattedString;
 use crate::gui::styles::{BorderStyle, Direction, GuiStyle, GuiValueComputeSupply, HorizontalAlign, Overflow, Positioning, Size, VerticalAlign, ViewState};
 use crate::gui::styles::BorderStyle::{Round, Triangle};
-use crate::render::draw::Draw2D;
+use crate::render::draw2d::Draw2D;
 use crate::resolve;
 
 pub struct GuiElementInfo {

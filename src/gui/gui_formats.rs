@@ -5,7 +5,7 @@ use mvutils::utils::{TetrahedronOp};
 use bitflags::{bitflags};
 use mvutils::save::{Loader, Savable, Saver};
 use crate::render::color::{Color, Gradient, RGB};
-use crate::render::draw::Draw2D;
+use crate::render::draw2d::Draw2D;
 use crate::render::text::{Font, TypeFace};
 
 bitflags! {

@@ -1,15 +1,20 @@
-use glam::{Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 use std::sync::Arc;
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::consts::MAX_TEXTURES;
-
+use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_MODEL_SIZE_FLOATS, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET};
 
 pub struct Light {
     direction: Vec3,
     position: Vec<f32>,
     attenuation: f32,
     color: Color<RGB, f32>,
+}
+
+pub struct ModelArray {
+    amount: usize,
+    model: Model,
+    transforms: Vec<Mat4>
 }
 
 pub struct Model {
@@ -44,15 +49,18 @@ impl Model {
         }
         vec
     }
+
+    pub fn recalculate(&mut self) {
+        let mut iter = self.materials.iter().nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET).step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
+        while let Some(mat_id) = iter.next() {
+
+        }
+    }
 }
 
 pub struct Mesh {
     pub(crate) name: String,
-    pub(crate) vertices: Vec<Vec3>,
-    pub(crate) indices: Vec<u32>,
-    pub(crate) normals: Vec<Vec3>,
-    pub(crate) tex_coords: Vec<Vec2>,
-    pub(crate) materials: Vec<u16>,
+    pub(crate) data: Vec<f32>,
 }
 
 impl Mesh {
@@ -64,8 +72,8 @@ impl Mesh {
                 self.vertices[i],
                 self.normals[i],
                 self.tex_coords[i],
-                self.materials[i],)
-            );
+                self.materials[i],
+            ));
         }
         vec
     }

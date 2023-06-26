@@ -16,6 +16,8 @@ pub(crate) const VERT_LIMIT_BATCH_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_BAT
 pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 
 pub(crate) const VERTEX_2D_SIZE_FLOATS: usize = 20;
+pub(crate) const VERTEX_3D_MODEL_SIZE_FLOATS: usize = 9;
+pub(crate) const VERTEX_3D_BATCH_SIZE_FLOATS: usize = 16;
 
 pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
 
@@ -57,6 +59,8 @@ pub(crate) const VERTEX_LAYOUT_MODEL_3D: VertexBufferLayout = VertexBufferLayout
         3 => Float32    //material id
     ]
 };
+
+pub(crate) const VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET: usize = 8;
 
 pub(crate) const VERTEX_LAYOUT_BATCH_3D: VertexBufferLayout = VertexBufferLayout {
     array_stride: 64,

@@ -22,7 +22,7 @@ use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
 use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
-use crate::render::draw::Draw2D;
+use crate::render::draw2d::Draw2D;
 use crate::render::init::State;
 #[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;

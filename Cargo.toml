@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = [
     "mvcore",
     "rendering",
-    "opengl",
+    "wgpu",
     "vulkan",
     "assets",
     "gui"

@@ -6,7 +6,7 @@ pub(crate) mod render;
 pub mod camera;
 pub(crate) mod batch2d;
 pub mod color;
-pub mod draw;
+pub mod draw2d;
 pub mod text;
 #[cfg(feature = "3d")]
 pub mod render3d;
@@ -16,6 +16,10 @@ pub mod deferred;
 pub mod common3d;
 #[cfg(feature = "3d")]
 pub mod model;
+#[cfg(feature = "3d")]
+pub mod draw3d;
+#[cfg(feature = "3d")]
+pub(crate) mod batch3d;
 
 use std::sync::Arc;
 use mvutils::unsafe_utils::Nullable;

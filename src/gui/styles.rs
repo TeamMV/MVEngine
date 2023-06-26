@@ -8,7 +8,7 @@ use mvutils::utils::Percentage;
 use crate::gui::components::{GuiElement, GuiElementInfo};
 use crate::gui::ease::Easing;
 use crate::render::color::{Gradient, RGB};
-use crate::render::draw::CanvasStyle;
+use crate::render::draw2d::CanvasStyle;
 use crate::render::text::TypeFace;
 
 pub struct GuiStyle {

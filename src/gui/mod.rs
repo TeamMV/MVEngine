@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use crate::gui::components::{GuiElement, GuiLayout};
-use crate::render::draw::Draw2D;
+use crate::render::draw2d::Draw2D;
 
 pub mod components;
 pub mod styles;

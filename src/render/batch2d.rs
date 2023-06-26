@@ -85,8 +85,8 @@ struct Batch2D {
     generator: Box<dyn BatchGen>,
     data: Vec<f32>,
     indices: Vec<u32>,
-    textures: [Option<Arc<Texture>>; TEXTURE_LIMIT as usize],
-    tex_ids: [u32; TEXTURE_LIMIT as usize],
+    textures: [Option<Arc<Texture>>; TEXTURE_LIMIT],
+    tex_ids: [u32; TEXTURE_LIMIT],
     vert_count: u32,
     obj_count: u32,
     next_tex: u32,
@@ -100,8 +100,8 @@ impl Batch2D {
             generator: Box::new(generator),
             data: Vec::with_capacity(VERT_LIMIT_2D_FLOATS as usize),
             indices: Vec::with_capacity(INDEX_LIMIT as usize),
-            textures: [0; TEXTURE_LIMIT as usize].map(|_| None),
-            tex_ids: [0; TEXTURE_LIMIT as usize],
+            textures: [0; TEXTURE_LIMIT].map(|_| None),
+            tex_ids: [0; TEXTURE_LIMIT],
             vert_count: 0,
             obj_count: 0,
             next_tex: 0,
@@ -221,7 +221,7 @@ impl Batch2D {
 
 //data storage
 
-pub(crate) struct Vertex2D {
+pub(crate) union Vertex2D {
     data: [f32; VERTEX_2D_SIZE_FLOATS],
 }
 
