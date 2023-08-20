@@ -12,7 +12,6 @@ keywords = [
     "mvcore",
     "rendering",
     "wgpu",
-    "vulkan",
     "assets",
     "gui"
 ]
@@ -49,9 +48,9 @@ json = "0.12.4"
 image = "0.24.6"
 bitflags = "2.2.1"
 openal = "0.2.2"
-itertools = "0.10.5"
+itertools = "0.11.0"
 winit = "0.28.4"
-wgpu = { version = "0.16.0", features = ["spirv"] }
+wgpu = { version = "0.17.0", features = ["spirv"] }
 bytemuck = { version = "1.13.1", features = ["derive"] }
 log = "0.4.17"
 env_logger = "0.10.0"

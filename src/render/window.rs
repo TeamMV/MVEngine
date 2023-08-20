@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::iter::once;
-use std::ops::Range;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time:: SystemTime;
@@ -27,7 +26,6 @@ use crate::render::init::State;
 #[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
-#[cfg(feature = "3d")]
 use crate::render::text::FontLoader;
 
 pub struct WindowSpecs {
@@ -124,6 +122,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     application_loop: ApplicationLoop,
     operate_state: RwLock<OperateState>,
     load_fn: fn(Arc<Window<ApplicationLoop>>),
+    #[cfg(feature = "3d")]
     model_loader: CreateOnce<ModelLoader<ApplicationLoop>>,
 
     state: DangerousCell<State>,
@@ -186,6 +185,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             Mat4::default()
         );
 
+        #[cfg(feature = "3d")]
         let deferred_pass_3d = DeferredPass::new(
             deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES]),
             &state
@@ -228,10 +228,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             camera_3d: camera_3d.into(),
             effect_shaders: HashMap::new().into(),
             enabled_effects_2d: Vec::new().into(),
+            #[cfg(feature = "3d")]
             deferred_pass_3d: deferred_pass_3d.into(),
+            #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
         });
 
+        #[cfg(feature = "3d")]
         window.model_loader.create(|| ModelLoader::new(window.clone()));
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));

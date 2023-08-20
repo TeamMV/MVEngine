@@ -572,6 +572,7 @@ impl Draw2D {
         self.dpi
     }
 
+    #[cfg(feature = "gui")]
     pub fn gui(&mut self, resource_id: &str) {
         let mut gui = R::guis().get(resource_id);
         gui.draw(self);
