@@ -1,9 +1,10 @@
-use std::{cell::RefCell, rc::Rc, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use std::cmp::max;
 use std::sync::Arc;
+
 use mvutils::utils::TetrahedronOp;
 
-use super::{shared::Texture, RenderCore};
+use super::{RenderCore, shared::Texture};
 
 pub struct TypeFace {
     pub regular: Rc<Font>,
@@ -28,7 +29,7 @@ pub struct Font {
     alphabet: HashMap<char, Glyph>,
 
     max_height: u16,
-    max_width: u16
+    max_width: u16,
 }
 
 impl Font {
@@ -51,7 +52,7 @@ impl Font {
 
 pub struct FontMetrics {
     font: *const Font,
-    string: String
+    string: String,
 }
 
 impl FontMetrics {
@@ -68,7 +69,7 @@ impl FontMetrics {
     }
 
     pub fn char_width(&self, height: i32, c: char) -> i32 {
-        if height == 0 {return 0;}
+        if height == 0 { return 0; }
         let glyph = unsafe { self.font.as_ref().unwrap().get_glyph(c) };
         glyph.get_width(height) * (height / (glyph.get_height(height) == 0).yn(1, glyph.get_height(height)))
     }
@@ -85,13 +86,13 @@ pub struct Glyph {
     y_off: i16,
     x_adv: u16,
 
-    max_height: u16
+    max_height: u16,
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Glyph {
     fn new(x: u16, y: u16, width: u16, height: u16, x_off: i16, y_off: i16, x_adv: u16, c: char) -> Self {
-        Glyph { uv: [0.0; 4], c, x, y, width, height, x_off, y_off, x_adv, max_height: 0}
+        Glyph { uv: [0.0; 4], c, x, y, width, height, x_off, y_off, x_adv, max_height: 0 }
     }
 
     fn make_coords(&mut self, atlas_width: u16, atlas_height: u16, max_height: u16) {
@@ -134,7 +135,7 @@ impl Glyph {
 
 #[derive(Clone)]
 pub(crate) struct FontLoader {
-    core: Arc<RenderCore>
+    core: Arc<RenderCore>,
 }
 
 impl FontLoader {
@@ -195,7 +196,7 @@ impl FontLoader {
                     get_attrib(line, "xoffset").parse::<i16>().unwrap(),
                     get_attrib(line, "yoffset").parse::<i16>().unwrap(),
                     get_attrib(line, "xadvance").parse::<u16>().unwrap(),
-                    c
+                    c,
                 );
                 map.insert(c, glyph);
             }
@@ -211,7 +212,7 @@ impl FontLoader {
             texture: Rc::new(RefCell::new(texture)),
             alphabet: map,
             max_width,
-            max_height
+            max_height,
         }
     }
 }

@@ -2,33 +2,32 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use glam::{IVec4, Vec2, Vec3};
-use gltf::{Gltf, Semantic};
 use gltf::material::{NormalTexture, OcclusionTexture};
+use gltf::{Gltf, Semantic};
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
 
-use crate::render::ApplicationLoopCallbacks;
 use crate::render::color::{Color, RGB};
-use crate::render::common3d::{Material, Mesh, Model};
 use crate::render::common::Texture;
-use crate::render::consts::MAX_TEXTURES;
+use crate::render::common3d::{Material, Mesh, Model};
 use crate::render::window::Window;
+use crate::render::ApplicationLoopCallbacks;
 
 pub(crate) struct ModelLoader<I: ApplicationLoopCallbacks + 'static> {
     obj: OBJModelLoader<I>,
-    gltf: GLTFModelLoader<I>
+    gltf: GLTFModelLoader<I>,
 }
 
 pub enum ModelFileType {
     Obj,
-    Gltf
+    Gltf,
 }
 
 impl<I: ApplicationLoopCallbacks> ModelLoader<I> {
     pub(crate) fn new(win: Arc<Window<I>>) -> Self {
         ModelLoader {
             obj: OBJModelLoader::new(win.clone()),
-            gltf: GLTFModelLoader::new(win)
+            gltf: GLTFModelLoader::new(win),
         }
     }
 
@@ -46,9 +45,7 @@ struct OBJModelLoader<I: ApplicationLoopCallbacks + 'static> {
 
 impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
     fn new(win: Arc<Window<I>>) -> Self {
-        OBJModelLoader {
-            win,
-        }
+        OBJModelLoader { win }
     }
 
     fn load_model(&self, data: &str, path: &str) -> Model {
@@ -67,7 +64,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
                 x: pos,
                 y: coords,
                 z: normal,
-                w: material as i32
+                w: material as i32,
             }
         }
 
@@ -92,12 +89,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
             match tokens[0] {
                 "mtllib" => {
                     let full_path = path.to_string() + tokens[1];
-                    self.load_materials(
-                        "",
-                        path,
-                        &mut material_map,
-                        &mut available_materials
-                    );
+                    self.load_materials("", path, &mut material_map, &mut available_materials);
                 }
                 "o" => {
                     name = tokens[1].to_string();
@@ -139,28 +131,26 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
                         faces.push(process_face(tokens[i + 1], current_material));
                     }
                 }
-                "f" => {
-                    match tokens.len() {
-                        4 => {
-                            faces.push(process_face(tokens[1], current_material));
-                            faces.push(process_face(tokens[2], current_material));
-                            faces.push(process_face(tokens[3], current_material));
-                        }
-                        5 => {
-                            let face = process_face(tokens[1], current_material);
-                            let duplicate = process_face(tokens[3], current_material);
-                            faces.push(face);
-                            faces.push(process_face(tokens[2], current_material));
-                            faces.push(duplicate);
-                            faces.push(face);
-                            faces.push(duplicate);
-                            faces.push(process_face(tokens[4], current_material));
-                        }
-                        _ => {
-                            panic!("Invalid amount of vertices per face!")
-                        }
+                "f" => match tokens.len() {
+                    4 => {
+                        faces.push(process_face(tokens[1], current_material));
+                        faces.push(process_face(tokens[2], current_material));
+                        faces.push(process_face(tokens[3], current_material));
                     }
-                }
+                    5 => {
+                        let face = process_face(tokens[1], current_material);
+                        let duplicate = process_face(tokens[3], current_material);
+                        faces.push(face);
+                        faces.push(process_face(tokens[2], current_material));
+                        faces.push(duplicate);
+                        faces.push(face);
+                        faces.push(duplicate);
+                        faces.push(process_face(tokens[4], current_material));
+                    }
+                    _ => {
+                        panic!("Invalid amount of vertices per face!")
+                    }
+                },
                 _ => {}
             }
         }
@@ -176,7 +166,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
             if face.y >= 0 {
                 let coord = tex_coords_vec[face.y as usize];
-                tex_coords[face. x as usize] = Vec2::new(coord.x, 1.0 - coord.y);
+                tex_coords[face.x as usize] = Vec2::new(coord.x, 1.0 - coord.y);
             }
 
             if face.z >= 0 {
@@ -199,7 +189,13 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
         }
     }
 
-    fn load_materials(&self, data: &str, path: &str, map: &mut HashMap<String, u16>, materials: &mut Vec<Material>) {
+    fn load_materials(
+        &self,
+        data: &str,
+        path: &str,
+        map: &mut HashMap<String, u16>,
+        materials: &mut Vec<Material>,
+    ) {
         let mut name = String::new();
         let mut material = Material::default();
 
@@ -292,14 +288,12 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 }
 
 struct GLTFModelLoader<I: ApplicationLoopCallbacks + 'static> {
-    win: Arc<Window<I>>
+    win: Arc<Window<I>>,
 }
 
 impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
     fn new(win: Arc<Window<I>>) -> Self {
-        GLTFModelLoader {
-            win
-        }
+        GLTFModelLoader { win }
     }
 
     fn load_model(&self, data: Bytecode) -> Model {
@@ -308,7 +302,12 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
         for material in gltf.materials() {
             let mut mat = Material::new();
             //mat.double_side = material.double_sided();
-            mat.emission = Color::<RGB, f32>::new(material.emissive_factor()[0], material.emissive_factor()[1], material.emissive_factor()[2], 1.0);
+            mat.emission = Color::<RGB, f32>::new(
+                material.emissive_factor()[0],
+                material.emissive_factor()[1],
+                material.emissive_factor()[2],
+                1.0,
+            );
             mat.roughness = material.pbr_metallic_roughness().roughness_factor();
             mat.metallic = material.pbr_metallic_roughness().metallic_factor();
             //mat.alpha_mode = material.alpha_mode();
@@ -319,8 +318,12 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             //if let Some(info) = material.occlusion_texture() {
             //    mat.occlusion_texture = Some(rc_mut(self.construct_texture_occ(&gltf, &info)));
             //}
-            if let Some(info) = material.pbr_metallic_roughness().metallic_roughness_texture() {
-                mat.metallic_roughness_texture = Some(Arc::new(self.construct_texture(&gltf, &info)));
+            if let Some(info) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                mat.metallic_roughness_texture =
+                    Some(Arc::new(self.construct_texture(&gltf, &info)));
             }
             if let Some(info) = material.normal_texture() {
                 mat.normal_texture = Some(Arc::new(self.construct_texture_nor(&gltf, &info)));
@@ -337,10 +340,21 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             let mut tex_coords: Vec<Vec2> = Vec::new();
             let mut indices: Vec<u32> = Vec::new();
             for primitive in mesh.primitives() {
-                vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Positions).unwrap().index())));
-                normals.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::Normals).unwrap().index())));
-                tex_coords.append(&mut self.construct_vec2s(self.get_data_from_buffer_view(&gltf, primitive.get(&Semantic::TexCoords(0)).unwrap().index())));
-                indices.append(&mut self.construct::<u32>(self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index())));
+                vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(
+                    &gltf,
+                    primitive.get(&Semantic::Positions).unwrap().index(),
+                )));
+                normals.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(
+                    &gltf,
+                    primitive.get(&Semantic::Normals).unwrap().index(),
+                )));
+                tex_coords.append(&mut self.construct_vec2s(self.get_data_from_buffer_view(
+                    &gltf,
+                    primitive.get(&Semantic::TexCoords(0)).unwrap().index(),
+                )));
+                indices.append(&mut self.construct::<u32>(
+                    self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index()),
+                ));
             }
 
             println!("{}", name);
@@ -350,51 +364,90 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
                 indices,
                 normals,
                 tex_coords,
-                materials: Vec::new()
+                materials: Vec::new(),
             };
             return Model {
                 mesh: parsed_mesh,
-                materials
-            }
+                materials,
+            };
         }
 
         unreachable!()
     }
 
     fn get_data_from_buffer_view(&self, gltf: &Gltf, idx: usize) -> Bytecode {
-        gltf.views().filter_map(|v| if v.index() == idx {
-            Some(gltf.blob.clone().expect("No data present in this gltf file!")[v.offset()..v.offset() + v.length()].to_vec())
-        } else { None }).next().expect("This buffer view does not exist!")
+        gltf.views()
+            .filter_map(|v| {
+                if v.index() == idx {
+                    Some(
+                        gltf.blob
+                            .clone()
+                            .expect("No data present in this gltf file!")
+                            [v.offset()..v.offset() + v.length()]
+                            .to_vec(),
+                    )
+                } else {
+                    None
+                }
+            })
+            .next()
+            .expect("This buffer view does not exist!")
     }
 
     fn construct_vec2s(&self, data: Bytecode) -> Vec<Vec2> {
-        if data.len() % 8 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
-        data.into_iter().chunks(8).into_iter().map(|c| {
-            let vec = c.chunks(4).into_iter().map(|f| {
-                let float = f.collect_vec();
-                f32::from_le_bytes([float[0], float[1], float[2], float[3]])
-            }).collect_vec();
-            Vec2::new(vec[0], vec[1])
-        }).collect_vec()
+        if data.len() % 8 != 0 {
+            panic!("invalid byte size for vec3: {}", data.len())
+        }
+        data.into_iter()
+            .chunks(8)
+            .into_iter()
+            .map(|c| {
+                let vec = c
+                    .chunks(4)
+                    .into_iter()
+                    .map(|f| {
+                        let float = f.collect_vec();
+                        f32::from_le_bytes([float[0], float[1], float[2], float[3]])
+                    })
+                    .collect_vec();
+                Vec2::new(vec[0], vec[1])
+            })
+            .collect_vec()
     }
 
     fn construct_vec3s(&self, data: Bytecode) -> Vec<Vec3> {
-        if data.len() % 12 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
-        data.into_iter().chunks(12).into_iter().map(|c| {
-            let vec = c.chunks(4).into_iter().map(|f| {
-                let float = f.collect_vec();
-                f32::from_le_bytes([float[0], float[1], float[2], float[3]])
-            }).collect_vec();
-            Vec3::new(vec[0], vec[1], vec[2])
-        }).collect_vec()
+        if data.len() % 12 != 0 {
+            panic!("invalid byte size for vec3: {}", data.len())
+        }
+        data.into_iter()
+            .chunks(12)
+            .into_iter()
+            .map(|c| {
+                let vec = c
+                    .chunks(4)
+                    .into_iter()
+                    .map(|f| {
+                        let float = f.collect_vec();
+                        f32::from_le_bytes([float[0], float[1], float[2], float[3]])
+                    })
+                    .collect_vec();
+                Vec3::new(vec[0], vec[1], vec[2])
+            })
+            .collect_vec()
     }
 
     fn construct<T: FromLeBytes>(&self, data: Bytecode) -> Vec<T> {
-        if data.len() % T::byte_count() != 0 {panic!("invalid byte size for {}: {}", T::name(), data.len())}
-        data.into_iter().chunks(T::byte_count()).into_iter().map(|c| {
-            let t = c.collect_vec();
-            T::from_le_bytes(&t[0..T::byte_count()])
-        }).collect_vec()
+        if data.len() % T::byte_count() != 0 {
+            panic!("invalid byte size for {}: {}", T::name(), data.len())
+        }
+        data.into_iter()
+            .chunks(T::byte_count())
+            .into_iter()
+            .map(|c| {
+                let t = c.collect_vec();
+                T::from_le_bytes(&t[0..T::byte_count()])
+            })
+            .collect_vec()
     }
 
     fn construct_texture(&self, gltf: &Gltf, src: &gltf::texture::Info) -> Texture {
@@ -466,5 +519,3 @@ impl FromLeBytes for f32 {
         "FLOAT".to_string()
     }
 }
-
-

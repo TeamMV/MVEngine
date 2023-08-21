@@ -3,10 +3,10 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 
 use mvutils::init_arr;
-use mvutils::utils::{TetrahedronOp};
+use mvutils::utils::TetrahedronOp;
+
 use crate::old_render::color::{Color, RGB};
 use crate::old_render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
-
 use crate::old_render::shared::{RenderProcessor2D, Shader, Texture};
 
 pub(crate) const FLOAT_BYTES: u16 = 4;
@@ -49,7 +49,7 @@ pub mod batch_layout_2d {
 pub(crate) enum BatchType {
     Regular,
     Stripped,
-    Fan
+    Fan,
 }
 
 trait BatchGen {
@@ -266,7 +266,7 @@ impl Batch2D {
     }
 
     fn render(&mut self, processor: &impl RenderProcessor2D, shader: &mut Shader) {
-        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, shader,  self.generator.get_render_mode());
+        processor.process_data(&mut self.textures, &self.tex_ids, &self.indices, &self.data, shader, self.generator.get_render_mode());
         self.force_clear();
     }
 
@@ -360,7 +360,7 @@ pub(crate) struct BatchController2D {
     default_shader: Rc<RefCell<Shader>>,
     current: u32,
     previous_regular: i32,
-    z: f32
+    z: f32,
 }
 
 impl BatchController2D {
@@ -398,8 +398,7 @@ impl BatchController2D {
                     }
                     self.advance(batch_type);
                     self.previous_regular = self.current as i32;
-                }
-                else {
+                } else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         self.inc_z();
                         return;
@@ -503,8 +502,7 @@ impl BatchController2D {
         texture.borrow_mut().make();
         if self.batches[self.current as usize].batch_type() == BatchType::Stripped {
             self.batches[self.current as usize].add_texture(texture)
-        }
-        else {
+        } else {
             0
         }
     }

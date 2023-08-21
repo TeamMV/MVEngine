@@ -1,12 +1,16 @@
 use std::ops::Range;
-use std::process::id;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
+
 use itertools::Itertools;
-use mvutils::utils::{IncDec, TetrahedronOp};
-use crate::gui::components::GuiElement::{Void, Paragraph, Layout};
+use mvutils::utils::TetrahedronOp;
+
+use crate::gui::components::GuiElement::{Layout, Void};
 use crate::gui::gui_formats::FormattedString;
-use crate::gui::styles::{BorderStyle, Direction, GuiStyle, GuiValueComputeSupply, HorizontalAlign, Overflow, Positioning, Size, VerticalAlign, ViewState};
 use crate::gui::styles::BorderStyle::{Round, Triangle};
+use crate::gui::styles::{
+    BorderStyle, Direction, GuiStyle, GuiValueComputeSupply, HorizontalAlign, Overflow,
+    Positioning, Size, VerticalAlign, ViewState,
+};
 use crate::render::draw2d::Draw2D;
 use crate::resolve;
 
@@ -32,7 +36,7 @@ pub struct GuiElementInfo {
 
     pub style: GuiStyle,
 
-    pub compute_supply: GuiValueComputeSupply
+    pub compute_supply: GuiValueComputeSupply,
 }
 
 impl Default for GuiElementInfo {
@@ -201,9 +205,7 @@ pub struct GuiElements {
 
 impl GuiElements {
     pub(crate) fn new() -> Self {
-        Self {
-            elements: vec![],
-        }
+        Self { elements: vec![] }
     }
 
     pub fn add_element(&mut self, element: &'static mut GuiElement) {
@@ -231,8 +233,13 @@ impl GuiElements {
         None
     }
 
-    pub fn get_elements_by_tag(&self, tag: &String) -> impl Iterator<Item = &'static mut GuiElement> {
-        self.elements.iter().filter(|e| e.info().tags.contains(&tag.to_string()))
+    pub fn get_elements_by_tag(
+        &self,
+        tag: &String,
+    ) -> impl Iterator<Item = &'static mut GuiElement> {
+        self.elements
+            .iter()
+            .filter(|e| e.info().tags.contains(&tag.to_string()))
     }
 
     pub fn get_elements(&self) -> &[&'static mut GuiElement] {
@@ -361,6 +368,7 @@ pub trait GuiLayoutComponent {
 }
 
 pub struct GuiVoid;
+
 impl GuiComponent for GuiVoid {
     fn create() -> Self {
         Self
@@ -390,40 +398,122 @@ impl GuiLayoutComponent for GuiVoid {
 }
 
 pub(crate) fn draw_component_body(ctx: &mut Draw2D, info: &GuiElementInfo) {
-
     let br = resolve!(info, border_radius);
     let bs: BorderStyle = resolve!(info, border_style);
 
     if bs == Round {
-        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));
+        ctx.get_mut()
+            .unwrap()
+            .get_mut_gradient()
+            .copy_of(&resolve!(info, background_color));
         let bw: i32 = resolve!(info, border_width);
-        ctx.get_mut().unwrap().rounded_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, br as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().rounded_rectangle_origin_rotated(
+            info.x,
+            info.y,
+            info.bounding_width,
+            info.bounding_height,
+            br,
+            br as f32,
+            info.rotation,
+            info.rotation_center.0,
+            info.rotation_center.1,
+        );
         if br > 0 {
-            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.get_mut().unwrap().void_rounded_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, (br + bw) as f32, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut()
+                .unwrap()
+                .get_mut_gradient()
+                .copy_of(&resolve!(info, border_color));
+            ctx.get_mut()
+                .unwrap()
+                .void_rounded_rectangle_origin_rotated(
+                    info.x - bw,
+                    info.y - bw,
+                    info.bounding_width + 2 * bw,
+                    info.bounding_height + 2 * bw,
+                    bw,
+                    br + bw,
+                    (br + bw) as f32,
+                    info.rotation,
+                    info.rotation_center.0,
+                    info.rotation_center.1,
+                );
         }
     } else if bs == Triangle {
-        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));
+        ctx.get_mut()
+            .unwrap()
+            .get_mut_gradient()
+            .copy_of(&resolve!(info, background_color));
         let bw: i32 = resolve!(info, border_width);
-        ctx.get_mut().unwrap().triangular_rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, br, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().triangular_rectangle_origin_rotated(
+            info.x,
+            info.y,
+            info.bounding_width,
+            info.bounding_height,
+            br,
+            info.rotation,
+            info.rotation_center.0,
+            info.rotation_center.1,
+        );
         if br > 0 {
-            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.get_mut().unwrap().void_triangular_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, br + bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut()
+                .unwrap()
+                .get_mut_gradient()
+                .copy_of(&resolve!(info, border_color));
+            ctx.get_mut()
+                .unwrap()
+                .void_triangular_rectangle_origin_rotated(
+                    info.x - bw,
+                    info.y - bw,
+                    info.bounding_width + 2 * bw,
+                    info.bounding_height + 2 * bw,
+                    bw,
+                    br + bw,
+                    info.rotation,
+                    info.rotation_center.0,
+                    info.rotation_center.1,
+                );
         }
     } else {
-        ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, background_color));;
+        ctx.get_mut()
+            .unwrap()
+            .get_mut_gradient()
+            .copy_of(&resolve!(info, background_color));
         let bw: i32 = resolve!(info, border_width);
-        ctx.get_mut().unwrap().rectangle_origin_rotated(info.x, info.y, info.bounding_width, info.bounding_height, info.rotation, info.rotation_center.0, info.rotation_center.1);
+        ctx.get_mut().unwrap().rectangle_origin_rotated(
+            info.x,
+            info.y,
+            info.bounding_width,
+            info.bounding_height,
+            info.rotation,
+            info.rotation_center.0,
+            info.rotation_center.1,
+        );
         if br > 0 {
-            ctx.get_mut().unwrap().get_mut_gradient().copy_of(&resolve!(info, border_color));
-            ctx.get_mut().unwrap().void_rectangle_origin_rotated(info.x - bw, info.y - bw, info.bounding_width + 2 * bw, info.bounding_height + 2 * bw, bw, info.rotation, info.rotation_center.0, info.rotation_center.1);
+            ctx.get_mut()
+                .unwrap()
+                .get_mut_gradient()
+                .copy_of(&resolve!(info, border_color));
+            ctx.get_mut().unwrap().void_rectangle_origin_rotated(
+                info.x - bw,
+                info.y - bw,
+                info.bounding_width + 2 * bw,
+                info.bounding_height + 2 * bw,
+                bw,
+                info.rotation,
+                info.rotation_center.0,
+                info.rotation_center.1,
+            );
         }
     }
 }
 
 macro_rules! center {
-    ($total:ident, $value:ident) => {$total as f32 / 2.0 - $value as f32 / 2.0};
-    ($total:ident, $value:ident, $res_type:ty) => {($total as f32 / 2.0 - $value as f32 / 2.0) as $res_type};
+    ($total:ident, $value:ident) => {
+        $total as f32 / 2.0 - $value as f32 / 2.0
+    };
+    ($total:ident, $value:ident, $res_type:ty) => {
+        ($total as f32 / 2.0 - $value as f32 / 2.0) as $res_type
+    };
 }
 
 //Specific abstraction
@@ -447,7 +537,10 @@ impl GuiComponent for GuiMarkdown {
     fn create() -> Self {
         GuiMarkdown {
             info: GuiElementInfo::default(),
-            text: FormattedString { pieces: vec![], whole: "".to_string() },
+            text: FormattedString {
+                pieces: vec![],
+                whole: "".to_string(),
+            },
         }
     }
 
@@ -462,7 +555,11 @@ impl GuiComponent for GuiMarkdown {
     fn draw(&mut self, ctx: &mut Draw2D) {
         let view_state = resolve!(self.info, view_state);
         if view_state != ViewState::Gone {
-            self.info_mut().content_width = resolve!(self.info, font).unwrap().regular.get_metrics(self.text.whole.as_str()).width(self.info.content_height);
+            self.info_mut().content_width = resolve!(self.info, font)
+                .unwrap()
+                .regular
+                .get_metrics(self.text.whole.as_str())
+                .width(self.info.content_height);
             self.info_mut().content_height = resolve!(self.info, text_size);
         } else {
             self.info_mut().content_width = 0;
@@ -475,9 +572,24 @@ impl GuiComponent for GuiMarkdown {
             let left = resolve!(self.info, padding_left);
             let bottom = resolve!(self.info, padding_bottom);
 
-            ctx.get_mut().unwrap().chroma_tilt(resolve!(self.info, text_chroma_tilt));
-            ctx.get_mut().unwrap().chroma_compress(resolve!(self.info, text_chroma_compress));
-            self.text.draw(ctx, self.info.x + left, self.info.y + bottom, self.info.content_height, resolve!(self.info, font), self.info.rotation, self.info.rotation_center.0, self.info.rotation_center.1, &resolve!(self.info, text_color), resolve!(self.info, text_chroma));
+            ctx.get_mut()
+                .unwrap()
+                .chroma_tilt(resolve!(self.info, text_chroma_tilt));
+            ctx.get_mut()
+                .unwrap()
+                .chroma_compress(resolve!(self.info, text_chroma_compress));
+            self.text.draw(
+                ctx,
+                self.info.x + left,
+                self.info.y + bottom,
+                self.info.content_height,
+                resolve!(self.info, font),
+                self.info.rotation,
+                self.info.rotation_center.0,
+                self.info.rotation_center.1,
+                &resolve!(self.info, text_color),
+                resolve!(self.info, text_chroma),
+            );
         }
     }
 }
@@ -497,7 +609,7 @@ impl GuiTextComponent for GuiMarkdown {
 pub struct GuiSection {
     info: GuiElementInfo,
     elements: GuiElements,
-    max_size: (i32, i32)
+    max_size: (i32, i32),
 }
 
 impl GuiLayoutComponent for GuiSection {
@@ -575,7 +687,13 @@ impl GuiComponent for GuiSection {
             let border_style = resolve!(self.info, border_style);
 
             if dir == Direction::LeftRight {
-                let mut x = (ha == HorizontalAlign::Right).yn(self.info.x + self.info.content_width - self.max_size.0, (ha == HorizontalAlign::Center).yn(self.info.x + self.info.content_width / 2 - self.max_size.0 / 2, self.info.x));
+                let mut x = (ha == HorizontalAlign::Right).yn(
+                    self.info.x + self.info.content_width - self.max_size.0,
+                    (ha == HorizontalAlign::Center).yn(
+                        self.info.x + self.info.content_width / 2 - self.max_size.0 / 2,
+                        self.info.x,
+                    ),
+                );
                 let mut y = 0;
 
                 for i in 0..self.elements.count_elements() {
@@ -592,26 +710,51 @@ impl GuiComponent for GuiSection {
                         if via == VerticalAlign::Bottom {
                             y = self.info.y + self.info.content_height / 2 - self.max_size.1 / 2;
                         } else if via == VerticalAlign::Center {
-                            y = self.info.y + (self.max_size.1 - element.info().height) / 2 + self.info.content_height / 2 - self.max_size.1 / 2;
+                            y = self.info.y
+                                + (self.max_size.1 - element.info().height) / 2
+                                + self.info.content_height / 2
+                                - self.max_size.1 / 2;
                         } else {
-                            y = self.info.y + (self.max_size.1 - element.info().height) + self.info.content_height / 2 - self.max_size.1 / 2;
+                            y = self.info.y
+                                + (self.max_size.1 - element.info().height)
+                                + self.info.content_height / 2
+                                - self.max_size.1 / 2;
                         }
                     } else {
                         if via == VerticalAlign::Bottom {
                             y = self.info.y + self.info.content_height - self.max_size.1;
                         } else if via == VerticalAlign::Center {
-                            y = self.info.y + (self.max_size.1 - element.info().height) / 2 + self.info.content_height - self.max_size.1;
+                            y = self.info.y
+                                + (self.max_size.1 - element.info().height) / 2
+                                + self.info.content_height
+                                - self.max_size.1;
                         } else {
-                            y = self.info.y + (self.max_size.1 - element.info().height) + self.info.content_height - self.max_size.1;
+                            y = self.info.y
+                                + (self.max_size.1 - element.info().height)
+                                + self.info.content_height
+                                - self.max_size.1;
                         }
                     }
 
                     if overflow == Overflow::Clamp {
-                        x = x.clamp(self.info.x, self.info.x + self.info.content_width - element.info().width);
-                        y = y.clamp(self.info.y, self.info.y + self.info.content_height - element.info().height);
+                        x = x.clamp(
+                            self.info.x,
+                            self.info.x + self.info.content_width - element.info().width,
+                        );
+                        y = y.clamp(
+                            self.info.y,
+                            self.info.y + self.info.content_height - element.info().height,
+                        );
                     } else if overflow == Overflow::Cut {
-                        ctx.get_mut().unwrap().canvas(self.info.x, self.info.y, self.info.content_width as u32, self.info.content_height as u32);
-                        ctx.get_mut().unwrap().style_canvas(border_style.as_cnvs_style(), border_radius as f32);
+                        ctx.get_mut().unwrap().canvas(
+                            self.info.x,
+                            self.info.y,
+                            self.info.content_width as u32,
+                            self.info.content_height as u32,
+                        );
+                        ctx.get_mut()
+                            .unwrap()
+                            .style_canvas(border_style.as_cnvs_style(), border_radius as f32);
                     }
 
                     element.info_mut().x = x;
@@ -623,7 +766,13 @@ impl GuiComponent for GuiSection {
                 }
             } else {
                 let mut x = 0;
-                let mut y = (va == VerticalAlign::Top).yn(self.info.y + self.info.content_height - self.max_size.1, (va == VerticalAlign::Center).yn(self.info.y + self.info.content_height / 2 - self.max_size.1 / 2, self.info.y));
+                let mut y = (va == VerticalAlign::Top).yn(
+                    self.info.y + self.info.content_height - self.max_size.1,
+                    (va == VerticalAlign::Center).yn(
+                        self.info.y + self.info.content_height / 2 - self.max_size.1 / 2,
+                        self.info.y,
+                    ),
+                );
 
                 for i in 0..self.elements.count_elements() {
                     let mut element = self.elements.get_element_by_index(i);
@@ -639,26 +788,51 @@ impl GuiComponent for GuiSection {
                         if hia == HorizontalAlign::Left {
                             x = self.info.x + self.info.content_width / 2 - self.max_size.0 / 2;
                         } else if hia == HorizontalAlign::Center {
-                            x = self.info.x + (self.max_size.0 - element.info().width) / 2 + self.info.content_width / 2 - self.max_size.0 / 2;
+                            x = self.info.x
+                                + (self.max_size.0 - element.info().width) / 2
+                                + self.info.content_width / 2
+                                - self.max_size.0 / 2;
                         } else {
-                            x = self.info.x + (self.max_size.0 - element.info().width) + self.info.content_width / 2 - self.max_size.0 / 2;
+                            x = self.info.x
+                                + (self.max_size.0 - element.info().width)
+                                + self.info.content_width / 2
+                                - self.max_size.0 / 2;
                         }
                     } else {
                         if hia == HorizontalAlign::Left {
                             x = self.info.x + self.info.content_width - self.max_size.0;
                         } else if hia == HorizontalAlign::Center {
-                            x = self.info.x + (self.max_size.0 - element.info().width) / 2 + self.info.content_width - self.max_size.0;
+                            x = self.info.x
+                                + (self.max_size.0 - element.info().width) / 2
+                                + self.info.content_width
+                                - self.max_size.0;
                         } else {
-                            x = self.info.x + (self.max_size.0 - element.info().width) + self.info.content_width - self.max_size.0;
+                            x = self.info.x
+                                + (self.max_size.0 - element.info().width)
+                                + self.info.content_width
+                                - self.max_size.0;
                         }
                     }
 
                     if overflow == Overflow::Clamp {
-                        x = x.clamp(self.info.x, self.info.x + self.info.content_width - element.info().width);
-                        y = y.clamp(self.info.y, self.info.y + self.info.content_height - element.info().height);
+                        x = x.clamp(
+                            self.info.x,
+                            self.info.x + self.info.content_width - element.info().width,
+                        );
+                        y = y.clamp(
+                            self.info.y,
+                            self.info.y + self.info.content_height - element.info().height,
+                        );
                     } else if overflow == Overflow::Cut {
-                        ctx.get_mut().unwrap().canvas(self.info.x, self.info.y, self.info.content_width as u32, self.info.content_height as u32);
-                        ctx.get_mut().unwrap().style_canvas(border_style.as_cnvs_style(), border_radius as f32);
+                        ctx.get_mut().unwrap().canvas(
+                            self.info.x,
+                            self.info.y,
+                            self.info.content_width as u32,
+                            self.info.content_height as u32,
+                        );
+                        ctx.get_mut()
+                            .unwrap()
+                            .style_canvas(border_style.as_cnvs_style(), border_radius as f32);
                     }
 
                     element.info_mut().x = x;

@@ -1,8 +1,12 @@
-use glam::{Mat4, Vec2, Vec3};
 use std::sync::Arc;
+
+use glam::{Mat4, Vec2, Vec3};
+
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_MODEL_SIZE_FLOATS, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET};
+use crate::render::consts::{
+    MAX_TEXTURES, VERTEX_3D_MODEL_SIZE_FLOATS, VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET,
+};
 
 pub struct Light {
     direction: Vec3,
@@ -14,12 +18,12 @@ pub struct Light {
 pub struct ModelArray {
     amount: usize,
     model: Model,
-    transforms: Vec<Mat4>
+    transforms: Vec<Mat4>,
 }
 
 pub struct Model {
     pub(crate) mesh: Mesh,
-    pub(crate) materials: Vec<Material>
+    pub(crate) materials: Vec<Material>,
 }
 
 impl Model {
@@ -51,10 +55,12 @@ impl Model {
     }
 
     pub fn recalculate(&mut self) {
-        let mut iter = self.materials.iter().nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET).step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
-        while let Some(mat_id) = iter.next() {
-
-        }
+        let mut iter = self
+            .materials
+            .iter()
+            .nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET)
+            .step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
+        while let Some(mat_id) = iter.next() {}
     }
 }
 
@@ -80,14 +86,20 @@ impl Mesh {
 }
 
 pub struct Material {
-    pub ambient: Color<RGB, f32>, //Ka
-    pub diffuse: Color<RGB, f32>, //Kd
-    pub specular: Color<RGB, f32>, //Ks (specular reflectivity)
+    pub ambient: Color<RGB, f32>,
+    //Ka
+    pub diffuse: Color<RGB, f32>,
+    //Kd
+    pub specular: Color<RGB, f32>,
+    //Ks (specular reflectivity)
     pub emission: Color<RGB, f32>,
 
-    pub alpha: f32, //d or Ts
-    pub specular_exponent: f32, //Ns (specular exponent)
-    pub metallic: f32, //m
+    pub alpha: f32,
+    //d or Ts
+    pub specular_exponent: f32,
+    //Ns (specular exponent)
+    pub metallic: f32,
+    //m
     pub roughness: f32,
 
     //pub transmission_filter: f32, //Tf
@@ -97,16 +109,16 @@ pub struct Material {
     //pub alpha_mode: AlphaMode,
     //pub alpha_cutoff: f32,
     //pub double_side: bool,
-
-    pub diffuse_texture: Option<Arc<Texture>>, //map_Kd
+    pub diffuse_texture: Option<Arc<Texture>>,
+    //map_Kd
     pub metallic_roughness_texture: Option<Arc<Texture>>,
     pub normal_texture: Option<Arc<Texture>>, //norm
 
-    //pub specular_texture: Option<Arc<Texture>>, //map_Ks
-    //pub occlusion_texture: Option<Arc<Texture>>, //map_d
-    //pub reflection_texture: Option<Arc<Texture>>, //refl
-    //pub bump_texture: Option<Arc<Texture>>, //bump
-    //pub emission_texture: Option<Arc<Texture>>,
+                                              //pub specular_texture: Option<Arc<Texture>>, //map_Ks
+                                              //pub occlusion_texture: Option<Arc<Texture>>, //map_d
+                                              //pub reflection_texture: Option<Arc<Texture>>, //refl
+                                              //pub bump_texture: Option<Arc<Texture>>, //bump
+                                              //pub emission_texture: Option<Arc<Texture>>,
 }
 
 impl Material {
@@ -165,12 +177,14 @@ impl Model {
 
     pub fn is_simple_geometry(&self) -> bool {
         self.vertex_count() < 5000
-        && self.materials.len() < 16
-        && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
+            && self.materials.len() < 16
+            && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
     }
 
     pub fn texture_count(&self, texture_type: TextureType) -> u32 {
-        self.materials.iter().fold(0, |t, m| t + m.texture_count(texture_type))
+        self.materials
+            .iter()
+            .fold(0, |t, m| t + m.texture_count(texture_type))
     }
 
     pub fn single_batch(&self) -> bool {
@@ -186,7 +200,7 @@ impl Model {
 pub enum TextureType {
     Any,
     Geometry,
-    Lighting
+    Lighting,
 }
 
 impl TextureType {

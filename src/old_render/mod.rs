@@ -1,17 +1,14 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use glfw::ffi::{glfwInit, glfwSetCharCallback, glfwSetCharModsCallback, glfwSetCursorEnterCallback, glfwSetCursorPosCallback, glfwSetDropCallback, glfwSetFramebufferSizeCallback, glfwSetKeyCallback, glfwSetMouseButtonCallback, glfwSetScrollCallback, glfwSetWindowCloseCallback, glfwSetWindowContentScaleCallback, glfwSetWindowFocusCallback, glfwSetWindowIconifyCallback, glfwSetWindowMaximizeCallback, glfwSetWindowPosCallback, glfwSetWindowRefreshCallback, glfwSetWindowSizeCallback, glfwTerminate, GLFWwindow};
 use is_main_thread::is_main_thread;
-use crate::ApplicationInfo;
 
+use crate::ApplicationInfo;
 use crate::assets::{SemiAutomaticAssetManager, WritableAssetManager};
 use crate::old_render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
 use crate::old_render::shared::{EffectShader, Shader, Texture, Window, WindowCreateInfo};
-
 #[cfg(feature = "vulkan")]
-use crate::old_render::vulkan::vulkan::{VulkanWindow, VulkanShader, VulkanTexture};
+use crate::old_render::vulkan::vulkan::{VulkanShader, VulkanTexture, VulkanWindow};
 use crate::resource_loader::ResourceLoader;
 
 pub mod shared;
@@ -85,14 +82,14 @@ pub(crate) fn load_render_assets(assets: &mut dyn WritableAssetManager) {
 pub struct RenderCore {
     backend: RenderingBackend,
     resource_loader: Arc<ResourceLoader>,
-    app: *const ApplicationInfo
+    app: *const ApplicationInfo,
 }
 
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum RenderingBackend {
     OpenGL,
     #[cfg(feature = "vulkan")]
-    Vulkan
+    Vulkan,
 }
 
 impl RenderCore {
@@ -102,7 +99,7 @@ impl RenderCore {
             RenderCore {
                 backend: info.backend.clone(),
                 resource_loader,
-                app: info
+                app: info,
             }
         }
     }

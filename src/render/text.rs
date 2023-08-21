@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::cmp::max;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use mvutils::utils::TetrahedronOp;
@@ -30,7 +30,7 @@ pub struct Font {
     alphabet: HashMap<char, Glyph>,
 
     max_height: u16,
-    max_width: u16
+    max_width: u16,
 }
 
 impl Font {
@@ -43,17 +43,22 @@ impl Font {
     }
 
     pub(crate) fn get_glyph(&self, c: char) -> &Glyph {
-        self.alphabet.get(&c).expect(format!("The char '{}' is not supported in this font!", c).as_str())
+        self.alphabet
+            .get(&c)
+            .expect(format!("The char '{}' is not supported in this font!", c).as_str())
     }
 
     pub fn get_metrics(&self, string: &str) -> FontMetrics {
-        FontMetrics { font: self, string: string.to_string() }
+        FontMetrics {
+            font: self,
+            string: string.to_string(),
+        }
     }
 }
 
 pub struct FontMetrics {
     font: *const Font,
-    string: String
+    string: String,
 }
 
 impl FontMetrics {
@@ -70,9 +75,12 @@ impl FontMetrics {
     }
 
     pub fn char_width(&self, height: i32, c: char) -> i32 {
-        if height == 0 {return 0;}
+        if height == 0 {
+            return 0;
+        }
         let glyph = unsafe { self.font.as_ref().unwrap().get_glyph(c) };
-        glyph.get_width(height) * (height / (glyph.get_height(height) == 0).yn(1, glyph.get_height(height)))
+        glyph.get_width(height)
+            * (height / (glyph.get_height(height) == 0).yn(1, glyph.get_height(height)))
     }
 }
 
@@ -87,13 +95,33 @@ pub struct Glyph {
     y_off: i16,
     x_adv: u16,
 
-    max_height: u16
+    max_height: u16,
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Glyph {
-    fn new(x: u16, y: u16, width: u16, height: u16, x_off: i16, y_off: i16, x_adv: u16, c: char) -> Self {
-        Glyph { uv: [0.0; 4], c, x, y, width, height, x_off, y_off, x_adv, max_height: 0}
+    fn new(
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        x_off: i16,
+        y_off: i16,
+        x_adv: u16,
+        c: char,
+    ) -> Self {
+        Glyph {
+            uv: [0.0; 4],
+            c,
+            x,
+            y,
+            width,
+            height,
+            x_off,
+            y_off,
+            x_adv,
+            max_height: 0,
+        }
     }
 
     fn make_coords(&mut self, atlas_width: u16, atlas_height: u16, max_height: u16) {
@@ -143,7 +171,11 @@ impl FontLoader {
     }
 
     pub(crate) fn load_default_font(&self, state: &State) -> Font {
-        self.load_bitmap(state, include_bytes!("fonts/default.png"), include_str!("fonts/default.fnt"))
+        self.load_bitmap(
+            state,
+            include_bytes!("fonts/default.png"),
+            include_str!("fonts/default.fnt"),
+        )
     }
 
     pub(crate) fn load_ttf(&self, contents: Vec<u8>) -> Font {
@@ -185,9 +217,18 @@ impl FontLoader {
             if total_chars != 0 {
                 //individual character parsing
                 max_width = max(max_width, get_attrib(line, "width").parse::<u16>().unwrap());
-                max_height = max(max_height, get_attrib(line, "height").parse::<u16>().unwrap());
-                max_x_off = max(max_x_off, get_attrib(line, "xoffset").parse::<i16>().unwrap());
-                max_y_off = max(max_y_off, get_attrib(line, "yoffset").parse::<i16>().unwrap());
+                max_height = max(
+                    max_height,
+                    get_attrib(line, "height").parse::<u16>().unwrap(),
+                );
+                max_x_off = max(
+                    max_x_off,
+                    get_attrib(line, "xoffset").parse::<i16>().unwrap(),
+                );
+                max_y_off = max(
+                    max_y_off,
+                    get_attrib(line, "yoffset").parse::<i16>().unwrap(),
+                );
                 let c = char::from_u32(get_attrib(line, "id").parse::<u32>().unwrap()).unwrap();
                 let glyph = Glyph::new(
                     get_attrib(line, "x").parse::<u16>().unwrap(),
@@ -197,7 +238,7 @@ impl FontLoader {
                     get_attrib(line, "xoffset").parse::<i16>().unwrap(),
                     get_attrib(line, "yoffset").parse::<i16>().unwrap(),
                     get_attrib(line, "xadvance").parse::<u16>().unwrap(),
-                    c
+                    c,
                 );
                 map.insert(c, glyph);
             }
@@ -214,7 +255,7 @@ impl FontLoader {
             texture: Arc::new(texture),
             alphabet: map,
             max_width,
-            max_height
+            max_height,
         }
     }
 }

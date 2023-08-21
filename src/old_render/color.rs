@@ -1,16 +1,20 @@
 use core::fmt::Debug;
 use std::marker::PhantomData;
+
 use glam::{Vec3, Vec4};
 use mvutils::utils::SplitSized;
-
 use regex::Regex;
 
 pub trait Fmt {}
+
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 pub struct RGB;
+
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 pub struct HSV;
+
 impl Fmt for RGB {}
+
 impl Fmt for HSV {}
 
 #[derive(Debug)]
@@ -75,7 +79,7 @@ impl<T: Copy> Color<RGB, T> {
     pub fn set_a(&mut self, val: T) { self.c4 = val }
 }
 
-impl <F: Fmt, T: Copy> Color<F, T> {
+impl<F: Fmt, T: Copy> Color<F, T> {
     pub fn set(&mut self, c1: T, c2: T, c3: T, c4: T) {
         self.c1 = c1;
         self.c2 = c2;
@@ -283,7 +287,7 @@ impl Parse for Color<RGB, u8> {
 }
 
 pub struct Gradient<F: Fmt, T> {
-    colors: [Color<F, T>; 4]
+    colors: [Color<F, T>; 4],
 }
 
 impl<F: Fmt, T: Copy> Gradient<F, T> {

@@ -2,23 +2,29 @@ use std::collections::HashMap;
 use std::iter::once;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::time:: SystemTime;
+use std::time::SystemTime;
 
 use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
-use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor};
+use wgpu::{
+    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor,
+};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
-use crate::render::ApplicationLoopCallbacks;
 use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::color::{Color, RGB};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{
+    BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D,
+    BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D,
+    VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D,
+};
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::Draw2D;
@@ -27,6 +33,7 @@ use crate::render::init::State;
 use crate::render::model::ModelLoader;
 use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
+use crate::render::ApplicationLoopCallbacks;
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -107,7 +114,7 @@ impl Default for WindowSpecs {
 pub enum OperateState {
     Loading,
     Running,
-    Paused
+    Paused,
 }
 
 pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
@@ -142,6 +149,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
+
 unsafe impl<T: ApplicationLoopCallbacks> Sync for Window<T> {}
 
 impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
@@ -150,20 +158,31 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
             .with_decorations(specs.decorated)
-            .with_fullscreen(specs.fullscreen.yn(Some(Fullscreen::Borderless(None)) , None))
+            .with_fullscreen(
+                specs
+                    .fullscreen
+                    .yn(Some(Fullscreen::Borderless(None)), None),
+            )
             .with_resizable(specs.resizable)
             .with_theme(specs.theme)
             .with_title(specs.title.as_str())
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
-            .build(&event_loop).unwrap();
+            .build(&event_loop)
+            .unwrap();
 
         specs.width = internal_window.inner_size().width;
         specs.height = internal_window.inner_size().height;
 
         let state = State::new(&internal_window, &specs);
 
-        let shader = Shader::new_glsl(include_str!("shaders/default.vert"), include_str!("shaders/default.frag"));
-        let deferred_shader = Shader::new_glsl(include_str!("shaders/deferred_geom.vert"), include_str!("shaders/deferred_geom.frag"));
+        let shader = Shader::new_glsl(
+            include_str!("shaders/default.vert"),
+            include_str!("shaders/default.frag"),
+        );
+        let deferred_shader = Shader::new_glsl(
+            include_str!("shaders/deferred_geom.vert"),
+            include_str!("shaders/deferred_geom.frag"),
+        );
 
         let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
@@ -179,16 +198,28 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         });
 
         let render_pass_2d = RenderPass2D::new(
-            shader.setup_pipeline(&state, VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES]),
+            shader.setup_pipeline(
+                &state,
+                VERTEX_LAYOUT_2D,
+                &[BIND_GROUP_2D, BIND_GROUP_TEXTURES],
+            ),
             &state,
             Mat4::default(),
-            Mat4::default()
+            Mat4::default(),
         );
 
         #[cfg(feature = "3d")]
         let deferred_pass_3d = DeferredPass::new(
-            deferred_shader.setup_pipeline(&state, VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES]),
-            &state
+            deferred_shader.setup_pipeline(
+                &state,
+                VERTEX_LAYOUT_MODEL_3D,
+                &[
+                    BIND_GROUP_GEOMETRY_MODEL_3D,
+                    BIND_GROUP_MODEL_MATRIX,
+                    BIND_GROUP_TEXTURES,
+                ],
+            ),
+            &state,
         );
 
         //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
@@ -205,7 +236,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
 
-        let draw_2d = Draw2D::new(Arc::new(FontLoader::new().load_default_font(&state)), specs.width, specs.height, internal_window.scale_factor() as f32);
+        let draw_2d = Draw2D::new(
+            Arc::new(FontLoader::new().load_default_font(&state)),
+            specs.width,
+            specs.height,
+            internal_window.scale_factor() as f32,
+        );
 
         let camera_2d = Camera2D::new(specs.width, specs.height);
         let camera_3d = Camera3D::new(specs.width, specs.height);
@@ -235,7 +271,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         });
 
         #[cfg(feature = "3d")]
-        window.model_loader.create(|| ModelLoader::new(window.clone()));
+        window
+            .model_loader
+            .create(|| ModelLoader::new(window.clone()));
 
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
@@ -254,54 +292,81 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             *clone.operate_state.write().recover() = OperateState::Running
         });
 
-        event_loop.run(move |event, _, control_flow| {
-            match event {
-                Event::NewEvents(cause) => if cause == StartCause::Init {}
-                Event::WindowEvent { event, window_id } if window_id == internal_window.id() => {
-                   window.process_window_event(event, window_id, control_flow);
+        event_loop.run(move |event, _, control_flow| match event {
+            Event::NewEvents(cause) => if cause == StartCause::Init {},
+            Event::WindowEvent { event, window_id } if window_id == internal_window.id() => {
+                window.process_window_event(event, window_id, control_flow);
+            }
+            Event::MainEventsCleared => {
+                if *window.close.get() {
+                    *control_flow = ControlFlow::Exit;
+                    return;
                 }
-                Event::MainEventsCleared => {
-                    if *window.close.get() {
-                        *control_flow = ControlFlow::Exit;
-                        return;
-                    }
-                    delta_f += now.elapsed().unwrap_or_else(|e| panic!("System clock error: Time elapsed of -{}ns is not valid!", e.duration().as_nanos())).as_nanos() as f32 / time_f;
-                    now = SystemTime::now();
-                    if delta_f >= 1.0 {
-                        internal_window.request_redraw();
-                        frames += 1;
-                        delta_f -= 1.0;
-                        *window.frame.get_mut() += 1;
-                    }
-                    if timer.elapsed().unwrap_or_else(|e| panic!("System clock error: Time elapsed of -{}ms is not valid!", e.duration().as_millis())).as_millis() >= 1000 {
-                        println!("{}", frames);
-                        *window.fps.get_mut() = frames;
-                        frames = 0;
-                        timer = SystemTime::now();
-                    }
+                delta_f += now
+                    .elapsed()
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "System clock error: Time elapsed of -{}ns is not valid!",
+                            e.duration().as_nanos()
+                        )
+                    })
+                    .as_nanos() as f32
+                    / time_f;
+                now = SystemTime::now();
+                if delta_f >= 1.0 {
+                    internal_window.request_redraw();
+                    frames += 1;
+                    delta_f -= 1.0;
+                    *window.frame.get_mut() += 1;
                 }
-                Event::RedrawRequested(window_id) => if window_id == internal_window.id() {
+                if timer
+                    .elapsed()
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "System clock error: Time elapsed of -{}ms is not valid!",
+                            e.duration().as_millis()
+                        )
+                    })
+                    .as_millis()
+                    >= 1000
+                {
+                    println!("{}", frames);
+                    *window.fps.get_mut() = frames;
+                    frames = 0;
+                    timer = SystemTime::now();
+                }
+            }
+            Event::RedrawRequested(window_id) => {
+                if window_id == internal_window.id() {
                     match window.render() {
                         Ok(_) => {}
-                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(window.specs.get().width, window.specs.get().height)),
+                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
+                            window.specs.get().width,
+                            window.specs.get().height,
+                        )),
                         Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         Err(e) => eprintln!("{:?}", e),
                     }
                 }
-                Event::LoopDestroyed => {
-                    window.application_loop.exit(window.clone());
-                }
-                _ => {}
             }
+            Event::LoopDestroyed => {
+                window.application_loop.exit(window.clone());
+            }
+            _ => {}
         });
     }
 
-    fn process_window_event(self: &Arc<Self>, event: WindowEvent, id: WindowId, control_flow: &mut ControlFlow) {
+    fn process_window_event(
+        self: &Arc<Self>,
+        event: WindowEvent,
+        id: WindowId,
+        control_flow: &mut ControlFlow,
+    ) {
         match event {
             WindowEvent::Resized(size) => {
                 self.resize(size);
             }
-            WindowEvent::ScaleFactorChanged {new_inner_size, .. } => {
+            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                 self.resize(*new_inner_size);
             }
             WindowEvent::Moved(pos) => {}
@@ -313,13 +378,31 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::HoveredFileCancelled => {}
             WindowEvent::ReceivedCharacter(c) => {}
             WindowEvent::Focused(focus) => {}
-            WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {}
+            WindowEvent::KeyboardInput {
+                device_id,
+                input,
+                is_synthetic,
+            } => {}
             WindowEvent::ModifiersChanged(mods) => {}
-            WindowEvent::CursorMoved { device_id, position, .. } => {}
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+                ..
+            } => {}
             WindowEvent::CursorEntered { device_id } => {}
             WindowEvent::CursorLeft { device_id } => {}
-            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {}
-            WindowEvent::MouseInput { device_id, button, state, .. } => {}
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+                ..
+            } => {}
+            WindowEvent::MouseInput {
+                device_id,
+                button,
+                state,
+                ..
+            } => {}
             _ => {}
         }
     }
@@ -331,14 +414,27 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         self.specs.get_mut().width = size.width;
         self.specs.get_mut().height = size.height;
         self.state.get_mut().resize(size);
-        self.effect_buffer.get_mut().resize(&self.state.get(), size.width, size.height);
+        self.effect_buffer
+            .get_mut()
+            .resize(&self.state.get(), size.width, size.height);
 
-        self.effect_pass.get_mut().rebind(&self.state.get(), self.effect_buffer.get());
+        self.effect_pass
+            .get_mut()
+            .rebind(&self.state.get(), self.effect_buffer.get());
 
-        self.camera_2d.write().recover().update_projection(size.width, size.height);
-        self.camera_3d.write().recover().update_projection(size.width, size.height);
+        self.camera_2d
+            .write()
+            .recover()
+            .update_projection(size.width, size.height);
+        self.camera_3d
+            .write()
+            .recover()
+            .update_projection(size.width, size.height);
 
-        self.draw_2d.lock().recover().resize(size.width, size.height);
+        self.draw_2d
+            .lock()
+            .recover()
+            .resize(size.width, size.height);
     }
 
     fn render(self: &Arc<Self>) -> Result<(), SurfaceError> {
@@ -347,10 +443,16 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             return Ok(());
         }
         let output = self.state.get().surface.get_current_texture()?;
-        let view = output.texture.create_view(&TextureViewDescriptor::default());
-        let mut encoder = self.state.get().device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Command Encoder")
-        });
+        let view = output
+            .texture
+            .create_view(&TextureViewDescriptor::default());
+        let mut encoder =
+            self.state
+                .get()
+                .device
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Command Encoder"),
+                });
 
         if state == OperateState::Running {
             self.application_loop.draw(self.clone());
@@ -364,8 +466,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             //self.enable_effect_2d("wave".to_string());
 
             self.render_2d(&mut encoder, &view);
-        }
-        else {
+        } else {
             (self.load_fn)(self.clone());
         }
 
@@ -421,20 +522,36 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let mut effects = self.enabled_effects_2d.write().recover();
 
         let current = if effects.len() > 0 {
-            self.effect_pass.get_mut().new_frame(SystemTime::now().duration_since(self.start_time).expect("System time error").as_secs_f32(), self.specs.get().width, self.specs.get().height);
+            self.effect_pass.get_mut().new_frame(
+                SystemTime::now()
+                    .duration_since(self.start_time)
+                    .expect("System time error")
+                    .as_secs_f32(),
+                self.specs.get().width,
+                self.specs.get().height,
+            );
             self.effect_buffer.get().get_write()
-        } else { view };
+        } else {
+            view
+        };
         let mut render_pass = gen_pass!(encoder, current);
 
         let cam = self.camera_2d.read().recover();
 
-        self.render_pass_2d.get_mut().new_frame(&mut render_pass, cam.get_projection(), cam.get_view());
+        self.render_pass_2d.get_mut().new_frame(
+            &mut render_pass,
+            cam.get_projection(),
+            cam.get_view(),
+        );
 
         drop(cam);
 
         self.draw_2d.lock().recover().reset_canvas();
 
-        self.draw_2d.lock().recover().render(self.render_pass_2d.get_mut());
+        self.draw_2d
+            .lock()
+            .recover()
+            .render(self.render_pass_2d.get_mut());
 
         self.render_pass_2d.get_mut().finish();
 
@@ -455,8 +572,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 let effect_shader = shaders.get(shader.as_str());
                 if let Some(effect_shader) = effect_shader {
                     self.effect_pass.get_mut().render(effect_shader.clone());
-                }
-                else {
+                } else {
                     panic!("Effect shader not found: {}", shader);
                 }
                 remaining -= 1;
@@ -469,7 +585,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     fn render_3d(self: &Arc<Self>, encoder: &mut CommandEncoder, view: &TextureView) {
         let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
-        self.deferred_pass_3d.get_mut().new_frame(encoder, view, Mat4::default(), Mat4::default());
+        self.deferred_pass_3d
+            .get_mut()
+            .new_frame(encoder, view, Mat4::default(), Mat4::default());
         //self.deferred_pass_3d.get_mut().render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
         self.deferred_pass_3d.get_mut().finish();
     }
@@ -480,36 +598,82 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         tex
     }
 
-    pub fn create_shader(self: &Arc<Self>, vert: ShaderSource, frag: ShaderSource, usage: ShaderUsage) -> CreatedShader {
-        let shader = Shader::new(vert.compile(ShaderType::Vertex), frag.compile(ShaderType::Fragment));
+    pub fn create_shader(
+        self: &Arc<Self>,
+        vert: ShaderSource,
+        frag: ShaderSource,
+        usage: ShaderUsage,
+    ) -> CreatedShader {
+        let shader = Shader::new(
+            vert.compile(ShaderType::Vertex),
+            frag.compile(ShaderType::Fragment),
+        );
         match usage {
-            ShaderUsage::Render2D => CreatedShader::Render2D(shader.setup_pipeline(&self.state.get(), VERTEX_LAYOUT_2D, &[BIND_GROUP_2D, BIND_GROUP_TEXTURES])),
+            ShaderUsage::Render2D => CreatedShader::Render2D(shader.setup_pipeline(
+                &self.state.get(),
+                VERTEX_LAYOUT_2D,
+                &[BIND_GROUP_2D, BIND_GROUP_TEXTURES],
+            )),
             ShaderUsage::Render3D => CreatedShader::Render3D {
-                batch: shader.clone().setup_pipeline(&self.state.get(), VERTEX_LAYOUT_BATCH_3D, &[BIND_GROUP_BATCH_3D]),
-                model: shader.setup_pipeline(&self.state.get(), VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_MODEL_3D]),
+                batch: shader.clone().setup_pipeline(
+                    &self.state.get(),
+                    VERTEX_LAYOUT_BATCH_3D,
+                    &[BIND_GROUP_BATCH_3D],
+                ),
+                model: shader.setup_pipeline(
+                    &self.state.get(),
+                    VERTEX_LAYOUT_MODEL_3D,
+                    &[BIND_GROUP_MODEL_3D],
+                ),
             },
             ShaderUsage::GeometryPass => CreatedShader::GeometryPass {
-                batch: shader.clone().setup_pipeline(&self.state.get(), VERTEX_LAYOUT_BATCH_3D, &[BIND_GROUP_GEOMETRY_BATCH_3D]),
-                model: shader.setup_pipeline(&self.state.get(), VERTEX_LAYOUT_MODEL_3D, &[BIND_GROUP_GEOMETRY_MODEL_3D]),
-            }
+                batch: shader.clone().setup_pipeline(
+                    &self.state.get(),
+                    VERTEX_LAYOUT_BATCH_3D,
+                    &[BIND_GROUP_GEOMETRY_BATCH_3D],
+                ),
+                model: shader.setup_pipeline(
+                    &self.state.get(),
+                    VERTEX_LAYOUT_MODEL_3D,
+                    &[BIND_GROUP_GEOMETRY_MODEL_3D],
+                ),
+            },
         }
     }
 
-    pub fn create_effect_shader(self: &Arc<Self>, frag: ShaderSource, usage: EffectShaderUsage) -> CreatedShader {
-        let size = if let EffectShaderUsage::Effect(ref size) = usage { *size } else { 0 };
+    pub fn create_effect_shader(
+        self: &Arc<Self>,
+        frag: ShaderSource,
+        usage: EffectShaderUsage,
+    ) -> CreatedShader {
+        let size = if let EffectShaderUsage::Effect(ref size) = usage {
+            *size
+        } else {
+            0
+        };
         let shader = EffectShader::new(frag.compile(ShaderType::Fragment), size);
         match usage {
-            EffectShaderUsage::LightingPass => CreatedShader::LightingPass(shader.setup_pipeline(&self.state.get(), &[BIND_GROUP_LIGHTING_3D])),
-            EffectShaderUsage::Effect(_) => CreatedShader::Effect(shader.setup_pipeline(&self.state.get(), &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]))
+            EffectShaderUsage::LightingPass => CreatedShader::LightingPass(
+                shader.setup_pipeline(&self.state.get(), &[BIND_GROUP_LIGHTING_3D]),
+            ),
+            EffectShaderUsage::Effect(_) => CreatedShader::Effect(shader.setup_pipeline(
+                &self.state.get(),
+                &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM],
+            )),
         }
     }
 
     pub fn add_effect_shader(self: &Arc<Self>, name: String, shader: CreatedShader) {
         if let CreatedShader::Effect(shader) = shader {
-            self.effect_shaders.write().recover().insert(name, Arc::new(shader));
-        }
-        else {
-            panic!("Invalid shader type in shader '{}', expected Effect shader!", name);
+            self.effect_shaders
+                .write()
+                .recover()
+                .insert(name, Arc::new(shader));
+        } else {
+            panic!(
+                "Invalid shader type in shader '{}', expected Effect shader!",
+                name
+            );
         }
     }
 
@@ -544,14 +708,14 @@ macro_rules! draw_2d {
 
 pub enum ShaderSource {
     Spirv(Vec<u32>),
-    Glsl(String)
+    Glsl(String),
 }
 
 impl ShaderSource {
     fn compile(self, shader_type: ShaderType) -> Vec<u32> {
         match self {
             ShaderSource::Spirv(v) => v,
-            ShaderSource::Glsl(c) => Shader::compile_glsl(&c, shader_type)
+            ShaderSource::Glsl(c) => Shader::compile_glsl(&c, shader_type),
         }
     }
 }
@@ -559,12 +723,12 @@ impl ShaderSource {
 pub enum ShaderUsage {
     Render2D,
     Render3D,
-    GeometryPass
+    GeometryPass,
 }
 
 pub enum EffectShaderUsage {
     LightingPass,
-    Effect(u64)
+    Effect(u64),
 }
 
 pub enum CreatedShader {
@@ -572,5 +736,5 @@ pub enum CreatedShader {
     Render3D { batch: Shader, model: Shader },
     GeometryPass { batch: Shader, model: Shader },
     LightingPass(EffectShader),
-    Effect(EffectShader)
+    Effect(EffectShader),
 }

@@ -1,7 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
 use include_dir::Dir;
 
-pub struct UnloadedBundle; //for now
+pub struct UnloadedBundle;
+
+//for now
 impl UnloadedBundle {
     fn new() -> Self {
         UnloadedBundle
@@ -9,23 +12,19 @@ impl UnloadedBundle {
 }
 
 pub struct ResourceBundleBuilder {
-    bundle: UnloadedBundle
+    bundle: UnloadedBundle,
 }
 
 impl ResourceBundleBuilder {
     pub fn new() -> Self {
         ResourceBundleBuilder {
-            bundle: UnloadedBundle::new()
+            bundle: UnloadedBundle::new(),
         }
     }
 
-    pub fn load_static(self, dir: Dir<'static>) {
+    pub fn load_static(self, dir: Dir<'static>) {}
 
-    }
-
-    pub fn load_dynamic(self, path: PathBuf) {
-
-    }
+    pub fn load_dynamic(self, path: PathBuf) {}
 }
 
 impl Default for ResourceBundleBuilder {

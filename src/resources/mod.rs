@@ -1,3 +1,3 @@
-pub mod resources;
-pub(crate) mod parsing;
 pub mod loading;
+pub(crate) mod parsing;
+pub mod resources;

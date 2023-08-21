@@ -5,13 +5,33 @@ use std::sync::Arc;
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
-use wgpu::Instance;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::Instance;
+use wgpu::{
+    AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
+    Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, Device,
+    DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat,
+    InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor,
+    ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+    VertexBufferLayout, VertexState,
+};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT_2D_BYTES, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_NONE};
+use crate::render::consts::{
+    BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D,
+    BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM,
+    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D,
+    BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX,
+    BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
+    DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES,
+    TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D,
+    VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
+};
 use crate::render::window::WindowSpecs;
 
 pub(crate) struct State {
@@ -19,7 +39,7 @@ pub(crate) struct State {
     pub(crate) device: Device,
     pub(crate) queue: Queue,
     pub(crate) config: SurfaceConfiguration,
-    pub(crate) backend: Backend
+    pub(crate) backend: Backend,
 }
 
 impl State {
@@ -38,7 +58,9 @@ impl State {
                 dx12_shader_compiler: Default::default(),
             });
 
-            let surface = instance.create_surface(window).expect("Could not create window surface!");
+            let surface = instance
+                .create_surface(window)
+                .expect("Could not create window surface!");
 
             let adapter = instance.request_adapter(
                 &RequestAdapterOptions {
@@ -54,44 +76,55 @@ impl State {
 
             let _ = MAX_LIGHTS.try_create(|| LIGHT_LIMIT);
 
-            let (device, queue) = adapter.request_device(
-                &DeviceDescriptor {
-                    features: adapter.features(),
-                    limits: adapter.limits(),
-                    label: Some("GPU"),
-                },
-                None
-            ).await.expect("Could not create logical device!");
+            let (device, queue) = adapter
+                .request_device(
+                    &DeviceDescriptor {
+                        features: adapter.features(),
+                        limits: adapter.limits(),
+                        label: Some("GPU"),
+                    },
+                    None,
+                )
+                .await
+                .expect("Could not create logical device!");
 
             let surface_caps = surface.get_capabilities(&adapter);
-            let surface_format = surface_caps.formats.iter()
+            let surface_format = surface_caps
+                .formats
+                .iter()
                 .copied()
                 .filter(|f| f.is_srgb())
                 .next()
                 .unwrap_or(surface_caps.formats[0]);
 
-            let surface_alpha = surface_caps.alpha_modes.contains(&CompositeAlphaMode::Opaque).yn(
-                CompositeAlphaMode::Opaque,
-                surface_caps.alpha_modes[0]
-            );
+            let surface_alpha = surface_caps
+                .alpha_modes
+                .contains(&CompositeAlphaMode::Opaque)
+                .yn(CompositeAlphaMode::Opaque, surface_caps.alpha_modes[0]);
 
             let config = SurfaceConfiguration {
                 usage: TextureUsages::RENDER_ATTACHMENT,
                 format: surface_format,
                 width: specs.width,
                 height: specs.height,
-                present_mode: specs.vsync.yn(PresentMode::AutoVsync, PresentMode::AutoNoVsync),
+                present_mode: specs
+                    .vsync
+                    .yn(PresentMode::AutoVsync, PresentMode::AutoNoVsync),
                 alpha_mode: surface_alpha,
                 view_formats: vec![],
             };
             surface.configure(&device, &config);
 
             let _ = BIND_GROUPS.try_init(|groups| {
-                groups.insert(BIND_GROUP_2D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D));
-                groups.insert(BIND_GROUP_TEXTURES, device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: Some("Bind group layout textures 2D"),
-                    entries: &[
-                        BindGroupLayoutEntry {
+                groups.insert(
+                    BIND_GROUP_2D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_2D),
+                );
+                groups.insert(
+                    BIND_GROUP_TEXTURES,
+                    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                        label: Some("Bind group layout textures 2D"),
+                        entries: &[BindGroupLayoutEntry {
                             binding: 0,
                             visibility: ShaderStages::FRAGMENT,
                             ty: BindingType::Texture {
@@ -100,17 +133,41 @@ impl State {
                                 sample_type: TextureSampleType::Float { filterable: true },
                             },
                             count: Some(NonZeroU32::new_unchecked(*MAX_TEXTURES as u32)),
-                        }
-                    ],
-                }));
-                groups.insert(BIND_GROUP_MODEL_MATRIX, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX));
-                groups.insert(BIND_GROUP_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D));
-                groups.insert(BIND_GROUP_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D));
-                groups.insert(BIND_GROUP_GEOMETRY_BATCH_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D));
-                groups.insert(BIND_GROUP_GEOMETRY_MODEL_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D));
-                groups.insert(BIND_GROUP_LIGHTING_3D, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_LIGHTING_3D));
-                groups.insert(BIND_GROUP_EFFECT, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT));
-                groups.insert(BIND_GROUP_EFFECT_CUSTOM, device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT_CUSTOM));
+                        }],
+                    }),
+                );
+                groups.insert(
+                    BIND_GROUP_MODEL_MATRIX,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX),
+                );
+                groups.insert(
+                    BIND_GROUP_BATCH_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D),
+                );
+                groups.insert(
+                    BIND_GROUP_MODEL_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D),
+                );
+                groups.insert(
+                    BIND_GROUP_GEOMETRY_BATCH_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D),
+                );
+                groups.insert(
+                    BIND_GROUP_GEOMETRY_MODEL_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D),
+                );
+                groups.insert(
+                    BIND_GROUP_LIGHTING_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_LIGHTING_3D),
+                );
+                groups.insert(
+                    BIND_GROUP_EFFECT,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT),
+                );
+                groups.insert(
+                    BIND_GROUP_EFFECT_CUSTOM,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_EFFECT_CUSTOM),
+                );
             });
 
             let texture = device.create_texture(&TextureDescriptor {
@@ -132,27 +189,29 @@ impl State {
 
             let _ = DUMMY_TEXTURE.try_create(|| Arc::new(Texture::premade(texture, view)));
 
-            let _ = DEFAULT_SAMPLER.try_create(|| device.create_sampler(&SamplerDescriptor {
-                label: Some("Texture sampler"),
-                address_mode_u: AddressMode::Repeat,
-                address_mode_v: AddressMode::Repeat,
-                address_mode_w: AddressMode::Repeat,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Linear,
-                lod_min_clamp: 0.0,
-                lod_max_clamp: 32.0,
-                compare: None,
-                anisotropy_clamp: 1,
-                border_color: None,
-            }));
+            let _ = DEFAULT_SAMPLER.try_create(|| {
+                device.create_sampler(&SamplerDescriptor {
+                    label: Some("Texture sampler"),
+                    address_mode_u: AddressMode::Repeat,
+                    address_mode_v: AddressMode::Repeat,
+                    address_mode_w: AddressMode::Repeat,
+                    mag_filter: FilterMode::Linear,
+                    min_filter: FilterMode::Linear,
+                    mipmap_filter: FilterMode::Linear,
+                    lod_min_clamp: 0.0,
+                    lod_max_clamp: 32.0,
+                    compare: None,
+                    anisotropy_clamp: 1,
+                    border_color: None,
+                })
+            });
 
             Self {
                 surface,
                 device,
                 queue,
                 config,
-                backend: adapter.get_info().backend
+                backend: adapter.get_info().backend,
             }
         }
     }
@@ -192,7 +251,7 @@ impl State {
         })
     }
 
-    pub(crate)  fn gen_ibo_sized(&self, size: u64) -> Buffer {
+    pub(crate) fn gen_ibo_sized(&self, size: u64) -> Buffer {
         self.device.create_buffer(&BufferDescriptor {
             label: Some("ibo"),
             size,
@@ -218,62 +277,73 @@ impl State {
         })
     }
 
-    fn create_render_pipeline(&self, vertex_shader: &ShaderModule, fragment_shader: Option<&ShaderModule>, render_mode: PrimitiveTopology, cull_dir: FrontFace, cull_mode: Face, pol_mode: PolygonMode, vertex_layout: VertexBufferLayout, bind_groups: Vec<&'static BindGroupLayout>) -> RenderPipeline {
-        let render_pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &bind_groups,
-            push_constant_ranges: &[],
-        });
+    fn create_render_pipeline(
+        &self,
+        vertex_shader: &ShaderModule,
+        fragment_shader: Option<&ShaderModule>,
+        render_mode: PrimitiveTopology,
+        cull_dir: FrontFace,
+        cull_mode: Face,
+        pol_mode: PolygonMode,
+        vertex_layout: VertexBufferLayout,
+        bind_groups: Vec<&'static BindGroupLayout>,
+    ) -> RenderPipeline {
+        let render_pipeline_layout =
+            self.device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &bind_groups,
+                    push_constant_ranges: &[],
+                });
 
         let strip_index_format = render_mode.is_strip().yn(Some(IndexFormat::Uint32), None);
 
-        self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: VertexState {
-                module: vertex_shader,
-                entry_point: fragment_shader.is_none().yn("vert", "main"),
-                buffers: &[
-                    vertex_layout
-                ]
-            },
-            fragment: Some(FragmentState {
-                module: fragment_shader.unwrap_or(vertex_shader),
-                entry_point: fragment_shader.is_none().yn("frag", "main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: self.config.format,
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::SrcAlpha,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
-                            operation: BlendOperation::Add,
-                        }
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: render_mode,
-                strip_index_format,
-                front_face: cull_dir,
-                cull_mode: Some(cull_mode),
-                polygon_mode: pol_mode,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        })
+        self.device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: VertexState {
+                    module: vertex_shader,
+                    entry_point: fragment_shader.is_none().yn("vert", "main"),
+                    buffers: &[vertex_layout],
+                },
+                fragment: Some(FragmentState {
+                    module: fragment_shader.unwrap_or(vertex_shader),
+                    entry_point: fragment_shader.is_none().yn("frag", "main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.config.format,
+                        blend: Some(BlendState {
+                            color: BlendComponent {
+                                src_factor: BlendFactor::SrcAlpha,
+                                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                                operation: BlendOperation::Add,
+                            },
+                            alpha: BlendComponent {
+                                src_factor: BlendFactor::One,
+                                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                                operation: BlendOperation::Add,
+                            },
+                        }),
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                primitive: PrimitiveState {
+                    topology: render_mode,
+                    strip_index_format,
+                    front_face: cull_dir,
+                    cull_mode: Some(cull_mode),
+                    polygon_mode: pol_mode,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            })
     }
 
     pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -385,15 +455,13 @@ impl<'a> PipelineBuilder<'a> {
             Self::POLYGON_MODE => self.polygon_mode = self.get_pol_mode(what),
             Self::CULL_DIR => self.cull_direction = self.get_cull_dir(what),
             Self::CULL_MODE => self.cull_mode = self.get_cull_mode(what),
-            Self::VERTEX_LAYOUT => {
-                match what {
-                    Self::VERTEX_LAYOUT_2D => {self.vertex_layout = VERTEX_LAYOUT_2D}
-                    Self::VERTEX_LAYOUT_MODEL_3D => {self.vertex_layout = VERTEX_LAYOUT_MODEL_3D}
-                    Self::VERTEX_LAYOUT_BATCH_3D => {self.vertex_layout = VERTEX_LAYOUT_BATCH_3D}
-                    Self::VERTEX_LAYOUT_NONE => {self.vertex_layout = VERTEX_LAYOUT_NONE}
-                    _ => {}
-                }
-            }
+            Self::VERTEX_LAYOUT => match what {
+                Self::VERTEX_LAYOUT_2D => self.vertex_layout = VERTEX_LAYOUT_2D,
+                Self::VERTEX_LAYOUT_MODEL_3D => self.vertex_layout = VERTEX_LAYOUT_MODEL_3D,
+                Self::VERTEX_LAYOUT_BATCH_3D => self.vertex_layout = VERTEX_LAYOUT_BATCH_3D,
+                Self::VERTEX_LAYOUT_NONE => self.vertex_layout = VERTEX_LAYOUT_NONE,
+                _ => {}
+            },
             Self::BIND_GROUP => self.bind_group.push(what),
             _ => {}
         }
@@ -407,8 +475,12 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub(crate) fn shader(mut self, which: u8, shader: &'a ShaderModule) -> Self {
-        if which == PipelineBuilder::SHADER_VERTEX || which == PipelineBuilder::SHADER_COMMON {self.vert = Some(shader);}
-        if which == PipelineBuilder::SHADER_FRAGMENT {self.frag = Some(shader);}
+        if which == PipelineBuilder::SHADER_VERTEX || which == PipelineBuilder::SHADER_COMMON {
+            self.vert = Some(shader);
+        }
+        if which == PipelineBuilder::SHADER_FRAGMENT {
+            self.frag = Some(shader);
+        }
         self
     }
 
@@ -422,8 +494,21 @@ impl<'a> PipelineBuilder<'a> {
             panic!("Vertex/Common shader can't be None when creating pipeline!");
         }
 
-        let bindings = self.bind_group.into_iter().map(|b| BIND_GROUPS.get(&b).expect("Illegal bind group id!")).collect_vec();
+        let bindings = self
+            .bind_group
+            .into_iter()
+            .map(|b| BIND_GROUPS.get(&b).expect("Illegal bind group id!"))
+            .collect_vec();
 
-        self.state.create_render_pipeline(self.vert.unwrap(), self.frag, self.render_mode, self.cull_direction, self.cull_mode, self.polygon_mode, self.vertex_layout,  bindings)
+        self.state.create_render_pipeline(
+            self.vert.unwrap(),
+            self.frag,
+            self.render_mode,
+            self.cull_direction,
+            self.cull_mode,
+            self.polygon_mode,
+            self.vertex_layout,
+            bindings,
+        )
     }
 }

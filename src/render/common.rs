@@ -5,11 +5,16 @@ use std::sync::Arc;
 
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use image::GenericImageView;
-use mvutils::utils::{Bytecode, next_id};
+use mvutils::utils::{next_id, Bytecode};
 use shaderc::ShaderKind;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, RenderPipeline, ShaderModuleDescriptorSpirV, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, VertexBufferLayout};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, Extent3d, ImageCopyTexture,
+    ImageDataLayout, Origin3d, RenderPipeline, ShaderModuleDescriptorSpirV, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+    TextureViewDescriptor, VertexBufferLayout,
+};
 
-use crate::render::consts::{BIND_GROUP_EFFECT_CUSTOM, BIND_GROUPS, DUMMY_VERT};
+use crate::render::consts::{BIND_GROUPS, BIND_GROUP_EFFECT_CUSTOM, DUMMY_VERT};
 use crate::render::init::{PipelineBuilder, State};
 
 pub enum ShaderType {
@@ -18,9 +23,8 @@ pub enum ShaderType {
     Geometry,
     Compute,
     TessellationControl,
-    TessellationEvaluation
+    TessellationEvaluation,
 }
-
 
 impl From<ShaderKind> for ShaderType {
     fn from(value: ShaderKind) -> Self {
@@ -31,8 +35,8 @@ impl From<ShaderKind> for ShaderType {
             ShaderKind::Compute => ShaderType::Compute,
             ShaderKind::TessControl => ShaderType::TessellationControl,
             ShaderKind::TessEvaluation => ShaderType::TessellationEvaluation,
-            _ => unreachable!()
-        }
+            _ => unreachable!(),
+        };
     }
 }
 
@@ -45,19 +49,24 @@ impl Into<ShaderKind> for ShaderType {
             ShaderType::Compute => ShaderKind::Compute,
             ShaderType::TessellationControl => ShaderKind::TessControl,
             ShaderType::TessellationEvaluation => ShaderKind::TessEvaluation,
-        }
+        };
     }
 }
-
 
 fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
     let processed = preprocessor::process(src);
     let compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
     options.add_macro_definition("EP", Some("main"));
-    let binary_result = compiler.compile_into_spirv(
-        processed.as_str(), type_of_shader.into(),
-        "shader.glsl", "main", Some(&options)).unwrap();
+    let binary_result = compiler
+        .compile_into_spirv(
+            processed.as_str(),
+            type_of_shader.into(),
+            "shader.glsl",
+            "main",
+            Some(&options),
+        )
+        .unwrap();
     binary_result.as_binary().to_vec()
 }
 
@@ -68,8 +77,7 @@ mod preprocessor {
     const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";
 
     pub fn process(src: &str) -> String {
-        src
-            .replace(MAX_TEXTURES_IDENTIFIER, &format!("{}", MAX_TEXTURES))
+        src.replace(MAX_TEXTURES_IDENTIFIER, &format!("{}", MAX_TEXTURES))
             .replace(MAX_LIGHTS_IDENTIFIER, &format!("{}", MAX_LIGHTS))
     }
 }
@@ -150,7 +158,12 @@ impl Shader {
         }
     }
 
-    pub(crate) fn setup_pipeline(mut self, state: &State, layout: VertexBufferLayout<'static>, bind_groups: &[u8]) -> Self {
+    pub(crate) fn setup_pipeline(
+        mut self,
+        state: &State,
+        layout: VertexBufferLayout<'static>,
+        bind_groups: &[u8],
+    ) -> Self {
         unsafe {
             if self.vert.is_none() || self.frag.is_none() {
                 return self;
@@ -158,36 +171,46 @@ impl Shader {
 
             let vert = self.vert.take().unwrap();
 
-            let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
-                label: Some("vert"),
-                source: Cow::from(&vert),
-            });
+            let vert = state
+                .device
+                .create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                    label: Some("vert"),
+                    source: Cow::from(&vert),
+                });
 
             let frag = self.frag.take().unwrap();
 
-            let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
-                label: Some("frag"),
-                source: Cow::from(&frag),
-            });
+            let frag = state
+                .device
+                .create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                    label: Some("frag"),
+                    source: Cow::from(&frag),
+                });
 
             self.pipeline = Some(
                 PipelineBuilder::begin(state)
                     .custom_vertex_layout(layout.clone())
-                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
+                    .param(
+                        PipelineBuilder::RENDER_MODE,
+                        PipelineBuilder::RENDER_MODE_TRIANGLES,
+                    )
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build()
+                    .build(),
             );
 
             self.stripped_pipeline = Some(
                 PipelineBuilder::begin(state)
                     .custom_vertex_layout(layout)
-                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
+                    .param(
+                        PipelineBuilder::RENDER_MODE,
+                        PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP,
+                    )
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build()
+                    .build(),
             );
             self
         }
@@ -198,7 +221,9 @@ impl Shader {
     }
 
     pub(crate) fn get_stripped_pipeline(&self) -> &RenderPipeline {
-        self.stripped_pipeline.as_ref().expect("Binding unmade shader!")
+        self.stripped_pipeline
+            .as_ref()
+            .expect("Binding unmade shader!")
     }
 }
 
@@ -208,7 +233,7 @@ pub struct EffectShader {
     pipeline: Option<RenderPipeline>,
     uniform_size: u64,
     buffer: Option<Buffer>,
-    uniform: Option<BindGroup>
+    uniform: Option<BindGroup>,
 }
 
 impl Clone for EffectShader {
@@ -222,7 +247,7 @@ impl Clone for EffectShader {
             pipeline: None,
             uniform_size: self.uniform_size,
             buffer: None,
-            uniform: None
+            uniform: None,
         }
     }
 }
@@ -235,7 +260,7 @@ impl EffectShader {
             pipeline: None,
             uniform_size,
             buffer: None,
-            uniform: None
+            uniform: None,
         }
     }
 
@@ -247,7 +272,7 @@ impl EffectShader {
             pipeline: None,
             uniform_size,
             buffer: None,
-            uniform: None
+            uniform: None,
         }
     }
 
@@ -259,42 +284,48 @@ impl EffectShader {
 
             let vert = compile(DUMMY_VERT, ShaderType::Vertex);
 
-            let vert = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
-                label: Some("effect_vert"),
-                source: Cow::from(&vert),
-            });
+            let vert = state
+                .device
+                .create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                    label: Some("effect_vert"),
+                    source: Cow::from(&vert),
+                });
 
             let frag = self.shader.take().unwrap();
 
-            let frag = state.device.create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
-                label: Some("effect_frag"),
-                source: Cow::from(&frag),
-            });
+            let frag = state
+                .device
+                .create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                    label: Some("effect_frag"),
+                    source: Cow::from(&frag),
+                });
 
             self.pipeline = Some(
                 PipelineBuilder::begin(state)
-                    .param(PipelineBuilder::RENDER_MODE, PipelineBuilder::RENDER_MODE_TRIANGLES)
-                    .param(PipelineBuilder::VERTEX_LAYOUT, PipelineBuilder::VERTEX_LAYOUT_NONE)
+                    .param(
+                        PipelineBuilder::RENDER_MODE,
+                        PipelineBuilder::RENDER_MODE_TRIANGLES,
+                    )
+                    .param(
+                        PipelineBuilder::VERTEX_LAYOUT,
+                        PipelineBuilder::VERTEX_LAYOUT_NONE,
+                    )
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build()
+                    .build(),
             );
 
             self.buffer = Some(state.gen_uniform_buffer_sized((self.uniform_size * 4).max(4)));
 
-            self.uniform = Some(
-                state.device.create_bind_group(&BindGroupDescriptor {
-                    label: Some("Effect custom uniforms"),
-                    layout: &BIND_GROUPS.get(&BIND_GROUP_EFFECT_CUSTOM).unwrap(),
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: self.buffer.as_ref().unwrap().as_entire_binding(),
-                        },
-                    ],
-                })
-            );
+            self.uniform = Some(state.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Effect custom uniforms"),
+                layout: &BIND_GROUPS.get(&BIND_GROUP_EFFECT_CUSTOM).unwrap(),
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: self.buffer.as_ref().unwrap().as_entire_binding(),
+                }],
+            }));
 
             self
         }
@@ -304,10 +335,16 @@ impl EffectShader {
         BufferMaker::new(self.uniform_size as usize)
     }
 
-    pub(crate) fn setup<F>(&self, state: &State, f: F) where F: FnOnce(&mut BufferMaker) {
+    pub(crate) fn setup<F>(&self, state: &State, f: F)
+    where
+        F: FnOnce(&mut BufferMaker),
+    {
         let mut maker = self.get_buffer_maker();
         f(&mut maker);
-        maker.finish(state, self.buffer.as_ref().expect("Setting up unmade shader!"));
+        maker.finish(
+            state,
+            self.buffer.as_ref().expect("Setting up unmade shader!"),
+        );
     }
 
     pub(crate) fn get_uniforms(&self) -> &BindGroup {
@@ -321,14 +358,14 @@ impl EffectShader {
 
 pub struct BufferMaker {
     size: usize,
-    data: Vec<f32>
+    data: Vec<f32>,
 }
 
 impl BufferMaker {
     pub(crate) fn new(size: usize) -> Self {
         BufferMaker {
             size,
-            data: vec![0.0; size]
+            data: vec![0.0; size],
         }
     }
 
@@ -396,7 +433,9 @@ impl BufferMaker {
     }
 
     pub(crate) fn finish(self, state: &State, buffer: &Buffer) {
-        state.queue.write_buffer(buffer, 0, self.data.as_slice().cast_bytes());
+        state
+            .queue
+            .write_buffer(buffer, 0, self.data.as_slice().cast_bytes());
     }
 }
 
@@ -406,7 +445,7 @@ pub struct Texture {
     height: u32,
     image: Option<Bytecode>,
     texture: Option<wgpu::Texture>,
-    view: Option<TextureView>
+    view: Option<TextureView>,
 }
 
 impl Texture {
@@ -417,7 +456,7 @@ impl Texture {
             height: 0,
             image: Some(image),
             texture: None,
-            view: None
+            view: None,
         }
     }
 
@@ -489,7 +528,7 @@ impl Texture {
             height,
             image: None,
             texture: Some(texture),
-            view: Some(view)
+            view: Some(view),
         }
     }
 
@@ -536,7 +575,7 @@ impl Texture {
                 bytes_per_row: Some(4 * dimensions.0),
                 rows_per_image: Some(dimensions.1),
             },
-            size
+            size,
         );
 
         let view = texture.create_view(&TextureViewDescriptor::default());
@@ -569,7 +608,7 @@ pub struct TextureRegion {
     y: u32,
     width: u32,
     height: u32,
-    uv: [f32; 4]
+    uv: [f32; 4],
 }
 
 impl TextureRegion {
@@ -583,7 +622,12 @@ impl TextureRegion {
             y,
             width,
             height,
-            uv: [x as f32 / w, (x + width) as f32 / w, y as f32 / h, (y + height) as f32 / h]
+            uv: [
+                x as f32 / w,
+                (x + width) as f32 / w,
+                y as f32 / h,
+                (y + height) as f32 / h,
+            ],
         }
     }
 
@@ -640,4 +684,11 @@ macro_rules! impl_bytes_glam {
     };
 }
 
-impl_bytes_glam!(Vec2 = 8, Vec3 = 12, Vec4 = 16, Mat2 = 16, Mat3 = 36, Mat4 = 64);
+impl_bytes_glam!(
+    Vec2 = 8,
+    Vec3 = 12,
+    Vec4 = 16,
+    Mat2 = 16,
+    Mat3 = 36,
+    Mat4 = 64
+);

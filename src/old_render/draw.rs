@@ -22,7 +22,7 @@ pub struct Draw2D {
     chroma_tilt: f32,
     chroma_compress: f32,
     frame: u64,
-    dpi: f32
+    dpi: f32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -39,7 +39,7 @@ impl Draw2D {
             chroma_tilt: -0.5,
             chroma_compress: 1.0,
             frame: 0,
-            dpi
+            dpi,
         }
     }
 
@@ -91,7 +91,7 @@ impl Draw2D {
     }
 
     pub fn rgba(&mut self, r: u8, g: u8, b: u8, a: u8) {
-        self.color.set_all(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0); 
+        self.color.set_all(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0);
     }
 
     pub fn raw_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
@@ -243,15 +243,15 @@ impl Draw2D {
         self.void_arc_origin_rotated(x + width - radius, y + height - radius, radius - thickness / 2, thickness, 90, 0, precision, rotation, rx, ry);
     }
 
-    pub fn void_triangular_rectangle(mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32) {
+    pub fn void_triangular_rectangle(mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32) {
         self.void_triangular_rectangle_origin_rotated(x, y, width, height, thickness, radius, 0.0, 0, 0);
     }
 
-    pub fn void_triangular_rectangle_rotated(&mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32) {
+    pub fn void_triangular_rectangle_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32) {
         self.void_triangular_rectangle_origin_rotated(x, y, width, height, thickness, radius, rotation, width / 2, height / 2);
     }
 
-    pub fn void_triangular_rectangle_origin_rotated(&mut self, x:i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32, rx: i32, ry: i32) {
+    pub fn void_triangular_rectangle_origin_rotated(&mut self, x: i32, y: i32, width: i32, height: i32, thickness: i32, radius: i32, rotation: f32, rx: i32, ry: i32) {
         self.rectangle_origin_rotated(x + radius, y, width - 2 * radius, thickness, rotation, rx, ry);
         self.rectangle_origin_rotated(x + radius, y + height - thickness, width - 2 * radius, thickness, rotation, rx, ry);
         self.rectangle_origin_rotated(x, y + radius, thickness, height - 2 * radius, rotation, rx, ry);
@@ -264,7 +264,7 @@ impl Draw2D {
         self.vertices.get_mut(3).set_data((x + thickness) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(3), self.canvas, self.use_cam);
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
-        
+
         self.vertices.get_mut(0).set_data((x + width - radius) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(0), self.canvas, self.use_cam);
         self.vertices.get_mut(1).set_data((x + width - radius) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(1), self.canvas, self.use_cam);
         self.vertices.get_mut(2).set_data((x + width) as f32, (y + height - radius) as f32, 0.0, rad_rotation, rx as f32, ry as f32, self.color.get(2), self.canvas, self.use_cam);
@@ -288,7 +288,7 @@ impl Draw2D {
         self.ellipse_origin_rotated(x, y, radius, radius, precision, 0.0, 0, 0);
     }
 
-    pub fn circle_rotated(&mut self, x: i32, y: i32 , radius: i32, precision: f32, rotation: f32) {
+    pub fn circle_rotated(&mut self, x: i32, y: i32, radius: i32, precision: f32, rotation: f32) {
         self.ellipse_origin_rotated(x, y, radius, radius, precision, rotation, x, y);
     }
 
@@ -321,7 +321,7 @@ impl Draw2D {
     pub fn void_circle(&mut self, x: i32, y: i32, radius: i32, thickness: i32, precision: f32) {
         self.void_arc_origin_rotated(x, y, radius, thickness, 360, 0, precision, 0.0, 0, 0);
     }
-    
+
     pub fn void_circle_rotated(&mut self, x: i32, y: i32, radius: i32, thickness: i32, precision: f32, rotation: f32) {
         self.void_arc_origin_rotated(x, y, radius, thickness, 360, 0, precision, rotation, x, y);
     }
@@ -338,7 +338,7 @@ impl Draw2D {
         self.arc_origin_rotated(x, y, radius, range, start, precision, rotation, x, y);
     }
 
-    pub fn arc_origin_rotated(&mut self, x: i32, y: i32, radius: i32, range: i32, start: i32, precision: f32, rotation: f32, rx: i32, ry: i32)  {
+    pub fn arc_origin_rotated(&mut self, x: i32, y: i32, radius: i32, range: i32, start: i32, precision: f32, rotation: f32, rx: i32, ry: i32) {
         let r_range = std::f32::consts::TAU - (range as f32).to_radians();
         let step = std::f32::consts::TAU / precision;
         let rad_rot = rotation.to_radians();
@@ -477,7 +477,7 @@ impl Draw2D {
             let ax = x + char_x + glyph.get_x_offset(height);
             let ay = y - y_off;
             let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);
-            let ay2 = y + glyph.get_height(height)  - y_off;
+            let ay2 = y + glyph.get_height(height) - y_off;
 
             if chroma {
                 self.reset_color();
@@ -576,7 +576,7 @@ impl Draw2D {
 pub enum CanvasStyle {
     Square,
     Triangle,
-    Round
+    Round,
 }
 
 impl CanvasStyle {

@@ -7,11 +7,15 @@ use mvutils::utils::SplitSized;
 use regex::Regex;
 
 pub trait Fmt {}
+
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 pub struct RGB;
+
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 pub struct HSV;
+
 impl Fmt for RGB {}
+
 impl Fmt for HSV {}
 
 #[derive(Debug)]
@@ -46,7 +50,13 @@ impl<U: Fmt, T: Clone> Color<U, T> {
 
 impl<U: Fmt, T> Color<U, T> {
     pub fn new(c1: T, c2: T, c3: T, c4: T) -> Self {
-        Color { c1, c2, c3, c4, phantom: Default::default() }
+        Color {
+            c1,
+            c2,
+            c3,
+            c4,
+            phantom: Default::default(),
+        }
     }
 }
 
@@ -65,18 +75,34 @@ impl<U: Fmt, T: Clone> Clone for Color<U, T> {
 impl<U: Fmt, T: Copy> Copy for Color<U, T> {}
 
 impl<T: Copy> Color<RGB, T> {
-    pub fn r(&self) -> T { self.c1 }
-    pub fn g(&self) -> T { self.c2 }
-    pub fn b(&self) -> T { self.c3 }
-    pub fn a(&self) -> T { self.c4 }
+    pub fn r(&self) -> T {
+        self.c1
+    }
+    pub fn g(&self) -> T {
+        self.c2
+    }
+    pub fn b(&self) -> T {
+        self.c3
+    }
+    pub fn a(&self) -> T {
+        self.c4
+    }
 
-    pub fn set_r(&mut self, val: T) { self.c1 = val }
-    pub fn set_g(&mut self, val: T) { self.c2 = val }
-    pub fn set_b(&mut self, val: T) { self.c3 = val }
-    pub fn set_a(&mut self, val: T) { self.c4 = val }
+    pub fn set_r(&mut self, val: T) {
+        self.c1 = val
+    }
+    pub fn set_g(&mut self, val: T) {
+        self.c2 = val
+    }
+    pub fn set_b(&mut self, val: T) {
+        self.c3 = val
+    }
+    pub fn set_a(&mut self, val: T) {
+        self.c4 = val
+    }
 }
 
-impl <F: Fmt, T: Copy> Color<F, T> {
+impl<F: Fmt, T: Copy> Color<F, T> {
     pub fn set(&mut self, c1: T, c2: T, c3: T, c4: T) {
         self.c1 = c1;
         self.c2 = c2;
@@ -86,7 +112,9 @@ impl <F: Fmt, T: Copy> Color<F, T> {
 }
 
 pub trait Parse {
-    fn parse(s: &str) -> Result<Self, &str> where Self: Sized;
+    fn parse(s: &str) -> Result<Self, &str>
+    where
+        Self: Sized;
 }
 
 impl<F: Fmt, T: Savable> Savable for Color<F, T> {
@@ -113,14 +141,30 @@ impl<F: Fmt, T: Savable> Savable for Color<F, T> {
 }
 
 impl Color<RGB, u8> {
-    pub fn white() -> Self { Color::new(255, 255, 255, 255) }
-    pub fn black() -> Self { Color::new(0, 0, 0, 255) }
-    pub fn red() -> Self { Color::new(255, 0, 0, 255) }
-    pub fn green() -> Self { Color::new(0, 255, 0, 255) }
-    pub fn blue() -> Self { Color::new(0, 0, 255, 255) }
-    pub fn yellow() -> Self { Color::new(255, 255, 0, 255) }
-    pub fn magenta() -> Self { Color::new(255, 0, 255, 255) }
-    pub fn cyan() -> Self { Color::new(0, 255, 255, 255) }
+    pub fn white() -> Self {
+        Color::new(255, 255, 255, 255)
+    }
+    pub fn black() -> Self {
+        Color::new(0, 0, 0, 255)
+    }
+    pub fn red() -> Self {
+        Color::new(255, 0, 0, 255)
+    }
+    pub fn green() -> Self {
+        Color::new(0, 255, 0, 255)
+    }
+    pub fn blue() -> Self {
+        Color::new(0, 0, 255, 255)
+    }
+    pub fn yellow() -> Self {
+        Color::new(255, 255, 0, 255)
+    }
+    pub fn magenta() -> Self {
+        Color::new(255, 0, 255, 255)
+    }
+    pub fn cyan() -> Self {
+        Color::new(0, 255, 255, 255)
+    }
 
     pub fn normalize(self) -> Color<RGB, f32> {
         Color {
@@ -159,7 +203,7 @@ impl Color<RGB, u8> {
             3 => [0.0, x, c],
             4 => [x, 0.0, c],
             5 | 6 => [c, 0.0, x],
-            _ => panic!("Illegal color!")
+            _ => panic!("Illegal color!"),
         };
         let r = ((rgb[0] + m) * 255.0) as u8;
         let g = ((rgb[1] + m) * 255.0) as u8;
@@ -180,14 +224,30 @@ impl Color<RGB, u8> {
 }
 
 impl Color<RGB, f32> {
-    pub fn white() -> Self { Color::new(1.0, 1.0, 1.0, 1.0) }
-    pub fn black() -> Self { Color::new(0.0, 0.0, 0.0, 1.0) }
-    pub fn red() -> Self { Color::new(1.0, 0.0, 0.0, 1.0) }
-    pub fn green() -> Self { Color::new(0.0, 1.0, 0.0, 1.0) }
-    pub fn blue() -> Self { Color::new(0.0, 0.0, 1.0, 1.0) }
-    pub fn yellow() -> Self { Color::new(1.0, 1.0, 0.0, 1.0) }
-    pub fn magenta() -> Self { Color::new(1.0, 0.0, 1.0, 1.0) }
-    pub fn cyan() -> Self { Color::new(0.0, 1.0, 1.0, 1.0) }
+    pub fn white() -> Self {
+        Color::new(1.0, 1.0, 1.0, 1.0)
+    }
+    pub fn black() -> Self {
+        Color::new(0.0, 0.0, 0.0, 1.0)
+    }
+    pub fn red() -> Self {
+        Color::new(1.0, 0.0, 0.0, 1.0)
+    }
+    pub fn green() -> Self {
+        Color::new(0.0, 1.0, 0.0, 1.0)
+    }
+    pub fn blue() -> Self {
+        Color::new(0.0, 0.0, 1.0, 1.0)
+    }
+    pub fn yellow() -> Self {
+        Color::new(1.0, 1.0, 0.0, 1.0)
+    }
+    pub fn magenta() -> Self {
+        Color::new(1.0, 0.0, 1.0, 1.0)
+    }
+    pub fn cyan() -> Self {
+        Color::new(0.0, 1.0, 1.0, 1.0)
+    }
 
     pub fn normalize(&mut self, r: u8, g: u8, b: u8, a: u8) {
         self.c1 = r as f32 / 255.0;
@@ -219,7 +279,7 @@ impl Color<RGB, f32> {
             3 => [0.0, x, c],
             4 => [x, 0.0, c],
             5 | 6 => [c, 0.0, x],
-            _ => panic!("Illegal color!")
+            _ => panic!("Illegal color!"),
         };
         self.set(rgb[0] + m, rgb[1] + m, rgb[2] + m, col.c4)
     }
@@ -252,15 +312,31 @@ impl Color<RGB, f32> {
 }
 
 impl<T: Copy> Color<HSV, T> {
-    pub fn h(&self) -> T { self.c1 }
-    pub fn s(&self) -> T { self.c2 }
-    pub fn v(&self) -> T { self.c3 }
-    pub fn a(&self) -> T { self.c4 }
+    pub fn h(&self) -> T {
+        self.c1
+    }
+    pub fn s(&self) -> T {
+        self.c2
+    }
+    pub fn v(&self) -> T {
+        self.c3
+    }
+    pub fn a(&self) -> T {
+        self.c4
+    }
 
-    pub fn set_h(&mut self, val: T) { self.c1 = val }
-    pub fn set_s(&mut self, val: T) { self.c2 = val }
-    pub fn set_v(&mut self, val: T) { self.c3 = val }
-    pub fn set_a(&mut self, val: T) { self.c4 = val }
+    pub fn set_h(&mut self, val: T) {
+        self.c1 = val
+    }
+    pub fn set_s(&mut self, val: T) {
+        self.c2 = val
+    }
+    pub fn set_v(&mut self, val: T) {
+        self.c3 = val
+    }
+    pub fn set_a(&mut self, val: T) {
+        self.c4 = val
+    }
 }
 
 impl Color<HSV, f32> {
@@ -277,7 +353,7 @@ impl Color<HSV, f32> {
             3 => [0.0, x, c],
             4 => [x, 0.0, c],
             5 | 6 => [c, 0.0, x],
-            _ => panic!("Illegal color!")
+            _ => panic!("Illegal color!"),
         };
         Color::new(rgb[0] + m, rgb[1] + m, rgb[2] + m, self.c4)
     }
@@ -307,7 +383,7 @@ impl Parse for Color<RGB, u8> {
 }
 
 pub struct Gradient<F: Fmt, T> {
-    colors: [Color<F, T>; 4]
+    colors: [Color<F, T>; 4],
 }
 
 impl<F: Fmt, T: Copy> Gradient<F, T> {
@@ -345,7 +421,9 @@ impl<F: Fmt, T: Copy> Gradient<F, T> {
 
 impl<F: Fmt, T: Clone> Clone for Gradient<F, T> {
     fn clone(&self) -> Self {
-        Gradient { colors: self.colors.clone() }
+        Gradient {
+            colors: self.colors.clone(),
+        }
     }
 }
 

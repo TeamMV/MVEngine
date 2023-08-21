@@ -1,14 +1,16 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
-use mvutils::once::Lazy;
+use std::sync::{Arc, RwLock};
+
 use mvutils::lazy;
+use mvutils::once::Lazy;
 use mvutils::utils::Recover;
+
 #[cfg(feature = "gui")]
 use crate::gui::Gui;
 use crate::render::color::{Color, Gradient, RGB};
+use crate::render::common::{Texture, TextureRegion};
 #[cfg(feature = "3d")]
 use crate::render::common3d::{Material, Model};
-use crate::render::common::{Texture, TextureRegion};
 
 lazy! {
     static GLOBAL_RESOURCES: RwLock<GlobalResources> = GlobalResources::default().into();
@@ -52,7 +54,14 @@ impl R {
         res.texture_regions.register(id, Arc::new(region));
     }
 
-    pub(crate) fn crop_texture_core(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
+    pub(crate) fn crop_texture_core(
+        texture: &str,
+        id: String,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) {
         let mut res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
@@ -85,20 +94,33 @@ struct GlobalResources {
 }
 
 pub struct Ref<T> {
-    map: RwLock<HashMap<String, Arc<T>>>
+    map: RwLock<HashMap<String, Arc<T>>>,
 }
 
 impl<T> Ref<T> {
     pub fn get_core(&self, key: &str) -> Arc<T> {
-        self.map.read().recover().get( &("mvcore:".to_string() + key)).expect(&("Could not find resource with id \"".to_owned() + key + "\".")).clone()
+        self.map
+            .read()
+            .recover()
+            .get(&("mvcore:".to_string() + key))
+            .expect(&("Could not find resource with id \"".to_owned() + key + "\"."))
+            .clone()
     }
 
     pub fn get(&self, key: &str) -> Arc<T> {
-        self.map.read().recover().get(&key.to_string()).expect(&("Could not find resource with id \"".to_owned() + key + "\".")).clone()
+        self.map
+            .read()
+            .recover()
+            .get(&key.to_string())
+            .expect(&("Could not find resource with id \"".to_owned() + key + "\"."))
+            .clone()
     }
 
     pub fn register_core(&self, key: String, res: Arc<T>) {
-        self.map.write().recover().insert("mvcore:".to_string() + &*key, res);
+        self.map
+            .write()
+            .recover()
+            .insert("mvcore:".to_string() + &*key, res);
     }
 
     pub fn register(&self, key: String, res: Arc<T>) {
