@@ -2,9 +2,7 @@ use mvutils::save::{Loader, Savable, Saver};
 
 pub mod compress;
 
-pub(crate) struct GRes {
-
-}
+pub(crate) struct GRes {}
 
 impl Savable for GRes {
     fn save(&self, saver: &mut impl Saver) {
@@ -16,11 +14,9 @@ impl Savable for GRes {
     }
 }
 
-impl GRes {
-
-}
+impl GRes {}
 
 pub struct Error {
     msg: String,
-    file: String
+    file: String,
 }

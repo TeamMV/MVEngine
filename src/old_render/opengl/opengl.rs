@@ -1,13 +1,13 @@
-use alloc::ffi::CString;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap;
-use std::ffi::{c_float, c_void};
+use std::ffi::c_void;
 use std::io::Cursor;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use alloc::ffi::CString;
 use gl::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT};
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
@@ -20,16 +20,15 @@ use crate::old_render::{glfwFreeCallbacks, load_render_assets, shader_preprocess
 use crate::old_render::batch2d::batch_layout_2d;
 use crate::old_render::camera::{Camera2D, Camera3D};
 use crate::old_render::draw::Draw2D;
-use crate::old_render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
-
-#[cfg(feature = "3d")]
-use crate::old_render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
-#[cfg(feature = "3d")]
-use crate::old_render::model::Material;
-use crate::old_render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, TEXTURE_LIMIT};
 #[cfg(feature = "3d")]
 #[cfg(feature = "3d")]
 use crate::old_render::lights::Light;
+#[cfg(feature = "3d")]
+use crate::old_render::model::Material;
+#[cfg(feature = "3d")]
+use crate::old_render::opengl::deferred::{OpenGLGeometryPass, OpenGLLightingPass};
+use crate::old_render::shader_preprocessor::{MAX_NUM_LIGHTS, MAX_TEXTURES, process, TEXTURE_LIMIT};
+use crate::old_render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, WindowCreateInfo};
 use crate::old_render::shared::RenderProcessor3D;
 use crate::resource_loader::ResourceLoader;
 
@@ -88,7 +87,7 @@ pub struct OpenGLWindow {
     camera_2d: Camera2D,
     camera_3d: Camera3D,
 
-    dpi: f32
+    dpi: f32,
 }
 
 impl OpenGLWindow {
@@ -123,7 +122,7 @@ impl OpenGLWindow {
             draw_2d: None,
             camera_2d: Camera2D::default(),
             camera_3d: Camera3D::default(),
-            dpi: 0.0
+            dpi: 0.0,
         }
     }
 
@@ -268,9 +267,7 @@ impl OpenGLWindow {
     }
 
     #[cfg(feature = "3d")]
-    unsafe fn render_3d(&mut self) {
-
-    }
+    unsafe fn render_3d(&mut self) {}
 
     fn terminate(&mut self) {
         unsafe {
@@ -888,11 +885,7 @@ impl OpenGLRenderProcessor3D {
 
 #[cfg(feature = "3d")]
 impl RenderProcessor3D for OpenGLRenderProcessor3D {
-    fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
+    fn process_batch(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {}
 
-    }
-
-    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {
-
-    }
+    fn process_model(&self, tex: &mut [Option<Rc<RefCell<Texture>>>], tex_id: &[u32], indices: &[u32], vertices: &[f32], shader: &mut Shader, render_mode: u8) {}
 }

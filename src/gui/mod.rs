@@ -1,18 +1,20 @@
-use std::sync::{Arc, Mutex};
-use crate::gui::components::{GuiElement, GuiLayout};
+use std::sync::Arc;
+
+use crate::gui::components::GuiLayout;
 use crate::render::draw2d::Draw2D;
 
-pub mod components;
-pub mod styles;
-pub mod gui_formats;
 pub mod archive;
+pub mod components;
 pub mod ease;
+pub mod gui_formats;
+pub mod styles;
 
 pub struct Gui {
-    root: &'static GuiLayout
+    root: &'static GuiLayout,
 }
 
 unsafe impl Send for Gui {}
+
 unsafe impl Sync for Gui {}
 
 impl Gui {
@@ -26,14 +28,12 @@ impl Gui {
 }
 
 pub struct GuiRenderer {
-    to_render: Vec<Arc<Gui>>
+    to_render: Vec<Arc<Gui>>,
 }
 
 impl GuiRenderer {
     pub fn new() -> Self {
-        Self {
-            to_render: vec![],
-        }
+        Self { to_render: vec![] }
     }
 
     pub fn request_draw(&mut self, gui: Arc<Gui>) {

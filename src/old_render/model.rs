@@ -1,24 +1,25 @@
-use alloc::rc::Rc;
-use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use alloc::rc::Rc;
 use glam::{IVec3, IVec4, Mat4, Vec2, Vec3};
-use gltf::buffer::View;
 use gltf::{Gltf, Semantic};
+use gltf::buffer::View;
 use gltf::material::{AlphaMode, NormalTexture, OcclusionTexture};
 use include_dir::File;
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, rc_mut, RcMut, TetrahedronOp};
+
 use crate::assets::AssetManager;
 use crate::old_render::color::{Color, RGB};
 use crate::old_render::RenderCore;
-use crate::old_render::shader_preprocessor::{MAX_TEXTURES};
+use crate::old_render::shader_preprocessor::MAX_TEXTURES;
 use crate::old_render::shared::Texture;
 
 pub struct Model {
     pub(crate) mesh: Mesh,
-    pub(crate) materials: Vec<Material>
+    pub(crate) materials: Vec<Material>,
 }
 
 pub struct Mesh {
@@ -31,14 +32,20 @@ pub struct Mesh {
 }
 
 pub struct Material {
-    pub ambient: Color<RGB, f32>, //Ka
-    pub diffuse: Color<RGB, f32>, //Kd
-    pub specular: Color<RGB, f32>, //Ks (specular reflectivity)
+    pub ambient: Color<RGB, f32>,
+    //Ka
+    pub diffuse: Color<RGB, f32>,
+    //Kd
+    pub specular: Color<RGB, f32>,
+    //Ks (specular reflectivity)
     pub emission: Color<RGB, f32>,
 
-    pub alpha: f32, //d or Ts
-    pub specular_exponent: f32, //Ns (specular exponent)
-    pub metallic: f32, //m
+    pub alpha: f32,
+    //d or Ts
+    pub specular_exponent: f32,
+    //Ns (specular exponent)
+    pub metallic: f32,
+    //m
     pub roughness: f32,
 
     //pub transmission_filter: f32, //Tf
@@ -49,7 +56,8 @@ pub struct Material {
     //pub alpha_cutoff: f32,
     //pub double_side: bool,
 
-    pub diffuse_texture: Option<RcMut<Texture>>, //map_Kd
+    pub diffuse_texture: Option<RcMut<Texture>>,
+    //map_Kd
     pub metallic_roughness_texture: Option<RcMut<Texture>>,
     pub normal_texture: Option<RcMut<Texture>>, //norm
 
@@ -116,8 +124,8 @@ impl Model {
 
     pub fn is_simple_geometry(&self) -> bool {
         self.vertex_count() < 5000
-        && self.materials.len() < 16
-        && self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES / 4 }
+            && self.materials.len() < 16
+            && self.texture_count(TextureType::Geometry) <= unsafe { MAX_TEXTURES / 4 }
     }
 
     pub fn texture_count(&self, texture_type: TextureType) -> u32 {
@@ -137,7 +145,7 @@ impl Model {
 pub enum TextureType {
     Any,
     Geometry,
-    Lighting
+    Lighting,
 }
 
 impl TextureType {
@@ -152,14 +160,14 @@ impl TextureType {
 
 pub(crate) struct ModelLoader {
     obj: OBJModelLoader,
-    gltf: GLTFModelLoader
+    gltf: GLTFModelLoader,
 }
 
 impl ModelLoader {
     pub(crate) fn new(core: Arc<RenderCore>, manager: *mut AssetManager) -> Self {
         ModelLoader {
             obj: OBJModelLoader::new(core.clone(), manager),
-            gltf: GLTFModelLoader::new(core)
+            gltf: GLTFModelLoader::new(core),
         }
     }
 
@@ -176,14 +184,14 @@ impl ModelLoader {
 
 struct OBJModelLoader {
     core: Arc<RenderCore>,
-    manager: *mut AssetManager
+    manager: *mut AssetManager,
 }
 
 impl OBJModelLoader {
     fn new(core: Arc<RenderCore>, manager: *mut AssetManager) -> Self {
         OBJModelLoader {
             core,
-            manager
+            manager,
         }
     }
 
@@ -203,7 +211,7 @@ impl OBJModelLoader {
                 x: pos,
                 y: coords,
                 z: normal,
-                w: material as i32
+                w: material as i32,
             }
         }
 
@@ -233,7 +241,7 @@ impl OBJModelLoader {
                         file.contents_utf8().expect(format!("Illegal mtl file format '{}'!", full_path).as_str()),
                         path,
                         &mut material_map,
-                        &mut available_materials
+                        &mut available_materials,
                     );
                 }
                 "o" => {
@@ -313,7 +321,7 @@ impl OBJModelLoader {
 
             if face.y >= 0 {
                 let coord = tex_coords_vec[face.y as usize];
-                tex_coords[face. x as usize] = Vec2::new(coord.x, 1.0 - coord.y);
+                tex_coords[face.x as usize] = Vec2::new(coord.x, 1.0 - coord.y);
             }
 
             if face.z >= 0 {
@@ -417,8 +425,7 @@ impl OBJModelLoader {
     fn load_texture(&self, path: String) -> RcMut<Texture> {
         if let Some(texture) = unsafe { self.manager.as_mut() }.unwrap().textures.get(path.as_str()) {
             texture.clone()
-        }
-        else {
+        } else {
             let file = unsafe { self.manager.as_mut() }.unwrap().files.remove(path.as_str()).expect(format!("Texture file {} not present or already loaded with different name!", path).as_str());
             let texture = Rc::new(RefCell::new(self.core.create_texture(file.contents())));
             unsafe { self.manager.as_mut() }.unwrap().textures.insert(path.to_string(), texture.clone());
@@ -428,7 +435,7 @@ impl OBJModelLoader {
 }
 
 struct GLTFModelLoader {
-    core: Arc<RenderCore>
+    core: Arc<RenderCore>,
 }
 
 impl GLTFModelLoader {
@@ -486,12 +493,12 @@ impl GLTFModelLoader {
                 indices,
                 normals,
                 tex_coords,
-                materials: Vec::new()
+                materials: Vec::new(),
             };
             return Model {
                 mesh: parsed_mesh,
-                materials
-            }
+                materials,
+            };
         }
 
         unreachable!()
@@ -504,7 +511,7 @@ impl GLTFModelLoader {
     }
 
     fn construct_vec2s(&self, data: Bytecode) -> Vec<Vec2> {
-        if data.len() % 8 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
+        if data.len() % 8 != 0 { panic!("invalid byte size for vec3: {}", data.len()) }
         data.into_iter().chunks(8).into_iter().map(|c| {
             let vec = c.chunks(4).into_iter().map(|f| {
                 let float = f.collect_vec();
@@ -515,7 +522,7 @@ impl GLTFModelLoader {
     }
 
     fn construct_vec3s(&self, data: Bytecode) -> Vec<Vec3> {
-        if data.len() % 12 != 0 {panic!("invalid byte size for vec3: {}", data.len())}
+        if data.len() % 12 != 0 { panic!("invalid byte size for vec3: {}", data.len()) }
         data.into_iter().chunks(12).into_iter().map(|c| {
             let vec = c.chunks(4).into_iter().map(|f| {
                 let float = f.collect_vec();
@@ -526,7 +533,7 @@ impl GLTFModelLoader {
     }
 
     fn construct<T: FromLeBytes>(&self, data: Bytecode) -> Vec<T> {
-        if data.len() % T::byte_count() != 0 {panic!("invalid byte size for {}: {}", T::name(), data.len())}
+        if data.len() % T::byte_count() != 0 { panic!("invalid byte size for {}: {}", T::name(), data.len()) }
         data.into_iter().chunks(T::byte_count()).into_iter().map(|c| {
             let t = c.collect_vec();
             T::from_le_bytes(&t[0..T::byte_count()])

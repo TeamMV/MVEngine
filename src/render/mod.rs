@@ -1,39 +1,41 @@
-pub mod window;
-pub(crate) mod init;
-pub mod consts;
-pub mod common;
-pub(crate) mod render;
-pub mod camera;
+use std::sync::Arc;
+
+use mvutils::unsafe_utils::Nullable;
+
+use crate::render::window::{Window, WindowSpecs};
+use crate::MVCore;
+
 pub(crate) mod batch2d;
-pub mod color;
-pub mod draw2d;
-pub mod text;
-#[cfg(feature = "3d")]
-pub mod render3d;
-#[cfg(feature = "3d")]
-pub mod deferred;
-#[cfg(feature = "3d")]
-pub mod common3d;
-#[cfg(feature = "3d")]
-pub mod model;
-#[cfg(feature = "3d")]
-pub mod draw3d;
 #[cfg(feature = "3d")]
 pub(crate) mod batch3d;
-
-use std::sync::Arc;
-use mvutils::unsafe_utils::Nullable;
-use crate::MVCore;
-use crate::render::window::{Window, WindowSpecs};
+pub mod camera;
+pub mod color;
+pub mod common;
+#[cfg(feature = "3d")]
+pub mod common3d;
+pub mod consts;
+#[cfg(feature = "3d")]
+pub mod deferred;
+pub mod draw2d;
+#[cfg(feature = "3d")]
+pub mod draw3d;
+pub(crate) mod init;
+#[cfg(feature = "3d")]
+pub mod model;
+pub(crate) mod render2d;
+#[cfg(feature = "3d")]
+pub mod render3d;
+pub mod text;
+pub mod window;
 
 pub struct RenderCore {
-    core: Nullable<Arc<MVCore>>
+    core: Nullable<Arc<MVCore>>,
 }
 
 impl RenderCore {
     pub(crate) fn new() -> Arc<Self> {
         Arc::new(RenderCore {
-            core: Nullable::null()
+            core: Nullable::null(),
         })
     }
 
@@ -42,12 +44,17 @@ impl RenderCore {
         this.core = Nullable::new(core);
     }
 
-    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks + Sized + 'static>(self: &Arc<RenderCore>, info: WindowSpecs, application_loop: ApplicationLoop) {
+    pub fn run_window<ApplicationLoop: ApplicationLoopCallbacks + Sized + 'static>(
+        self: &Arc<RenderCore>,
+        info: WindowSpecs,
+        application_loop: ApplicationLoop,
+    ) {
         Window::run(info, application_loop)
     }
 }
 
 unsafe impl Send for RenderCore {}
+
 unsafe impl Sync for RenderCore {}
 
 pub trait ApplicationLoopCallbacks: Sized {

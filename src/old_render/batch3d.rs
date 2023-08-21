@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use glam::{Mat4, Vec2, Vec4};
 use mvutils::utils::RcMut;
-use crate::old_render::camera::Camera3D;
 
+use crate::old_render::camera::Camera3D;
 use crate::old_render::model::{Model, TextureType};
 use crate::old_render::shader_preprocessor::{MAX_TEXTURES, TEXTURE_LIMIT};
 use crate::old_render::shared::{RenderProcessor3D, Shader, Texture};
@@ -34,7 +34,7 @@ pub mod batch_layout_3d {
     pub(crate) const POSITION_OFFSET_BYTES: u16 = POSITION_OFFSET * FLOAT_BYTES;
     pub(crate) const NORMAL_OFFSET: u16 = POSITION_SIZE;
     pub(crate) const NORMAL_OFFSET_BYTES: u16 = NORMAL_OFFSET * FLOAT_BYTES;
-    pub(crate) const UV_OFFSET: u16 = NORMAL_SIZE  + NORMAL_OFFSET;
+    pub(crate) const UV_OFFSET: u16 = NORMAL_SIZE + NORMAL_OFFSET;
     pub(crate) const UV_OFFSET_BYTES: u16 = UV_OFFSET * FLOAT_BYTES;
     pub(crate) const MATERIAL_ID_OFFSET: u16 = UV_SIZE + UV_OFFSET;
     pub(crate) const MATERIAL_ID_OFFSET_BYTES: u16 = MATERIAL_ID_OFFSET * FLOAT_BYTES;
@@ -44,13 +44,12 @@ pub mod batch_layout_3d {
     pub(crate) const CANVAS_DATA_OFFSET_BYTES: u16 = CANVAS_DATA_OFFSET * FLOAT_BYTES;
     pub(crate) const MODEL_MATRIX_OFFSET: u16 = CANVAS_DATA_SIZE + CANVAS_DATA_OFFSET;
     pub(crate) const MODEL_MATRIX_OFFSET_BYTES: u16 = MODEL_MATRIX_OFFSET * FLOAT_BYTES;
-
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum BatchType3D {
     Regular,
-    Stripped
+    Stripped,
 }
 
 trait BatchGen {
@@ -146,7 +145,7 @@ impl Batch3D {
             obj_count: 0,
             next_tex: 0,
             full: false,
-            full_tex: false
+            full_tex: false,
         }
     }
 
@@ -212,13 +211,9 @@ impl Batch3D {
         self.next_tex
     }
 
-    fn push_model(&mut self, model: RcMut<Model>, canvas: [f32; 6], model_matrix: Mat4) {
+    fn push_model(&mut self, model: RcMut<Model>, canvas: [f32; 6], model_matrix: Mat4) {}
 
-    }
-
-    fn render(&self, render_processor: &impl RenderProcessor3D, shader: &mut Shader) {
-
-    }
+    fn render(&self, render_processor: &impl RenderProcessor3D, shader: &mut Shader) {}
 
     fn batch_type(&self) -> BatchType3D {
         self.generator.batch_type()
@@ -274,7 +269,7 @@ impl Model3D {
 
 enum RenderType3D {
     Batch(Batch3D),
-    Model(Model3D)
+    Model(Model3D),
 }
 
 impl RenderType3D {
@@ -420,7 +415,7 @@ impl BatchController3D {
     fn gen_batch(&self, batch_type: BatchType3D) -> RenderType3D {
         match batch_type {
             BatchType3D::Regular => RenderType3D::Batch(Batch3D::new(self.batch_limit, RegularBatch)),
-            BatchType3D::Stripped =>RenderType3D::Batch(Batch3D::new(self.batch_limit, StrippedBatch))
+            BatchType3D::Stripped => RenderType3D::Batch(Batch3D::new(self.batch_limit, StrippedBatch))
         }
     }
 
@@ -429,8 +424,7 @@ impl BatchController3D {
             if batch_type == BatchType3D::Stripped {
                 self.advance(batch_type);
                 return;
-            }
-            else {
+            } else {
                 if self.previous >= 0 {
                     if self.batches[self.previous as usize].can_hold(vertices, textures) {
                         return;
@@ -452,8 +446,7 @@ impl BatchController3D {
                     }
                     self.advance(batch_type);
                     self.previous = self.current as i32;
-                }
-                else {
+                } else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         return;
                     }
@@ -488,8 +481,7 @@ impl BatchController3D {
         self.current += 1;
         if self.batches.len() > self.current as usize {
             self.batches[self.current as usize] = model;
-        }
-        else {
+        } else {
             self.batches.push(model);
         }
     }
@@ -500,7 +492,7 @@ impl BatchController3D {
         //    self.batches[self.current as usize].get_batch().push_model(model, canvas, model_matrix);
         //}
         //else {
-            self.push_model(model, canvas, model_matrix);
+        self.push_model(model, canvas, model_matrix);
         //}
     }
 

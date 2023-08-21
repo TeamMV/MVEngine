@@ -1,21 +1,10 @@
-use std::ops::Deref;
-use std::sync::{Arc, Mutex, RwLock};
-use mvsync::MVSync;
-use mvutils::once::{CreateOnce, InitOnce};
-use mvutils::utils::Recover;
+use std::sync::Arc;
+
 use mvutils::version::Version;
 
-use mvcore::{ApplicationInfo, draw_2d, MVCore};
-//use mvcore::gui::components::{GuiComponent, GuiElement, GuiLayout, GuiMarkdown, GuiSection, GuiTextComponent};
-//use mvcore::gui::Gui;
-//use mvcore::gui::gui_formats::FormattedString;
-//use mvcore::gui::styles::GuiValue;
-//use mvcore::gui::styles::GuiValue::{Just, Measurement};
-use mvcore::render::{ApplicationLoopCallbacks, RenderCore};
-use mvcore::render::color::RGB;
-use mvcore::render::color::Color;
 use mvcore::render::window::{Window, WindowSpecs};
-use mvcore::resources::resources::R;
+use mvcore::render::ApplicationLoopCallbacks;
+use mvcore::{draw_2d, ApplicationInfo, MVCore};
 
 fn main() {
     env_logger::init();
@@ -36,7 +25,7 @@ fn main() {
 }
 
 struct ApplicationLoop {
-   // layout: CreateOnce<GuiLayout>
+    // layout: CreateOnce<GuiLayout>
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
@@ -59,9 +48,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         //R::guis().register_core(String::from("myGui"), Arc::new(gui));
     }
 
-    fn update(&self, window: Arc<Window<Self>>) {
-
-    }
+    fn update(&self, window: Arc<Window<Self>>) {}
 
     fn draw(&self, window: Arc<Window<Self>>) {
         draw_2d!(window => {
@@ -70,7 +57,5 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         });
     }
 
-    fn exit(&self, window: Arc<Window<Self>>) {
-
-    }
+    fn exit(&self, window: Arc<Window<Self>>) {}
 }

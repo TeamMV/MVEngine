@@ -1,29 +1,31 @@
 use std::default::Default;
-use std::ffi::c_void;
 use std::io::Read;
-use std::ptr::null_mut;
 use std::sync::Arc;
+
+use ash::vk;
 use glam::Mat4;
 use glfw::ffi::{glfwCreateWindowSurface, glfwVulkanSupported, GLFWwindow};
 #[cfg(all(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly"), not(feature = "wayland")))]
-use glfw::ffi::{glfwGetX11Window, glfwGetX11Display};
+use glfw::ffi::{glfwGetX11Display, glfwGetX11Window};
 #[cfg(all(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly"), feature = "wayland"))]
-use glfw::ffi::{glfwGetWaylandWindow, glfwGetWaylandDisplay};
-#[cfg(target_family = "windows")]
-use glfw::ffi::glfwGetWin32Window;
+use glfw::ffi::{glfwGetWaylandDisplay, glfwGetWaylandWindow};
 #[cfg(target_os = "macos")]
 use glfw::ffi::glfwGetCocoaWindow;
+#[cfg(target_family = "windows")]
+use glfw::ffi::glfwGetWin32Window;
 use glsl_to_spirv::ShaderType;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
 use regex::internal::Input;
-use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
-use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags};
-use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::{Version, VulkanLibrary, VulkanObject};
 use vulkano::buffer::{Buffer, BufferContents, BufferContentsLayout, BufferCreateInfo, BufferUsage, Subbuffer};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents, PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags};
+use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::image::{ImageUsage, SwapchainImage};
 use vulkano::image::sys::Image;
 use vulkano::image::view::ImageView;
+use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, GenericMemoryAllocatorCreateInfo, MemoryAllocator, MemoryUsage, StandardMemoryAllocator};
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
@@ -32,9 +34,7 @@ use vulkano::pipeline::GraphicsPipeline;
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle, RawDisplayHandle};
-use ash::vk;
-use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+
 use crate::ApplicationInfo;
 use crate::old_render::{VK_EFFECT_VERT, VK_EMPTY_EFFECT_FRAG};
 use crate::old_render::vulkan::vulkan::VulkanShader;
@@ -142,7 +142,7 @@ pub(crate) struct InternalVertex2D {
     #[format(R32G32B32A32_SFLOAT)]
     color: [f32; 4],
     #[format(R32G32_SFLOAT)]
-    uv:[f32; 2],
+    uv: [f32; 2],
     #[format(R32_SFLOAT)]
     tex: f32,
     #[format(R32G32B32A32_SFLOAT)]
@@ -150,11 +150,11 @@ pub(crate) struct InternalVertex2D {
     #[format(R32G32_SFLOAT)]
     canvas_data: [f32; 2],
     #[format(R32_SFLOAT)]
-    use_camera: f32
+    use_camera: f32,
 }
 
 struct VkWindow {
-    window: *mut GLFWwindow
+    window: *mut GLFWwindow,
 }
 
 unsafe impl HasRawWindowHandle for VkWindow {
@@ -308,7 +308,7 @@ impl Vulkan {
             height as f32,
             render_pass.clone(),
             vs.clone(),
-            fs.clone()
+            fs.clone(),
         ).ok_or(())?;
 
         let command_buffer_allocator = StandardCommandBufferAllocator::new(device.clone(), Default::default());
@@ -347,18 +347,18 @@ impl Vulkan {
                     .map(|q| (device, q as u32));
             })
             .max_by_key(|(device, _)| {
-            let mut score = match device.properties().device_type {
-                PhysicalDeviceType::DiscreteGpu => 32000,
-                PhysicalDeviceType::IntegratedGpu => 16000,
-                PhysicalDeviceType::VirtualGpu => 8000,
-                _ => 0
-            };
+                let mut score = match device.properties().device_type {
+                    PhysicalDeviceType::DiscreteGpu => 32000,
+                    PhysicalDeviceType::IntegratedGpu => 16000,
+                    PhysicalDeviceType::VirtualGpu => 8000,
+                    _ => 0
+                };
 
-            score += device.properties().max_image_dimension2_d;
-            score += device.properties().max_image_dimension3_d;
+                score += device.properties().max_image_dimension2_d;
+                score += device.properties().max_image_dimension3_d;
 
-            score
-        })
+                score
+            })
     }
 
     pub(crate) fn resize(&mut self, width: u32, height: u32) {
@@ -382,7 +382,7 @@ impl Vulkan {
             height as f32,
             self.render_pass.clone(),
             self.vs.clone(),
-            self.fs.clone()
+            self.fs.clone(),
         ).expect("Error creating graphics pipeline!");
     }
 
@@ -413,12 +413,12 @@ impl Vulkan {
                 ).unwrap();
 
                 builder.begin_render_pass(
-                        RenderPassBeginInfo {
-                            clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
-                            ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
-                        },
-                        SubpassContents::Inline,
-                    )
+                    RenderPassBeginInfo {
+                        clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
+                        ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                    },
+                    SubpassContents::Inline,
+                )
                     .unwrap()
                     .bind_pipeline_graphics(pipeline.clone())
                     .bind_vertex_buffers(0, Subbuffer::from(vertex_buffer.clone()))
@@ -440,7 +440,7 @@ impl Vulkan {
             self.framebuffers.clone(),
             vertices,
             indices,
-            len
+            len,
         )
     }
 
@@ -491,7 +491,7 @@ impl Vulkan {
                 usage: MemoryUsage::Upload,
                 ..Default::default()
             },
-            data
+            data,
         ).expect("Failed to create vulkan buffer.").buffer().clone()
     }
 
@@ -508,12 +508,10 @@ impl Vulkan {
                 height as f32,
                 self.render_pass.clone(),
                 self.vs.clone(),
-                self.fs.clone()
+                self.fs.clone(),
             ).expect("Error creating graphics pipeline!");
         }
     }
 
-    pub(crate) fn set_shader_3d(&mut self, shader: &mut VulkanShader, width: u32, height: u32) {
-
-    }
+    pub(crate) fn set_shader_3d(&mut self, shader: &mut VulkanShader, width: u32, height: u32) {}
 }

@@ -1,9 +1,8 @@
-use alloc::rc::Rc;
-use std::sync::{Arc, Mutex};
-use mvutils::utils::{TetrahedronOp};
+use std::sync::Arc;
 
-use bitflags::{bitflags};
+use bitflags::bitflags;
 use mvutils::save::{Loader, Savable, Saver};
+
 use crate::render::color::{Color, Gradient, RGB};
 use crate::render::draw2d::Draw2D;
 use crate::render::text::{Font, TypeFace};
@@ -60,7 +59,7 @@ fn get_font(face: Arc<TypeFace>, style: FontStyle) -> Arc<Font> {
         1 => face.bold.clone(),
         2 => face.italic.clone(),
         3 => face.italic_bold.clone(),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -82,7 +81,19 @@ impl FormattedString {
         }
     }
 
-    pub fn draw(&self, mut ctx: &mut Draw2D, x: i32, y: i32, height: i32, font: Option<Arc<TypeFace>>, rotation: f32, rx: i32, ry: i32, col: &Gradient<RGB, f32>, chroma: bool) {
+    pub fn draw(
+        &self,
+        mut ctx: &mut Draw2D,
+        x: i32,
+        y: i32,
+        height: i32,
+        font: Option<Arc<TypeFace>>,
+        rotation: f32,
+        rx: i32,
+        ry: i32,
+        col: &Gradient<RGB, f32>,
+        chroma: bool,
+    ) {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
             if fmt.color.is_some() {
@@ -90,9 +101,23 @@ impl FormattedString {
             } else {
                 ctx.get_mut().unwrap().get_mut_gradient().copy_of(col);
             }
-            let font = font.clone().unwrap_or(TypeFace::single(ctx.get_mut().unwrap().get_default_font()));
-            ctx.get_mut().unwrap().custom_text_origin_rotated(chroma || fmt.style.is_chroma(), char_x, y, height, fmt.text.as_str(), get_font(font.clone(), fmt.style), rotation, rx, ry);
-            char_x += get_font(font.clone(), fmt.style).get_metrics(fmt.text.as_str()).width(height);
+            let font = font
+                .clone()
+                .unwrap_or(TypeFace::single(ctx.get_mut().unwrap().get_default_font()));
+            ctx.get_mut().unwrap().custom_text_origin_rotated(
+                chroma || fmt.style.is_chroma(),
+                char_x,
+                y,
+                height,
+                fmt.text.as_str(),
+                get_font(font.clone(), fmt.style),
+                rotation,
+                rx,
+                ry,
+            );
+            char_x += get_font(font.clone(), fmt.style)
+                .get_metrics(fmt.text.as_str())
+                .width(height);
         }
     }
 }
@@ -108,16 +133,15 @@ impl Savable for FormattedString {
     fn load(deserializer: &mut impl Loader) -> Result<Self, String> {
         let mut pieces = Vec::new();
         let mut whole = String::new();
-        let amount = deserializer.pop_u64().ok_or("Invalid formatted string format!".to_string())?;
+        let amount = deserializer
+            .pop_u64()
+            .ok_or("Invalid formatted string format!".to_string())?;
         for _ in 0..amount {
             let part = Format::load(deserializer)?;
             whole.push_str(part.text.as_str());
             pieces.push(part);
         }
-        Ok(Self {
-            pieces,
-            whole,
-        })
+        Ok(Self { pieces, whole })
     }
 }
 
@@ -142,13 +166,31 @@ impl Savable for Format {
 
     fn load(deserializer: &mut impl Loader) -> Result<Self, String> {
         let mut style = FontStyle::default();
-        style.set_raw(deserializer.pop_u8().ok_or("Invalid formatted string piece format!".to_string())?);
-        let text = deserializer.pop_string().ok_or("Invalid formatted string piece format!".to_string())?;
-        let r = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
-        let g = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
-        let b = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
-        let a = deserializer.pop_f32().ok_or("Invalid formatted string piece format!".to_string())?;
+        style.set_raw(
+            deserializer
+                .pop_u8()
+                .ok_or("Invalid formatted string piece format!".to_string())?,
+        );
+        let text = deserializer
+            .pop_string()
+            .ok_or("Invalid formatted string piece format!".to_string())?;
+        let r = deserializer
+            .pop_f32()
+            .ok_or("Invalid formatted string piece format!".to_string())?;
+        let g = deserializer
+            .pop_f32()
+            .ok_or("Invalid formatted string piece format!".to_string())?;
+        let b = deserializer
+            .pop_f32()
+            .ok_or("Invalid formatted string piece format!".to_string())?;
+        let a = deserializer
+            .pop_f32()
+            .ok_or("Invalid formatted string piece format!".to_string())?;
         let color = Arc::new(Color::<RGB, f32>::new(r, g, b, a));
-        Ok(Format { style, text, color: Some(color) })
+        Ok(Format {
+            style,
+            text,
+            color: Some(color),
+        })
     }
 }

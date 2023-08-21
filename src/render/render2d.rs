@@ -5,38 +5,45 @@ use std::sync::Arc;
 
 use glam::Mat4;
 use mvutils::utils::TetrahedronOp;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Extent3d, IndexFormat, RenderPass, TextureDescriptor, TextureDimension, TextureUsages, TextureView, TextureViewDescriptor};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Extent3d, IndexFormat,
+    RenderPass, TextureDescriptor, TextureDimension, TextureUsages, TextureView,
+    TextureViewDescriptor,
+};
 
 use crate::render::common::{Bytes, EffectShader, Shader, Texture};
-use crate::render::consts::{BIND_GROUP_EFFECT, BIND_GROUPS, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES, TEXTURE_LIMIT};
+use crate::render::consts::{
+    BIND_GROUPS, BIND_GROUP_EFFECT, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES,
+    TEXTURE_LIMIT,
+};
 use crate::render::init::State;
 
 pub(crate) struct TextureBindGroup {
     pub(crate) bind_group: BindGroup,
     pub(crate) textures: [Arc<Texture>; TEXTURE_LIMIT],
-    pub(crate) views: [&'static TextureView; TEXTURE_LIMIT]
+    pub(crate) views: [&'static TextureView; TEXTURE_LIMIT],
 }
 
 impl TextureBindGroup {
     pub(crate) fn new(shader: &Shader, state: &State, index: u32) -> Self {
-        let textures: [Arc<Texture>; TEXTURE_LIMIT] = [0; TEXTURE_LIMIT].map(|_| DUMMY_TEXTURE.clone());
-        let views: [&'static TextureView; TEXTURE_LIMIT] = [DUMMY_TEXTURE.get_view(); TEXTURE_LIMIT];
+        let textures: [Arc<Texture>; TEXTURE_LIMIT] =
+            [0; TEXTURE_LIMIT].map(|_| DUMMY_TEXTURE.clone());
+        let views: [&'static TextureView; TEXTURE_LIMIT] =
+            [DUMMY_TEXTURE.get_view(); TEXTURE_LIMIT];
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Texture bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(index),
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureViewArray(&views[..*MAX_TEXTURES]),
-                }
-            ],
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureViewArray(&views[..*MAX_TEXTURES]),
+            }],
         });
 
         Self {
             bind_group,
             textures,
-            views
+            views,
         }
     }
 
@@ -49,12 +56,10 @@ impl TextureBindGroup {
         self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(index),
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureViewArray(&self.views[..*MAX_TEXTURES]),
-                }
-            ],
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureViewArray(&self.views[..*MAX_TEXTURES]),
+            }],
         });
     }
 }
@@ -79,7 +84,9 @@ impl RenderPass2D {
 
         let uniform = state.gen_uniform_buffer_sized(128);
 
-        state.queue.write_buffer(&uniform, 0, projection.cast_bytes());
+        state
+            .queue
+            .write_buffer(&uniform, 0, projection.cast_bytes());
         state.queue.write_buffer(&uniform, 64, view.cast_bytes());
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
@@ -92,8 +99,8 @@ impl RenderPass2D {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
-                }
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
+                },
             ],
         });
 
@@ -114,49 +121,71 @@ impl RenderPass2D {
         }
     }
 
-    pub(crate) fn new_frame(&mut self, render_pass: &mut RenderPass, projection: Mat4, view_matrix: Mat4) {
+    pub(crate) fn new_frame(
+        &mut self,
+        render_pass: &mut RenderPass,
+        projection: Mat4,
+        view_matrix: Mat4,
+    ) {
         self.pass = 0;
 
         if self.projection != projection {
             self.projection = projection;
-            self.state.queue.write_buffer(&self.uniform_buffer, 0, projection.cast_bytes());
+            self.state
+                .queue
+                .write_buffer(&self.uniform_buffer, 0, projection.cast_bytes());
         }
 
-        if self.view!= view_matrix {
+        if self.view != view_matrix {
             self.view = view_matrix;
-            self.state.queue.write_buffer(&self.uniform_buffer, 64, view_matrix.cast_bytes());
+            self.state
+                .queue
+                .write_buffer(&self.uniform_buffer, 64, view_matrix.cast_bytes());
         }
 
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
-        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.uniform, &[]) };
+        unsafe {
+            (self.render_pass as *mut RenderPass)
+                .as_mut()
+                .unwrap()
+                .set_bind_group(0, &self.uniform, &[])
+        };
     }
 
-    pub(crate) fn render(&mut self, indices: &[u32], vertices: &[f32], textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT], stripped: bool) {
+    pub(crate) fn render(
+        &mut self,
+        indices: &[u32],
+        vertices: &[f32],
+        textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT],
+        stripped: bool,
+    ) {
         unsafe {
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
                 self.vbo.push(vbo);
                 self.ibo.push(ibo);
-                self.texture_groups.push(TextureBindGroup::new(&self.shader, self.state, 1));
+                self.texture_groups
+                    .push(TextureBindGroup::new(&self.shader, self.state, 1));
             }
             let ibo = &self.ibo[self.pass];
             let vbo = &self.vbo[self.pass];
             let texture_group = &mut self.texture_groups[self.pass];
-            let render_pass = (self.render_pass as *mut RenderPass).as_mut().expect("You need to call RenderPass2D::new_frame() before rendering!");
+            let render_pass = (self.render_pass as *mut RenderPass)
+                .as_mut()
+                .expect("You need to call RenderPass2D::new_frame() before rendering!");
 
             self.state.queue.write_buffer(ibo, 0, indices.cast_bytes());
             self.state.queue.write_buffer(vbo, 0, vertices.cast_bytes());
 
             let mut changed = false;
 
-            for i in 0..*MAX_TEXTURES {
-                if let Some(ref texture) = textures[i] {
+            for (i, texture) in textures.iter().enumerate().take(*MAX_TEXTURES) {
+                if let Some(ref texture) = texture {
                     if &texture_group.textures[i] != texture {
                         texture_group.set(i, texture.clone());
                         changed = true;
                     }
-                }
-                else if texture_group.textures[i] != DUMMY_TEXTURE.clone() {
+                } else if texture_group.textures[i] != DUMMY_TEXTURE.clone() {
                     texture_group.set(i, DUMMY_TEXTURE.clone());
                     changed = true;
                 }
@@ -167,7 +196,10 @@ impl RenderPass2D {
             }
 
             render_pass.set_bind_group(1, &texture_group.bind_group, &[]);
-            render_pass.set_pipeline(stripped.yn(self.shader.get_stripped_pipeline(), self.shader.get_pipeline()));
+            render_pass.set_pipeline(stripped.yn(
+                self.shader.get_stripped_pipeline(),
+                self.shader.get_pipeline(),
+            ));
             render_pass.set_vertex_buffer(0, vbo.slice(..));
             render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);
             render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
@@ -188,7 +220,7 @@ pub(crate) struct EffectPass {
     pass: usize,
     bind_group_a: BindGroup,
     bind_group_b: BindGroup,
-    uniform: Buffer
+    uniform: Buffer,
 }
 
 impl EffectPass {
@@ -198,38 +230,42 @@ impl EffectPass {
         let uniform = state.gen_uniform_buffer_sized(16);
         let bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Effect bind group"),
-            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            layout: BIND_GROUPS
+                .get(&BIND_GROUP_EFFECT)
+                .expect("Cannot find effect bind group!"),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(buffer.get_read())
+                    resource: BindingResource::TextureView(buffer.get_read()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: uniform.as_entire_binding()
-                }
+                    resource: uniform.as_entire_binding(),
+                },
             ],
         });
         let bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Effect bind group"),
-            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            layout: BIND_GROUPS
+                .get(&BIND_GROUP_EFFECT)
+                .expect("Cannot find effect bind group!"),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(buffer.get_write())
+                    resource: BindingResource::TextureView(buffer.get_write()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: uniform.as_entire_binding()
-                }
+                    resource: uniform.as_entire_binding(),
+                },
             ],
         });
         EffectPass {
@@ -240,45 +276,49 @@ impl EffectPass {
             pass: 0,
             bind_group_a,
             bind_group_b,
-            uniform
+            uniform,
         }
     }
 
     pub(crate) fn rebind(&mut self, state: &State, buffer: &EBuffer) {
         self.bind_group_a = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Effect bind group"),
-            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            layout: BIND_GROUPS
+                .get(&BIND_GROUP_EFFECT)
+                .expect("Cannot find effect bind group!"),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(buffer.get_read())
+                    resource: BindingResource::TextureView(buffer.get_read()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: self.uniform.as_entire_binding()
-                }
+                    resource: self.uniform.as_entire_binding(),
+                },
             ],
         });
         self.bind_group_b = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Effect bind group"),
-            layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT).expect("Cannot find effect bind group!"),
+            layout: BIND_GROUPS
+                .get(&BIND_GROUP_EFFECT)
+                .expect("Cannot find effect bind group!"),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(buffer.get_write())
+                    resource: BindingResource::TextureView(buffer.get_write()),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER)
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: self.uniform.as_entire_binding()
-                }
+                    resource: self.uniform.as_entire_binding(),
+                },
             ],
         });
     }
@@ -288,13 +328,27 @@ impl EffectPass {
     }
 
     pub(crate) fn new_frame(&mut self, time: f32, width: u32, height: u32) {
-        self.state.queue.write_buffer(&self.uniform, 0, [width as f32, height as f32, time].as_slice().cast_bytes());
+        self.state.queue.write_buffer(
+            &self.uniform,
+            0,
+            [width as f32, height as f32, time].as_slice().cast_bytes(),
+        );
     }
 
     pub(crate) fn new_target(&mut self, render_pass: &mut RenderPass) {
         self.render_pass = render_pass as *mut RenderPass as *mut c_void;
-        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_vertex_buffer(0, self.vbo.slice(..)) };
-        unsafe { (self.render_pass as *mut RenderPass).as_mut().unwrap().set_bind_group(0, &self.bind_group_a, &[]) };
+        unsafe {
+            (self.render_pass as *mut RenderPass)
+                .as_mut()
+                .unwrap()
+                .set_vertex_buffer(0, self.vbo.slice(..))
+        };
+        unsafe {
+            (self.render_pass as *mut RenderPass)
+                .as_mut()
+                .unwrap()
+                .set_bind_group(0, &self.bind_group_a, &[])
+        };
     }
 
     pub(crate) fn render(&mut self, shader: Arc<EffectShader>) {
@@ -303,9 +357,13 @@ impl EffectPass {
                 self.ibo.push(self.state.gen_ibo_sized(24));
             }
             let ibo = &self.ibo[self.pass];
-            let render_pass = (self.render_pass as *mut RenderPass).as_mut().expect("You need to call EffectPass::new_target() before rendering!");
+            let render_pass = (self.render_pass as *mut RenderPass)
+                .as_mut()
+                .expect("You need to call EffectPass::new_target() before rendering!");
 
-            self.state.queue.write_buffer(ibo, 0, EFFECT_INDICES.as_slice().cast_bytes());
+            self.state
+                .queue
+                .write_buffer(ibo, 0, EFFECT_INDICES.as_slice().cast_bytes());
 
             render_pass.set_pipeline(shader.get_pipeline());
             render_pass.set_bind_group(1, shader.get_uniforms(), &[]);
@@ -401,8 +459,12 @@ impl EBuffer {
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        self.read = self.read_texture.create_view(&TextureViewDescriptor::default());
-        self.write = self.write_texture.create_view(&TextureViewDescriptor::default());
+        self.read = self
+            .read_texture
+            .create_view(&TextureViewDescriptor::default());
+        self.write = self
+            .write_texture
+            .create_view(&TextureViewDescriptor::default());
     }
 
     pub(crate) fn swap(&mut self) {

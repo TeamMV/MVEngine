@@ -21,7 +21,8 @@ impl Camera2D {
             view: Mat4::default(),
             z_near: 0.0,
             z_far: 2000.0,
-        }.setup(width, height)
+        }
+        .setup(width, height)
     }
 
     pub(crate) fn get_view(&self) -> Mat4 {
@@ -36,11 +37,19 @@ impl Camera2D {
         self.view = Mat4::from_scale_rotation_translation(
             Vec3::new(self.zoom, self.zoom, self.zoom),
             Quat::from_rotation_z(self.rotation),
-            Vec3::from((self.position, 0.0)));
+            Vec3::from((self.position, 0.0)),
+        );
     }
 
     pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
-        self.projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, self.z_near, self.z_far);
+        self.projection = Mat4::orthographic_lh(
+            0.0,
+            width as f32,
+            0.0,
+            height as f32,
+            self.z_near,
+            self.z_far,
+        );
     }
 
     fn setup(mut self, width: u32, height: u32) -> Self {
@@ -59,7 +68,7 @@ pub struct Camera3D {
     view: Mat4,
     pub(crate) z_near: f32,
     pub(crate) z_far: f32,
-    pub(crate) fov: f32
+    pub(crate) fov: f32,
 }
 
 impl Camera3D {
@@ -72,8 +81,9 @@ impl Camera3D {
             view: Mat4::default(),
             z_near: 0.0,
             z_far: 2000.0,
-            fov: std::f32::consts::FRAC_PI_4
-        }.setup(width, height)
+            fov: std::f32::consts::FRAC_PI_4,
+        }
+        .setup(width, height)
     }
 
     pub(crate) fn get_view(&self) -> Mat4 {
@@ -83,8 +93,14 @@ impl Camera3D {
     pub(crate) fn update_view(&mut self) {
         self.view = Mat4::from_scale_rotation_translation(
             Vec3::new(self.zoom, self.zoom, self.zoom),
-            Quat::from_euler(EulerRot::XYZ, self.rotation.x, self.rotation.y, self.rotation.z),
-            self.position);
+            Quat::from_euler(
+                EulerRot::XYZ,
+                self.rotation.x,
+                self.rotation.y,
+                self.rotation.z,
+            ),
+            self.position,
+        );
     }
 
     pub(crate) fn get_projection(&self) -> Mat4 {
@@ -92,7 +108,12 @@ impl Camera3D {
     }
 
     pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
-        self.projection = Mat4::perspective_lh(self.fov, width as f32 / height as f32, self.z_near, self.z_far);
+        self.projection = Mat4::perspective_lh(
+            self.fov,
+            width as f32 / height as f32,
+            self.z_near,
+            self.z_far,
+        );
     }
 
     fn setup(mut self, width: u32, height: u32) -> Self {

@@ -2,17 +2,17 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
-use mvutils::utils::{TetrahedronOp, RcMut};
+use mvutils::utils::{RcMut, TetrahedronOp};
 
 use crate::old_render::camera::{Camera2D, Camera3D};
 use crate::old_render::draw::Draw2D;
 use crate::old_render::lights::Light;
-use crate::old_render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
-#[cfg(feature = "vulkan")]
-use crate::old_render::vulkan::vulkan::*;
 #[cfg(feature = "3d")]
 use crate::old_render::model::Material;
 use crate::old_render::model::Model;
+use crate::old_render::opengl::opengl::{OpenGLShader, OpenGLTexture, OpenGLWindow};
+#[cfg(feature = "vulkan")]
+use crate::old_render::vulkan::vulkan::*;
 
 pub trait ApplicationLoop {
     fn start(&mut self, window: RunningWindow);
@@ -24,7 +24,7 @@ pub trait ApplicationLoop {
 struct DefaultApplicationLoop;
 
 impl ApplicationLoop for DefaultApplicationLoop {
-    fn start(&mut self, _:RunningWindow) {}
+    fn start(&mut self, _: RunningWindow) {}
     fn update(&mut self, _: RunningWindow) {}
     fn draw(&mut self, _: RunningWindow) {}
     fn stop(&mut self, _: RunningWindow) {}
@@ -343,7 +343,7 @@ impl Default for WindowCreateInfo {
 pub enum Shader {
     OpenGL(OpenGLShader),
     #[cfg(feature = "vulkan")]
-    Vulkan(VulkanShader)
+    Vulkan(VulkanShader),
 }
 
 impl Shader {
@@ -385,7 +385,7 @@ impl Shader {
 pub enum EffectShader {
     OpenGL(OpenGLShader),
     #[cfg(feature = "vulkan")]
-    Vulkan(VulkanShader)
+    Vulkan(VulkanShader),
 }
 
 impl EffectShader {
@@ -427,7 +427,7 @@ impl EffectShader {
 pub enum Texture {
     OpenGL(OpenGLTexture),
     #[cfg(feature = "vulkan")]
-    Vulkan(VulkanTexture)
+    Vulkan(VulkanTexture),
 }
 
 impl Texture {
@@ -447,7 +447,7 @@ pub struct TextureRegion {
     y: u32,
     width: u32,
     height: u32,
-    uv: [f32; 4]
+    uv: [f32; 4],
 }
 
 impl TextureRegion {
@@ -460,7 +460,7 @@ impl TextureRegion {
             y,
             width,
             height,
-            uv: [x as f32 / w, (x + width) as f32 / w, y as f32 / h, (y + height) as f32 / h]
+            uv: [x as f32 / w, (x + width) as f32 / w, y as f32 / h, (y + height) as f32 / h],
         }
     }
 

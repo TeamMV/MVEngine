@@ -1,11 +1,9 @@
-use alloc::rc::Rc;
-use std::ops::Deref;
 use std::sync::Arc;
 
-use mvutils::screen::{Measurement};
+use mvutils::screen::Measurement;
 use mvutils::utils::Percentage;
 
-use crate::gui::components::{GuiElement, GuiElementInfo};
+use crate::gui::components::GuiElement;
 use crate::gui::ease::Easing;
 use crate::render::color::{Gradient, RGB};
 use crate::render::draw2d::CanvasStyle;
@@ -70,7 +68,7 @@ pub struct GuiStyle {
     pub scrollbar_width: GuiValue<i32>,
     pub scrollbar_mode: GuiValue<ScrollbarMode>,
     pub scrollbar_leave_easing_func: GuiValue<Easing>,
-    pub scroll_easing_func: GuiValue<Easing>
+    pub scroll_easing_func: GuiValue<Easing>,
 }
 
 #[macro_export]
@@ -200,7 +198,7 @@ pub enum ViewState {
     #[default]
     Visible,
     Invisible,
-    Gone
+    Gone,
 }
 
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
@@ -215,7 +213,7 @@ pub enum BorderStyle {
     #[default]
     Square,
     Round,
-    Triangle
+    Triangle,
 }
 
 impl BorderStyle {
@@ -224,7 +222,7 @@ impl BorderStyle {
             BorderStyle::Square => CanvasStyle::Square,
             BorderStyle::Round => CanvasStyle::Round,
             BorderStyle::Triangle => CanvasStyle::Triangle,
-        }
+        };
     }
 }
 
@@ -234,7 +232,7 @@ pub enum Origin {
     BottomLeft,
     BottomRight,
     TopLeft,
-    TopRight
+    TopRight,
 }
 
 impl Origin {
@@ -260,7 +258,7 @@ pub enum VerticalAlign {
     #[default]
     Top,
     Bottom,
-    Center
+    Center,
 }
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
@@ -268,7 +266,7 @@ pub enum HorizontalAlign {
     #[default]
     Left,
     Right,
-    Center
+    Center,
 }
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
@@ -277,7 +275,7 @@ pub enum Scroll {
     Vertical,
     Horizontal,
     Both,
-    None
+    None,
 }
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
@@ -285,14 +283,14 @@ pub enum Overflow {
     #[default]
     Cut,
     Clamp,
-    Ignore
+    Ignore,
 }
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Size {
     #[default]
     Content,
-    Fixed
+    Fixed,
 }
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
@@ -325,15 +323,24 @@ pub trait GuiValueValue<T> {
 
 impl GuiValueValue<(i32, i32)> for (i32, i32) {
     fn compute_measurement(&self, dpi: f32, mes: &Measurement) -> (i32, i32) {
-        (mes.compute(dpi, self.0 as f32) as i32, mes.compute(dpi, self.1 as f32) as i32)
+        (
+            mes.compute(dpi, self.0 as f32) as i32,
+            mes.compute(dpi, self.1 as f32) as i32,
+        )
     }
 
     fn compute_percentage_value(&self, total: (i32, i32), percentage: u8) -> (i32, i32) {
-        ((percentage as f32).value(total.0 as f32) as i32, (percentage as f32).value(total.1 as f32) as i32)
+        (
+            (percentage as f32).value(total.0 as f32) as i32,
+            (percentage as f32).value(total.1 as f32) as i32,
+        )
     }
 
     fn compute_percentage_value_self(&self, percentage: u8) -> (i32, i32) {
-        ((percentage as f32).value(self.0 as f32) as i32, (percentage as f32).value(self.1 as f32) as i32)
+        (
+            (percentage as f32).value(self.0 as f32) as i32,
+            (percentage as f32).value(self.1 as f32) as i32,
+        )
     }
 }
 
@@ -397,15 +404,12 @@ impl_unreachable_gvv!(
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,
-    pub parent: Option<Arc<GuiElement>>
+    pub parent: Option<Arc<GuiElement>>,
 }
 
 impl GuiValueComputeSupply {
     pub fn new(dpi: f32, parent: Option<Arc<GuiElement>>) -> Self {
-        GuiValueComputeSupply {
-            dpi,
-            parent
-        }
+        GuiValueComputeSupply { dpi, parent }
     }
 
     fn get_dpi(&self) -> f32 {
@@ -423,18 +427,38 @@ pub enum GuiValue<T: Clone + GuiValueValue<T>> {
     Percentage(T, u8),
     ParentPercentage(u8),
     Inherit(),
-    Clone(&'static GuiStyle)
+    Clone(&'static GuiStyle),
 }
 
 impl<T: Clone + GuiValueValue<T>> GuiValue<T> {
-    pub fn unwrap<F>(&self, compute_supply: &GuiValueComputeSupply, mut resolve_supply: F) -> T where F: FnMut(&GuiStyle) -> &GuiValue<T> {
+    pub fn unwrap<F>(&self, compute_supply: &GuiValueComputeSupply, mut resolve_supply: F) -> T
+    where
+        F: FnMut(&GuiStyle) -> &GuiValue<T>,
+    {
         match self {
-            GuiValue::Just(t) => {t.clone()},
-            GuiValue::Measurement(t, mes) => {t.compute_measurement(compute_supply.get_dpi(), mes)},
-            GuiValue::Percentage(t, perc) => {t.compute_percentage_value(t.clone(), perc.clone())},
-            GuiValue::ParentPercentage(p) => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'ParentPercentage' on element without parent!").info().style).unwrap(compute_supply, resolve_supply).compute_percentage_value_self(p.clone())}
-            GuiValue::Inherit() => {resolve_supply(&compute_supply.get_parent().clone().expect("Set 'Inherit' on element without parent!").info().style).unwrap(compute_supply, resolve_supply)},
-            GuiValue::Clone(other) => {resolve_supply(other).unwrap(compute_supply, resolve_supply)}
+            GuiValue::Just(t) => t.clone(),
+            GuiValue::Measurement(t, mes) => t.compute_measurement(compute_supply.get_dpi(), mes),
+            GuiValue::Percentage(t, perc) => t.compute_percentage_value(t.clone(), perc.clone()),
+            GuiValue::ParentPercentage(p) => resolve_supply(
+                &compute_supply
+                    .get_parent()
+                    .clone()
+                    .expect("Set 'ParentPercentage' on element without parent!")
+                    .info()
+                    .style,
+            )
+            .unwrap(compute_supply, resolve_supply)
+            .compute_percentage_value_self(p.clone()),
+            GuiValue::Inherit() => resolve_supply(
+                &compute_supply
+                    .get_parent()
+                    .clone()
+                    .expect("Set 'Inherit' on element without parent!")
+                    .info()
+                    .style,
+            )
+            .unwrap(compute_supply, resolve_supply),
+            GuiValue::Clone(other) => resolve_supply(other).unwrap(compute_supply, resolve_supply),
         }
     }
 }
@@ -447,8 +471,8 @@ impl<T: Clone + GuiValueValue<T>> Clone for GuiValue<T> {
             GuiValue::Percentage(t, perc) => GuiValue::Percentage(t.clone(), *perc),
             GuiValue::ParentPercentage(p) => GuiValue::ParentPercentage(*p),
             GuiValue::Inherit() => GuiValue::Inherit(),
-            GuiValue::Clone(other) => GuiValue::Clone(other)
-        }
+            GuiValue::Clone(other) => GuiValue::Clone(other),
+        };
     }
 }
 
@@ -463,9 +487,15 @@ impl<T: Default + Clone + GuiValueValue<T>> Default for GuiValue<T> {
 #[macro_export]
 macro_rules! resolve {
     ($info:expr, $prop:ident) => {
-        $info.style.$prop.unwrap(&$info.compute_supply, |s| {&s.$prop})
+        $info
+            .style
+            .$prop
+            .unwrap(&$info.compute_supply, |s| &s.$prop)
     };
     ($info:ident, $prop:ident) => {
-        $info.style.$prop.unwrap(&$info.compute_supply, |s| {&s.$prop})
+        $info
+            .style
+            .$prop
+            .unwrap(&$info.compute_supply, |s| &s.$prop)
     };
 }

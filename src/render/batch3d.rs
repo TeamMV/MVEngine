@@ -1,12 +1,9 @@
-use std::ops::{DerefMut, IndexMut};
 use std::sync::Arc;
 
-use glam::{Mat4, Vec2, Vec4};
-use mvutils::utils::TetrahedronOp;
-use crate::render::camera::Camera3D;
-use crate::render::common3d::{Model, ModelArray};
+use glam::Mat4;
+
 use crate::render::common::Texture;
-use crate::render::consts;
+use crate::render::common3d::{Model, ModelArray};
 use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_BATCH_SIZE_FLOATS};
 use crate::render::init::PipelineBuilder;
 use crate::render::render3d::RenderPass3D;
@@ -14,7 +11,7 @@ use crate::render::render3d::RenderPass3D;
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum BatchType3D {
     Regular,
-    Stripped
+    Stripped,
 }
 
 trait BatchGen {
@@ -112,7 +109,7 @@ impl Batch3D {
             obj_count: 0,
             next_tex: 0,
             full: false,
-            full_tex: false
+            full_tex: false,
         }
     }
 
@@ -159,9 +156,9 @@ impl Batch3D {
             return 0;
         }
 
-        for i in 0.. *MAX_TEXTURES {
+        for i in 0..*MAX_TEXTURES {
             if let Some(tex) = &self.textures[i] {
-                if tex.borrow().get_id() == texture.borrow().get_id() {
+                if tex.get_id() == texture.get_id() {
                     return i as u32 + 1;
                 }
             }
@@ -171,16 +168,14 @@ impl Batch3D {
         self.tex_ids[self.next_tex as usize] = self.next_tex;
         self.next_tex += 1;
 
-        if self.next_tex > *MAX_TEXTURES as u32{
+        if self.next_tex > *MAX_TEXTURES as u32 {
             self.full_tex = true;
         }
 
         self.next_tex
     }
 
-    fn push_model(&mut self, model: Model, canvas: [f32; 6], model_matrix: Mat4) {
-
-    }
+    fn push_model(&mut self, model: Model, canvas: [f32; 6], model_matrix: Mat4) {}
 
     fn batch_type(&self) -> BatchType3D {
         self.generator.batch_type()
@@ -190,43 +185,49 @@ impl Batch3D {
 enum RenderType3D {
     Batch(Batch3D),
     Model(Model),
-    ModelArray(ModelArray)
+    ModelArray(ModelArray),
 }
 
 impl RenderType3D {
     fn is_model(&self) -> bool {
         match self {
             RenderType3D::Model(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     fn is_batch(&self) -> bool {
         match self {
             RenderType3D::Batch(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     fn get_model(&mut self) -> &mut Model {
         match self {
             RenderType3D::Model(model) => model,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
     fn get_batch(&mut self) -> &mut Batch3D {
         match self {
             RenderType3D::Batch(batch) => batch,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
     fn render(&self, processor: &impl RenderPass3D) {
         match self {
-            RenderType3D::Batch(batch) => processor.render_batch(&batch.indices, &batch.data, &batch.textures, &batch.transformations),
-            RenderType3D::Model(model) => processor.render_model(),
-            RenderType3D::ModelArray(array) => processor.render_model_instanced()
+            RenderType3D::Batch(batch) => processor.render_batch(
+                &batch.indices,
+                &batch.data,
+                &batch.textures,
+                &batch.transformations,
+            ),
+            //RenderType3D::Model(model) => processor.render_model(),
+            //RenderType3D::ModelArray(array) => processor.render_model_instanced(),
+            _ => {}
         }
     }
 
@@ -240,14 +241,14 @@ impl RenderType3D {
     fn can_hold(&self, vertices: u32, textures: u32) -> bool {
         match self {
             RenderType3D::Batch(batch) => batch.can_hold(vertices, textures),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
     fn is_empty(&self) -> bool {
         match self {
             RenderType3D::Batch(batch) => batch.is_empty(),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -261,7 +262,7 @@ pub(crate) union Vertex3D {
 impl Vertex3D {
     pub fn new() -> Self {
         Vertex3D {
-            data: [0.0; VERTEX_3D_BATCH_SIZE_FLOATS]
+            data: [0.0; VERTEX_3D_BATCH_SIZE_FLOATS],
         }
     }
 
@@ -269,15 +270,37 @@ impl Vertex3D {
         self.data = data;
     }
 
-    pub(crate) fn set_data(&mut self, x: f32, y: f32, z: f32, nx: f32, ny: f32, nz: f32, ux: f32, uy: f32, material_id: u16, canvas: [f32; 6], model_matrix: u32) {
-        self.set([x, y, z, nx, ny, nz, ux, uy, material_id as f32,
+    pub(crate) fn set_data(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        nx: f32,
+        ny: f32,
+        nz: f32,
+        ux: f32,
+        uy: f32,
+        material_id: u16,
+        canvas: [f32; 6],
+        model_matrix: u32,
+    ) {
+        self.set([
+            x,
+            y,
+            z,
+            nx,
+            ny,
+            nz,
+            ux,
+            uy,
+            material_id as f32,
             canvas[0],
             canvas[1],
             canvas[2],
             canvas[3],
             canvas[4],
             canvas[5],
-            model_matrix as f32
+            model_matrix as f32,
         ]);
     }
 }
@@ -312,8 +335,12 @@ impl BatchController3D {
 
     fn gen_batch(&self, batch_type: BatchType3D) -> RenderType3D {
         match batch_type {
-            BatchType3D::Regular => RenderType3D::Batch(Batch3D::new(self.batch_limit, RegularBatch)),
-            BatchType3D::Stripped =>RenderType3D::Batch(Batch3D::new(self.batch_limit, StrippedBatch))
+            BatchType3D::Regular => {
+                RenderType3D::Batch(Batch3D::new(self.batch_limit, RegularBatch))
+            }
+            BatchType3D::Stripped => {
+                RenderType3D::Batch(Batch3D::new(self.batch_limit, StrippedBatch))
+            }
         }
     }
 
@@ -322,12 +349,11 @@ impl BatchController3D {
             if batch_type == BatchType3D::Stripped {
                 self.advance(batch_type);
                 return;
-            }
-            else {
-                if self.previous >= 0 {
-                    if self.batches[self.previous as usize].can_hold(vertices, textures) {
-                        return;
-                    }
+            } else {
+                if self.previous >= 0
+                    && self.batches[self.previous as usize].can_hold(vertices, textures)
+                {
+                    return;
                 }
                 self.current += 1;
                 self.previous = self.current as i32;
@@ -338,15 +364,14 @@ impl BatchController3D {
         match batch_type {
             BatchType3D::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous >= 0 {
-                        if self.batches[self.previous as usize].can_hold(vertices, textures) {
-                            return;
-                        }
+                    if self.previous >= 0
+                        && self.batches[self.previous as usize].can_hold(vertices, textures)
+                    {
+                        return;
                     }
                     self.advance(batch_type);
                     self.previous = self.current as i32;
-                }
-                else {
+                } else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         return;
                     }
@@ -355,10 +380,10 @@ impl BatchController3D {
                 }
             }
             BatchType3D::Stripped => {
-                if self.batches[self.current as usize].batch_type() == batch_type {
-                    if self.batches[self.current as usize].is_empty() {
-                        return;
-                    }
+                if self.batches[self.current as usize].batch_type() == batch_type
+                    && self.batches[self.current as usize].is_empty()
+                {
+                    return;
                 }
                 self.advance(batch_type);
             }
@@ -381,8 +406,7 @@ impl BatchController3D {
         self.current += 1;
         if self.batches.len() > self.current as usize {
             self.batches[self.current as usize] = model;
-        }
-        else {
+        } else {
             self.batches.push(model);
         }
     }
@@ -393,7 +417,7 @@ impl BatchController3D {
         //    self.batches[self.current as usize].get_batch().push_model(model, canvas, model_matrix);
         //}
         //else {
-            self.push_model(model, canvas, model_matrix);
+        self.push_model(model, canvas, model_matrix);
         //}
     }
 

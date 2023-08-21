@@ -50,7 +50,7 @@ pub struct Camera3D {
     projection: Mat4,
     pub z_near: f32,
     pub z_far: f32,
-    pub fov: f32
+    pub fov: f32,
 }
 
 impl Default for Camera3D {
@@ -68,7 +68,7 @@ impl Camera3D {
             projection: Mat4::default(),
             z_near: 0.1,
             z_far: 2000.0,
-            fov: std::f32::consts::FRAC_PI_4
+            fov: std::f32::consts::FRAC_PI_4,
         }
     }
 

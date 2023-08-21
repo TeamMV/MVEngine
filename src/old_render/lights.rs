@@ -1,4 +1,5 @@
 use glam::Vec3;
+
 use crate::old_render::color::{Color, RGB};
 
 pub struct Light {

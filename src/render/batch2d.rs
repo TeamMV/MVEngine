@@ -5,14 +5,17 @@ use mvutils::utils::TetrahedronOp;
 
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::consts::{INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERT_LIMIT, VERT_LIMIT_2D_FLOATS, VERTEX_2D_SIZE_FLOATS};
+use crate::render::consts::{
+    INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_2D_SIZE_FLOATS, VERT_LIMIT,
+    VERT_LIMIT_2D_FLOATS,
+};
 use crate::render::init::PipelineBuilder;
-use crate::render::render::RenderPass2D;
+use crate::render::render2d::RenderPass2D;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum BatchType {
     Regular,
-    Stripped
+    Stripped,
 }
 
 trait BatchGen {
@@ -32,14 +35,14 @@ impl BatchGen for RegularBatch {
 
     fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
         if amt == 4 {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6) as usize, offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 3) as usize, offset * 4);
             indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
             indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
         } else {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6) as usize, offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
             indices.insert((offset * 6 + 3) as usize, 0);
@@ -60,14 +63,14 @@ impl BatchGen for StrippedBatch {
 
     fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
         if amt == 4 {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6) as usize, offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0 + offset * 4);
+            indices.insert((offset * 6 + 3) as usize, offset * 4);
             indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
             indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
         } else {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
+            indices.insert((offset * 6) as usize, offset * 4);
             indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
             indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
             indices.insert((offset * 6 + 3) as usize, 0);
@@ -150,13 +153,17 @@ impl Batch2D {
 
     fn add_vertex(&mut self, vertex: &Vertex2D) {
         for i in 0..VERTEX_2D_SIZE_FLOATS {
-            self.data.insert(i as usize + (self.vert_count * VERTEX_2D_SIZE_FLOATS as u32) as usize, vertex.data[i as usize]);
+            self.data.insert(
+                i + (self.vert_count * VERTEX_2D_SIZE_FLOATS as u32) as usize,
+                vertex.data[i],
+            );
         }
         self.vert_count += 1;
     }
 
     fn end_fan(&mut self) {
-        self.generator.gen_indices(self.vert_count as u16, 0, &mut self.indices);
+        self.generator
+            .gen_indices(self.vert_count as u16, 0, &mut self.indices);
     }
 
     fn add_vertices(&mut self, vertices: &VertexGroup<Vertex2D>) {
@@ -164,7 +171,8 @@ impl Batch2D {
             return;
         }
 
-        self.generator.gen_indices(vertices.len as u16, self.obj_count, &mut self.indices);
+        self.generator
+            .gen_indices(vertices.len as u16, self.obj_count, &mut self.indices);
 
         for i in 0..vertices.len {
             self.add_vertex(vertices.get(i));
@@ -209,9 +217,14 @@ impl Batch2D {
     }
 
     fn render(&mut self, render_pass: &mut RenderPass2D) {
-        render_pass.render(self.indices.as_slice(), self.data.as_slice(), &self.textures, (self.generator.get_render_mode() == PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP).yn(true, false));
+        render_pass.render(
+            self.indices.as_slice(),
+            self.data.as_slice(),
+            &self.textures,
+            (self.generator.get_render_mode() == PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
+                .yn(true, false),
+        );
         self.force_clear();
-
     }
 
     fn batch_type(&self) -> BatchType {
@@ -221,30 +234,131 @@ impl Batch2D {
 
 //data storage
 
-pub(crate) union Vertex2D {
+pub(crate) struct Vertex2D {
     data: [f32; VERTEX_2D_SIZE_FLOATS],
 }
 
 #[allow(clippy::too_many_arguments)]
 impl Vertex2D {
     pub(crate) fn new() -> Self {
-        Vertex2D { data: [0.0; VERTEX_2D_SIZE_FLOATS] }
+        Vertex2D {
+            data: [0.0; VERTEX_2D_SIZE_FLOATS],
+        }
     }
 
     pub(crate) fn set(&mut self, data: [f32; VERTEX_2D_SIZE_FLOATS]) {
         self.data = data;
     }
 
-    pub(crate) fn set_data(&mut self, x: f32, y: f32, z: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>, canvas: [f32; 6], cam: bool) {
-        self.set([x, y, z, rot, rx, ry, col.r(), col.g(), col.b(), col.a(), 0.0, 0.0, 0.0, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    pub(crate) fn set_data(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        rot: f32,
+        rx: f32,
+        ry: f32,
+        col: Color<RGB, f32>,
+        canvas: [f32; 6],
+        cam: bool,
+    ) {
+        self.set([
+            x,
+            y,
+            z,
+            rot,
+            rx,
+            ry,
+            col.r(),
+            col.g(),
+            col.b(),
+            col.a(),
+            0.0,
+            0.0,
+            0.0,
+            canvas[0],
+            canvas[1],
+            canvas[2],
+            canvas[3],
+            canvas[4],
+            canvas[5],
+            cam.yn(1.0, 0.0),
+        ]);
     }
 
-    pub(crate) fn set_texture_data(&mut self, x: f32, y: f32, z: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: u32, canvas: [f32; 6], cam: bool) {
-        self.set([x, y, z, rot, rx, ry, col.r(), col.g(), col.b(), col.a(), ux, uy, tex as f32, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    pub(crate) fn set_texture_data(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        rot: f32,
+        rx: f32,
+        ry: f32,
+        col: Color<RGB, f32>,
+        ux: f32,
+        uy: f32,
+        tex: u32,
+        canvas: [f32; 6],
+        cam: bool,
+    ) {
+        self.set([
+            x,
+            y,
+            z,
+            rot,
+            rx,
+            ry,
+            col.r(),
+            col.g(),
+            col.b(),
+            col.a(),
+            ux,
+            uy,
+            tex as f32,
+            canvas[0],
+            canvas[1],
+            canvas[2],
+            canvas[3],
+            canvas[4],
+            canvas[5],
+            cam.yn(1.0, 0.0),
+        ]);
     }
 
-    pub(crate) fn set_norot_texture_data(&mut self, x: f32, y: f32, z: f32, col: Color<RGB, f32>, ux: f32, uy: f32, tex: u32, canvas: [f32; 6], cam: bool) {
-        self.set([x, y, z, 0.0, 0.0, 0.0, col.r(), col.g(), col.b(), col.a(), ux, uy, tex as f32, canvas[0], canvas[1], canvas[2], canvas[3], canvas[4], canvas[5], cam.yn(1.0, 0.0)]);
+    pub(crate) fn set_norot_texture_data(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        col: Color<RGB, f32>,
+        ux: f32,
+        uy: f32,
+        tex: u32,
+        canvas: [f32; 6],
+        cam: bool,
+    ) {
+        self.set([
+            x,
+            y,
+            z,
+            0.0,
+            0.0,
+            0.0,
+            col.r(),
+            col.g(),
+            col.b(),
+            col.a(),
+            ux,
+            uy,
+            tex as f32,
+            canvas[0],
+            canvas[1],
+            canvas[2],
+            canvas[3],
+            canvas[4],
+            canvas[5],
+            cam.yn(1.0, 0.0),
+        ]);
     }
 
     fn z(&self, z: f32) {
@@ -301,7 +415,7 @@ pub(crate) struct BatchController2D {
     batches: Vec<Batch2D>,
     current: u32,
     previous_regular: i32,
-    z: f32
+    z: f32,
 }
 
 impl BatchController2D {
@@ -327,14 +441,15 @@ impl BatchController2D {
         match batch_type {
             BatchType::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous_regular >= 0 && self.batches[self.previous_regular as usize].can_hold(vertices, textures) {
+                    if self.previous_regular >= 0
+                        && self.batches[self.previous_regular as usize].can_hold(vertices, textures)
+                    {
                         self.inc_z();
                         return;
                     }
                     self.advance(batch_type);
                     self.previous_regular = self.current as i32;
-                }
-                else {
+                } else {
                     if self.batches[self.current as usize].can_hold(vertices, textures) {
                         self.inc_z();
                         self.previous_regular = self.current as i32;
@@ -345,7 +460,9 @@ impl BatchController2D {
                 }
             }
             BatchType::Stripped => {
-                if self.batches[self.current as usize].batch_type() == batch_type && self.batches[self.current as usize].is_empty() {
+                if self.batches[self.current as usize].batch_type() == batch_type
+                    && self.batches[self.current as usize].is_empty()
+                {
                     return;
                 }
                 self.advance(batch_type);
@@ -407,8 +524,7 @@ impl BatchController2D {
     pub(crate) fn add_texture_stripped(&mut self, texture: Arc<Texture>) -> u32 {
         if self.batches[self.current as usize].batch_type() == BatchType::Stripped {
             self.batches[self.current as usize].add_texture(texture)
-        }
-        else {
+        } else {
             0
         }
     }

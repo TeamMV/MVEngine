@@ -1,10 +1,10 @@
-use alloc::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::io::Read;
 use std::ops::DerefMut;
 use std::sync::Arc;
+
+use alloc::rc::Rc;
 use glam::{Mat2, Mat3, Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{CLIENT_API, DECORATED, FALSE, glfwCreateWindow, glfwDefaultWindowHints, glfwDestroyWindow, glfwGetPrimaryMonitor, glfwGetVideoMode, glfwGetWindowPos, glfwMakeContextCurrent, glfwPollEvents, glfwSetWindowMonitor, glfwSetWindowShouldClose, glfwSetWindowSizeCallback, glfwShowWindow, glfwSwapBuffers, glfwSwapInterval, GLFWwindow, glfwWindowHint, glfwWindowShouldClose, NO_API, RESIZABLE, TRUE, VISIBLE};
 use glsl_to_spirv::ShaderType;
@@ -12,11 +12,12 @@ use mvutils::utils::{AsCStr, TetrahedronOp, Time};
 use once_cell::sync::Lazy;
 use vulkano::device::Device;
 use vulkano::shader::ShaderModule;
+
 use crate::ApplicationInfo;
 use crate::assets::{ReadableAssetManager, SemiAutomaticAssetManager};
+use crate::old_render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
 use crate::old_render::camera::Camera;
 use crate::old_render::draw::Draw2D;
-use crate::old_render::{EFFECT_VERT, EMPTY_EFFECT_FRAG, glfwFreeCallbacks, load_render_assets, RenderCore};
 use crate::old_render::shared::{ApplicationLoop, EffectShader, RenderProcessor2D, RunningWindow, Shader, ShaderPassInfo, Texture, Window, WindowCreateInfo};
 use crate::old_render::vulkan::internal::Vulkan;
 use crate::resource_loader::ResourceLoader;
@@ -63,7 +64,7 @@ pub struct VulkanWindow {
 
     camera: Camera,
 
-    res: (i32, i32)
+    res: (i32, i32),
 }
 
 impl VulkanWindow {
@@ -377,7 +378,7 @@ impl VulkanShader {
                 .bytes()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         ).expect("Vertex shader failed to compile!"));
 
         self.fragment = Some(ShaderModule::from_bytes(
@@ -387,7 +388,7 @@ impl VulkanShader {
                 .bytes()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         ).expect("Fragment shader failed to compile!"));
     }
 
@@ -400,45 +401,25 @@ impl VulkanShader {
 
     pub unsafe fn bind(&mut self) {}
 
-    pub unsafe fn uniform_1f(&self, name: &str, value: f32) {
+    pub unsafe fn uniform_1f(&self, name: &str, value: f32) {}
 
-    }
+    pub unsafe fn uniform_1i(&self, name: &str, value: i32) {}
 
-    pub unsafe fn uniform_1i(&self, name: &str, value: i32) {
+    pub unsafe fn uniform_fv(&self, name: &str, value: &[f32]) {}
 
-    }
+    pub unsafe fn uniform_iv(&self, name: &str, value: &[i32]) {}
 
-    pub unsafe fn uniform_fv(&self, name: &str, value: &[f32]) {
+    pub unsafe fn uniform_2fv(&self, name: &str, value: Vec2) {}
 
-    }
+    pub unsafe fn uniform_3fv(&self, name: &str, value: Vec3) {}
 
-    pub unsafe fn uniform_iv(&self, name: &str, value: &[i32]) {
+    pub unsafe fn uniform_4fv(&self, name: &str, value: Vec4) {}
 
-    }
+    pub unsafe fn uniform_2fm(&self, name: &str, value: Mat2) {}
 
-    pub unsafe fn uniform_2fv(&self, name: &str, value: Vec2) {
+    pub unsafe fn uniform_3fm(&self, name: &str, value: Mat3) {}
 
-    }
-
-    pub unsafe fn uniform_3fv(&self, name: &str, value: Vec3) {
-
-    }
-
-    pub unsafe fn uniform_4fv(&self, name: &str, value: Vec4) {
-
-    }
-
-    pub unsafe fn uniform_2fm(&self, name: &str, value: Mat2) {
-
-    }
-
-    pub unsafe fn uniform_3fm(&self, name: &str, value: Mat3) {
-
-    }
-
-    pub unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {
-
-    }
+    pub unsafe fn uniform_4fm(&self, name: &str, value: Mat4) {}
 }
 
 pub struct VulkanTexture {
@@ -456,17 +437,11 @@ impl VulkanTexture {
         }
     }
 
-    pub unsafe fn make(&mut self) {
+    pub unsafe fn make(&mut self) {}
 
-    }
+    pub unsafe fn bind(&mut self, index: u8) {}
 
-    pub unsafe fn bind(&mut self, index: u8) {
-
-    }
-
-    pub unsafe fn unbind(&mut self) {
-
-    }
+    pub unsafe fn unbind(&mut self) {}
 
     pub fn get_width(&self) -> u32 {
         0
@@ -486,7 +461,7 @@ pub struct VulkanRenderProcessor2D {
     width: i32,
     height: i32,
     camera: Option<Camera>,
-    vulkan: *mut Vulkan
+    vulkan: *mut Vulkan,
 }
 
 impl VulkanRenderProcessor2D {
@@ -496,7 +471,7 @@ impl VulkanRenderProcessor2D {
             width: 0,
             height: 0,
             camera: None,
-            vulkan: std::ptr::null_mut()
+            vulkan: std::ptr::null_mut(),
         }
     }
 

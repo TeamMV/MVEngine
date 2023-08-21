@@ -1,9 +1,11 @@
-use alloc::rc::Rc;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::os::raw::c_void;
+
+use alloc::rc::Rc;
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use mvutils::utils::RcMut;
+
 use crate::old_render::batch3d::batch_layout_3d;
 use crate::old_render::camera::{Camera2D, Camera3D};
 use crate::old_render::lights::Light;
@@ -102,7 +104,7 @@ pub(crate) struct OpenGLGeometryPass {
     height: i32,
     vbo: u32,
     ibo: u32,
-    camera: Option<Camera3D>
+    camera: Option<Camera3D>,
 }
 
 impl OpenGLGeometryPass {
@@ -207,7 +209,7 @@ impl RenderProcessor3D for OpenGLGeometryPass {
 
 pub(crate) struct OpenGLLightingPass {
     quad_indices: [u32; 6],
-    ibo: GLuint
+    ibo: GLuint,
 }
 
 impl OpenGLLightingPass {
