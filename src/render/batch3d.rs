@@ -350,7 +350,9 @@ impl BatchController3D {
                 self.advance(batch_type);
                 return;
             } else {
-                if self.previous >= 0 && self.batches[self.previous as usize].can_hold(vertices, textures) {
+                if self.previous >= 0
+                    && self.batches[self.previous as usize].can_hold(vertices, textures)
+                {
                     return;
                 }
                 self.current += 1;
@@ -362,7 +364,9 @@ impl BatchController3D {
         match batch_type {
             BatchType3D::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous >= 0 && self.batches[self.previous as usize].can_hold(vertices, textures) {
+                    if self.previous >= 0
+                        && self.batches[self.previous as usize].can_hold(vertices, textures)
+                    {
                         return;
                     }
                     self.advance(batch_type);
@@ -376,7 +380,9 @@ impl BatchController3D {
                 }
             }
             BatchType3D::Stripped => {
-                if self.batches[self.current as usize].batch_type() == batch_type && self.batches[self.current as usize].is_empty() {
+                if self.batches[self.current as usize].batch_type() == batch_type
+                    && self.batches[self.current as usize].is_empty()
+                {
                     return;
                 }
                 self.advance(batch_type);

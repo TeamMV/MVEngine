@@ -176,7 +176,6 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
         available_materials.insert(0, Material::default());
 
-
         todo!()
         //Model {
         //    mesh: Mesh {

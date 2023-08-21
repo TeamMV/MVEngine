@@ -55,9 +55,7 @@ impl Model {
     //}
 
     pub fn recalculate(&mut self) {
-        let mut iter = self
-            .materials
-            .iter();
+        let mut iter = self.materials.iter();
         iter.nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET);
         let mut iter = iter.step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
         while let Some(mat_id) = iter.next() {}
