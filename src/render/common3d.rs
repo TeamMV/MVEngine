@@ -27,39 +27,39 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn vertices_f32(&self) -> Vec<f32> {
-        let mut vec: Vec<f32> = vec![];
-        for vertex in self.mesh.vertices.iter() {
-            vec.push(vertex.x);
-            vec.push(vertex.y);
-            vec.push(vertex.z);
-        }
-        vec
-    }
+    //pub fn vertices_f32(&self) -> Vec<f32> {
+    //    let mut vec: Vec<f32> = vec![];
+    //    for vertex in self.mesh.vertices.iter() {
+    //        vec.push(vertex.x);
+    //        vec.push(vertex.y);
+    //        vec.push(vertex.z);
+    //    }
+    //    vec
+    //}
 
-    pub(crate) fn data_array(&self) -> Vec<f32> {
-        //pos, normal, uv, mat_id
-        let mut vec: Vec<f32> = vec![];
-        for m_data in self.mesh.enumerate() {
-            vec.push(m_data.1.x);
-            vec.push(m_data.1.y);
-            vec.push(m_data.1.z);
-            vec.push(m_data.2.x);
-            vec.push(m_data.2.y);
-            vec.push(m_data.2.z);
-            vec.push(m_data.3.x);
-            vec.push(m_data.3.y);
-            vec.push(m_data.4 as f32);
-        }
-        vec
-    }
+    //pub(crate) fn data_array(&self) -> Vec<f32> {
+    //    //pos, normal, uv, mat_id
+    //    let mut vec: Vec<f32> = vec![];
+    //    for m_data in self.mesh {
+    //        vec.push(m_data.1.x);
+    //        vec.push(m_data.1.y);
+    //        vec.push(m_data.1.z);
+    //        vec.push(m_data.2.x);
+    //        vec.push(m_data.2.y);
+    //        vec.push(m_data.2.z);
+    //        vec.push(m_data.3.x);
+    //        vec.push(m_data.3.y);
+    //        vec.push(m_data.4 as f32);
+    //    }
+    //    vec
+    //}
 
     pub fn recalculate(&mut self) {
         let mut iter = self
             .materials
-            .iter()
-            .nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET)
-            .step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
+            .iter();
+        iter.nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET);
+        let mut iter = iter.step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
         while let Some(mat_id) = iter.next() {}
     }
 }
@@ -70,19 +70,19 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub(crate) fn enumerate(&self) -> Vec<(usize, Vec3, Vec3, Vec2, u16)> {
-        let mut vec: Vec<(usize, Vec3, Vec3, Vec2, u16)> = vec![];
-        for i in 0..self.vertices.len() {
-            vec.push((
-                i,
-                self.vertices[i],
-                self.normals[i],
-                self.tex_coords[i],
-                self.materials[i],
-            ));
-        }
-        vec
-    }
+    //pub(crate) fn enumerate(&self) -> Vec<(usize, Vec3, Vec3, Vec2, u16)> {
+    //    let mut vec: Vec<(usize, Vec3, Vec3, Vec2, u16)> = vec![];
+    //    for i in 0..self.vertices.len() {
+    //        vec.push((
+    //            i,
+    //            self.vertices[i],
+    //            self.normals[i],
+    //            self.tex_coords[i],
+    //            self.materials[i],
+    //        ));
+    //    }
+    //    vec
+    //}
 }
 
 pub struct Material {
@@ -172,7 +172,7 @@ impl Default for Material {
 
 impl Model {
     pub fn vertex_count(&self) -> u32 {
-        self.mesh.vertices.len() as u32
+        todo!()
     }
 
     pub fn is_simple_geometry(&self) -> bool {

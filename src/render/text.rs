@@ -45,7 +45,7 @@ impl Font {
     pub(crate) fn get_glyph(&self, c: char) -> &Glyph {
         self.alphabet
             .get(&c)
-            .expect(format!("The char '{}' is not supported in this font!", c).as_str())
+            .unwrap_or_else(|| panic!("The char '{}' is not supported in this font!", c))
     }
 
     pub fn get_metrics(&self, string: &str) -> FontMetrics {
@@ -63,7 +63,7 @@ pub struct FontMetrics {
 
 impl FontMetrics {
     pub fn fits(&self, width: i32, height: i32) -> i32 {
-        0
+        todo!()
     }
 
     pub fn width(&self, height: i32) -> i32 {
@@ -186,20 +186,20 @@ impl FontLoader {
         fn get_attrib(line: &str, name: &str) -> String {
             let re = regex::Regex::new(r"\s+").unwrap();
             let l = re.replace_all(line, " ");
-            for attrib in l.split_whitespace().into_iter() {
+            for attrib in l.split_whitespace() {
                 if attrib.starts_with(name) {
-                    return attrib.split("=").nth(1).unwrap_or("0").to_string();
+                    return attrib.split('=').nth(1).unwrap_or("0").to_string();
                 }
             }
             "0".to_string()
         }
 
         let mut map = HashMap::new();
-        let lines = data.split("\n");
+        let lines = data.split('\n');
         let mut total_chars: u16 = 0;
         let mut atlas_width: u16 = 0;
         let mut atlas_height: u16 = 0;
-        let mut line_height: u8 = 0;
+        //let mut line_height: u8 = 0;
         let mut max_width = 0;
         let mut max_height = 0;
         let mut max_x_off = 0;
@@ -210,7 +210,7 @@ impl FontLoader {
                 total_chars = get_attrib(line, "count").parse::<u16>().unwrap();
             }
             if line.contains("common ") {
-                line_height = get_attrib(line, "lineHeight").parse::<u8>().unwrap();
+                //line_height = get_attrib(line, "lineHeight").parse::<u8>().unwrap();
                 atlas_width = get_attrib(line, "scaleW").parse::<u16>().unwrap();
                 atlas_height = get_attrib(line, "scaleH").parse::<u16>().unwrap();
             }

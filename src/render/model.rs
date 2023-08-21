@@ -176,17 +176,19 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
         available_materials.insert(0, Material::default());
 
-        Model {
-            mesh: Mesh {
-                name,
-                vertices,
-                indices,
-                normals,
-                tex_coords,
-                materials,
-            },
-            materials: available_materials,
-        }
+
+        todo!()
+        //Model {
+        //    mesh: Mesh {
+        //        name,
+        //        vertices,
+        //        indices,
+        //        normals,
+        //        tex_coords,
+        //        materials,
+        //    },
+        //    materials: available_materials,
+        //}
     }
 
     fn load_materials(
@@ -358,18 +360,20 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             }
 
             println!("{}", name);
-            let parsed_mesh = Mesh {
-                name,
-                vertices,
-                indices,
-                normals,
-                tex_coords,
-                materials: Vec::new(),
-            };
-            return Model {
-                mesh: parsed_mesh,
-                materials,
-            };
+
+            todo!()
+            //let parsed_mesh = Mesh {
+            //    name,
+            //    vertices,
+            //    indices,
+            //    normals,
+            //    tex_coords,
+            //    materials: Vec::new(),
+            //};
+            //return Model {
+            //    mesh: parsed_mesh,
+            //    materials,
+            //};
         }
 
         unreachable!()

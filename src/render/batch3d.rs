@@ -158,7 +158,7 @@ impl Batch3D {
 
         for i in 0..*MAX_TEXTURES {
             if let Some(tex) = &self.textures[i] {
-                if tex.borrow().get_id() == texture.borrow().get_id() {
+                if tex.get_id() == texture.get_id() {
                     return i as u32 + 1;
                 }
             }
@@ -225,8 +225,9 @@ impl RenderType3D {
                 &batch.textures,
                 &batch.transformations,
             ),
-            RenderType3D::Model(model) => processor.render_model(),
-            RenderType3D::ModelArray(array) => processor.render_model_instanced(),
+            //RenderType3D::Model(model) => processor.render_model(),
+            //RenderType3D::ModelArray(array) => processor.render_model_instanced(),
+            _ => {}
         }
     }
 
@@ -349,10 +350,8 @@ impl BatchController3D {
                 self.advance(batch_type);
                 return;
             } else {
-                if self.previous >= 0 {
-                    if self.batches[self.previous as usize].can_hold(vertices, textures) {
-                        return;
-                    }
+                if self.previous >= 0 && self.batches[self.previous as usize].can_hold(vertices, textures) {
+                    return;
                 }
                 self.current += 1;
                 self.previous = self.current as i32;
@@ -363,10 +362,8 @@ impl BatchController3D {
         match batch_type {
             BatchType3D::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
-                    if self.previous >= 0 {
-                        if self.batches[self.previous as usize].can_hold(vertices, textures) {
-                            return;
-                        }
+                    if self.previous >= 0 && self.batches[self.previous as usize].can_hold(vertices, textures) {
+                        return;
                     }
                     self.advance(batch_type);
                     self.previous = self.current as i32;
@@ -379,10 +376,8 @@ impl BatchController3D {
                 }
             }
             BatchType3D::Stripped => {
-                if self.batches[self.current as usize].batch_type() == batch_type {
-                    if self.batches[self.current as usize].is_empty() {
-                        return;
-                    }
+                if self.batches[self.current as usize].batch_type() == batch_type && self.batches[self.current as usize].is_empty() {
+                    return;
                 }
                 self.advance(batch_type);
             }

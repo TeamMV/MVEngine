@@ -31,7 +31,7 @@ use crate::render::draw2d::Draw2D;
 use crate::render::init::State;
 #[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
-use crate::render::render::{EBuffer, EffectPass, RenderPass2D};
+use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
 use crate::render::ApplicationLoopCallbacks;
 
@@ -179,6 +179,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             include_str!("shaders/default.vert"),
             include_str!("shaders/default.frag"),
         );
+        #[cfg(feature = "3d")]
         let deferred_shader = Shader::new_glsl(
             include_str!("shaders/deferred_geom.vert"),
             include_str!("shaders/deferred_geom.frag"),
@@ -359,7 +360,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     fn process_window_event(
         self: &Arc<Self>,
         event: WindowEvent,
-        id: WindowId,
+        _id: WindowId,
         control_flow: &mut ControlFlow,
     ) {
         match event {
@@ -369,40 +370,22 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                 self.resize(*new_inner_size);
             }
-            WindowEvent::Moved(pos) => {}
+            WindowEvent::Moved(_pos) => {}
             WindowEvent::CloseRequested => {
                 *control_flow = ControlFlow::Exit;
             }
-            WindowEvent::DroppedFile(path) => {}
-            WindowEvent::HoveredFile(path) => {}
+            WindowEvent::DroppedFile(_path) => {}
+            WindowEvent::HoveredFile(_path) => {}
             WindowEvent::HoveredFileCancelled => {}
-            WindowEvent::ReceivedCharacter(c) => {}
-            WindowEvent::Focused(focus) => {}
-            WindowEvent::KeyboardInput {
-                device_id,
-                input,
-                is_synthetic,
-            } => {}
-            WindowEvent::ModifiersChanged(mods) => {}
-            WindowEvent::CursorMoved {
-                device_id,
-                position,
-                ..
-            } => {}
-            WindowEvent::CursorEntered { device_id } => {}
-            WindowEvent::CursorLeft { device_id } => {}
-            WindowEvent::MouseWheel {
-                device_id,
-                delta,
-                phase,
-                ..
-            } => {}
-            WindowEvent::MouseInput {
-                device_id,
-                button,
-                state,
-                ..
-            } => {}
+            WindowEvent::ReceivedCharacter(_c) => {}
+            WindowEvent::Focused(_focus) => {}
+            WindowEvent::KeyboardInput { .. } => {}
+            WindowEvent::ModifiersChanged(_mods) => {}
+            WindowEvent::CursorMoved { .. } => {}
+            WindowEvent::CursorEntered { .. } => {}
+            WindowEvent::CursorLeft { .. } => {}
+            WindowEvent::MouseWheel { .. } => {}
+            WindowEvent::MouseInput { .. } => {}
             _ => {}
         }
     }
@@ -416,11 +399,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         self.state.get_mut().resize(size);
         self.effect_buffer
             .get_mut()
-            .resize(&self.state.get(), size.width, size.height);
+            .resize(self.state.get(), size.width, size.height);
 
         self.effect_pass
             .get_mut()
-            .rebind(&self.state.get(), self.effect_buffer.get());
+            .rebind(self.state.get(), self.effect_buffer.get());
 
         self.camera_2d
             .write()
@@ -594,7 +577,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     pub fn create_texture(self: &Arc<Self>, binary: Bytecode) -> Texture {
         let mut tex = Texture::new(binary);
-        tex.make(&self.state.get());
+        tex.make(self.state.get());
         tex
     }
 
@@ -610,30 +593,30 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         );
         match usage {
             ShaderUsage::Render2D => CreatedShader::Render2D(shader.setup_pipeline(
-                &self.state.get(),
+                self.state.get(),
                 VERTEX_LAYOUT_2D,
                 &[BIND_GROUP_2D, BIND_GROUP_TEXTURES],
             )),
             ShaderUsage::Render3D => CreatedShader::Render3D {
                 batch: shader.clone().setup_pipeline(
-                    &self.state.get(),
+                    self.state.get(),
                     VERTEX_LAYOUT_BATCH_3D,
                     &[BIND_GROUP_BATCH_3D],
                 ),
                 model: shader.setup_pipeline(
-                    &self.state.get(),
+                    self.state.get(),
                     VERTEX_LAYOUT_MODEL_3D,
                     &[BIND_GROUP_MODEL_3D],
                 ),
             },
             ShaderUsage::GeometryPass => CreatedShader::GeometryPass {
                 batch: shader.clone().setup_pipeline(
-                    &self.state.get(),
+                    self.state.get(),
                     VERTEX_LAYOUT_BATCH_3D,
                     &[BIND_GROUP_GEOMETRY_BATCH_3D],
                 ),
                 model: shader.setup_pipeline(
-                    &self.state.get(),
+                    self.state.get(),
                     VERTEX_LAYOUT_MODEL_3D,
                     &[BIND_GROUP_GEOMETRY_MODEL_3D],
                 ),
@@ -654,10 +637,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let shader = EffectShader::new(frag.compile(ShaderType::Fragment), size);
         match usage {
             EffectShaderUsage::LightingPass => CreatedShader::LightingPass(
-                shader.setup_pipeline(&self.state.get(), &[BIND_GROUP_LIGHTING_3D]),
+                shader.setup_pipeline(self.state.get(), &[BIND_GROUP_LIGHTING_3D]),
             ),
             EffectShaderUsage::Effect(_) => CreatedShader::Effect(shader.setup_pipeline(
-                &self.state.get(),
+                self.state.get(),
                 &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM],
             )),
         }
@@ -683,7 +666,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     pub fn draw_2d_pass<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
         let mut draw = self.draw_2d.lock().recover();
-        f(&mut *draw);
+        f(&mut draw);
     }
 
     pub fn close(self: &Arc<Self>) {

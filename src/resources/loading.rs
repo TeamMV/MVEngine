@@ -22,9 +22,9 @@ impl ResourceBundleBuilder {
         }
     }
 
-    pub fn load_static(self, dir: Dir<'static>) {}
+    pub fn load_static(self, _dir: Dir<'static>) {}
 
-    pub fn load_dynamic(self, path: PathBuf) {}
+    pub fn load_dynamic(self, _path: PathBuf) {}
 }
 
 impl Default for ResourceBundleBuilder {

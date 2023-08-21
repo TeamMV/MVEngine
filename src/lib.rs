@@ -1,5 +1,12 @@
+#![allow(unused_imports)]
+#![allow(clippy::too_many_arguments)]
+#![deny(warnings)]
+// These are temporary during development, unused functions and variables will need to be
+// used or removed before release
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 extern crate alloc;
-extern crate core;
 
 use std::sync::Arc;
 
@@ -94,7 +101,7 @@ impl Default for ApplicationInfo {
 }
 
 impl ApplicationInfo {
-    fn new(
+    pub fn new(
         name: &str,
         version: Version,
         multithreaded: bool,

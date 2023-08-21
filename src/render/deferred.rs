@@ -15,7 +15,7 @@ use crate::render::consts::{
     TEXTURE_LIMIT, VERTEX_LAYOUT_NONE,
 };
 use crate::render::init::State;
-use crate::render::render::TextureBindGroup;
+use crate::render::render2d::TextureBindGroup;
 use crate::render::render3d::RenderPass3D;
 
 pub(crate) struct DeferredPass {

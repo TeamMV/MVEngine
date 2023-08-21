@@ -28,7 +28,7 @@ pub enum ShaderType {
 
 impl From<ShaderKind> for ShaderType {
     fn from(value: ShaderKind) -> Self {
-        return match value {
+        match value {
             ShaderKind::Fragment => ShaderType::Fragment,
             ShaderKind::Vertex => ShaderType::Vertex,
             ShaderKind::Geometry => ShaderType::Geometry,
@@ -36,20 +36,33 @@ impl From<ShaderKind> for ShaderType {
             ShaderKind::TessControl => ShaderType::TessellationControl,
             ShaderKind::TessEvaluation => ShaderType::TessellationEvaluation,
             _ => unreachable!(),
-        };
+        }
     }
 }
 
-impl Into<ShaderKind> for ShaderType {
-    fn into(self) -> ShaderKind {
-        return match self {
+//impl Into<ShaderKind> for ShaderType {
+//    fn into(self) -> ShaderKind {
+//        return match self {
+//            ShaderType::Fragment => ShaderKind::Fragment,
+//            ShaderType::Vertex => ShaderKind::Vertex,
+//            ShaderType::Geometry => ShaderKind::Geometry,
+//            ShaderType::Compute => ShaderKind::Compute,
+//            ShaderType::TessellationControl => ShaderKind::TessControl,
+//            ShaderType::TessellationEvaluation => ShaderKind::TessEvaluation,
+//        };
+//    }
+//}
+
+impl From<ShaderType> for ShaderKind {
+    fn from(value: ShaderType) -> Self {
+        match value {
             ShaderType::Fragment => ShaderKind::Fragment,
             ShaderType::Vertex => ShaderKind::Vertex,
             ShaderType::Geometry => ShaderKind::Geometry,
             ShaderType::Compute => ShaderKind::Compute,
             ShaderType::TessellationControl => ShaderKind::TessControl,
             ShaderType::TessellationEvaluation => ShaderKind::TessEvaluation,
-        };
+        }
     }
 }
 
@@ -132,8 +145,8 @@ impl Clone for Shader {
 }
 
 impl Shader {
-    pub(crate) fn compile_glsl(code: &String, shader_type: ShaderType) -> Vec<u32> {
-        compile(code.as_str(), shader_type)
+    pub(crate) fn compile_glsl(code: &str, shader_type: ShaderType) -> Vec<u32> {
+        compile(code, shader_type)
     }
 
     pub(crate) fn new(vert: Vec<u32>, frag: Vec<u32>) -> Self {
@@ -320,7 +333,7 @@ impl EffectShader {
 
             self.uniform = Some(state.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Effect custom uniforms"),
-                layout: &BIND_GROUPS.get(&BIND_GROUP_EFFECT_CUSTOM).unwrap(),
+                layout: BIND_GROUPS.get(&BIND_GROUP_EFFECT_CUSTOM).unwrap(),
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: self.buffer.as_ref().unwrap().as_entire_binding(),
@@ -422,14 +435,14 @@ impl BufferMaker {
         if offset + 1 > self.size {
             panic!("Uniform buffer index out of bounds!");
         }
-        self.data[offset] = unsafe { mem::transmute(value) }
+        self.data[offset] = f32::from_bits(value as u32)
     }
 
     pub fn set_uint(&mut self, offset: usize, value: u32) {
         if offset + 1 > self.size {
             panic!("Uniform buffer index out of bounds!");
         }
-        self.data[offset] = unsafe { mem::transmute(value) }
+        self.data[offset] = f32::from_bits(value)
     }
 
     pub(crate) fn finish(self, state: &State, buffer: &Buffer) {
@@ -598,6 +611,10 @@ impl Texture {
 
     pub(crate) fn get_height(&self) -> u32 {
         self.height
+    }
+
+    pub(crate) fn get_id(&self) -> u64 {
+        self.id
     }
 }
 

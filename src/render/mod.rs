@@ -22,7 +22,7 @@ pub mod draw3d;
 pub(crate) mod init;
 #[cfg(feature = "3d")]
 pub mod model;
-pub(crate) mod render;
+pub(crate) mod render2d;
 #[cfg(feature = "3d")]
 pub mod render3d;
 pub mod text;

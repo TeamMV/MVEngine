@@ -99,7 +99,7 @@ impl RenderPass2D {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
             ],
         });
@@ -179,8 +179,8 @@ impl RenderPass2D {
 
             let mut changed = false;
 
-            for i in 0..*MAX_TEXTURES {
-                if let Some(ref texture) = textures[i] {
+            for (i, texture) in textures.iter().enumerate().take(*MAX_TEXTURES) {
+                if let Some(ref texture) = texture {
                     if &texture_group.textures[i] != texture {
                         texture_group.set(i, texture.clone());
                         changed = true;
@@ -240,7 +240,7 @@ impl EffectPass {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -260,7 +260,7 @@ impl EffectPass {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -293,7 +293,7 @@ impl EffectPass {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -313,7 +313,7 @@ impl EffectPass {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 2,

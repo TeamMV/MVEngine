@@ -93,8 +93,7 @@ impl State {
                 .formats
                 .iter()
                 .copied()
-                .filter(|f| f.is_srgb())
-                .next()
+                .find(|f| f.is_srgb())
                 .unwrap_or(surface_caps.formats[0]);
 
             let surface_alpha = surface_caps
@@ -401,7 +400,7 @@ impl<'a> PipelineBuilder<'a> {
 
     pub(crate) fn begin(state: &'a State) -> Self {
         Self {
-            state: &state,
+            state,
             vertex_layout: VERTEX_LAYOUT_2D,
             bind_group: Vec::new(),
             vert: None,

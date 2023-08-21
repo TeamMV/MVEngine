@@ -1,3 +1,3 @@
 pub mod loading;
-pub(crate) mod parsing;
+#[allow(clippy::module_inception)]
 pub mod resources;

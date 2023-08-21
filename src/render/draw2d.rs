@@ -5,7 +5,7 @@ use mvutils::utils::Overlap;
 use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
 use crate::render::common::TextureRegion;
-use crate::render::render::RenderPass2D;
+use crate::render::render2d::RenderPass2D;
 use crate::render::text::Font;
 use crate::resources::resources::R;
 
@@ -1593,7 +1593,7 @@ impl Draw2D {
         font: Arc<Font>,
         rotation: f32,
     ) {
-        let width = font.get_metrics(&text).width(height);
+        let width = font.get_metrics(text).width(height);
         self.custom_text_origin_rotated(
             chroma,
             x,
