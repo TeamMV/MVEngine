@@ -13,32 +13,32 @@ pub struct Easing {
 impl Easing {
     pub fn new_linear(xr: Range<f32>, yr: Range<f32>) -> Self {
         Self {
-            xr,
-            yr,
+            xr: xr.clone(),
+            yr: yr.clone(),
             gen: EasingGen::Linear(EasingLinear::new(xr.clone(), yr.clone())),
         }
     }
 
     pub fn new_sin(xr: Range<f32>, yr: Range<f32>) -> Self {
         Self {
-            xr,
-            yr,
+            xr: xr.clone(),
+            yr: yr.clone(),
             gen: EasingGen::Sin(EasingSin::new(xr.clone(), yr.clone())),
         }
     }
 
     pub fn new_sin_in(xr: Range<f32>, yr: Range<f32>) -> Self {
         Self {
-            xr,
-            yr,
+            xr: xr.clone(),
+            yr: yr.clone(),
             gen: EasingGen::SinIn(EasingSinIn::new(xr.clone(), yr.clone())),
         }
     }
 
     pub fn new_sin_out(xr: Range<f32>, yr: Range<f32>) -> Self {
         Self {
-            xr,
-            yr,
+            xr: xr.clone(),
+            yr: yr.clone(),
             gen: EasingGen::SinOut(EasingSinOut::new(xr.clone(), yr.clone())),
         }
     }
@@ -47,7 +47,7 @@ impl Easing {
         self.gen.get(x)
     }
 
-    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> &[f32] {
+    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
         self.gen.simulate(range, steps)
     }
 }
@@ -64,7 +64,7 @@ pub enum EasingGen {
     Sin(EasingSin),
     SinIn(EasingSinIn),
     SinOut(EasingSinOut),
-    ExplIn(EasingExpIn),
+    ExpIn(EasingExpIn),
 }
 
 macro_rules! ease_fn {
@@ -75,7 +75,6 @@ macro_rules! ease_fn {
             EasingGen::SinIn(e) => {e.$name($($param,)*)}
             EasingGen::SinOut(e) => {e.$name($($param,)*)}
             EasingGen::ExpIn(e) => {e.$name($($param,)*)}
-            _ => {unreachable!()}
         }
     };
 }
@@ -85,7 +84,7 @@ impl EasingGen {
         ease_fn!(self, get, x)
     }
 
-    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> &[f32] {
+    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
         ease_fn!(self, simulate, range, steps)
     }
 }
@@ -93,7 +92,7 @@ impl EasingGen {
 pub trait EasingFunction {
     fn get(&self, x: f32) -> f32;
 
-    fn simulate(&self, range: &Range<f32>, steps: usize) -> &[f32] {
+    fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
         let mut vec: Vec<f32> = vec![];
         let step: f32 = (range.end - range.start) / steps as f32;
         let mut i: f32 = 0.0;
@@ -101,7 +100,7 @@ pub trait EasingFunction {
             vec.push(self.get(i));
             i += step;
         }
-        vec.as_slice()
+        vec
     }
 }
 
@@ -154,9 +153,9 @@ impl EasingFunction for EasingSin {
         } else if x >= self.xr.end {
             return self.yr.end;
         }
-        ((f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
+        (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
             * ((self.xr.end - self.xr.start) / 2.0)
-            + self.xr.start)
+            + self.xr.start
     }
 }
 
@@ -167,9 +166,9 @@ impl EasingFunction for EasingSinIn {
         } else if x >= self.xr.end {
             return self.yr.end;
         }
-        ((f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
+        (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
             * (self.xr.end - self.xr.start)
-            + self.xr.start)
+            + self.xr.start
     }
 }
 
@@ -180,9 +179,9 @@ impl EasingFunction for EasingSinOut {
         } else if x >= self.xr.end {
             return self.yr.end;
         }
-        ((f32::cos((PI * (x - self.yr.start)) / (2.0 * (self.yr.end - self.yr.start)) + PI) + 1.0)
+        (f32::cos((PI * (x - self.yr.start)) / (2.0 * (self.yr.end - self.yr.start)) + PI) + 1.0)
             * (self.xr.end - self.xr.start)
-            + self.xr.start)
+            + self.xr.start
     }
 }
 
@@ -197,8 +196,8 @@ impl EasingFunction for EasingExpIn {
             * ((self
                 .base
                 .powf(x / (self.xr.end - self.xr.start) - self.xr.start)
-                - 1)
-                / (x - 1))
+                - 1.0)
+                / (x - 1.0))
             + self.yr.start
     }
 }
@@ -218,9 +217,9 @@ pub fn sin(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
     } else if x >= xr.end {
         return yr.end;
     }
-    ((f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0)
+    (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0)
         * ((xr.end - xr.start) / 2.0)
-        + xr.start)
+        + xr.start
 }
 
 pub fn sin_in(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
@@ -229,8 +228,8 @@ pub fn sin_in(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
     } else if x >= xr.end {
         return yr.end;
     }
-    ((f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0) * (xr.end - xr.start)
-        + xr.start)
+    (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0) * (xr.end - xr.start)
+        + xr.start
 }
 
 pub fn sin_out(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
@@ -239,9 +238,9 @@ pub fn sin_out(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
     } else if x >= xr.end {
         return yr.end;
     }
-    ((f32::cos((PI * (x - yr.start)) / (2.0 * (yr.end - yr.start)) + PI) + 1.0)
+    (f32::cos((PI * (x - yr.start)) / (2.0 * (yr.end - yr.start)) + PI) + 1.0)
         * (xr.end - xr.start)
-        + xr.start)
+        + xr.start
 }
 
 pub fn exp_in(x: f32, xr: &Range<f32>, yr: &Range<f32>, base: f32) -> f32 {
@@ -250,5 +249,5 @@ pub fn exp_in(x: f32, xr: &Range<f32>, yr: &Range<f32>, base: f32) -> f32 {
     } else if x >= xr.end {
         return yr.end;
     }
-    (yr.end - yr.start) * ((base.powf(x / (xr.end - xr.start) - xr.start) - 1) / (x - 1)) + yr.start
+    (yr.end - yr.start) * ((base.powf(x / (xr.end - xr.start) - xr.start) - 1.0) / (x - 1.0)) + yr.start
 }

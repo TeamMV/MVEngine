@@ -27,31 +27,39 @@ macro_rules! impl_r {
             GLOBAL_RESOURCES.write().recover().$path.clone()
         }
     };
+    ($name:ident, $t:ty, $mu:expr) => {
+        impl_r!($name, $name, $t, $mu);
+    };
+    ($name:ident, $path:ident, $t:ty, $mu:expr) => {
+        pub fn $name() -> Res<RwLock<$t>> {
+            GLOBAL_RESOURCES.write().recover().$path.clone()
+        }
+    };
 }
 
 impl R {
-    impl_r!(texture_regions, TextureRegion);
+    impl_r!(texture_regions, TextureRegion, true);
     #[cfg(feature = "3d")]
     impl_r!(models, Model);
     #[cfg(feature = "3d")]
-    impl_r!(materials, Material);
-    impl_r!(colors, Color<RGB, f32>);
-    impl_r!(gradients, Gradient<RGB, f32>);
+    impl_r!(materials, Material, true);
+    impl_r!(colors, Color<RGB, f32>, true);
+    impl_r!(gradients, Gradient<RGB, f32>, true);
     #[cfg(feature = "gui")]
-    impl_r!(guis, Gui);
+    impl_r!(guis, Gui, true);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
         let res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.register_core(id, Arc::new(region));
+        res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn convert_texture(texture: &str, id: String) {
         let res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.register(id, Arc::new(region));
+        res.texture_regions.register(id, Arc::new(RwLock::new(region)));
     }
 
     pub(crate) fn crop_texture_core(
@@ -65,31 +73,32 @@ impl R {
         let res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.register_core(id, Arc::new(region));
+        res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn crop_texture(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
         let res = GLOBAL_RESOURCES.write().recover();
         let tex = res.textures.get(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.register(id, Arc::new(region));
+        res.texture_regions.register(id, Arc::new(RwLock::new(region)));
     }
 }
 
 type Res<T> = Arc<Ref<T>>;
+type MutRes<T> = Res<RwLock<T>>;
 
 #[derive(Default)]
 struct GlobalResources {
     textures: Res<Texture>,
-    texture_regions: Res<TextureRegion>,
+    texture_regions: MutRes<TextureRegion>,
     #[cfg(feature = "3d")]
     models: Res<Model>,
     #[cfg(feature = "3d")]
-    materials: Res<Material>,
-    colors: Res<Color<RGB, f32>>,
-    gradients: Res<Gradient<RGB, f32>>,
+    materials: MutRes<Material>,
+    colors: MutRes<Color<RGB, f32>>,
+    gradients: MutRes<Gradient<RGB, f32>>,
     #[cfg(feature = "gui")]
-    guis: Res<Gui>,
+    guis: MutRes<Gui>,
     //...
 }
 

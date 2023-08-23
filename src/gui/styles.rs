@@ -39,7 +39,7 @@ pub struct GuiStyle {
     pub y: GuiValue<i32>,
     pub origin: GuiValue<Origin>,
     pub rotation: GuiValue<f32>,
-    pub rotation_center: GuiValue<(i32, i32)>,
+    pub rotation_center: GuiValue<RotationCenter>,
     pub z_index: GuiValue<u16>,
     //Layout
     pub vertical_align: GuiValue<VerticalAlign>,
@@ -315,6 +315,13 @@ pub enum Direction {
     UpDown,
 }
 
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum RotationCenter {
+    #[default]
+    Element,
+    Custom((i32, i32)),
+}
+
 pub trait GuiValueValue<T> {
     fn compute_measurement(&self, dpi: f32, mes: &Measurement) -> T;
     fn compute_percentage_value(&self, total: T, percentage: u8) -> T;
@@ -400,7 +407,9 @@ impl_unreachable_gvv!(
     ScrollbarSlider,
     Overflow,
     Size,
-    Direction, Easing);
+    Direction,
+    Easing,
+    RotationCenter);
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,
@@ -497,5 +506,13 @@ macro_rules! resolve {
             .style
             .$prop
             .unwrap(&$info.compute_supply, |s| &s.$prop)
+    };
+}
+
+
+#[macro_export]
+macro_rules! style {
+    ($elem:ident, $field:ident = $value:expr) => {
+        $elem.info_mut().style.$field = $value
     };
 }
