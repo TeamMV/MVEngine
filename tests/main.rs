@@ -13,6 +13,8 @@ use mvcore::gui::components::layout::GuiSection;
 use mvcore::gui::components::text::GuiLabel;
 use mvcore::gui::styles::{BorderStyle, GuiValue, Positioning};
 use mvcore::render::color::{Color, Gradient, RGB};
+use mvcore::user_input::input;
+use mvcore::user_input::input::State;
 
 fn main() {
     env_logger::init();
@@ -49,12 +51,13 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
 
         label.info_mut().style.text_size = GuiValue::Just(64);
         label.info_mut().style.text_chroma = GuiValue::Just(true);
+        label.info_mut().style.text_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::black()));
 
         label.info_mut().style.background_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::white()));
-        label.info_mut().style.border_style = GuiValue::Just(BorderStyle::Triangle);
-        label.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::cyan()));
+        label.info_mut().style.border_style = GuiValue::Just(BorderStyle::Square);
+        label.info_mut().style.border_color = GuiValue::Just(Gradient::new(Color::<RGB, f32>::blue()));
         label.info_mut().style.border_radius = GuiValue::Just(20);
-        label.info_mut().style.border_width = GuiValue::Just(5);
+        label.info_mut().style.border_width = GuiValue::Just(3);
 
 
         let mut section = GuiSection::create();
@@ -78,11 +81,18 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
     }
 
     fn draw(&self, window: Arc<Window<Self>>) {
+        let tmp = window.input();
+        let input = tmp.read().recover();
+
         let mut guard = self.elem.write().recover();
 
         window.draw_2d_pass(|ctx| {
-            ctx.color(Color::<RGB, f32>::red());
-            ctx.rectangle(100, 100, 100, 100);
+            if input.keys[input::KEY_C] {
+                ctx.color(Color::<RGB, f32>::red());
+            } else {
+                ctx.color(Color::<RGB, f32>::green());
+            }
+            ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
             guard.draw(ctx);
         });
     }

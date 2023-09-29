@@ -6,6 +6,9 @@ use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::SplitSized;
 use regex::Regex;
 
+pub type RgbColor = Color<RGB, f32>;
+pub type RgbGradient = Gradient<RGB, f32>;
+
 pub trait Fmt {}
 
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]

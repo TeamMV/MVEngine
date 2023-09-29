@@ -3,6 +3,42 @@ use std::ops::Range;
 
 use mvutils::utils::Map;
 
+pub trait FromF32 {
+    fn from_f32(f: f32) -> Self;
+}
+
+macro_rules! impl_fromf32 {
+    ($($typ:ty,)*) => {
+        $(
+            impl FromF32 for $typ {
+                fn from_f32(f: f32) -> Self {
+                    f as Self
+                }
+            }
+        )*
+    };
+}
+
+impl_fromf32!(i8, i16, i32, i64, f64,);
+
+pub trait IntoF32 {
+    fn into_f32(self) -> f32;
+}
+
+macro_rules! impl_intof32 {
+    ($($typ:ty,)*) => {
+        $(
+            impl IntoF32 for $typ {
+                fn into_f32(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_intof32!(i8, i16, i32, i64, f64,);
+
 #[derive(Clone)]
 pub struct Easing {
     pub xr: Range<f32>,
@@ -137,9 +173,9 @@ easing_struct!(EasingExpIn, base: f32);
 
 impl EasingFunction for EasingLinear {
     fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
+        if x < self.xr.start {
             return self.yr.start;
-        } else if x >= self.xr.end {
+        } else if x > self.xr.end {
             return self.yr.end;
         }
         x.map(&self.yr, &self.xr)
@@ -148,9 +184,9 @@ impl EasingFunction for EasingLinear {
 
 impl EasingFunction for EasingSin {
     fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
+        if x < self.xr.start {
             return self.yr.start;
-        } else if x >= self.xr.end {
+        } else if x > self.xr.end {
             return self.yr.end;
         }
         (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
@@ -161,9 +197,9 @@ impl EasingFunction for EasingSin {
 
 impl EasingFunction for EasingSinIn {
     fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
+        if x < self.xr.start {
             return self.yr.start;
-        } else if x >= self.xr.end {
+        } else if x > self.xr.end {
             return self.yr.end;
         }
         (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
@@ -174,9 +210,9 @@ impl EasingFunction for EasingSinIn {
 
 impl EasingFunction for EasingSinOut {
     fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
+        if x < self.xr.start {
             return self.yr.start;
-        } else if x >= self.xr.end {
+        } else if x > self.xr.end {
             return self.yr.end;
         }
         (f32::cos((PI * (x - self.yr.start)) / (2.0 * (self.yr.end - self.yr.start)) + PI) + 1.0)
@@ -187,9 +223,9 @@ impl EasingFunction for EasingSinOut {
 
 impl EasingFunction for EasingExpIn {
     fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
+        if x < self.xr.start {
             return self.yr.start;
-        } else if x >= self.xr.end {
+        } else if x > self.xr.end {
             return self.yr.end;
         }
         (self.yr.end - self.yr.start)
@@ -203,18 +239,18 @@ impl EasingFunction for EasingExpIn {
 }
 
 pub fn linear(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
+    if x < xr.start {
         return yr.start;
-    } else if x >= xr.end {
+    } else if x > xr.end {
         return yr.end;
     }
     x.map(yr, xr)
 }
 
 pub fn sin(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
+    if x < xr.start {
         return yr.start;
-    } else if x >= xr.end {
+    } else if x > xr.end {
         return yr.end;
     }
     (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0)
@@ -223,9 +259,9 @@ pub fn sin(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
 }
 
 pub fn sin_in(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
+    if x < xr.start {
         return yr.start;
-    } else if x >= xr.end {
+    } else if x > xr.end {
         return yr.end;
     }
     (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0) * (xr.end - xr.start)
@@ -233,9 +269,9 @@ pub fn sin_in(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
 }
 
 pub fn sin_out(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
+    if x < xr.start {
         return yr.start;
-    } else if x >= xr.end {
+    } else if x > xr.end {
         return yr.end;
     }
     (f32::cos((PI * (x - yr.start)) / (2.0 * (yr.end - yr.start)) + PI) + 1.0)
@@ -244,9 +280,9 @@ pub fn sin_out(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
 }
 
 pub fn exp_in(x: f32, xr: &Range<f32>, yr: &Range<f32>, base: f32) -> f32 {
-    if x <= xr.start {
+    if x < xr.start {
         return yr.start;
-    } else if x >= xr.end {
+    } else if x > xr.end {
         return yr.end;
     }
     (yr.end - yr.start) * ((base.powf(x / (xr.end - xr.start) - xr.start) - 1.0) / (x - 1.0)) + yr.start

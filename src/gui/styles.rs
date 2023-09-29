@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use mvutils::screen::Measurement;
-use mvutils::utils::Percentage;
+use mvutils::utils::{Percentage, TetrahedronOp};
+use num_traits::Num;
+use mvcore_proc_macro::style_interpolator;
 
-use crate::gui::components::GuiElement;
-use crate::gui::ease::Easing;
-use crate::render::color::{Gradient, RGB};
+use crate::gui::components::{GuiElement, GuiElementInfo};
+use crate::gui::ease::{Easing, FromF32, IntoF32};
+use crate::render::color::{Color, Gradient, RGB, RgbColor, RgbGradient};
 use crate::render::draw2d::CanvasStyle;
 use crate::render::text::TypeFace;
 
@@ -485,14 +487,6 @@ impl<T: Clone + GuiValueValue<T>> Clone for GuiValue<T> {
     }
 }
 
-impl<T: Copy + GuiValueValue<T>> Copy for GuiValue<T> {}
-
-impl<T: Default + Clone + GuiValueValue<T>> Default for GuiValue<T> {
-    fn default() -> Self {
-        GuiValue::Just(T::default())
-    }
-}
-
 #[macro_export]
 macro_rules! resolve {
     ($info:expr, $prop:ident) => {
@@ -509,6 +503,54 @@ macro_rules! resolve {
     };
 }
 
+impl<T: Copy + GuiValueValue<T>> Copy for GuiValue<T> {}
+
+impl<T: Default + Clone + GuiValueValue<T>> Default for GuiValue<T> {
+    fn default() -> Self {
+        GuiValue::Just(T::default())
+    }
+}
+
+pub trait Interpolator<T> {
+    fn interpolate(&self, t: T, start: T, end: T, progress: f32, easing: Easing) -> T {
+        (progress < 50.0).yn(start, end)
+    }
+}
+
+impl<T: Num + Copy + FromF32 + IntoF32> Interpolator<T> for T {
+    fn interpolate(&self, t: T, start: T, end: T, progress: f32, mut easing: Easing) -> T {
+        easing.xr = 0.0..100.0;
+        easing.yr = start.into_f32()..end.into_f32();
+        T::from_f32(easing.get(progress))
+    }
+}
+
+macro_rules! interpolator_basic {
+    ($($typ:ty,)*) => {
+        $(
+            impl Interpolator<$typ> for $typ {}
+        )*
+    };
+}
+
+interpolator_basic!(
+    RgbColor,
+    RgbGradient,
+    ViewState,
+    Positioning,
+    BorderStyle,
+    Origin,
+    VerticalAlign,
+    HorizontalAlign,
+    Scroll,
+    ScrollbarMode,
+    ScrollbarSlider,
+    Overflow,
+    Size,
+    Direction,
+    Easing,
+    RotationCenter,
+);
 
 #[macro_export]
 macro_rules! style {

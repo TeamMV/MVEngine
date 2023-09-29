@@ -19,7 +19,7 @@ use crate::render::RenderCore;
 
 #[cfg(feature = "gui")]
 pub mod gui;
-pub mod input;
+pub mod user_input;
 pub mod render;
 pub mod resources;
 

@@ -9,6 +9,7 @@ pub mod components;
 pub mod ease;
 pub mod gui_formats;
 pub mod styles;
+pub mod animation;
 
 pub struct Gui {
     root: Arc<RwLock<GuiLayout>>,
