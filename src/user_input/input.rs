@@ -135,12 +135,19 @@ pub enum State {
 }
 
 pub struct Input {
+    ///All the keys of a full-sized keyboard and whether they are pressed or not. Access them with the constants KEY_...
     pub keys: [bool; MAX_KEYS],
+    ///All the keys of a full-sized keyboard and their exact state. Access them with the constants KEY_...
     pub keystates: [State; MAX_KEYS],
+    ///All the buttons of a mouse with all the extra ones and whether they are pressed or not. Access them with the constants MOUSE_...
     pub mouse: [bool; MAX_MOUSE],
+    ///All the buttons of a mouse with all the extra ones and their exact state. Access them with the constants MOUSE_...
     pub mousestates: [State; MAX_MOUSE],
+    ///All the scroll directions of a mouse wheel and whether they are executed at the moment. Access them with the constants MOUSE_SCROLL_...
     pub scroll: [bool; 4],
+    ///All the scroll directions of a mouse wheel and their exact float value at the moment. Access them with the constants MOUSE_SCROLL_...
     pub scrollstates: [f32; 4],
+    ///Both mouse x and y position, access with MOUSE_POS_X or MOUSE_POS_Y or simply 0 or 1.
     pub positions: [i32; 2]
 }
 

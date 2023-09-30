@@ -61,5 +61,6 @@ pub trait ApplicationLoopCallbacks: Sized {
     fn start(&self, window: Arc<Window<Self>>);
     fn update(&self, window: Arc<Window<Self>>);
     fn draw(&self, window: Arc<Window<Self>>);
+    fn effect(&self, window: Arc<Window<Self>>);
     fn exit(&self, window: Arc<Window<Self>>);
 }

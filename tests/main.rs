@@ -12,7 +12,8 @@ use mvcore::gui::components::{GuiComponent, GuiElement, GuiLayout, GuiLayoutComp
 use mvcore::gui::components::layout::GuiSection;
 use mvcore::gui::components::text::GuiLabel;
 use mvcore::gui::styles::{BorderStyle, GuiValue, Positioning};
-use mvcore::render::color::{Color, Gradient, RGB};
+use mvcore::render::color::{Color, Gradient, RGB, RgbColor};
+use mvcore::render::common::EffectShader;
 use mvcore::user_input::input;
 use mvcore::user_input::input::State;
 
@@ -70,7 +71,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         let label_elem = Arc::new(RwLock::new(GuiElement::Text(GuiTextElement::Label(label))));
 
         //section.elements_mut().add_element(label_elem);
-//
+        //
         //let section_elem = Arc::new(RwLock::new(GuiElement::Layout(GuiLayout::Section(section))));
 
         self.elem.create(|| label_elem);
@@ -88,13 +89,20 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
 
         window.draw_2d_pass(|ctx| {
             if input.keys[input::KEY_C] {
-                ctx.color(Color::<RGB, f32>::red());
+                ctx.color(RgbColor::red());
             } else {
-                ctx.color(Color::<RGB, f32>::green());
+                ctx.color(RgbColor::green());
             }
             ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
             guard.draw(ctx);
         });
+    }
+
+    fn effect(&self, window: Arc<Window<Self>>) {
+        //window.enable_effect_2d("blur".to_string());
+        //window.enable_effect_2d("pixelate".to_string());
+        //window.enable_effect_2d("distort".to_string());
+        //window.enable_effect_2d("wave".to_string());
     }
 
     fn exit(&self, window: Arc<Window<Self>>) {}

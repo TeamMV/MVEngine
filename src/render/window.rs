@@ -431,8 +431,6 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                         Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         Err(e) => eprintln!("{:?}", e),
                     }
-                    let input = window.input_collector.get_mut().get_input();
-                    input.write().recover().loop_states();
                 }
             }
             Event::LoopDestroyed => {
@@ -466,7 +464,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::Focused(_focus) => {}
             WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {
                 if let ElementState::Pressed = input.state {
-                    self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Press(Input::key_from_winit(input.virtual_keycode.unwrap()))));
+                    let index = Input::key_from_winit(input.virtual_keycode.unwrap());
+                    if self.input().read().recover().keys[index] {
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                    } else {
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                    }
                 }
 
                 if let ElementState::Released = input.state {
@@ -482,6 +486,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::MouseWheel { device_id, delta, phase, .. } => {
                 if let MouseScrollDelta::PixelDelta(pos) = delta {
                     self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(pos.x as f32, pos.y as f32)))
+                }
+                if let MouseScrollDelta::LineDelta(x, y) = delta {
+                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
                 }
             }
             WindowEvent::MouseInput { device_id, state, button, .. } => {
@@ -546,14 +553,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         if state == OperateState::Running {
             self.application_loop.draw(self.clone());
+            self.application_loop.effect(self.clone());
 
             //#[cfg(feature = "3d")]
             //self.render_3d(&mut encoder, &view);
 
-            //self.enable_effect_2d("blur".to_string());
-            //self.enable_effect_2d("pixelate".to_string());
-            //self.enable_effect_2d("distort".to_string());
-            //self.enable_effect_2d("wave".to_string());
+            let input = self.input_collector.get_mut().get_input();
+            input.write().recover().loop_states();
 
             self.render_2d(&mut encoder, &view);
         } else {

@@ -8,12 +8,17 @@ pub mod input;
 
 pub(crate) struct InputCollector {
     default_processor: InputProcessorImpl,
+    gui_processor: GuiInputProcessor,
     custom_processor: Option<Rc<RwLock<Box<dyn InputProcessor>>>>
 }
 
 impl InputCollector {
     pub(crate) fn new(input: Rc<RwLock<Input>>) -> Self where Self: Sized {
-        Self {default_processor: InputProcessorImpl::new(input), custom_processor: None}
+        Self {
+            default_processor: InputProcessorImpl::new(input.clone()),
+            gui_processor: GuiInputProcessor::new(input),
+            custom_processor: None
+        }
     }
 
     pub(crate) fn get_input(&self) -> Rc<RwLock<Input>> {
@@ -59,7 +64,8 @@ pub(crate) enum InputAction {
 #[derive(Copy, Clone)]
 pub enum KeyboardAction {
     Press(usize),
-    Release(usize)
+    Release(usize),
+    Type(usize)
 }
 
 #[derive(Copy, Clone)]
@@ -153,13 +159,13 @@ impl InputProcessor for InputProcessorImpl {
 }
 
 pub(crate) struct GuiInputProcessor {
-    input: Rc<Input>,
+    input: Rc<RwLock<Input>>,
     enabled: bool
 }
 
 impl InputProcessor for GuiInputProcessor {
     fn new(input: Rc<RwLock<Input>>) -> Self where Self: Sized {
-        todo!()
+        Self { input, enabled: true}
     }
 
     fn input(&self) -> Rc<RwLock<Input>> {

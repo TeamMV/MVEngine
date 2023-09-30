@@ -14,7 +14,7 @@ use wgpu::{
     TextureViewDescriptor, VertexBufferLayout,
 };
 
-use crate::render::consts::{BIND_GROUPS, BIND_GROUP_EFFECT_CUSTOM, DUMMY_VERT};
+use crate::render::consts::{BIND_GROUPS, BIND_GROUP_EFFECT_CUSTOM, DUMMY_VERT, BIND_GROUP_EFFECT};
 use crate::render::init::{PipelineBuilder, State};
 
 pub enum ShaderType {
