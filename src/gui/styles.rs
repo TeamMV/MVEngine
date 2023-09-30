@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use mvutils::screen::Measurement;
-use mvutils::utils::Percentage;
+use mvutils::utils::{Percentage, TetrahedronOp};
+use num_traits::Num;
+use mvcore_proc_macro::style_interpolator;
 
-use crate::gui::components::GuiElement;
-use crate::gui::ease::Easing;
-use crate::render::color::{Gradient, RGB};
+use crate::gui::components::{GuiElement, GuiElementInfo};
+use crate::gui::ease::{Easing, FromF32, IntoF32};
+use crate::render::color::{Color, Gradient, RGB, RgbColor, RgbGradient};
 use crate::render::draw2d::CanvasStyle;
 use crate::render::text::TypeFace;
 
@@ -39,7 +41,7 @@ pub struct GuiStyle {
     pub y: GuiValue<i32>,
     pub origin: GuiValue<Origin>,
     pub rotation: GuiValue<f32>,
-    pub rotation_center: GuiValue<(i32, i32)>,
+    pub rotation_center: GuiValue<RotationCenter>,
     pub z_index: GuiValue<u16>,
     //Layout
     pub vertical_align: GuiValue<VerticalAlign>,
@@ -315,6 +317,13 @@ pub enum Direction {
     UpDown,
 }
 
+#[derive(Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub enum RotationCenter {
+    #[default]
+    Element,
+    Custom((i32, i32)),
+}
+
 pub trait GuiValueValue<T> {
     fn compute_measurement(&self, dpi: f32, mes: &Measurement) -> T;
     fn compute_percentage_value(&self, total: T, percentage: u8) -> T;
@@ -400,7 +409,9 @@ impl_unreachable_gvv!(
     ScrollbarSlider,
     Overflow,
     Size,
-    Direction, Easing);
+    Direction,
+    Easing,
+    RotationCenter);
 
 pub struct GuiValueComputeSupply {
     pub dpi: f32,
@@ -476,14 +487,6 @@ impl<T: Clone + GuiValueValue<T>> Clone for GuiValue<T> {
     }
 }
 
-impl<T: Copy + GuiValueValue<T>> Copy for GuiValue<T> {}
-
-impl<T: Default + Clone + GuiValueValue<T>> Default for GuiValue<T> {
-    fn default() -> Self {
-        GuiValue::Just(T::default())
-    }
-}
-
 #[macro_export]
 macro_rules! resolve {
     ($info:expr, $prop:ident) => {
@@ -497,5 +500,61 @@ macro_rules! resolve {
             .style
             .$prop
             .unwrap(&$info.compute_supply, |s| &s.$prop)
+    };
+}
+
+impl<T: Copy + GuiValueValue<T>> Copy for GuiValue<T> {}
+
+impl<T: Default + Clone + GuiValueValue<T>> Default for GuiValue<T> {
+    fn default() -> Self {
+        GuiValue::Just(T::default())
+    }
+}
+
+pub trait Interpolator<T> {
+    fn interpolate(&self, t: T, start: T, end: T, progress: f32, easing: Easing) -> T {
+        (progress < 50.0).yn(start, end)
+    }
+}
+
+impl<T: Num + Copy + FromF32 + IntoF32> Interpolator<T> for T {
+    fn interpolate(&self, t: T, start: T, end: T, progress: f32, mut easing: Easing) -> T {
+        easing.xr = 0.0..100.0;
+        easing.yr = start.into_f32()..end.into_f32();
+        T::from_f32(easing.get(progress))
+    }
+}
+
+macro_rules! interpolator_basic {
+    ($($typ:ty,)*) => {
+        $(
+            impl Interpolator<$typ> for $typ {}
+        )*
+    };
+}
+
+interpolator_basic!(
+    RgbColor,
+    RgbGradient,
+    ViewState,
+    Positioning,
+    BorderStyle,
+    Origin,
+    VerticalAlign,
+    HorizontalAlign,
+    Scroll,
+    ScrollbarMode,
+    ScrollbarSlider,
+    Overflow,
+    Size,
+    Direction,
+    Easing,
+    RotationCenter,
+);
+
+#[macro_export]
+macro_rules! style {
+    ($elem:ident, $field:ident = $value:expr) => {
+        $elem.info_mut().style.$field = $value
     };
 }

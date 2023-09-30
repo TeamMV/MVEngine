@@ -20,7 +20,7 @@ impl TypeFace {
             regular: font.clone(),
             bold: font.clone(),
             italic: font.clone(),
-            italic_bold: font.clone(),
+            italic_bold: font,
         })
     }
 }

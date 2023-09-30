@@ -1,3 +1,4 @@
+use alloc::rc::Rc;
 use std::collections::HashMap;
 use std::iter::once;
 use std::sync::{Arc, Mutex, RwLock};
@@ -13,9 +14,12 @@ use wgpu::{
     RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor,
 };
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{Event, StartCause, WindowEvent};
+use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
+use crate::user_input;
+use crate::user_input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
+use crate::user_input::input::Input;
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
@@ -118,7 +122,7 @@ pub enum OperateState {
 }
 
 pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
-    specs: DangerousCell<WindowSpecs>,
+    pub specs: DangerousCell<WindowSpecs>,
     start_time: SystemTime,
 
     close: DangerousCell<bool>,
@@ -146,6 +150,8 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
     effect_pass: DangerousCell<EffectPass>,
     effect_buffer: DangerousCell<EBuffer>,
+
+    input_collector: DangerousCell<InputCollector>,
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
@@ -237,6 +243,82 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
 
+
+        //      ###########################################################################   <- BIG exquamation mark L E L
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+        //      ###########################################################################
+
         let draw_2d = Draw2D::new(
             Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
@@ -269,6 +351,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             deferred_pass_3d: deferred_pass_3d.into(),
             #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
+            input_collector: InputCollector::new(Rc::new(RwLock::new(Input::new()))).into(),
         });
 
         #[cfg(feature = "3d")]
@@ -331,8 +414,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     .as_millis()
                     >= 1000
                 {
-                    println!("{}", frames);
                     *window.fps.get_mut() = frames;
+                    println!("{}", frames);
                     frames = 0;
                     timer = SystemTime::now();
                 }
@@ -379,13 +462,44 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::HoveredFileCancelled => {}
             WindowEvent::ReceivedCharacter(_c) => {}
             WindowEvent::Focused(_focus) => {}
-            WindowEvent::KeyboardInput { .. } => {}
+            WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {
+                if let ElementState::Pressed = input.state {
+                    let index = Input::key_from_winit(input.virtual_keycode.unwrap());
+                    if self.input().read().recover().keys[index] {
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                    } else {
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                    }
+                }
+
+                if let ElementState::Released = input.state {
+                    self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Release(Input::key_from_winit(input.virtual_keycode.unwrap()))));
+                }
+            }
             WindowEvent::ModifiersChanged(_mods) => {}
-            WindowEvent::CursorMoved { .. } => {}
+            WindowEvent::CursorMoved { device_id, position, .. } => {
+                self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Move(position.x as i32, self.specs.get().height as i32 - position.y as i32)))
+            }
             WindowEvent::CursorEntered { .. } => {}
             WindowEvent::CursorLeft { .. } => {}
-            WindowEvent::MouseWheel { .. } => {}
-            WindowEvent::MouseInput { .. } => {}
+            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {
+                if let MouseScrollDelta::PixelDelta(pos) = delta {
+                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(pos.x as f32, pos.y as f32)))
+                }
+                if let MouseScrollDelta::LineDelta(x, y) = delta {
+                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
+                }
+            }
+            WindowEvent::MouseInput { device_id, state, button, .. } => {
+                if let ElementState::Pressed = state {
+                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Press(Input::mouse_from_winit(button))));
+                }
+
+                if let ElementState::Released = state {
+                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Release(Input::mouse_from_winit(button))));
+                }
+            }
             _ => {}
         }
     }
@@ -439,14 +553,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         if state == OperateState::Running {
             self.application_loop.draw(self.clone());
+            self.application_loop.effect(self.clone());
 
             //#[cfg(feature = "3d")]
             //self.render_3d(&mut encoder, &view);
 
-            //self.enable_effect_2d("blur".to_string());
-            //self.enable_effect_2d("pixelate".to_string());
-            //self.enable_effect_2d("distort".to_string());
-            //self.enable_effect_2d("wave".to_string());
+            let input = self.input_collector.get_mut().get_input();
+            input.write().recover().loop_states();
 
             self.render_2d(&mut encoder, &view);
         } else {
@@ -671,6 +784,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     pub fn close(self: &Arc<Self>) {
         *self.close.get_mut() = true;
+    }
+
+    pub fn input(&self) -> Rc<RwLock<Input>> {
+        self.input_collector.get().get_input()
     }
 }
 

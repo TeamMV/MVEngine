@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 use mvutils::save::{Loader, Savable, Saver};
 
 use crate::render::color::{Color, Gradient, RGB};
@@ -83,7 +83,7 @@ impl FormattedString {
 
     pub fn draw(
         &self,
-        mut ctx: &mut Draw2D,
+        ctx: &mut Draw2D,
         x: i32,
         y: i32,
         height: i32,
@@ -97,14 +97,14 @@ impl FormattedString {
         let mut char_x = x;
         for fmt in self.pieces.iter() {
             if fmt.color.is_some() {
-                ctx.get_mut().unwrap().color(*fmt.color.clone().unwrap());
+                ctx.color(*fmt.color.clone().unwrap());
             } else {
-                ctx.get_mut().unwrap().get_mut_gradient().copy_of(col);
+                ctx.get_mut_gradient().copy_of(col);
             }
             let font = font
                 .clone()
-                .unwrap_or(TypeFace::single(ctx.get_mut().unwrap().get_default_font()));
-            ctx.get_mut().unwrap().custom_text_origin_rotated(
+                .unwrap_or(TypeFace::single(ctx.get_default_font()));
+            ctx.custom_text_origin_rotated(
                 chroma || fmt.style.is_chroma(),
                 char_x,
                 y,

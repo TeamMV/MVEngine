@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mvutils::utils::Overlap;
+use mvutils::utils::{Overlap, Recover};
 
 use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
@@ -1785,8 +1785,9 @@ impl Draw2D {
 
     #[cfg(feature = "gui")]
     pub fn gui(&mut self, resource_id: &str) {
-        let mut gui = R::guis().get(resource_id);
-        gui.draw(self);
+        let gui = R::guis().get(resource_id);
+        let mut guard = gui.write().recover();
+        guard.draw(self);
     }
 }
 

@@ -5,6 +5,8 @@
 // used or removed before release
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_macros)]
+#![allow(unused_assignments)]
 
 extern crate alloc;
 
@@ -17,7 +19,7 @@ use crate::render::RenderCore;
 
 #[cfg(feature = "gui")]
 pub mod gui;
-pub mod input;
+pub mod user_input;
 pub mod render;
 pub mod resources;
 
