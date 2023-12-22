@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::mem;
 use std::sync::{Arc, RwLock};

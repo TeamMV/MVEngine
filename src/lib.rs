@@ -7,8 +7,6 @@
 #![allow(unused_macros)]
 #![allow(unused_assignments)]
 
-extern crate alloc;
-
 use std::sync::Arc;
 
 use mvsync::{MVSync, MVSyncSpecs};
@@ -21,6 +19,8 @@ pub mod gui;
 pub mod user_input;
 pub mod render;
 pub mod resources;
+
+pub use mvcore_proc_macro::gui_element;
 
 pub struct MVCore {
     render: Arc<RenderCore>,

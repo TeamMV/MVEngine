@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use mvutils::lazy;
 use mvutils::once::Lazy;
-use mvutils::utils::Recover;
+use mvutils::utils::{Recover, RwUnchecked};
 
 use crate::render::color::{Color, Gradient, RGB};
 use crate::render::common::{Texture, TextureRegion};
@@ -45,14 +45,14 @@ impl R {
     impl_r!(gradients, Gradient<RGB, f32>, true);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::from(tex);
         res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn convert_texture(texture: &str, id: String) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get(texture);
         let region = TextureRegion::from(tex);
         res.texture_regions.register(id, Arc::new(RwLock::new(region)));
@@ -66,14 +66,14 @@ impl R {
         width: u32,
         height: u32,
     ) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
         res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn crop_texture(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
-        let res = GLOBAL_RESOURCES.write().recover();
+        let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
         res.texture_regions.register(id, Arc::new(RwLock::new(region)));
@@ -103,8 +103,7 @@ pub struct Ref<T> {
 impl<T> Ref<T> {
     pub fn get_core(&self, key: &str) -> Arc<T> {
         self.map
-            .read()
-            .recover()
+            .read_unchecked()
             .get(&("mvcore:".to_string() + key))
             .expect(&("Could not find resource with id \"".to_owned() + key + "\"."))
             .clone()
@@ -112,8 +111,7 @@ impl<T> Ref<T> {
 
     pub fn get(&self, key: &str) -> Arc<T> {
         self.map
-            .read()
-            .recover()
+            .read_unchecked()
             .get(&key.to_string())
             .expect(&("Could not find resource with id \"".to_owned() + key + "\"."))
             .clone()
@@ -121,13 +119,12 @@ impl<T> Ref<T> {
 
     pub fn register_core(&self, key: String, res: Arc<T>) {
         self.map
-            .write()
-            .recover()
+            .write_unchecked()
             .insert("mvcore:".to_string() + &*key, res);
     }
 
     pub fn register(&self, key: String, res: Arc<T>) {
-        self.map.write().recover().insert(key, res);
+        self.map.write_unchecked().insert(key, res);
     }
 }
 

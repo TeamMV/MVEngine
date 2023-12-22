@@ -1,6 +1,6 @@
-use alloc::rc::Rc;
 use std::collections::HashMap;
 use std::iter::once;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::SystemTime;
@@ -242,7 +242,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
-        
+
         let draw_2d = Draw2D::new(
             Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
