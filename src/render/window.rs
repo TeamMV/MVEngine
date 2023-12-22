@@ -9,12 +9,9 @@ use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
-use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, SurfaceError, TextureView, TextureViewDescriptor,
-};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
+use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 use crate::user_input;
@@ -173,6 +170,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             .with_theme(specs.theme)
             .with_title(specs.title.as_str())
             .with_inner_size(Size::Physical(PhysicalSize::new(specs.width, specs.height)))
+            .with_visible(false)
             .build(&event_loop)
             .unwrap();
 
@@ -191,18 +189,20 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             include_str!("shaders/deferred_geom.frag"),
         );
 
-        let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
-            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        //TODO: separate thread render (manually called from init)
+        //let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
+        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        //let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
+        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        //let distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
+        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        //let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
+        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
 
-        pixelate.setup(&state, |maker| {
-            maker.set_float(0, 5.0);
-        });
+        //TODO: separate thread render (manually called from init)
+        //pixelate.setup(&state, |maker| {
+        //    maker.set_float(0, 5.0);
+        //});
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(
@@ -242,88 +242,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
-
-
-        //      ###########################################################################   <- BIG exquamation mark L E L
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-        //      ###########################################################################
-
+        
         let draw_2d = Draw2D::new(
             Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
             specs.height,
-            internal_window.scale_factor() as f32,
+            internal_window.scale_factor() as f32 * 96.0,
         );
 
         let camera_2d = Camera2D::new(specs.width, specs.height);
@@ -359,10 +283,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             .model_loader
             .create(|| ModelLoader::new(window.clone()));
 
-        window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
-        window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
-        window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
-        window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
+        //TODO: separate thread render (manually called from init)
+        //window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
+        //window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
+        //window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
+        //window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
 
         let mut now = SystemTime::now();
         let mut timer = SystemTime::now();
@@ -370,11 +295,14 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let mut delta_f: f32 = 0.0;
         let mut frames = 0;
 
+        //TODO: separate thread startup
         let clone = window.clone();
         thread::spawn(move || {
             clone.application_loop.start(clone.clone());
             *clone.operate_state.write().recover() = OperateState::Running
         });
+
+        internal_window.set_visible(true);
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::NewEvents(cause) => if cause == StartCause::Init {},
@@ -460,11 +388,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::DroppedFile(_path) => {}
             WindowEvent::HoveredFile(_path) => {}
             WindowEvent::HoveredFileCancelled => {}
-            WindowEvent::ReceivedCharacter(_c) => {}
             WindowEvent::Focused(_focus) => {}
             WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {
                 if let ElementState::Pressed = input.state {
-                    let index = Input::key_from_winit(input.virtual_keycode.unwrap());
+                    let index = Input::key_from_winit(input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape));
                     if self.input().read().recover().keys[index] {
                         self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
                     } else {
@@ -589,10 +516,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                                 b: 0.0,
                                 a: 1.0,
                             }),
-                            store: true,
+                            store: StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 })
             };
         }
@@ -609,10 +538,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                         b: 1.0,
                         a: 1.0,
                     }),
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         let mut effects = self.enabled_effects_2d.write().recover();

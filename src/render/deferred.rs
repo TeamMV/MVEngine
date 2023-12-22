@@ -3,11 +3,7 @@ use std::sync::Arc;
 use glam::Mat4;
 use mvutils::unsafe_utils::{Nullable, Unsafe};
 use mvutils::utils::TetrahedronOp;
-use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Color, CommandEncoder,
-    IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, RenderPassDescriptor, TextureView,
-};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp, TextureView};
 
 use crate::render::common::{Bytes, Shader, Texture};
 use crate::render::consts::{
@@ -154,7 +150,7 @@ impl DeferredPass {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::TRANSPARENT),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
                 Some(RenderPassColorAttachment {
@@ -162,7 +158,7 @@ impl DeferredPass {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::TRANSPARENT),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
                 Some(RenderPassColorAttachment {
@@ -170,7 +166,7 @@ impl DeferredPass {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::TRANSPARENT),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
             ],
@@ -178,10 +174,12 @@ impl DeferredPass {
                 view: self.depth.get_view(),
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(1.0),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         unsafe { geom.set_bind_group(0, Unsafe::cast_static(&self.uniform), &[]) };
@@ -208,10 +206,12 @@ impl DeferredPass {
                         b: 0.0,
                         a: 1.0,
                     }),
-                    store: false,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         unsafe { Nullable::new(light).cast_bytes() }

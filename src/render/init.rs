@@ -6,7 +6,7 @@ use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::Instance;
+use wgpu::{Instance, InstanceFlags};
 use wgpu::{
     AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -55,7 +55,9 @@ impl State {
                     | Backends::DX11
                     | Backends::DX12
                     | Backends::METAL,
+                flags: InstanceFlags::from_build_config(),
                 dx12_shader_compiler: Default::default(),
+                gles_minor_version: Default::default(),
             });
 
             let surface = instance

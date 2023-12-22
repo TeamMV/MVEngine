@@ -299,7 +299,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
 
     fn load_model(&self, data: Bytecode) -> Model {
         let gltf = Gltf::from_slice(data.as_slice()).expect("There was a Problem load a 3d-Asset!");
-        let mut materials: Vec<Material> = Vec::new();
+        let materials: Vec<Material> = Vec::new();
         for material in gltf.materials() {
             let mut mat = Material::new();
             //mat.double_side = material.double_sided();

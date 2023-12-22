@@ -40,7 +40,7 @@ impl RenderCore {
     }
 
     pub(crate) fn set_core(&self, core: Arc<MVCore>) {
-        let this = unsafe { &mut *(self as *const RenderCore).cast_mut() };
+        let this = unsafe { (self as *const RenderCore).cast_mut().as_mut().unwrap() };
         this.core = Nullable::new(core);
     }
 

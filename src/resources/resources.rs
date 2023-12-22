@@ -5,8 +5,6 @@ use mvutils::lazy;
 use mvutils::once::Lazy;
 use mvutils::utils::Recover;
 
-#[cfg(feature = "gui")]
-use crate::gui::Gui;
 use crate::render::color::{Color, Gradient, RGB};
 use crate::render::common::{Texture, TextureRegion};
 #[cfg(feature = "3d")]
@@ -45,8 +43,6 @@ impl R {
     impl_r!(materials, Material, true);
     impl_r!(colors, Color<RGB, f32>, true);
     impl_r!(gradients, Gradient<RGB, f32>, true);
-    #[cfg(feature = "gui")]
-    impl_r!(guis, Gui, true);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
         let res = GLOBAL_RESOURCES.write().recover();
@@ -97,8 +93,6 @@ struct GlobalResources {
     materials: MutRes<Material>,
     colors: MutRes<Color<RGB, f32>>,
     gradients: MutRes<Gradient<RGB, f32>>,
-    #[cfg(feature = "gui")]
-    guis: MutRes<Gui>,
     //...
 }
 

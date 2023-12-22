@@ -1,7 +1,6 @@
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, ItemStruct, parse_macro_input};
+use syn::{Fields, ItemStruct, parse_macro_input};
 
 #[proc_macro_attribute]
 pub fn style_interpolator(_args: TokenStream, input: TokenStream) -> TokenStream {

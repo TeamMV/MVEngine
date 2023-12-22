@@ -1,6 +1,5 @@
 #![allow(unused_imports)]
 #![allow(clippy::too_many_arguments)]
-#![deny(warnings)]
 // These are temporary during development, unused functions and variables will need to be
 // used or removed before release
 #![allow(dead_code)]

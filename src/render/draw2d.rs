@@ -1721,73 +1721,8 @@ impl Draw2D {
             * self.chroma_compress) as i32
     }
 
-    //pub fn animatedText(TextAnimator animator) {
-    //animatedText(animator, font, 0.0f, 0, 0);
-    //}
-
-    //pub fn animatedText(TextAnimator animator, BitmapFont font) {
-    //animatedText(animator, font, 0.0f, 0, 0);
-    //}
-
-    //pub fn animatedText(TextAnimator animator, BitmapFont font, float rotation) {
-    //int width = animator.getTotalWidth(font);
-    //int height = animator.getHeight();
-    //animatedText(animator, font, rotation, animator.getX() + width / 4, animator.getY() + height / 4);
-    //}
-
-    //pub fn animatedText(TextAnimator animator, BitmapFont font, float rotation, int rx, int ry) {
-    //int charX = 0;
-    //float radRotation = (float) Math.toRadians(rotation);
-
-    //for (int i = 0; i < animator.getStates().length; i++) {
-    //TextAnimation.TextState state = animator.getStates()[i];
-
-    //char c = state.content;
-
-    //if (c <= 31) continue;
-
-    //Glyph glyph = font.getGlyph(c);
-
-    //if (glyph == null) return;
-
-    //int height = state.height;
-    //int x = state.x;
-    //int y = state.y;
-
-    //int yOff = glyph.getYOffset(height) - (font.getMaxHeight(height) - glyph.getHeight(height));
-
-    //float ax = x + charX + glyph.getXOffset(height);
-    //float ay = y - yOff;
-    //float ax2 = x + charX + glyph.getXOffset(height) + glyph.getWidth(height);
-    //float ay2 = y + glyph.getHeight(height) - yOff;
-
-    //charX += glyph.getXAdvance(height);
-
-    //Vector2f[] uvs = glyph.getCoordinates();
-    //float ux0 = uvs[0].x;
-    //float ux1 = uvs[1].x;
-    //float uy1 = uvs[0].y;
-    //float uy0 = uvs[1].y;
-
-    //int texID = window.getBatchController().addTexture(font.getBitmap(), isStripped);
-
-    //window.getBatchController().addVertices(verts.set(
-    //v1.put(ax, ay2, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v2.put(ax, ay, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux0, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v3.put(ax2, ay, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy1, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius),
-    //v4.put(ax2, ay2, 0.0f, radRotation, rx, ry, state.color.r, state.color.g, state.color.b, state.color.a, ux1, uy0, (float) texID, canvas.x, canvas.y, canvas.z, canvas.w, edgeStyle, edgeRadius)
-    //), useCamera, isStripped);
-    //}
-    //}
     pub fn dpi(&self) -> f32 {
         self.dpi
-    }
-
-    #[cfg(feature = "gui")]
-    pub fn gui(&mut self, resource_id: &str) {
-        let gui = R::guis().get(resource_id);
-        let mut guard = gui.write().recover();
-        guard.draw(self);
     }
 }
 
