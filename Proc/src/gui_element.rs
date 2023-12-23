@@ -2,9 +2,8 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use std::str::FromStr;
-use syn::parse_quote;
 use syn::token::Comma;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, FieldsNamed, Generics};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Generics};
 
 const PRIMITIVES: [&str; 15] = [
     "bool", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64", "i128", "isize",

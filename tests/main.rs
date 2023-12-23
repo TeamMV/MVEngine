@@ -19,7 +19,7 @@ fn main() {
     });
     let mut specs = WindowSpecs::default();
     specs.vsync = false;
-    specs.fps = 60;
+    specs.fps = 20000;
     specs.decorated = true;
     specs.resizable = true;
     specs.width = 800;

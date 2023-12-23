@@ -1,7 +1,6 @@
 use proc_macro::TokenStream;
 
 mod gui_element;
-mod resolve;
 
 #[proc_macro_attribute]
 pub fn gui_element(_: TokenStream, input: TokenStream) -> TokenStream {

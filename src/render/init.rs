@@ -50,11 +50,16 @@ impl State {
     async fn init(window: &winit::window::Window, specs: &WindowSpecs) -> Self {
         unsafe {
             let instance = Instance::new(InstanceDescriptor {
+                #[cfg(not(feature = "vr"))]
                 backends: Backends::GL
                     | Backends::VULKAN
                     | Backends::DX11
                     | Backends::DX12
                     | Backends::METAL,
+                #[cfg(feature = "vr")]
+                backends: Backends::GL
+                    | Backends::VULKAN
+                    | Backends::DX11,
                 flags: InstanceFlags::from_build_config(),
                 dx12_shader_compiler: Default::default(),
                 gles_minor_version: Default::default(),
