@@ -6,6 +6,7 @@
 #![allow(unused_variables)]
 #![allow(unused_macros)]
 #![allow(unused_assignments)]
+#![feature(specialization)]
 
 use std::sync::Arc;
 

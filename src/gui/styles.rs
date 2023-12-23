@@ -1,33 +1,142 @@
 use crate::gui::elements::{GuiElement, GuiElementImpl};
+use mvutils::unsafe_utils::Unsafe;
+use std::convert::Infallible;
 use std::sync::Arc;
 
-pub struct Style {}
+pub struct Style {
+    //position
+    pub x: GuiValue<i32>,
+    pub y: GuiValue<i32>,
+    pub width: GuiValue<i32>,
+    pub height: GuiValue<i32>,
+    pub padding: SideStyle,
+    pub margin: SideStyle,
+    pub origin: GuiValue<Origin>,
+}
 
-pub enum GuiValue<T: Clone> {
+pub enum Origin {
+    TopLeft,
+    BottomLeft,
+    TopRight,
+    BottomRight,
+    Center,
+    Custom(i32, i32),
+}
+
+impl Origin {
+    pub fn is_right(&self) -> bool {
+        true
+    }
+}
+
+pub struct TextStyle {}
+
+pub struct SideStyle {
+    pub top: GuiValue<i32>,
+    pub bottom: GuiValue<i32>,
+    pub left: GuiValue<i32>,
+    pub right: GuiValue<i32>,
+}
+
+impl SideStyle {
+    pub fn all_i32(v: i32) -> Self {
+        Self {
+            top: GuiValue::Just(v),
+            bottom: GuiValue::Just(v),
+            left: GuiValue::Just(v),
+            right: GuiValue::Just(v),
+        }
+    }
+
+    pub fn all(v: GuiValue<i32>) -> Self {
+        Self {
+            top: v.clone(),
+            bottom: v.clone(),
+            left: v.clone(),
+            right: v,
+        }
+    }
+
+    pub fn horizontal(&self) -> i32 {
+        unimplemented!()
+    }
+
+    pub fn vertical(&self) -> i32 {
+        unimplemented!()
+    }
+}
+
+#[derive(Clone)]
+pub enum GuiValue<T: Clone + 'static> {
     None,
     Auto,
     Inherit,
+    Clone(Arc<dyn GuiElement>),
     Just(T),
     Measurement(Unit),
 }
 
-impl<T: Clone> GuiValue<T> {
-    fn resolve<F>(&self, dpi: f32, parent_elem: GuiElementImpl) -> Option<T>
+impl<T: Clone + 'static> GuiValue<T> {
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<dyn GuiElement>>, map: F) -> Option<T>
     where
         F: Fn(&Style) -> &GuiValue<T>,
     {
         match self {
             GuiValue::None => None,
             GuiValue::Auto => None,
-            GuiValue::Inherit => {}
+            GuiValue::Inherit => map(parent.clone().unwrap_or_else(no_parent).style()).resolve(
+                dpi,
+                Some(
+                    parent
+                        .clone()
+                        .unwrap_or_else(no_parent)
+                        .parent()
+                        .unwrap_or_else(no_parent),
+                ),
+                map,
+            ),
+            GuiValue::Clone(e) => map(e.style()).resolve(dpi, e.parent(), map),
             GuiValue::Just(v) => Some(v.clone()),
-            GuiValue::Measurement(u) => Some(Arc::new(u.as_px(dpi))),
+            GuiValue::Measurement(u) => {
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<i32>() {
+                    unsafe {
+                        let a = u.as_px(dpi);
+                        Some(Unsafe::cast_ref::<i32, T>(&a).clone())
+                    }
+                } else {
+                    None
+                }
+            }
         }
+    }
+
+    pub fn is_set(&self) -> bool {
+        self != GuiValue::None && self != GuiValue::Auto
     }
 }
 
-struct ResCon(f32);
+fn no_parent<T>() -> T {
+    panic!("Called Inherit on GuiElement without parent")
+}
 
+#[macro_export]
+macro_rules! resolve {
+    ($elem:ident, $($style:tt)*) => {
+        $elem.style().$($style)*.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style)*})
+    };
+}
+
+pub(crate) struct ResCon {
+    pub dpi: f32,
+}
+
+impl ResCon {
+    pub(crate) fn set_dpi(&mut self, dpi: f32) {
+        self.dpi = dpi;
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum Unit {
     Px(i32),
     MM(f32),

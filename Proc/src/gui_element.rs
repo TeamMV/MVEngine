@@ -10,14 +10,18 @@ const PRIMITIVES: [&str; 15] = [
     "f32", "f64",
 ];
 
-const ARGS: [(&str, &str); 7] = [
-    ("x", "String"),
-    ("y", "Option<u32>"),
-    ("z", "i32"),
-    ("v", "Arc<String>"),
-    ("w", "Option<Arc<String>>"),
-    ("a", "Option<String>"),
-    ("b", "Style"),
+const ARGS: [(&str, &str, bool); 11] = [
+    ("x", "String", true),
+    ("y", "Option<u32>", true),
+    ("style", "Style", true),
+    ("parent", "Option<Arc<dyn GuiElement>>", true),
+    ("resolve_context", "ResCon", true),
+    ("content_width", "i32", true),
+    ("content_height", "i32", true),
+    ("bounding_width", "i32", true),
+    ("bounding_height", "i32", true),
+    ("width", "i32", true),
+    ("height", "i32", true),
 ];
 
 pub fn gui_element(input: TokenStream) -> TokenStream {
@@ -36,7 +40,7 @@ pub fn gui_element(input: TokenStream) -> TokenStream {
                     fields.push_punct(Comma::default());
                 }
 
-                let extras = ARGS.iter().map(|(name, ty)| {
+                let extras = ARGS.iter().map(|(name, ty, _)| {
                     let a = format!("{}: {},", name, ty);
                     proc_macro2::TokenStream::from_str(&a).unwrap()
                 });
@@ -62,51 +66,59 @@ pub fn gui_element(input: TokenStream) -> TokenStream {
 
 fn gen_impl(name: &Ident, generics: &Generics) -> proc_macro2::TokenStream {
     let (ig, tg, wc) = generics.split_for_impl();
-    let functions = ARGS.iter().map(|(name, ty)| {
+    let functions = ARGS.iter().map(|(name, ty, mutable)| {
         let a = if ty == &"String" {
-            format!(
-                r#"
-                fn {name}(&self) -> &str {{ &self.{name} }}
-                fn set_{name}(&mut self, {name}: String) {{ self.{name} = {name} }}
-            "#
+            format!("fn {name}(&self) -> &str {{ &self.{name}}} {}", if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: String) {{ self.{name} = {name} }}")
+                } else {
+                    String::new()
+                }
             )
         } else if PRIMITIVES.contains(ty) {
-            format!(
-                r#"
-                fn {name}(&self) -> {ty} {{ self.{name} }}
-                fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}
-            "#
+            format!("fn {name}(&self) -> {ty} {{ self.{name} }} {}",
+                if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}")
+                } else {
+                    String::new()
+                }
             )
         } else if ty.starts_with("Option<Arc<") || ty.starts_with("Arc<") {
-            format!(
-                r#"
-                fn {name}(&self) -> {ty} {{ self.{name}.clone() }}
-            "#
+            format!("fn {name}(&self) -> {ty} {{ self.{name}.clone() }} {}",
+                if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}")
+                } else {
+                    String::new()
+                }
             )
         } else if ty.starts_with("Option<") {
             let ty1 = "Option<";
             let ty2 = ty.split_once("<").unwrap().1;
             if PRIMITIVES.contains(&ty2.split_once(">").unwrap().0) {
-                format!(
-                    r#"
-                    fn {name}(&self) -> {ty} {{ self.{name}.clone() }}
-                    fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}
-                "#
+                format!("fn {name}(&self) -> {ty} {{ self.{name}.clone() }} {}",
+                    if *mutable {
+                        format!("fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}")
+                    } else {
+                        String::new()
+                    }
                 )
             } else {
                 format!(
-                    r#"
-                    fn {name}(&self) -> {ty1}&{ty2} {{ self.{name}.as_ref() }}
-                    fn {name}_mut(&mut self) -> {ty1}&mut {ty2} {{ self.{name}.as_mut() }}
-                "#
+                    "fn {name}(&self) -> {ty1}&{ty2} {{ self.{name}.as_ref() }} {}",
+                    if *mutable {
+                        format!("fn {name}_mut(&mut self) -> {ty1}&mut {ty2} {{ self.{name}.as_mut() }}")
+                    } else {
+                        String::new()
+                    }
                 )
             }
         } else {
             format!(
-                r#"
-                fn {name}(&self) -> &{ty} {{ &self.{name} }}
-                fn {name}_mut(&mut self) -> &mut {ty} {{ &mut self.{name} }}
-            "#
+                "fn {name}(&self) -> &{ty} {{ &self.{name} }} {}",
+                if *mutable {
+                    format!("fn {name}_mut(&mut self) -> &mut {ty} {{ &mut self.{name} }}")
+                } else {
+                    String::new()
+                }
             )
         };
         proc_macro2::TokenStream::from_str(&a).unwrap()
@@ -119,51 +131,64 @@ fn gen_impl(name: &Ident, generics: &Generics) -> proc_macro2::TokenStream {
 }
 
 pub fn gui_element_trait() -> TokenStream {
-    let functions = ARGS.iter().map(|(name, ty)| {
+    let functions = ARGS.iter().map(|(name, ty, mutable)| {
         let a = if ty == &"String" {
             format!(
-                r#"
-                fn {name}(&self) -> &str;
-                fn set_{name}(&mut self, {name}: String);
-            "#
+                "fn {name}(&self) -> &str; {}",
+                if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: String);")
+                } else {
+                    String::new()
+                }
             )
         } else if PRIMITIVES.contains(ty) {
             format!(
-                r#"
-                fn {name}(&self) -> {ty};
-                fn set_{name}(&mut self, {name}: {ty});
-            "#
+                "fn {name}(&self) -> {ty}; {}",
+                if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: {ty});")
+                } else {
+                    String::new()
+                }
             )
         } else if ty.starts_with("Option<Arc<") || ty.starts_with("Arc<") {
             format!(
-                r#"
-                fn {name}(&self) -> {ty};
-            "#
+                "fn {name}(&self) -> {ty}; {}",
+                if *mutable {
+                    format!("fn set_{name}(&mut self, {name}: {ty});")
+                } else {
+                    String::new()
+                }
             )
         } else if ty.starts_with("Option<") {
             let ty1 = "Option<";
             let ty2 = ty.split_once("<").unwrap().1;
             if PRIMITIVES.contains(&ty2.split_once(">").unwrap().0) {
                 format!(
-                    r#"
-                    fn {name}(&self) -> {ty} {{ self.{name}.clone() }}
-                    fn set_{name}(&mut self, {name}: {ty}) {{ self.{name} = {name} }}
-                "#
+                    "fn {name}(&self) -> {ty}; {}",
+                    if *mutable {
+                        format!("fn set_{name}(&mut self, {name}: {ty});")
+                    } else {
+                        String::new()
+                    }
                 )
             } else {
                 format!(
-                    r#"
-                    fn {name}(&self) -> {ty1}&{ty2} {{ self.{name}.as_ref() }}
-                    fn {name}_mut(&mut self) -> {ty1}&mut {ty2} {{ self.{name}.as_mut() }}
-                "#
+                    "fn {name}(&self) -> {ty1}&{ty2}; {}",
+                    if *mutable {
+                        format!("fn {name}_mut(&mut self) -> {ty1}&mut {ty2};")
+                    } else {
+                        String::new()
+                    }
                 )
             }
         } else {
             format!(
-                r#"
-                fn {name}(&self) -> &{ty};
-                fn {name}_mut(&mut self) -> &mut {ty};
-            "#
+                "fn {name}(&self) -> &{ty}; {}",
+                if *mutable {
+                    format!("fn {name}_mut(&mut self) -> &mut {ty};")
+                } else {
+                    String::new()
+                }
             )
         };
         proc_macro2::TokenStream::from_str(&a).unwrap()
