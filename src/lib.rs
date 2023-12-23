@@ -16,9 +16,9 @@ use crate::render::RenderCore;
 
 #[cfg(feature = "gui")]
 pub mod gui;
-pub mod user_input;
 pub mod render;
 pub mod resources;
+pub mod user_input;
 
 pub use mvcore_proc_macro::gui_element;
 

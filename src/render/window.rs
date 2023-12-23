@@ -5,18 +5,23 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::SystemTime;
 
+use crate::user_input;
+use crate::user_input::input::Input;
+use crate::user_input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
 use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
-use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, SurfaceError, TextureView, TextureViewDescriptor};
+use wgpu::{
+    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor, StoreOp, SurfaceError, TextureView, TextureViewDescriptor,
+};
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent};
+use winit::event::{
+    ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
+};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
-use crate::user_input;
-use crate::user_input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
-use crate::user_input::input::Input;
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
@@ -389,42 +394,89 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::HoveredFile(_path) => {}
             WindowEvent::HoveredFileCancelled => {}
             WindowEvent::Focused(_focus) => {}
-            WindowEvent::KeyboardInput { device_id, input, is_synthetic } => {
+            WindowEvent::KeyboardInput {
+                device_id,
+                input,
+                is_synthetic,
+            } => {
                 if let ElementState::Pressed = input.state {
-                    let index = Input::key_from_winit(input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape));
+                    let index = Input::key_from_winit(
+                        input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape),
+                    );
                     if self.input().read().recover().keys[index] {
-                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                        self.input_collector
+                            .get_mut()
+                            .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
                     } else {
-                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Type(index)));
-                        self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                        self.input_collector
+                            .get_mut()
+                            .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                        self.input_collector
+                            .get_mut()
+                            .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
                     }
                 }
 
                 if let ElementState::Released = input.state {
-                    self.input_collector.get_mut().collect(InputAction::Keyboard(KeyboardAction::Release(Input::key_from_winit(input.virtual_keycode.unwrap()))));
+                    self.input_collector
+                        .get_mut()
+                        .collect(InputAction::Keyboard(KeyboardAction::Release(
+                            Input::key_from_winit(input.virtual_keycode.unwrap()),
+                        )));
                 }
             }
             WindowEvent::ModifiersChanged(_mods) => {}
-            WindowEvent::CursorMoved { device_id, position, .. } => {
-                self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Move(position.x as i32, self.specs.get().height as i32 - position.y as i32)))
-            }
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+                ..
+            } => self
+                .input_collector
+                .get_mut()
+                .collect(InputAction::Mouse(MouseAction::Move(
+                    position.x as i32,
+                    self.specs.get().height as i32 - position.y as i32,
+                ))),
             WindowEvent::CursorEntered { .. } => {}
             WindowEvent::CursorLeft { .. } => {}
-            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+                ..
+            } => {
                 if let MouseScrollDelta::PixelDelta(pos) = delta {
-                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(pos.x as f32, pos.y as f32)))
+                    self.input_collector
+                        .get_mut()
+                        .collect(InputAction::Mouse(MouseAction::Wheel(
+                            pos.x as f32,
+                            pos.y as f32,
+                        )))
                 }
                 if let MouseScrollDelta::LineDelta(x, y) = delta {
-                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
+                    self.input_collector
+                        .get_mut()
+                        .collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
                 }
             }
-            WindowEvent::MouseInput { device_id, state, button, .. } => {
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+                ..
+            } => {
                 if let ElementState::Pressed = state {
-                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Press(Input::mouse_from_winit(button))));
+                    self.input_collector
+                        .get_mut()
+                        .collect(InputAction::Mouse(MouseAction::Press(
+                            Input::mouse_from_winit(button),
+                        )));
                 }
 
                 if let ElementState::Released = state {
-                    self.input_collector.get_mut().collect(InputAction::Mouse(MouseAction::Release(Input::mouse_from_winit(button))));
+                    self.input_collector.get_mut().collect(InputAction::Mouse(
+                        MouseAction::Release(Input::mouse_from_winit(button)),
+                    ));
                 }
             }
             _ => {}

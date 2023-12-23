@@ -131,7 +131,7 @@ pub enum State {
     Pressed,
     Released,
     JustPressed,
-    JustReleased
+    JustReleased,
 }
 
 pub struct Input {
@@ -148,7 +148,7 @@ pub struct Input {
     ///All the scroll directions of a mouse wheel and their exact float value at the moment. Access them with the constants MOUSE_SCROLL_...
     pub scrollstates: [f32; 4],
     ///Both mouse x and y position, access with MOUSE_POS_X or MOUSE_POS_Y or simply 0 or 1.
-    pub positions: [i32; 2]
+    pub positions: [i32; 2],
 }
 
 impl Input {
@@ -166,12 +166,22 @@ impl Input {
 
     pub(crate) fn loop_states(&mut self) {
         for i in 0..MAX_KEYS {
-            if self.keystates[i] == State::JustPressed { self.keystates[i] = State::Pressed }
-            if self.keystates[i] == State::JustReleased { self.keystates[i] = State::Released; self.keys[i] = false; }
+            if self.keystates[i] == State::JustPressed {
+                self.keystates[i] = State::Pressed
+            }
+            if self.keystates[i] == State::JustReleased {
+                self.keystates[i] = State::Released;
+                self.keys[i] = false;
+            }
         }
         for i in 0..MAX_MOUSE {
-            if self.mousestates[i] == State::JustPressed { self.mousestates[i] = State::Pressed }
-            if self.mousestates[i] == State::JustReleased { self.mousestates[i] = State::Released; self.mouse[i] = false; }
+            if self.mousestates[i] == State::JustPressed {
+                self.mousestates[i] = State::Pressed
+            }
+            if self.mousestates[i] == State::JustReleased {
+                self.mousestates[i] = State::Released;
+                self.mouse[i] = false;
+            }
         }
         for i in 0..4 {
             self.scroll[i] = false;
@@ -409,7 +419,7 @@ impl Input {
             MOUSE_5 => "MOUSE_6".to_string(),
             MOUSE_6 => "MOUSE_7".to_string(),
             MOUSE_7 => "MOUSE_8".to_string(),
-            _ => "UNKNOWN".to_string()
+            _ => "UNKNOWN".to_string(),
         }
     }
 
@@ -568,7 +578,7 @@ impl Input {
             VirtualKeyCode::NumpadDecimal => KEY_KP_PERIOD,
             VirtualKeyCode::Apps => KEY_APPLICATION,
             VirtualKeyCode::Power => KEY_POWER,
-            _ => usize::MAX
+            _ => usize::MAX,
         }
     }
 
@@ -582,7 +592,7 @@ impl Input {
             MouseButton::Other(4) => MOUSE_5,
             MouseButton::Other(5) => MOUSE_6,
             MouseButton::Other(6) => MOUSE_7,
-            _ => usize::MAX
+            _ => usize::MAX,
         }
     }
 }

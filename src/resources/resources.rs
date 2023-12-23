@@ -48,14 +48,16 @@ impl R {
         let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
+        res.texture_regions
+            .register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn convert_texture(texture: &str, id: String) {
         let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get(texture);
         let region = TextureRegion::from(tex);
-        res.texture_regions.register(id, Arc::new(RwLock::new(region)));
+        res.texture_regions
+            .register(id, Arc::new(RwLock::new(region)));
     }
 
     pub(crate) fn crop_texture_core(
@@ -69,14 +71,16 @@ impl R {
         let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get_core(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.register_core(id, Arc::new(RwLock::new(region)));
+        res.texture_regions
+            .register_core(id, Arc::new(RwLock::new(region)));
     }
 
     pub fn crop_texture(texture: &str, id: String, x: u32, y: u32, width: u32, height: u32) {
         let res = GLOBAL_RESOURCES.write_unchecked();
         let tex = res.textures.get(texture);
         let region = TextureRegion::new(tex, x, y, width, height);
-        res.texture_regions.register(id, Arc::new(RwLock::new(region)));
+        res.texture_regions
+            .register(id, Arc::new(RwLock::new(region)));
     }
 }
 

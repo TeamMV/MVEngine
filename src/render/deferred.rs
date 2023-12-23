@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
 use glam::Mat4;
-use mvutils::unsafe_utils::{Nullable, Unsafe};
+use mvutils::unsafe_utils::{HeapNullable, Unsafe};
 use mvutils::utils::TetrahedronOp;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Color, CommandEncoder, IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp, TextureView};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Color, CommandEncoder,
+    IndexFormat, LoadOp, Operations, RenderPass, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp, TextureView,
+};
 
 use crate::render::common::{Bytes, Shader, Texture};
 use crate::render::consts::{
@@ -23,8 +27,8 @@ pub(crate) struct DeferredPass {
     uniform: BindGroup,
     uniform_buffer: Buffer,
     material_buffer: Buffer,
-    geom_pass: Nullable<RenderPass<'static>>,
-    light_pass: Nullable<RenderPass<'static>>,
+    geom_pass: HeapNullable<RenderPass<'static>>,
+    light_pass: HeapNullable<RenderPass<'static>>,
     projection: Mat4,
     view: Mat4,
     pass: usize,
@@ -121,8 +125,8 @@ impl DeferredPass {
             uniform: bind_group,
             uniform_buffer: uniform,
             material_buffer: material,
-            geom_pass: Nullable::null(),
-            light_pass: Nullable::null(),
+            geom_pass: HeapNullable::null(),
+            light_pass: HeapNullable::null(),
             projection: Mat4::default(),
             view: Mat4::default(),
             pass: 0,
@@ -141,7 +145,7 @@ impl DeferredPass {
         inst
     }
 
-    fn begin_geom(&self, enc: &mut CommandEncoder) -> Nullable<RenderPass<'static>> {
+    fn begin_geom(&self, enc: &mut CommandEncoder) -> HeapNullable<RenderPass<'static>> {
         let mut geom = enc.begin_render_pass(&RenderPassDescriptor {
             label: Some("Geometry Pass"),
             color_attachments: &[
@@ -184,7 +188,7 @@ impl DeferredPass {
 
         unsafe { geom.set_bind_group(0, Unsafe::cast_static(&self.uniform), &[]) };
 
-        let g = Nullable::new(geom);
+        let g = HeapNullable::new(geom);
         unsafe { g.cast_bytes() }
     }
 
@@ -192,7 +196,7 @@ impl DeferredPass {
         &self,
         enc: &mut CommandEncoder,
         target: &TextureView,
-    ) -> Nullable<RenderPass<'static>> {
+    ) -> HeapNullable<RenderPass<'static>> {
         let light = enc.begin_render_pass(&RenderPassDescriptor {
             label: Some("Lighting Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -214,7 +218,7 @@ impl DeferredPass {
             occlusion_query_set: None,
         });
 
-        unsafe { Nullable::new(light).cast_bytes() }
+        unsafe { HeapNullable::new(light).cast_bytes() }
     }
 
     pub(crate) fn new_frame(

@@ -1,28 +1,27 @@
+use crate::gui::elements::{GuiElement, GuiElementImpl};
 use std::sync::Arc;
-use crate::gui::elements::{GuiElement, IGuiElement};
 
-pub struct Style {
-
-}
+pub struct Style {}
 
 pub enum GuiValue<T: Clone> {
     None,
     Auto,
     Inherit,
     Just(T),
-    Measurement(Unit)
+    Measurement(Unit),
 }
 
 impl<T: Clone> GuiValue<T> {
-    fn resolve<F>(&self, dpi: f32, parent_elem: GuiElement) -> Option<T>
-        where F: Fn(&Style) -> &GuiValue<T>
+    fn resolve<F>(&self, dpi: f32, parent_elem: GuiElementImpl) -> Option<T>
+    where
+        F: Fn(&Style) -> &GuiValue<T>,
     {
         match self {
-            GuiValue::None => {None}
-            GuiValue::Auto => {None}
+            GuiValue::None => None,
+            GuiValue::Auto => None,
             GuiValue::Inherit => {}
-            GuiValue::Just(v) => {Some(v.clone())}
-            GuiValue::Measurement(u) => {Some(Arc::new(u.as_px(dpi)))}
+            GuiValue::Just(v) => Some(v.clone()),
+            GuiValue::Measurement(u) => Some(Arc::new(u.as_px(dpi))),
         }
     }
 }

@@ -1,23 +1,26 @@
-use std::rc::Rc;
-use std::sync::RwLock;
-use mvutils::utils::Recover;
 use crate::user_input::input::{Input, State};
 use crate::user_input::InputAction::{Keyboard, Mouse};
+use mvutils::utils::Recover;
+use std::rc::Rc;
+use std::sync::RwLock;
 
 pub mod input;
 
 pub(crate) struct InputCollector {
     default_processor: InputProcessorImpl,
     gui_processor: GuiInputProcessor,
-    custom_processor: Option<Rc<RwLock<Box<dyn InputProcessor>>>>
+    custom_processor: Option<Rc<RwLock<Box<dyn InputProcessor>>>>,
 }
 
 impl InputCollector {
-    pub(crate) fn new(input: Rc<RwLock<Input>>) -> Self where Self: Sized {
+    pub(crate) fn new(input: Rc<RwLock<Input>>) -> Self
+    where
+        Self: Sized,
+    {
         Self {
             default_processor: InputProcessorImpl::new(input.clone()),
             gui_processor: GuiInputProcessor::new(input),
-            custom_processor: None
+            custom_processor: None,
         }
     }
 
@@ -58,14 +61,14 @@ impl InputCollector {
 #[derive(Copy, Clone)]
 pub(crate) enum InputAction {
     Keyboard(KeyboardAction),
-    Mouse(MouseAction)
+    Mouse(MouseAction),
 }
 
 #[derive(Copy, Clone)]
 pub enum KeyboardAction {
     Press(usize),
     Release(usize),
-    Type(usize)
+    Type(usize),
 }
 
 #[derive(Copy, Clone)]
@@ -73,29 +76,40 @@ pub enum MouseAction {
     Wheel(f32, f32),
     Move(i32, i32),
     Press(usize),
-    Release(usize)
+    Release(usize),
 }
 
 pub trait InputProcessor {
-    fn new(input: Rc<RwLock<Input>>) -> Self where Self: Sized;
+    fn new(input: Rc<RwLock<Input>>) -> Self
+    where
+        Self: Sized;
     fn input(&self) -> Rc<RwLock<Input>>;
     fn mouse_change(&mut self, action: MouseAction);
     fn keyboard_change(&mut self, action: KeyboardAction);
     fn set_enabled(&mut self, enabled: bool);
-    fn enable(&mut self) { self.set_enabled(true); }
-    fn disable(&mut self) { self.set_enabled(false); }
-    fn toggle(&mut self) { self.set_enabled(!self.is_enabled()); }
+    fn enable(&mut self) {
+        self.set_enabled(true);
+    }
+    fn disable(&mut self) {
+        self.set_enabled(false);
+    }
+    fn toggle(&mut self) {
+        self.set_enabled(!self.is_enabled());
+    }
     fn is_enabled(&self) -> bool;
 }
 
 pub struct InputProcessorImpl {
     input: Rc<RwLock<Input>>,
-    enabled: bool
+    enabled: bool,
 }
 
 impl InputProcessor for InputProcessorImpl {
     fn new(input: Rc<RwLock<Input>>) -> Self {
-        Self { input, enabled: true }
+        Self {
+            input,
+            enabled: true,
+        }
     }
 
     fn input(&self) -> Rc<RwLock<Input>> {
@@ -160,12 +174,18 @@ impl InputProcessor for InputProcessorImpl {
 
 pub(crate) struct GuiInputProcessor {
     input: Rc<RwLock<Input>>,
-    enabled: bool
+    enabled: bool,
 }
 
 impl InputProcessor for GuiInputProcessor {
-    fn new(input: Rc<RwLock<Input>>) -> Self where Self: Sized {
-        Self { input, enabled: true}
+    fn new(input: Rc<RwLock<Input>>) -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            input,
+            enabled: true,
+        }
     }
 
     fn input(&self) -> Rc<RwLock<Input>> {

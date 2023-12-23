@@ -6,7 +6,6 @@ use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{Instance, InstanceFlags};
 use wgpu::{
     AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
@@ -18,6 +17,7 @@ use wgpu::{
     TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
     VertexBufferLayout, VertexState,
 };
+use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;

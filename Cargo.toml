@@ -41,7 +41,7 @@ gui = ["dep:roxmltree"]
 
 [dependencies]
 mvcore-proc-macro = { path = "Proc" }
-mvutils = "0.3.4"
+mvutils = "0.3.5"
 mvsync = "1.1.0"
 include_dir = "0.7.3"
 regex = "1.7.3"

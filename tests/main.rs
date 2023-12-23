@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use mvutils::utils::Recover;
+use std::sync::Arc;
 
 use mvutils::version::Version;
 
+use mvcore::render::color::RgbColor;
 use mvcore::render::window::{Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::{ApplicationInfo, MVCore};
-use mvcore::render::color::{RgbColor};
 use mvcore::user_input::input;
+use mvcore::{ApplicationInfo, MVCore};
 
 fn main() {
     env_logger::init();
@@ -30,13 +30,9 @@ fn main() {
 struct ApplicationLoop;
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
-    fn start(&self, window: Arc<Window<Self>>) {
+    fn start(&self, window: Arc<Window<Self>>) {}
 
-    }
-
-    fn update(&self, window: Arc<Window<Self>>) {
-
-    }
+    fn update(&self, window: Arc<Window<Self>>) {}
 
     fn draw(&self, window: Arc<Window<Self>>) {
         let tmp = window.input();
