@@ -276,7 +276,6 @@ impl State {
         cull_mode: Face,
         pol_mode: PolygonMode,
         vertex_layout: VertexBufferLayout,
-        is_stencil: bool,
         bind_groups: Vec<&'static BindGroupLayout>,
     ) -> RenderPipeline {
         let render_pipeline_layout =
@@ -335,18 +334,7 @@ impl State {
                     unclipped_depth: false,
                     conservative: false,
                 },
-                depth_stencil: Some(DepthStencilState {
-                    format: TextureFormat::Depth24PlusStencil8,
-                    depth_write_enabled: false,
-                    depth_compare: Default::default(),
-                    stencil: StencilState {
-                        front: stencil_state,
-                        back: stencil_state,
-                        read_mask: is_stencil.yn(0x00, 0xFF),
-                        write_mask: is_stencil.yn(0xFF, 0x00),
-                    },
-                    bias: Default::default(),
-                }),
+                depth_stencil: None,
                 multisample: wgpu::MultisampleState {
                     count: 1,
                     mask: !0,
@@ -379,7 +367,6 @@ pub(crate) struct PipelineBuilder<'a> {
     cull_direction: FrontFace,
     cull_mode: Face,
     polygon_mode: PolygonMode,
-    is_stencil: bool
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -392,7 +379,6 @@ impl<'a> PipelineBuilder<'a> {
     pub(crate) const SHADER_COMMON: u8 = 6;
     pub(crate) const VERTEX_LAYOUT: u8 = 7;
     pub(crate) const BIND_GROUP: u8 = 8;
-    pub(crate) const STENCIL_MODE: u8 = 9;
 
     pub(crate) const CULL_DIR_CLOCKWISE: u8 = 10;
     pub(crate) const CULL_DIR_COUNTERCLOCKWISE: u8 = 11;
@@ -410,8 +396,6 @@ impl<'a> PipelineBuilder<'a> {
     pub(crate) const VERTEX_LAYOUT_MODEL_3D: u8 = 23;
     pub(crate) const VERTEX_LAYOUT_BATCH_3D: u8 = 24;
     pub(crate) const VERTEX_LAYOUT_NONE: u8 = 25;
-    pub(crate) const WRITE_STENCIL: u8 = 26;
-    pub(crate) const MASK_STENCIL: u8 = 27;
 
     pub(crate) fn begin(state: &'a State) -> Self {
         Self {
@@ -424,7 +408,6 @@ impl<'a> PipelineBuilder<'a> {
             cull_direction: FrontFace::Ccw,
             cull_mode: Face::Back,
             polygon_mode: PolygonMode::Fill,
-            is_stencil: false,
         }
     }
 
@@ -478,7 +461,6 @@ impl<'a> PipelineBuilder<'a> {
                 _ => {}
             },
             Self::BIND_GROUP => self.bind_group.push(what),
-            Self::STENCIL_MODE => self.is_stencil = (what == Self::WRITE_STENCIL),
             _ => {}
         }
 
@@ -524,7 +506,6 @@ impl<'a> PipelineBuilder<'a> {
             self.cull_mode,
             self.polygon_mode,
             self.vertex_layout,
-            self.is_stencil,
             bindings,
         )
     }

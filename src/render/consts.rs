@@ -23,6 +23,8 @@ pub(crate) const VERTEX_2D_SIZE_FLOATS: usize = 22;
 pub(crate) const VERTEX_3D_MODEL_SIZE_FLOATS: usize = 9;
 pub(crate) const VERTEX_3D_BATCH_SIZE_FLOATS: usize = 16;
 
+pub(crate) const FONT_SMOOTHING: f32 = 1.0 / 64.0;
+
 pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 p[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 t[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=t[gl_VertexIndex];gl_Position=vec4(p[gl_VertexIndex],0.0,1.0);}";
 
 pub(crate) const EFFECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];

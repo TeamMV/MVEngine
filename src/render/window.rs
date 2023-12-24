@@ -22,12 +22,7 @@ use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
-use crate::render::consts::{
-    BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
-    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D,
-    BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, VERTEX_LAYOUT_2D,
-    VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D,
-};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
@@ -36,7 +31,7 @@ use crate::render::init::State;
 use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
-use crate::render::ApplicationLoopCallbacks;
+use crate::render::{ApplicationLoopCallbacks, consts};
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -206,7 +201,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             maker.set_float(0, 5.0);
         });
 
-        let render_pass_2d = RenderPass2D::new(
+        let mut render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(
                 &state,
                 VERTEX_LAYOUT_2D,
@@ -216,6 +211,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             Mat4::default(),
             Mat4::default(),
         );
+
+        render_pass_2d.set_smoothing(FONT_SMOOTHING);
 
         #[cfg(feature = "3d")]
         let deferred_pass_3d = DeferredPass::new(
@@ -569,14 +566,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                             store: StoreOp::Store,
                         },
                     })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: $v,
-                        depth_ops: None,
-                        stencil_ops: Some(Operations {
-                            load: LoadOp::Clear(0),
-                            store: StoreOp::Store
-                        })
-                    }),
+                    depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 })
@@ -598,14 +588,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     store: StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view,
-                depth_ops: None,
-                stencil_ops: Some(Operations {
-                    load: LoadOp::Clear(0),
-                    store: StoreOp::Store
-                })
-            }),
+            depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
         });

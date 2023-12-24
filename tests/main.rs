@@ -45,12 +45,16 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             }
             ctx.rotate(90f32);
             //ctx.scale(1.0f32 / 2.0f32.sqrt(), 1.0f32 / 2.0f32.sqrt());
-            ctx.origin((window.specs.get().width as f32 / 2.0), (window.specs.get().height as f32 / 2.0));
+            ctx.origin(window.specs.get().width as f32 / 2.0, window.specs.get().height as f32 / 2.0);
             ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
             ctx.void_rectangle(0, 0, window.specs.get().width as i32, window.specs.get().height as i32, 2);
             ctx.reset_transformations();
             ctx.color(RgbColor::blue());
             ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
+            ctx.color(RgbColor::white());
+            let mut t = char::from_u32(1168).unwrap().to_string();
+            t.push(char::from_u32(1280).unwrap());
+            ctx.text(false, 0, 300, 100, "AV");
         });
     }
 

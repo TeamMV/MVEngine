@@ -222,8 +222,7 @@ impl Batch2D {
             self.data.as_slice(),
             &self.textures,
             (self.generator.get_render_mode() == PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
-                .yn(true, false),
-            //false todo: impl stencil batch logic
+                .yn(true, false)
         );
         self.force_clear();
     }

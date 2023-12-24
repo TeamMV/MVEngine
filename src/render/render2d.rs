@@ -33,7 +33,7 @@ impl TextureBindGroup {
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Texture bind group"),
-            layout: &shader.get_pipeline(0).get_bind_group_layout(index),
+            layout: &shader.get_pipeline().get_bind_group_layout(index),
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: BindingResource::TextureViewArray(&views[..*MAX_TEXTURES]),
@@ -55,7 +55,7 @@ impl TextureBindGroup {
     pub(crate) fn remake(&mut self, state: &State, shader: &Shader, index: u32) {
         self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
-            layout: &shader.get_pipeline(0).get_bind_group_layout(index),
+            layout: &shader.get_pipeline().get_bind_group_layout(index),
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: BindingResource::TextureViewArray(&self.views[..*MAX_TEXTURES]),
@@ -95,7 +95,7 @@ impl RenderPass2D {
 
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
-            layout: &shader.get_pipeline(0).get_bind_group_layout(0),
+            layout: &shader.get_pipeline().get_bind_group_layout(0),
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -125,7 +125,7 @@ impl RenderPass2D {
             pass: 0,
             projection,
             view,
-            smoothing: [0.0f32],
+            smoothing: [1.0f32],
             smoothing_buffer,
             render_pass: null_mut(),
         }
@@ -172,8 +172,7 @@ impl RenderPass2D {
         indices: &[u32],
         vertices: &[f32],
         textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT],
-        stripped: bool,
-        stencil: bool
+        stripped: bool
     ) {
         unsafe {
             if self.ibo.len() <= self.pass {
@@ -212,14 +211,10 @@ impl RenderPass2D {
             }
 
             render_pass.set_bind_group(1, &texture_group.bind_group, &[]);
-            render_pass.set_pipeline(
-                self.shader.get_pipeline(
-                    stripped.yn(
-                    Shader::PIPELINE_STRIPPED, 0
-                ) | stencil.yn(
-                    Shader::PIPELINE_STENCIL, 0
-                )).expect("Invalid call to pipelines")
-            );
+            render_pass.set_pipeline(stripped.yn(
+                self.shader.get_stripped_pipeline(),
+                self.shader.get_pipeline()
+            ));
             render_pass.set_vertex_buffer(0, vbo.slice(..));
             render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);
             render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);

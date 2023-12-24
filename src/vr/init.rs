@@ -50,9 +50,6 @@ impl VRState {
 
             let mut backends = Backends::empty();
 
-            //if xr_extensions.khr_opengl_es_enable {
-            //    backends = backends | Backends::GL;
-            //}
             if xr_extensions.khr_vulkan_enable2 {
                 backends = backends | Backends::VULKAN;
             }
@@ -123,7 +120,6 @@ impl VRState {
 
             let vr_state = match backend {
                 Backend::Vulkan => Self::init_vulkan(xr_instance, system, blend_mode, &instance, &adapter, &device),
-                //Backend::Gl => Self::init_gl(xr_instance, system, blend_mode, &instance, &adapter, &device),
                 _ => unreachable!()
             };
 

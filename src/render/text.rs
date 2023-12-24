@@ -1,6 +1,7 @@
 use std::cmp::max;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use mvutils::utils::TetrahedronOp;
 
@@ -26,16 +27,18 @@ impl TypeFace {
 }
 
 pub struct Font {
-    texture: Arc<Texture>,
+    textures: Vec<Arc<Texture>>,
     alphabet: HashMap<char, Glyph>,
 
     max_height: u16,
     max_width: u16,
+
+    kernings: HashMap<u64, i8>
 }
 
 impl Font {
-    pub(crate) fn get_texture(&self) -> Arc<Texture> {
-        self.texture.clone()
+    pub(crate) fn get_texture(&self, idx: usize) -> Arc<Texture> {
+        self.textures.get(idx).expect("idx out of bounds").clone()
     }
 
     pub(crate) fn supports(&self, c: char) -> bool {
@@ -46,6 +49,11 @@ impl Font {
         self.alphabet
             .get(&c)
             .unwrap_or_else(|| panic!("The char '{}' is not supported in this font!", c))
+    }
+
+    pub(crate) fn get_kerning(&self, first: char, second: char) -> i8 {
+        let pos: u64 = first as u64 | (second as u64) << 32;
+        self.kernings.get(&pos).copied().unwrap_or(0)
     }
 
     pub fn get_metrics(&self, string: &str) -> FontMetrics {
@@ -93,7 +101,8 @@ pub struct Glyph {
     height: u16,
     x_off: i16,
     y_off: i16,
-    x_adv: u16,
+    x_adv: i16,
+    page: u16,
 
     max_height: u16,
 }
@@ -107,7 +116,9 @@ impl Glyph {
         height: u16,
         x_off: i16,
         y_off: i16,
-        x_adv: u16,
+        x_adv: i16,
+        page: u16,
+        chnl: u8,
         c: char,
     ) -> Self {
         Glyph {
@@ -120,6 +131,7 @@ impl Glyph {
             x_off,
             y_off,
             x_adv,
+            page,
             max_height: 0,
         }
     }
@@ -138,26 +150,30 @@ impl Glyph {
     }
 
     pub(crate) fn get_x_offset(&self, height: i32) -> i32 {
-        self.multiplier(height, self.x_off as i32)
+        self.multiply(height, self.x_off as i32)
     }
 
     pub(crate) fn get_y_offset(&self, height: i32) -> i32 {
-        self.multiplier(height, self.y_off as i32)
+        self.multiply(height, self.y_off as i32)
     }
 
     pub(crate) fn get_x_advance(&self, height: i32) -> i32 {
-        self.multiplier(height, self.x_adv as i32)
+        self.multiply(height, self.x_adv as i32)
     }
 
     pub(crate) fn get_width(&self, height: i32) -> i32 {
-        self.multiplier(height, self.width as i32)
+        self.multiply(height, self.width as i32)
     }
 
     pub(crate) fn get_height(&self, height: i32) -> i32 {
-        self.multiplier(height, self.height as i32)
+        self.multiply(height, self.height as i32)
     }
 
-    fn multiplier(&self, height: i32, value: i32) -> i32 {
+    pub(crate) fn get_page(&self) -> u16 {
+        self.page
+    }
+
+    pub(crate) fn multiply(&self, height: i32, value: i32) -> i32 {
         (height as f32 / self.max_height as f32 * value as f32).floor() as i32
     }
 }
@@ -173,8 +189,14 @@ impl FontLoader {
     pub(crate) fn load_default_font(&self, state: &State) -> Font {
         self.load_bitmap(
             state,
-            include_bytes!("fonts/default.png"),
-            include_str!("fonts/default.fnt"),
+            &[
+                include_bytes!("fonts/roboto1.png"),
+                include_bytes!("fonts/roboto2.png"),
+                include_bytes!("fonts/roboto3.png"),
+                include_bytes!("fonts/roboto4.png"),
+                include_bytes!("fonts/roboto5.png"),
+            ],
+            include_str!("fonts/roboto.fnt"),
         )
     }
 
@@ -182,65 +204,132 @@ impl FontLoader {
         todo!()
     }
 
-    pub(crate) fn load_bitmap(&self, state: &State, texture: &[u8], data: &str) -> Font {
-        fn get_attrib(line: &str, name: &str) -> String {
-            let re = regex::Regex::new(r"\s+").unwrap();
-            let l = re.replace_all(line, " ");
-            for attrib in l.split_whitespace() {
-                if attrib.starts_with(name) {
-                    return attrib.split('=').nth(1).unwrap_or("0").to_string();
-                }
-            }
-            "0".to_string()
-        }
-
+    pub(crate) fn load_bitmap(&self, state: &State, textures: &[&[u8]], data: &str) -> Font {
+        let mut kernings: HashMap<u64, i8> = HashMap::new();
         let mut map = HashMap::new();
         let lines = data.split('\n');
-        let mut total_chars: u16 = 0;
         let mut atlas_width: u16 = 0;
         let mut atlas_height: u16 = 0;
-        //let mut line_height: u8 = 0;
         let mut max_width = 0;
         let mut max_height = 0;
         let mut max_x_off = 0;
         let mut max_y_off = 0;
+        let mut packed = false;
 
         for line in lines {
-            if line.contains("chars ") {
-                total_chars = get_attrib(line, "count").parse::<u16>().unwrap();
+            if line.starts_with("common ") {
+                for attrib in line.split_whitespace() {
+                    if !attrib.contains('=') { continue; }
+                    let (name, value) = attrib.split_once('=').unwrap();
+                    match name {
+                        "scaleW" => atlas_width = value.parse::<u16>().unwrap_or(0),
+                        "scaleH" => atlas_height = value.parse::<u16>().unwrap_or(0),
+                        "packed" => packed = value == "1",
+                        _ => {}
+                    }
+                }
             }
-            if line.contains("common ") {
-                //line_height = get_attrib(line, "lineHeight").parse::<u8>().unwrap();
-                atlas_width = get_attrib(line, "scaleW").parse::<u16>().unwrap();
-                atlas_height = get_attrib(line, "scaleH").parse::<u16>().unwrap();
-            }
-            if total_chars != 0 {
-                //individual character parsing
-                max_width = max(max_width, get_attrib(line, "width").parse::<u16>().unwrap());
-                max_height = max(
-                    max_height,
-                    get_attrib(line, "height").parse::<u16>().unwrap(),
-                );
-                max_x_off = max(
-                    max_x_off,
-                    get_attrib(line, "xoffset").parse::<i16>().unwrap(),
-                );
-                max_y_off = max(
-                    max_y_off,
-                    get_attrib(line, "yoffset").parse::<i16>().unwrap(),
-                );
-                let c = char::from_u32(get_attrib(line, "id").parse::<u32>().unwrap()).unwrap();
+            else if line.starts_with("char ") {
+                let mut c = 0 as char;
+                let mut x = 0;
+                let mut y = 0;
+                let mut width = 0;
+                let mut height = 0;
+                let mut xoffset = 0;
+                let mut yoffset = 0;
+                let mut xadvance = 0;
+                let mut page = 0;
+                let mut chnl = 0;
+                for attrib in line.split_whitespace() {
+                    if !attrib.contains('=') { continue; }
+                    let (name, value) = attrib.split_once('=').unwrap();
+                    match name {
+                        "id" => {
+                            c = if let Ok(Some(c)) = value.parse::<u32>().map(char::from_u32) {
+                                c
+                            } else {
+                                continue;
+
+                            }
+                        }
+                        "x" => x = value.parse::<u16>().unwrap_or(0),
+                        "y" => y = value.parse::<u16>().unwrap_or(0),
+                        "width" => {
+                            width = value.parse::<u16>().unwrap_or(0);
+                            max_width = max_width.max(width);
+                        }
+                        "height" => {
+                            height = value.parse::<u16>().unwrap_or(0);
+                            max_height = max_height.max(height);
+                        }
+                        "xoffset" => {
+                            xoffset = value.parse::<i16>().unwrap_or(0);
+                            max_x_off = max_x_off.max(xoffset);
+                        }
+                        "yoffset" => {
+                            yoffset = value.parse::<i16>().unwrap_or(0);
+                            max_y_off = max_y_off.max(yoffset);
+                        }
+                        "xadvance" => xadvance = value.parse::<i16>().unwrap_or(0),
+                        "page" => page = value.parse::<u16>().unwrap_or(0),
+                        "chnl" => chnl = value.parse::<u8>().unwrap_or(0),
+                        _ => {}
+                    }
+                }
                 let glyph = Glyph::new(
-                    get_attrib(line, "x").parse::<u16>().unwrap(),
-                    get_attrib(line, "y").parse::<u16>().unwrap(),
-                    get_attrib(line, "width").parse::<u16>().unwrap(),
-                    get_attrib(line, "height").parse::<u16>().unwrap(),
-                    get_attrib(line, "xoffset").parse::<i16>().unwrap(),
-                    get_attrib(line, "yoffset").parse::<i16>().unwrap(),
-                    get_attrib(line, "xadvance").parse::<u16>().unwrap(),
+                    x,
+                    y,
+                    width,
+                    height,
+                    xoffset,
+                    yoffset,
+                    xadvance,
+                    page,
+                    chnl,
                     c,
                 );
                 map.insert(c, glyph);
+            }
+            else if line.starts_with("kerning ") {
+                let mut first = 0;
+                let mut second = 0;
+                let mut amount = 0;
+
+                for attrib in line.split_whitespace() {
+                    if !attrib.contains('=') { continue; }
+                    let (name, value) = attrib.split_once('=').unwrap();
+                    match name {
+                        "first" => {
+                            first = if let Ok(v) = value.parse::<u32>() {
+                                v
+                            } else {
+                                continue;
+                            }
+                        },
+                        "second" => {
+                            second = if let Ok(v) = value.parse::<u32>() {
+                                v
+                            } else {
+                                continue;
+                            }
+                        },
+                        "amount" => {
+                            amount = if let Ok(v) = value.parse::<i8>() {
+                                if v == 0 {
+                                    continue;
+                                }
+                                v
+                            } else {
+                                continue;
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+
+                let pos: u64 = first as u64 | (second as u64) << 32;
+
+                kernings.insert(pos, amount);
             }
         }
 
@@ -248,14 +337,19 @@ impl FontLoader {
             glyph.make_coords(atlas_width, atlas_height, max_height);
         }
 
-        let mut texture = Texture::new(texture.to_vec());
-        texture.make(state);
+        let mut tex_vec = Vec::with_capacity(textures.len());
+        for i in 0..textures.len() {
+            let mut texture = Texture::new(textures[i].to_vec());
+            texture.make(state);
+            tex_vec.push(Arc::new(texture));
+        }
 
         Font {
-            texture: Arc::new(texture),
+            textures: tex_vec,
             alphabet: map,
             max_width,
             max_height,
+            kernings
         }
     }
 }
