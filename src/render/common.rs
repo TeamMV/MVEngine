@@ -125,21 +125,19 @@ pub struct Shader {
     id: u64,
     vert: Option<Vec<u32>>,
     frag: Option<Vec<u32>>,
-    pipeline: Option<RenderPipeline>,
-    stripped_pipeline: Option<RenderPipeline>,
+    pipelines: Option<Vec<RenderPipeline>>
 }
 
 impl Clone for Shader {
     fn clone(&self) -> Self {
-        if self.pipeline.is_some() || self.stripped_pipeline.is_some() {
+        if self.pipelines.is_some() {
             panic!("Cannot clone a shader that is already made!");
         }
         Shader {
             id: self.id,
             vert: self.vert.clone(),
             frag: self.frag.clone(),
-            pipeline: None,
-            stripped_pipeline: None,
+            pipelines: None,
         }
     }
 }
@@ -154,8 +152,7 @@ impl Shader {
             id: next_id("MVCore::Shader"),
             vert: Some(vert),
             frag: Some(frag),
-            pipeline: None,
-            stripped_pipeline: None,
+            pipelines: None,
         }
     }
 
@@ -166,8 +163,7 @@ impl Shader {
             id: next_id("MVCore::Shader"),
             vert: Some(v_spv),
             frag: Some(f_spv),
-            pipeline: None,
-            stripped_pipeline: None,
+            pipelines: None,
         }
     }
 
@@ -200,8 +196,10 @@ impl Shader {
                     source: Cow::from(&frag),
                 });
 
-            self.pipeline = Some(
-                PipelineBuilder::begin(state)
+            self.pipelines = Some(Vec::with_capacity(4));
+
+
+            let nothing_pipeline = PipelineBuilder::begin(state)
                     .custom_vertex_layout(layout.clone())
                     .param(
                         PipelineBuilder::RENDER_MODE,
@@ -210,12 +208,10 @@ impl Shader {
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build(),
-            );
+                    .build();
 
-            self.stripped_pipeline = Some(
-                PipelineBuilder::begin(state)
-                    .custom_vertex_layout(layout)
+            let stripped_pipeline = PipelineBuilder::begin(state)
+                    .custom_vertex_layout(layout.clone())
                     .param(
                         PipelineBuilder::RENDER_MODE,
                         PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP,
@@ -223,20 +219,57 @@ impl Shader {
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build(),
-            );
+                    .build();
+
+            let stencil_pipeline = PipelineBuilder::begin(state)
+                    .custom_vertex_layout(layout.clone())
+                    .param(
+                        PipelineBuilder::RENDER_MODE,
+                        PipelineBuilder::RENDER_MODE_TRIANGLES,
+                    )
+                    .param(
+                        PipelineBuilder::STENCIL_MODE,
+                        PipelineBuilder::WRITE_STENCIL
+                    )
+                    .shader(PipelineBuilder::SHADER_VERTEX, &vert)
+                    .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
+                    .bind_groups(bind_groups)
+                    .build();
+
+            let stencil_stripped_pipeline = PipelineBuilder::begin(state)
+                    .custom_vertex_layout(layout)
+                    .param(
+                        PipelineBuilder::RENDER_MODE,
+                        PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP,
+                    )
+                    .param(
+                        PipelineBuilder::STENCIL_MODE,
+                        PipelineBuilder::WRITE_STENCIL
+                    )
+                    .shader(PipelineBuilder::SHADER_VERTEX, &vert)
+                    .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
+                    .bind_groups(bind_groups)
+                    .build();
+
+            self.pipelines.push(nothing_pipeline);
+            self.pipelines.push(stripped_pipeline);
+            self.pipelines.push(stencil_pipeline);
+            self.pipelines.push(stencil_stripped_pipeline);
             self
         }
     }
 
-    pub(crate) fn get_pipeline(&self) -> &RenderPipeline {
-        self.pipeline.as_ref().expect("Binding unmade shader!")
-    }
+    pub(crate) const PIPELINE_STRIPPED: u8 = 1;
+    pub(crate) const PIPELINE_STENCIL: u8 = 2;
 
-    pub(crate) fn get_stripped_pipeline(&self) -> &RenderPipeline {
-        self.stripped_pipeline
-            .as_ref()
-            .expect("Binding unmade shader!")
+    pub(crate) fn get_pipeline(&self, flags: u8) -> Option<&RenderPipeline> {
+        let is_stripped = flags & Self::PIPELINE_STRIPPED == Self::PIPELINE_STRIPPED;
+        let is_stencil = flags & Self::PIPELINE_STENCIL == Self::PIPELINE_STENCIL;
+        let mut i: usize = 0;
+        if is_stripped { i += 1; }
+        if is_stencil { i += 1; }
+        if is_stripped && is_stencil { i += 1; }
+        self.pipelines.expect("Shader not initialized").get(i)
     }
 }
 

@@ -1,3 +1,4 @@
+use glam::Vec2;
 use std::sync::Arc;
 
 use mvutils::utils::{Overlap, Recover};
@@ -11,8 +12,40 @@ use crate::resources::resources::R;
 
 use super::color::Gradient;
 
-pub struct Draw2D {
-    canvas: [f32; 6],
+pub struct Transformation {
+    data: [f32; 7],
+}
+
+impl Transformation {
+    fn new() -> Self {
+        let mut s = Self { data: [0f32; 7] };
+        s.data[5] = 1f32;
+        s.data[6] = 1f32;
+        s
+    }
+
+    fn rot(&mut self, r: f32) {
+        self.data[0] = r;
+    }
+
+    fn trns(&mut self, x: f32, y: f32) {
+        self.data[1] = x;
+        self.data[2] = y;
+    }
+
+    fn origin(&mut self, x: f32, y: f32) {
+        self.data[3] = x;
+        self.data[4] = y;
+    }
+
+    fn scale(&mut self, x: f32, y: f32) {
+        self.data[5] = x;
+        self.data[6] = y;
+    }
+}
+
+pub struct DrawContext2D {
+    trans: Transformation,
     size: [f32; 2],
     color: Gradient<RGB, f32>,
     font: Arc<Font>,
@@ -26,10 +59,10 @@ pub struct Draw2D {
 }
 
 #[allow(clippy::too_many_arguments)]
-impl Draw2D {
+impl DrawContext2D {
     pub(crate) fn new(font: Arc<Font>, width: u32, height: u32, dpi: f32) -> Self {
-        Draw2D {
-            canvas: [0.0, 0.0, width as f32, height as f32, 0.0, 0.0],
+        DrawContext2D {
+            trans: Transformation::new(),
             size: [width as f32, height as f32],
             color: Gradient::new(Color::<RGB, f32>::white()),
             font,
@@ -41,6 +74,26 @@ impl Draw2D {
             frame: 0,
             dpi,
         }
+    }
+
+    pub fn rotate(&mut self, r: f32) {
+        self.trans.rot(r.to_radians());
+    }
+
+    pub fn trasnslate(&mut self, x: f32, y: f32) {
+        self.trans.trns(x, y);
+    }
+
+    pub fn origin(&mut self, x: f32, y: f32) {
+        self.trans.origin(x, y);
+    }
+
+    pub fn scale(&mut self, x: f32, y: f32) {
+        self.trans.scale(x, y);
+    }
+
+    pub fn reset_transformations(&mut self) {
+        self.trans.data = [0f32, 0f32, 0f32, 0f32, 0f32, 1f32, 1f32]
     }
 
     pub(crate) fn get_default_font(&self) -> Arc<Font> {
@@ -55,27 +108,6 @@ impl Draw2D {
     pub(crate) fn resize(&mut self, width: u32, height: u32) {
         self.size[0] = width as f32;
         self.size[1] = height as f32;
-    }
-
-    pub fn reset_canvas(&mut self) {
-        self.canvas[0] = 0.0;
-        self.canvas[1] = 0.0;
-        self.canvas[2] = self.size[0];
-        self.canvas[3] = self.size[1];
-        self.canvas[4] = 0.0;
-        self.canvas[5] = 0.0;
-    }
-
-    pub fn style_canvas(&mut self, style: CanvasStyle, radius: f32) {
-        self.canvas[4] = style.id();
-        self.canvas[5] = radius;
-    }
-
-    pub fn canvas(&mut self, x: i32, y: i32, width: u32, height: u32) {
-        self.canvas[0] = x as f32;
-        self.canvas[1] = y as f32;
-        self.canvas[2] = width as f32;
-        self.canvas[3] = height as f32;
     }
 
     pub fn reset_color(&mut self) {
@@ -101,23 +133,6 @@ impl Draw2D {
 
     pub fn raw_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.color.set_all(r, g, b, a);
-    }
-
-    pub fn tri(&mut self) {
-        self.vertices.get_mut(0).set([
-            100.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0,
-            600.0, 0.0, 0.0, 0.0,
-        ]);
-        self.vertices.get_mut(1).set([
-            200.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0,
-            600.0, 0.0, 0.0, 0.0,
-        ]);
-        self.vertices.get_mut(2).set([
-            150.0, 200.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 800.0,
-            600.0, 0.0, 0.0, 0.0,
-        ]);
-        self.vertices.set_len(3);
-        self.batch.add_vertices(&self.vertices);
     }
 
     pub fn font(&mut self, font: Arc<Font>) {
@@ -200,8 +215,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             x2 as f32,
@@ -211,8 +227,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             x3 as f32,
@@ -222,8 +239,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(3);
         self.batch.add_vertices(&self.vertices);
@@ -256,8 +274,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             x as f32,
@@ -267,8 +286,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             (x + width) as f32,
@@ -278,8 +298,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             (x + width) as f32,
@@ -289,8 +310,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
@@ -793,8 +815,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             (x + radius) as f32,
@@ -804,8 +827,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             (x + radius) as f32,
@@ -815,8 +839,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             (x + thickness) as f32,
@@ -826,8 +851,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
@@ -840,8 +866,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             (x + width - radius) as f32,
@@ -851,8 +878,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             (x + width) as f32,
@@ -862,8 +890,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             (x + width - thickness) as f32,
@@ -873,8 +902,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.batch.add_vertices(&self.vertices);
 
@@ -886,8 +916,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             (x + width - radius) as f32,
@@ -897,8 +928,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             (x + width - thickness) as f32,
@@ -908,8 +940,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             (x + width) as f32,
@@ -919,8 +952,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.batch.add_vertices(&self.vertices);
 
@@ -932,8 +966,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             (x + thickness) as f32,
@@ -943,8 +978,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             (x + radius) as f32,
@@ -954,8 +990,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             (x + radius) as f32,
@@ -965,8 +1002,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.batch.add_vertices(&self.vertices);
     }
@@ -1032,8 +1070,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(1).set_data(
                 x as f32 + radius_x as f32 * (i + step).cos(),
@@ -1043,8 +1082,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(2).set_data(
                 x as f32,
@@ -1054,8 +1094,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(0),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.batch.add_vertices(&self.vertices);
             i += step;
@@ -1136,8 +1177,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(1).set_data(
                 x as f32 + radius as f32 * (i + step).cos(),
@@ -1147,8 +1189,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(2).set_data(
                 x as f32,
@@ -1158,8 +1201,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(0),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.batch.add_vertices(&self.vertices);
             i += step;
@@ -1225,8 +1269,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(0),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(1).set_data(
                 x as f32 + (r_radius + thickness) as f32 * i.cos(),
@@ -1236,8 +1281,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(2).set_data(
                 x as f32 + (r_radius + thickness) as f32 * (i + step).cos(),
@@ -1247,8 +1293,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(1),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.vertices.get_mut(3).set_data(
                 x as f32 + r_radius as f32 * (i + step).cos(),
@@ -1258,8 +1305,9 @@ impl Draw2D {
                 rx as f32,
                 ry as f32,
                 self.color.get(0),
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                false,
             );
             self.batch.add_vertices(&self.vertices);
             i += step;
@@ -1315,8 +1363,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(0),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_data(
             x1 as f32 + theta_cos,
@@ -1326,8 +1375,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(1),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_data(
             x2 as f32 + theta_cos,
@@ -1337,8 +1387,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(2),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_data(
             x2 as f32 - theta_cos,
@@ -1348,8 +1399,9 @@ impl Draw2D {
             rx as f32,
             ry as f32,
             self.color.get(3),
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
@@ -1407,8 +1459,9 @@ impl Draw2D {
             uv[0],
             uv[1],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(1).set_texture_data(
             x as f32,
@@ -1421,8 +1474,9 @@ impl Draw2D {
             uv[0],
             uv[3],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(2).set_texture_data(
             (x + width) as f32,
@@ -1435,8 +1489,9 @@ impl Draw2D {
             uv[2],
             uv[3],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(3).set_texture_data(
             (x + width) as f32,
@@ -1449,8 +1504,9 @@ impl Draw2D {
             uv[2],
             uv[1],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
@@ -1480,8 +1536,9 @@ impl Draw2D {
             uv[0],
             uv[3],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(0).set_norot_texture_data(
             x1 as f32 + theta_cos,
@@ -1491,8 +1548,9 @@ impl Draw2D {
             uv[0],
             uv[2],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(0).set_norot_texture_data(
             x2 as f32 + theta_cos,
@@ -1502,8 +1560,9 @@ impl Draw2D {
             uv[1],
             uv[2],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.get_mut(0).set_norot_texture_data(
             x2 as f32 - theta_cos,
@@ -1513,8 +1572,9 @@ impl Draw2D {
             uv[1],
             uv[3],
             tex,
-            self.canvas,
+            self.trans.data,
             self.use_cam,
+            false,
         );
         self.vertices.set_len(4);
         self.batch.add_vertices(&self.vertices);
@@ -1662,8 +1722,9 @@ impl Draw2D {
                 uv[0],
                 uv[3],
                 tex,
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                true,
             );
             self.vertices.get_mut(1).set_texture_data(
                 ax as f32,
@@ -1676,8 +1737,9 @@ impl Draw2D {
                 uv[0],
                 uv[2],
                 tex,
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                true,
             );
             self.vertices.get_mut(2).set_texture_data(
                 ax2 as f32,
@@ -1690,8 +1752,9 @@ impl Draw2D {
                 uv[1],
                 uv[2],
                 tex,
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                true,
             );
             self.vertices.get_mut(3).set_texture_data(
                 ax2 as f32,
@@ -1704,8 +1767,9 @@ impl Draw2D {
                 uv[1],
                 uv[3],
                 tex,
-                self.canvas,
+                self.trans.data,
                 self.use_cam,
+                true,
             );
             self.vertices.set_len(4);
             self.batch.add_vertices(&self.vertices);
@@ -1723,21 +1787,5 @@ impl Draw2D {
 
     pub fn dpi(&self) -> f32 {
         self.dpi
-    }
-}
-
-pub enum CanvasStyle {
-    Square,
-    Triangle,
-    Round,
-}
-
-impl CanvasStyle {
-    pub(crate) fn id(&self) -> f32 {
-        match self {
-            CanvasStyle::Square => 0.0,
-            CanvasStyle::Triangle => 1.0,
-            CanvasStyle::Round => 2.0,
-        }
     }
 }

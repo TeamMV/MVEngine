@@ -15,4 +15,4 @@ m 0 0 0 0 3
 0 0 0 0 -> "default.vert" -> "a"
 0 0 0 1 -> "default.frag" -> "b"
 0 0 0 2 -> "effect.frag" -> "c"
-0 0 0 2 -> "model.obj" -> "d"
+0 0 0 3 -> "model.obj" -> "d"

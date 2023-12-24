@@ -19,11 +19,11 @@ pub(crate) const VERT_LIMIT_MODEL_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_MOD
 pub(crate) const VERT_LIMIT_BATCH_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_BATCH_3D.array_stride;
 pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 
-pub(crate) const VERTEX_2D_SIZE_FLOATS: usize = 20;
+pub(crate) const VERTEX_2D_SIZE_FLOATS: usize = 22;
 pub(crate) const VERTEX_3D_MODEL_SIZE_FLOATS: usize = 9;
 pub(crate) const VERTEX_3D_BATCH_SIZE_FLOATS: usize = 16;
 
-pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 positions[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 tex[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=tex[gl_VertexIndex];gl_Position=vec4(positions[gl_VertexIndex],0.0,1.0);}";
+pub(crate) const DUMMY_VERT: &str = "#version 450\nlayout(location=0)out vec2 fTexCoord;vec2 p[4]=vec2[](vec2(-1.0,-1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));vec2 t[4]=vec2[](vec2(0.0,1.0),vec2(0.0,0.0),vec2(1.0,1.0),vec2(1.0,0.0));void main(){fTexCoord=t[gl_VertexIndex];gl_Position=vec4(p[gl_VertexIndex],0.0,1.0);}";
 
 pub(crate) const EFFECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
 
@@ -38,18 +38,21 @@ pub(crate) const TEXTURE_LIMIT: usize = 255;
 pub(crate) const LIGHT_LIMIT: usize = 255;
 
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
-    array_stride: 80,
+    array_stride: 88,
     step_mode: VertexStepMode::Vertex,
     attributes: &vertex_attr_array![
-        0 => Float32x3, //pos
-        1 => Float32,   //rot
-        2 => Float32x2, //rot origin
-        3 => Float32x4, //color
-        4 => Float32x2, //uv
-        5 => Float32,   //tex id
-        6 => Float32x4, //canvas coords
-        7 => Float32x2, //canvas data
-        8 => Float32,   //use cam
+        0 => Float32x3,  //pos
+        1 => Float32,    //rot
+        2 => Float32x2,  //rot origin
+        3 => Float32x4,  //color
+        4 => Float32x2,  //uv
+        5 => Float32,    //tex id
+        6 => Float32,    //use cam
+        7 => Float32,    //trans rotation
+        8 => Float32x2,  //trans translation
+        9 => Float32x2,  //trans origin
+        10 => Float32x2, //trans scale
+        11 => Float32,   //is font
     ],
 };
 
@@ -116,6 +119,16 @@ pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayo
         },
         BindGroupLayoutEntry {
             binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(4) }),
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 2,
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Sampler(SamplerBindingType::Filtering),
             count: None,

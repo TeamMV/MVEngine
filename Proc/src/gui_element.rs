@@ -10,9 +10,14 @@ const PRIMITIVES: [&str; 15] = [
     "f32", "f64",
 ];
 
-const ARGS: [(&str, &str, bool); 11] = [
-    ("x", "String", true),
-    ("y", "Option<u32>", true),
+const ARGS: [(&str, &str, bool); 16] = [
+    ("id", "String", true),
+    ("x", "i32", true),
+    ("y", "i32", true),
+    ("border_x", "i32", true),
+    ("border_y", "i32", true),
+    ("content_x", "i32", true),
+    ("content_y", "i32", true),
     ("style", "Style", true),
     ("parent", "Option<Arc<dyn GuiElement>>", true),
     ("resolve_context", "ResCon", true),

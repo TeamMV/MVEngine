@@ -13,10 +13,9 @@ layout(set = 0, binding = 2) uniform UNIFORMS {
 
 
 void main() {
-
     // Time varying pixel color
-    const vec2 scale = vec2(.5);
+    const vec2 scale = vec2(5.0);
 
-    vec2 uv = 0.01 * sin(scale * uniforms.time + length(fTexCoord) * 10.0) + fTexCoord;
+    vec2 uv = 0.02 * sin(scale * uniforms.time + length(fTexCoord) * 30.0) + fTexCoord;
     outColor = texture(sampler2D(tex, sam), uv).rgba;
 }

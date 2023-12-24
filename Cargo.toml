@@ -38,7 +38,7 @@ panic = "unwind"
 [features]
 gui = ["dep:roxmltree"]
 3d = ["dep:gltf"]
-vr = ["dep:openxr", "dep:ash"]
+vr = ["dep:openxr", "dep:ash", "3d"]
 
 [dependencies]
 mvcore-proc-macro = { path = "Proc" }

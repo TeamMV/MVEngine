@@ -12,10 +12,7 @@ use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
-use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, StoreOp, SurfaceError, TextureView, TextureViewDescriptor,
-};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{
     ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
@@ -33,7 +30,7 @@ use crate::render::consts::{
 };
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
-use crate::render::draw2d::Draw2D;
+use crate::render::draw2d::DrawContext2D;
 use crate::render::init::State;
 #[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
@@ -143,7 +140,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     camera_3d: RwLock<Camera3D>,
 
     render_pass_2d: DangerousCell<RenderPass2D>,
-    draw_2d: Mutex<Draw2D>,
+    draw_2d: Mutex<DrawContext2D>,
     enabled_effects_2d: RwLock<Vec<String>>,
 
     #[cfg(feature = "3d")]
@@ -195,19 +192,19 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         );
 
         //TODO: separate thread render (manually called from init)
-        //let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
-        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        //let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
-        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        //let distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
-        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        //let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
-        //    .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
+        let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
+            .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
 
         //TODO: separate thread render (manually called from init)
-        //pixelate.setup(&state, |maker| {
-        //    maker.set_float(0, 5.0);
-        //});
+        pixelate.setup(&state, |maker| {
+            maker.set_float(0, 5.0);
+        });
 
         let render_pass_2d = RenderPass2D::new(
             shader.setup_pipeline(
@@ -248,7 +245,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
 
-        let draw_2d = Draw2D::new(
+        let draw_2d = DrawContext2D::new(
             Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
             specs.height,
@@ -289,10 +286,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             .create(|| ModelLoader::new(window.clone()));
 
         //TODO: separate thread render (manually called from init)
-        //window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
-        //window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
-        //window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
-        //window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
+        window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
+        window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
+        window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
+        window.add_effect_shader("wave".to_string(), CreatedShader::Effect(wave));
 
         let mut now = SystemTime::now();
         let mut timer = SystemTime::now();
@@ -554,6 +551,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     fn render_2d(self: &Arc<Self>, encoder: &mut CommandEncoder, view: &TextureView) {
         let encoder = encoder as *mut CommandEncoder;
+
         macro_rules! gen_pass {
             ($e:ident, $v:expr) => {
                 unsafe { $e.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
@@ -571,7 +569,14 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                             store: StoreOp::Store,
                         },
                     })],
-                    depth_stencil_attachment: None,
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: $v,
+                        depth_ops: None,
+                        stencil_ops: Some(Operations {
+                            load: LoadOp::Clear(0),
+                            store: StoreOp::Store
+                        })
+                    }),
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 })
@@ -593,7 +598,14 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     store: StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view,
+                depth_ops: None,
+                stencil_ops: Some(Operations {
+                    load: LoadOp::Clear(0),
+                    store: StoreOp::Store
+                })
+            }),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
@@ -625,7 +637,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         drop(cam);
 
-        self.draw_2d.lock().recover().reset_canvas();
+        self.draw_2d.lock().recover().reset_transformations();
 
         self.draw_2d
             .lock()
@@ -760,7 +772,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         self.enabled_effects_2d.write().recover().push(name);
     }
 
-    pub fn draw_2d_pass<F: FnOnce(&mut Draw2D)>(self: &Arc<Self>, f: F) {
+    pub fn draw_2d_pass<F: FnOnce(&mut DrawContext2D)>(self: &Arc<Self>, f: F) {
         let mut draw = self.draw_2d.lock().recover();
         f(&mut draw);
     }

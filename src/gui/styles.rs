@@ -1,7 +1,9 @@
 use crate::gui::elements::{GuiElement, GuiElementImpl};
+use crate::gui::styles::Origin::Custom;
 use mvutils::unsafe_utils::Unsafe;
 use std::convert::Infallible;
 use std::sync::Arc;
+use winit::event::VirtualKeyCode::O;
 
 pub struct Style {
     //position
@@ -12,10 +14,14 @@ pub struct Style {
     pub padding: SideStyle,
     pub margin: SideStyle,
     pub origin: GuiValue<Origin>,
+    pub position: GuiValue<Position>,
+    pub rotation_center: GuiValue<Origin>,
 }
 
+#[derive(Default)]
 pub enum Origin {
     TopLeft,
+    #[default]
     BottomLeft,
     TopRight,
     BottomRight,
@@ -25,8 +31,27 @@ pub enum Origin {
 
 impl Origin {
     pub fn is_right(&self) -> bool {
-        true
+        self == Origin::BottomRight || self == Origin::TopRight
     }
+
+    pub fn is_left(&self) -> bool {
+        self == Origin::BottomLeft || self == Origin::TopLeft
+    }
+
+    pub fn get_custom(&self) -> Option<(i32, i32)> {
+        if let Custom(x, y) = self {
+            Some((*x, *y))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Default)]
+pub enum Position {
+    Absolute,
+    #[default]
+    Relative,
 }
 
 pub struct TextStyle {}
@@ -39,7 +64,7 @@ pub struct SideStyle {
 }
 
 impl SideStyle {
-    pub fn all_i32(v: i32) -> Self {
+    pub const fn all_i32(v: i32) -> Self {
         Self {
             top: GuiValue::Just(v),
             bottom: GuiValue::Just(v),
@@ -119,10 +144,34 @@ fn no_parent<T>() -> T {
     panic!("Called Inherit on GuiElement without parent")
 }
 
+pub(crate) const DEFAULT_STYLE: Style = Style {
+    x: GuiValue::Just(0),
+    y: GuiValue::Just(0),
+    width: GuiValue::Just(0),
+    height: GuiValue::Just(0),
+    padding: SideStyle::all_i32(0),
+    margin: SideStyle::all_i32(0),
+    origin: GuiValue::Just(Origin::BottomLeft),
+    position: GuiValue::Just(Position::Relative),
+    rotation_center: GuiValue::Just(Origin::Center),
+};
+
 #[macro_export]
 macro_rules! resolve {
-    ($elem:ident, $($style:tt)*) => {
-        $elem.style().$($style)*.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style)*})
+    ($elem:ident, $($style:ident).*) => {
+        {
+            let s: &GuiValue<_> = &$elem.style().$($style).*;
+            let v: Option<_> = s.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style).*});
+            if let Some(v) = v {
+                v
+            }
+            else {
+                error!("GuiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
+                $crate::gui::styles::DEFAULT_STYLE.$($style).*
+                .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
+                .expect("Default style could not be resolved")
+            }
+        }
     };
 }
 
@@ -138,30 +187,30 @@ impl ResCon {
 
 #[derive(Clone, Copy)]
 pub enum Unit {
-    Px(i32),
-    MM(f32),
-    CM(f32),
-    M(f32),
-    In(f32),
-    Twip(f32),
-    Mil(f32),
-    Point(f32),
-    Pica(f32),
-    Foot(f32),
-    Yard(f32),
-    Link(f32),
-    Rod(f32),
-    Chain(f32),
-    Line(f32),
-    BarleyCorn(f32),
-    Nail(f32),
-    Finger(f32),
-    Stick(f32),
-    Palm(f32),
-    Shaftment(f32),
-    Span(f32),
-    Quarter(f32),
-    Pace(f32),
+    Px(i32),         // px
+    MM(f32),         // mm
+    CM(f32),         // cm
+    M(f32),          // m
+    In(f32),         // in
+    Twip(f32),       // twip
+    Mil(f32),        // mil
+    Point(f32),      // pt
+    Pica(f32),       // pica
+    Foot(f32),       // ft
+    Yard(f32),       // yd
+    Link(f32),       // lk
+    Rod(f32),        // rd
+    Chain(f32),      // ch
+    Line(f32),       // ln
+    BarleyCorn(f32), // bc
+    Nail(f32),       // nl
+    Finger(f32),     // fg
+    Stick(f32),      // sk
+    Palm(f32),       // pm
+    Shaftment(f32),  // sf
+    Span(f32),       // sp
+    Quarter(f32),    // qr
+    Pace(f32),       // pc
 }
 
 impl Unit {

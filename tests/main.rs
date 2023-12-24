@@ -10,7 +10,6 @@ use mvcore::user_input::input;
 use mvcore::{ApplicationInfo, MVCore};
 
 fn main() {
-    env_logger::init();
     let core = MVCore::new(ApplicationInfo {
         name: "Test".to_string(),
         version: Version::new(1, 0, 0),
@@ -23,7 +22,7 @@ fn main() {
     specs.decorated = true;
     specs.resizable = true;
     specs.width = 800;
-    specs.height = 600;
+    specs.height = 800;
     core.get_render().run_window(specs, ApplicationLoop);
 }
 
@@ -44,13 +43,20 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             } else {
                 ctx.color(RgbColor::green());
             }
+            ctx.rotate(90f32);
+            //ctx.scale(1.0f32 / 2.0f32.sqrt(), 1.0f32 / 2.0f32.sqrt());
+            ctx.origin((window.specs.get().width as f32 / 2.0), (window.specs.get().height as f32 / 2.0));
+            ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
+            ctx.void_rectangle(0, 0, window.specs.get().width as i32, window.specs.get().height as i32, 2);
+            ctx.reset_transformations();
+            ctx.color(RgbColor::blue());
             ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
         });
     }
 
     fn effect(&self, window: Arc<Window<Self>>) {
-        //window.enable_effect_2d("blur".to_string());
         //window.enable_effect_2d("pixelate".to_string());
+        //window.enable_effect_2d("blur".to_string());
         //window.enable_effect_2d("distort".to_string());
         //window.enable_effect_2d("wave".to_string());
     }

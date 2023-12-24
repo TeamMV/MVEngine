@@ -6,7 +6,7 @@
 #![allow(unused_variables)]
 #![allow(unused_macros)]
 #![allow(unused_assignments)]
-#![feature(specialization)]
+//#![feature(specialization)]
 
 use std::sync::Arc;
 
@@ -15,11 +15,14 @@ use mvutils::version::Version;
 
 use crate::render::RenderCore;
 
+mod err;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod render;
 pub mod resources;
 pub mod user_input;
+#[cfg(feature = "vr")]
+pub mod vr;
 
 pub use mvcore_proc_macro::gui_element;
 
@@ -31,6 +34,8 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
+        let _ = env_logger::try_init();
+        err::setup();
         let core = if info.multithreaded {
             MVCore {
                 render: RenderCore::new(),

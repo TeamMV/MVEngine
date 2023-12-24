@@ -1,10 +1,11 @@
-use crate::gui::styles::{GuiValue, ResCon, Style};
-use crate::render::draw2d::Draw2D;
-use crate::resolve;
+use crate::gui::styles::{GuiValue, Position, ResCon, Style};
+use crate::render::draw2d::DrawContext2D;
+use crate::{resolve};
 use mvcore_proc_macro::{gui_element, gui_element_trait};
 use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::{Recover, RwArc};
+use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use std::sync::{Arc, RwLock};
+use crate::gui::styles::Origin::{Center, Custom};
 
 #[gui_element]
 pub struct GuiElementImpl {}
@@ -12,11 +13,11 @@ pub struct GuiElementImpl {}
 impl GuiElementImpl {}
 
 pub trait GuiElementCallbacks {
-    fn draw(&self, ctx: &mut Draw2D)
+    fn draw(&self, ctx: &mut DrawContext2D)
     where
         Self: GuiElement;
 
-    fn compute_values(&mut self, ctx: &mut Draw2D)
+    fn compute_values(&mut self, ctx: &mut DrawContext2D)
     where
         Self: GuiElement,
     {
@@ -51,12 +52,39 @@ pub trait GuiElementCallbacks {
         self.set_width(width);
         self.set_height(height);
 
-        let origin = resolve!(self, origin).unwrap();
+        let origin = resolve!(self, origin);
+        let position = resolve!(self, position);
+
+        let mut x: i32 = 0;
+        let mut y: i32 = 0;
+        if position == Position::Absolute {
+            x = resolve!(self, x);
+            y = resolve!(self, y);
+        } else if position == Position::Relative {
+            x = self.x();
+            y = self.y();
+        }
+
+        self.set_border_x(x + margins[2]);
+        self.set_border_y(y + margins[1]);
+
+        if let Custom(ox, oy) = origin {
+            self.set_x(x + ox);
+            self.set_y(y + oy);
+        } else {
+            if let Center = origin {
+                self.set_x(x + self.width() / 2);
+                self.set_y(y + self.height() / 2);
+            } else {
+                self.set_x(origin.is_right().yn(x - self.width(), x));
+                self.set_y(origin.is_left().yn(y - self.height(), y));
+            }
+        }
     }
 }
 
 impl GuiElementCallbacks for GuiElementImpl {
-    fn draw(&self, ctx: &mut Draw2D)
+    fn draw(&self, ctx: &mut DrawContext2D)
     where
         Self: GuiElement,
     {

@@ -223,6 +223,7 @@ impl Batch2D {
             &self.textures,
             (self.generator.get_render_mode() == PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
                 .yn(true, false),
+            //false todo: impl stencil batch logic
         );
         self.force_clear();
     }
@@ -259,8 +260,9 @@ impl Vertex2D {
         rx: f32,
         ry: f32,
         col: Color<RGB, f32>,
-        canvas: [f32; 6],
+        transform: [f32; 7],
         cam: bool,
+        is_font: bool,
     ) {
         self.set([
             x,
@@ -276,13 +278,15 @@ impl Vertex2D {
             0.0,
             0.0,
             0.0,
-            canvas[0],
-            canvas[1],
-            canvas[2],
-            canvas[3],
-            canvas[4],
-            canvas[5],
             cam.yn(1.0, 0.0),
+            transform[0],
+            transform[1],
+            transform[2],
+            transform[3],
+            transform[4],
+            transform[5],
+            transform[6],
+            is_font.yn(1.0, 0.0),
         ]);
     }
 
@@ -298,8 +302,9 @@ impl Vertex2D {
         ux: f32,
         uy: f32,
         tex: u32,
-        canvas: [f32; 6],
+        transform: [f32; 7],
         cam: bool,
+        is_font: bool,
     ) {
         self.set([
             x,
@@ -315,13 +320,15 @@ impl Vertex2D {
             ux,
             uy,
             tex as f32,
-            canvas[0],
-            canvas[1],
-            canvas[2],
-            canvas[3],
-            canvas[4],
-            canvas[5],
             cam.yn(1.0, 0.0),
+            transform[0],
+            transform[1],
+            transform[2],
+            transform[3],
+            transform[4],
+            transform[5],
+            transform[6],
+            is_font.yn(1.0, 0.0),
         ]);
     }
 
@@ -334,8 +341,9 @@ impl Vertex2D {
         ux: f32,
         uy: f32,
         tex: u32,
-        canvas: [f32; 6],
+        transform: [f32; 7],
         cam: bool,
+        is_font: bool,
     ) {
         self.set([
             x,
@@ -351,13 +359,15 @@ impl Vertex2D {
             ux,
             uy,
             tex as f32,
-            canvas[0],
-            canvas[1],
-            canvas[2],
-            canvas[3],
-            canvas[4],
-            canvas[5],
             cam.yn(1.0, 0.0),
+            transform[0],
+            transform[1],
+            transform[2],
+            transform[3],
+            transform[4],
+            transform[5],
+            transform[6],
+            is_font.yn(1.0, 0.0),
         ]);
     }
 
