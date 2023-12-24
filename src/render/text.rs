@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::hash::{BuildHasher, Hasher};
 use hashbrown::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -28,12 +29,12 @@ impl TypeFace {
 
 pub struct Font {
     textures: Vec<Arc<Texture>>,
-    alphabet: HashMap<char, Glyph>,
+    alphabet: HashMap<char, Glyph, CharIdentityHasher>,
 
     max_height: u16,
     max_width: u16,
 
-    kernings: HashMap<u64, i8>
+    kernings: HashMap<u64, i8, IdentityHasher>
 }
 
 impl Font {
@@ -205,8 +206,8 @@ impl FontLoader {
     }
 
     pub(crate) fn load_bitmap(&self, state: &State, textures: &[&[u8]], data: &str) -> Font {
-        let mut kernings: HashMap<u64, i8> = HashMap::new();
-        let mut map = HashMap::new();
+        let mut kernings = HashMap::with_hasher(IdentityHasher::default());
+        let mut map = HashMap::with_hasher(CharIdentityHasher::default());
         let lines = data.split('\n');
         let mut atlas_width: u16 = 0;
         let mut atlas_height: u16 = 0;
@@ -351,5 +352,59 @@ impl FontLoader {
             max_height,
             kernings
         }
+    }
+}
+
+#[derive(Default)]
+struct IdentityHasher {
+    value: u64
+}
+
+impl Hasher for IdentityHasher {
+    fn finish(&self) -> u64 {
+        self.value
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        unreachable!()
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.value = i
+    }
+}
+
+impl BuildHasher for IdentityHasher {
+    type Hasher = Self;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        Self::default()
+    }
+}
+
+#[derive(Default)]
+struct CharIdentityHasher {
+    value: u32
+}
+
+impl Hasher for CharIdentityHasher {
+    fn finish(&self) -> u64 {
+        self.value as u64
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        unreachable!()
+    }
+
+    fn write_u32(&mut self, i: u32) {
+        self.value = i;
+    }
+}
+
+impl BuildHasher for CharIdentityHasher {
+    type Hasher = Self;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        Self::default()
     }
 }
