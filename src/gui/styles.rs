@@ -15,7 +15,7 @@ pub struct Style {
     pub margin: SideStyle,
     pub origin: GuiValue<Origin>,
     pub position: GuiValue<Position>,
-    pub rotation_center: GuiValue<Origin>,
+    pub rotation_origin: GuiValue<Origin>,
 }
 
 #[derive(Default)]
@@ -153,7 +153,7 @@ pub(crate) const DEFAULT_STYLE: Style = Style {
     margin: SideStyle::all_i32(0),
     origin: GuiValue::Just(Origin::BottomLeft),
     position: GuiValue::Just(Position::Relative),
-    rotation_center: GuiValue::Just(Origin::Center),
+    rotation_origin: GuiValue::Just(Origin::Center),
 };
 
 #[macro_export]

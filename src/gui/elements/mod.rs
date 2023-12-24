@@ -5,7 +5,7 @@ use mvcore_proc_macro::{gui_element, gui_element_trait};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use std::sync::{Arc, RwLock};
-use crate::gui::styles::Origin::{Center, Custom};
+use crate::gui::styles::Origin::{BottomLeft, Center, Custom};
 
 #[gui_element]
 pub struct GuiElementImpl {}
@@ -60,6 +60,19 @@ pub trait GuiElementCallbacks {
         if position == Position::Absolute {
             x = resolve!(self, x);
             y = resolve!(self, y);
+
+            if let Custom(ox, oy) = origin {
+                self.set_x(x + ox);
+                self.set_y(y + oy);
+            } else {
+                if let Center = origin {
+                    self.set_x(x + self.width() / 2);
+                    self.set_y(y + self.height() / 2);
+                } else {
+                    self.set_x(origin.is_right().yn(x - self.width(), x));
+                    self.set_y(origin.is_left().yn(y - self.height(), y));
+                }
+            }
         } else if position == Position::Relative {
             x = self.x();
             y = self.y();
@@ -67,17 +80,21 @@ pub trait GuiElementCallbacks {
 
         self.set_border_x(x + margins[2]);
         self.set_border_y(y + margins[1]);
+        self.set_content_x(self.border_x() + paddings[2]);
+        self.set_content_y(self.border_y() + paddings[1]);
 
-        if let Custom(ox, oy) = origin {
-            self.set_x(x + ox);
-            self.set_y(y + oy);
+        let rot_center = resolve!(self, rotation_origin);
+        if let Custom(ox, oy) = rot_center {
+            self.set_origin_x(ox);
+            self.set_origin_y(oy);
         } else {
-            if let Center = origin {
-                self.set_x(x + self.width() / 2);
-                self.set_y(y + self.height() / 2);
-            } else {
-                self.set_x(origin.is_right().yn(x - self.width(), x));
-                self.set_y(origin.is_left().yn(y - self.height(), y));
+            if let Center = rot_center {
+                self.set_origin_x(x + width / 2);
+                self.set_origin_y(y + height / 2);
+            }
+            if let BottomLeft = rot_center {
+                self.set_origin_x(x);
+                self.set_origin_y(y);
             }
         }
     }

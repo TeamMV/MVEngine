@@ -10,7 +10,7 @@ const PRIMITIVES: [&str; 15] = [
     "f32", "f64",
 ];
 
-const ARGS: [(&str, &str, bool); 16] = [
+const ARGS: [(&str, &str, bool); 18] = [
     ("id", "String", true),
     ("x", "i32", true),
     ("y", "i32", true),
@@ -27,6 +27,8 @@ const ARGS: [(&str, &str, bool); 16] = [
     ("bounding_height", "i32", true),
     ("width", "i32", true),
     ("height", "i32", true),
+    ("origin_x", "i32", true),
+    ("origin_y", "i32", true),
 ];
 
 pub fn gui_element(input: TokenStream) -> TokenStream {
