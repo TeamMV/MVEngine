@@ -18,7 +18,7 @@ pub struct Style {
     pub rotation_origin: GuiValue<Origin>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Eq, PartialEq)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -31,11 +31,11 @@ pub enum Origin {
 
 impl Origin {
     pub fn is_right(&self) -> bool {
-        self == Origin::BottomRight || self == Origin::TopRight
+        matches!(self, Origin::BottomRight | Origin::TopRight)
     }
 
     pub fn is_left(&self) -> bool {
-        self == Origin::BottomLeft || self == Origin::TopLeft
+        *self == Origin::BottomLeft || *self == Origin::TopLeft
     }
 
     pub fn get_custom(&self) -> Option<(i32, i32)> {
@@ -47,7 +47,7 @@ impl Origin {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Eq, PartialEq)]
 pub enum Position {
     Absolute,
     #[default]
@@ -91,8 +91,9 @@ impl SideStyle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum GuiValue<T: Clone + 'static> {
+    #[default]
     None,
     Auto,
     Inherit,
@@ -136,9 +137,15 @@ impl<T: Clone + 'static> GuiValue<T> {
     }
 
     pub fn is_set(&self) -> bool {
-        self != GuiValue::None && self != GuiValue::Auto
+        !matches!(self, GuiValue::None | GuiValue::Auto)
     }
 }
+
+//impl<T: Clone + 'static> PartialEq for GuiValue<T> {
+//    fn eq(&self, other: &Self) -> bool {
+//        matches!(self, other)
+//    }
+//}
 
 fn no_parent<T>() -> T {
     panic!("Called Inherit on GuiElement without parent")
@@ -166,7 +173,7 @@ macro_rules! resolve {
                 v
             }
             else {
-                error!("GuiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
+                log::error!("GuiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
                 $crate::gui::styles::DEFAULT_STYLE.$($style).*
                 .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")

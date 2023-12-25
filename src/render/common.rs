@@ -68,8 +68,8 @@ impl From<ShaderType> for ShaderKind {
 
 fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
     let processed = preprocessor::process(src);
-    let compiler = shaderc::Compiler::new().unwrap();
-    let mut options = shaderc::CompileOptions::new().unwrap();
+    let compiler = shaderc::Compiler::new().expect("Failed to initialize shader compiler");
+    let mut options = shaderc::CompileOptions::new().expect("Failed to initialize shader compiler");
     options.add_macro_definition("EP", Some("main"));
     let binary_result = compiler
         .compile_into_spirv(

@@ -43,18 +43,23 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             } else {
                 ctx.color(RgbColor::green());
             }
+
+            let width = window.specs.get().width as i32;
+            let height = window.specs.get().height as i32;
+
             ctx.rotate(90f32);
-            //ctx.scale(1.0f32 / 2.0f32.sqrt(), 1.0f32 / 2.0f32.sqrt());
+            ctx.scale((width as f32 - 100.0) / width as f32, (height as f32 - 100.0) / height as f32);
             ctx.origin(window.specs.get().width as f32 / 2.0, window.specs.get().height as f32 / 2.0);
-            ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
-            ctx.void_rectangle(0, 0, window.specs.get().width as i32, window.specs.get().height as i32, 2);
+            ctx.rectangle(input.positions[0] - 50, input.positions[1] - 50, 100, 100);
+            ctx.void_rectangle(0, 0, width, height, 2);
             ctx.reset_transformations();
             ctx.color(RgbColor::blue());
-            ctx.rectangle(input.positions[0], input.positions[1], 100, 100);
+            ctx.rectangle(input.positions[0] - 50, input.positions[1] - 50, 100, 100);
+            ctx.void_rectangle(50, 50, window.specs.get().width as i32 - 100, window.specs.get().height as i32 - 100, 2);
             ctx.color(RgbColor::white());
             let mut t = char::from_u32(1168).unwrap().to_string();
             t.push(char::from_u32(1280).unwrap());
-            ctx.text(false, 0, 300, 100, "AV");
+            ctx.text(false, 0, 300, 100, t.as_str());
         });
     }
 
