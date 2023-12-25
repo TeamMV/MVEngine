@@ -157,6 +157,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn run(mut specs: WindowSpecs, application_loop: T) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
+            .with_transparent(true)
             .with_decorations(specs.decorated)
             .with_fullscreen(
                 specs
@@ -302,6 +303,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         });
 
         internal_window.set_visible(true);
+        internal_window.set_cursor_visible(false);
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::NewEvents(cause) => if cause == StartCause::Init {},
@@ -561,7 +563,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                                 r: 0.0,
                                 g: 0.0,
                                 b: 0.0,
-                                a: 1.0,
+                                a: 0.0,
                             }),
                             store: StoreOp::Store,
                         },
@@ -582,8 +584,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     load: LoadOp::Clear(wgpu::Color {
                         r: 0.0,
                         g: 0.0,
-                        b: 1.0,
-                        a: 1.0,
+                        b: 0.0,
+                        a: 0.0,
                     }),
                     store: StoreOp::Store,
                 },

@@ -168,6 +168,9 @@ impl Color<RGB, u8> {
     pub fn cyan() -> Self {
         Color::new(0, 255, 255, 255)
     }
+    pub fn transparent() -> Self {
+        Color::new(0, 0, 0, 0)
+    }
 
     pub fn normalize(self) -> Color<RGB, f32> {
         Color {
@@ -250,6 +253,9 @@ impl Color<RGB, f32> {
     }
     pub fn cyan() -> Self {
         Color::new(0.0, 1.0, 1.0, 1.0)
+    }
+    pub fn transparent() -> Self {
+        Color::new(0.0, 0.0, 0.0, 0.0)
     }
 
     pub fn normalize(&mut self, r: u8, g: u8, b: u8, a: u8) {
