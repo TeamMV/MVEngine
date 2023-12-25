@@ -64,6 +64,11 @@ pub struct WindowSpecs {
     /// Default is true.
     pub resizable: bool,
 
+    /// Whether the window background is transparent.
+    ///
+    /// Default is false.
+    pub transparent: bool,
+
     /// Dark or Light theme. None means system theme.
     ///
     /// Default is None.
@@ -99,6 +104,7 @@ impl Default for WindowSpecs {
             fullscreen: false,
             decorated: true,
             resizable: true,
+            transparent: false,
             theme: None,
             green_eco_mode: false,
             vsync: true,
@@ -157,7 +163,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn run(mut specs: WindowSpecs, application_loop: T) {
         let event_loop = EventLoop::new();
         let internal_window = WindowBuilder::new()
-            .with_transparent(true)
+            .with_transparent(specs.transparent)
             .with_decorations(specs.decorated)
             .with_fullscreen(
                 specs
