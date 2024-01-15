@@ -22,7 +22,7 @@ use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_MODEL_3D};
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
@@ -205,7 +205,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         //TODO: separate thread render (manually called from init)
         pixelate.setup(&state, |maker| {
-            maker.set_float(0, 5.0);
+            maker.set_float(0, 10.0);
         });
 
         let mut render_pass_2d = RenderPass2D::new(
@@ -227,7 +227,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 &state,
                 VERTEX_LAYOUT_MODEL_3D,
                 &[
-                    BIND_GROUP_GEOMETRY_MODEL_3D,
+                    BIND_GROUP_GEOMETRY_3D,
                     BIND_GROUP_MODEL_MATRIX,
                     BIND_GROUP_TEXTURES,
                 ],
@@ -699,7 +699,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             ShaderUsage::Render3D => CreatedShader::Render3D {
                 batch: shader.clone().setup_pipeline(
                     self.state.get(),
-                    VERTEX_LAYOUT_BATCH_3D,
+                    VERTEX_LAYOUT_3D,
                     &[BIND_GROUP_BATCH_3D],
                 ),
                 model: shader.setup_pipeline(
@@ -711,13 +711,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             ShaderUsage::GeometryPass => CreatedShader::GeometryPass {
                 batch: shader.clone().setup_pipeline(
                     self.state.get(),
-                    VERTEX_LAYOUT_BATCH_3D,
+                    VERTEX_LAYOUT_3D,
                     &[BIND_GROUP_GEOMETRY_BATCH_3D],
                 ),
                 model: shader.setup_pipeline(
                     self.state.get(),
                     VERTEX_LAYOUT_MODEL_3D,
-                    &[BIND_GROUP_GEOMETRY_MODEL_3D],
+                    &[BIND_GROUP_GEOMETRY_3D],
                 ),
             },
         }

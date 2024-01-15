@@ -11,17 +11,7 @@ use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;
-use crate::render::consts::{
-    BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
-    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D,
-    BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM,
-    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D,
-    BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX,
-    BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
-    DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES,
-    TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D,
-    VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
-};
+use crate::render::consts::{BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MATERIAL_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES, MAX_MATERIALS};
 use crate::render::window::WindowSpecs;
 
 pub(crate) struct State {
@@ -66,6 +56,8 @@ impl State {
             let _ = MAX_TEXTURES.try_create(|| min(textures as usize - 1, TEXTURE_LIMIT));
 
             let _ = MAX_LIGHTS.try_create(|| LIGHT_LIMIT);
+
+            let _ = MAX_MATERIALS.try_create(|| MATERIAL_LIMIT);
 
             let (device, queue) = adapter
                 .request_device(
@@ -131,20 +123,12 @@ impl State {
                     device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX),
                 );
                 groups.insert(
-                    BIND_GROUP_BATCH_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D),
-                );
-                groups.insert(
                     BIND_GROUP_MODEL_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D),
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_3D),
                 );
                 groups.insert(
-                    BIND_GROUP_GEOMETRY_BATCH_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D),
-                );
-                groups.insert(
-                    BIND_GROUP_GEOMETRY_MODEL_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D),
+                    BIND_GROUP_GEOMETRY_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_3D),
                 );
                 groups.insert(
                     BIND_GROUP_LIGHTING_3D,
@@ -456,7 +440,7 @@ impl<'a> PipelineBuilder<'a> {
             Self::VERTEX_LAYOUT => match what {
                 Self::VERTEX_LAYOUT_2D => self.vertex_layout = VERTEX_LAYOUT_2D,
                 Self::VERTEX_LAYOUT_MODEL_3D => self.vertex_layout = VERTEX_LAYOUT_MODEL_3D,
-                Self::VERTEX_LAYOUT_BATCH_3D => self.vertex_layout = VERTEX_LAYOUT_BATCH_3D,
+                Self::VERTEX_LAYOUT_BATCH_3D => self.vertex_layout = VERTEX_LAYOUT_3D,
                 Self::VERTEX_LAYOUT_NONE => self.vertex_layout = VERTEX_LAYOUT_NONE,
                 _ => {}
             },

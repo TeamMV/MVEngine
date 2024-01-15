@@ -9,7 +9,7 @@ use mvutils::utils::{Bytecode, TetrahedronOp};
 
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::common3d::{Material, Mesh, Model};
+use crate::render::common3d::{Material, RawMesh, Model, Mesh};
 use crate::render::window::Window;
 use crate::render::ApplicationLoopCallbacks;
 
@@ -178,7 +178,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
         todo!()
         //Model {
-        //    mesh: Mesh {
+        //    mesh: RawMesh {
         //        name,
         //        vertices,
         //        indices,
@@ -299,7 +299,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
 
     fn load_model(&self, data: Bytecode) -> Model {
         let gltf = Gltf::from_slice(data.as_slice()).expect("There was a Problem load a 3d-Asset!");
-        let materials: Vec<Material> = Vec::new();
+        let mut materials: Vec<Material> = Vec::new();
         for material in gltf.materials() {
             let mut mat = Material::new();
             //mat.double_side = material.double_sided();
@@ -332,6 +332,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
                 mat.diffuse_texture = Some(Arc::new(self.construct_texture(&gltf, &info)));
             }
+            materials.push(mat);
         }
 
         for mesh in gltf.meshes() {
@@ -339,7 +340,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             let mut vertices: Vec<Vec3> = Vec::new();
             let mut normals: Vec<Vec3> = Vec::new();
             let mut tex_coords: Vec<Vec2> = Vec::new();
-            let mut indices: Vec<u32> = Vec::new();
+            let mut indices: Vec<(u32, usize)> = Vec::new();
             for primitive in mesh.primitives() {
                 vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(
                     &gltf,
@@ -355,24 +356,47 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
                 )));
                 indices.append(&mut self.construct::<u32>(
                     self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index()),
-                ));
+                )
+                    .into_iter()
+                    .map(|i| (i, primitive.material().index().unwrap()))
+                    .collect_vec()
+                );
             }
 
             println!("{}", name);
 
-            todo!()
-            //let parsed_mesh = Mesh {
-            //    name,
-            //    vertices,
-            //    indices,
-            //    normals,
-            //    tex_coords,
-            //    materials: Vec::new(),
-            //};
-            //return Model {
-            //    mesh: parsed_mesh,
-            //    materials,
-            //};
+            let mut vertices_f32: Vec<f32> = Vec::with_capacity(vertices.len() * 3);
+            for vertex in vertices {
+                vertices_f32.push(vertex.x);
+                vertices_f32.push(vertex.y);
+                vertices_f32.push(vertex.z);
+            }
+
+            let mut normals_f32: Vec<f32> = Vec::with_capacity(normals.len() * 3);
+            for normal in normals {
+                normals_f32.push(normal.x);
+                normals_f32.push(normal.y);
+                normals_f32.push(normal.z);
+            }
+
+            let mut tex_coords_f32: Vec<f32> = Vec::with_capacity(tex_coords.len() * 2);
+            for tex_coord in tex_coords {
+                tex_coords_f32.push(tex_coord.x);
+                tex_coords_f32.push(tex_coord.y);
+            }
+
+            let parsed_mesh = RawMesh {
+                name,
+                vertices: vertices_f32,
+                indices: indices,
+                normals: normals_f32,
+                tex_coords: tex_coords_f32,
+            };
+
+            return Model {
+                mesh: Mesh::Raw(parsed_mesh),
+                materials,
+            };
         }
 
         unreachable!()

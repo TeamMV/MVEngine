@@ -22,7 +22,7 @@ layout(set = 0, binding = 4) uniform UNIFORMS {
    vec3 viewPos;
    float numLights;
    float ambient;
-   Light lights[MAX_LIGHTS]; //replaced in shader loader
+   Light lights[MAX_LIGHTS];
 } uniforms;
 
 void main() {

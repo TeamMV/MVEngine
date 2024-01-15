@@ -84,14 +84,16 @@ fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
 }
 
 mod preprocessor {
-    use crate::render::consts::{MAX_LIGHTS, MAX_TEXTURES};
+    use crate::render::consts::{MAX_LIGHTS, MAX_TEXTURES, MAX_MATERIALS};
 
     const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURES";
     const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";
+    const MAX_MATERIALS_IDENTIFIER: &str = "MAX_MATERIALS";
 
     pub fn process(src: &str) -> String {
         src.replace(MAX_TEXTURES_IDENTIFIER, &format!("{}", MAX_TEXTURES))
             .replace(MAX_LIGHTS_IDENTIFIER, &format!("{}", MAX_LIGHTS))
+            .replace(MAX_MATERIALS_IDENTIFIER, &format!("{}", MAX_MATERIALS))
     }
 }
 

@@ -23,7 +23,7 @@ fn main() {
     specs.fps = 20000;
     specs.decorated = true;
     specs.resizable = true;
-    specs.transparent = false;
+    specs.transparent = true;
     specs.width = 800;
     specs.height = 800;
     core.get_render().run_window(specs, ApplicationLoop {
@@ -76,10 +76,10 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
     }
 
     fn effect(&self, window: Arc<Window<Self>>) {
+        //window.enable_effect_2d("wave".to_string());
         //window.enable_effect_2d("pixelate".to_string());
         //window.enable_effect_2d("blur".to_string());
         //window.enable_effect_2d("distort".to_string());
-        //window.enable_effect_2d("wave".to_string());
     }
 
     fn exit(&self, window: Arc<Window<Self>>) {}

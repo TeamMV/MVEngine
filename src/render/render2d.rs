@@ -172,7 +172,7 @@ impl RenderPass2D {
         indices: &[u32],
         vertices: &[f32],
         textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT],
-        stripped: bool
+        stripped: bool,
     ) {
         unsafe {
             if self.ibo.len() <= self.pass {
@@ -213,7 +213,7 @@ impl RenderPass2D {
             render_pass.set_bind_group(1, &texture_group.bind_group, &[]);
             render_pass.set_pipeline(stripped.yn(
                 self.shader.get_stripped_pipeline(),
-                self.shader.get_pipeline()
+                self.shader.get_pipeline(),
             ));
             render_pass.set_vertex_buffer(0, vbo.slice(..));
             render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);

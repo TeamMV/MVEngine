@@ -27,11 +27,7 @@ void main() {
             return;
         }
 
-        if (fColor.w > 0.0) {
-            outColor = vec4(mix(c.xyz, fColor.xyz, fColor.w), c.w);
-        } else {
-            outColor = c;
-        }
+        outColor = mix(c, vec4(mix(c.xyz, fColor.xyz, fColor.w), c.w), ceil(fColor.w));
     }
     else {
         outColor = fColor;

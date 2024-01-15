@@ -1,4 +1,5 @@
 use std::panic::PanicInfo;
+use std::process::exit;
 
 pub fn setup() {
     std::panic::set_hook(Box::new(panic));
@@ -18,4 +19,5 @@ pub fn panic(info: &PanicInfo) {
     } else {
         println!("Thread '{}' panicked", thread);
     }
+    exit(1);
 }

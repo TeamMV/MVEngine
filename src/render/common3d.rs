@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use glam::{Mat4, Vec2, Vec3};
+use crate::err::panic;
 
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::consts::{
-    MAX_TEXTURES, VERTEX_3D_MODEL_SIZE_FLOATS, VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET,
-};
+use crate::render::consts::{MATERIAL_OFFSET, MATRIX_OFFSET, MAX_TEXTURES, VERT_LIMIT, VERTEX_LAYOUT_3D};
 
 pub struct Light {
     direction: Vec3,
@@ -27,60 +26,155 @@ pub struct Model {
 }
 
 impl Model {
-    //pub fn vertices_f32(&self) -> Vec<f32> {
-    //    let mut vec: Vec<f32> = vec![];
-    //    for vertex in self.mesh.vertices.iter() {
-    //        vec.push(vertex.x);
-    //        vec.push(vertex.y);
-    //        vec.push(vertex.z);
-    //    }
-    //    vec
-    //}
+    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
+        self.materials.iter().map(|mat| mat.texture_count(texture_type)).sum()
+    }
 
-    //pub(crate) fn data_array(&self) -> Vec<f32> {
-    //    //pos, normal, uv, mat_id
-    //    let mut vec: Vec<f32> = vec![];
-    //    for m_data in self.mesh {
-    //        vec.push(m_data.1.x);
-    //        vec.push(m_data.1.y);
-    //        vec.push(m_data.1.z);
-    //        vec.push(m_data.2.x);
-    //        vec.push(m_data.2.y);
-    //        vec.push(m_data.2.z);
-    //        vec.push(m_data.3.x);
-    //        vec.push(m_data.3.y);
-    //        vec.push(m_data.4 as f32);
-    //    }
-    //    vec
-    //}
+    pub fn vertex_count(&self) -> u32 {
+        self.mesh.vertex_count()
+    }
 
-    pub fn recalculate(&mut self) {
-        let mut iter = self.materials.iter();
-        iter.nth(VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET);
-        let mut iter = iter.step_by(VERTEX_3D_MODEL_SIZE_FLOATS);
-        while let Some(mat_id) = iter.next() {}
+    pub fn prepare(&mut self) {
+        self.mesh = self.mesh.prepare();
+    }
+
+    pub fn is_simple_geometry(&self) -> bool {
+        self.vertex_count() < 5000
+            && self.materials.len() < 16
+            && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
+    }
+
+    pub fn single_batch(&self) -> bool {
+        self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32
+    }
+
+    pub fn min_batches(&self) -> u32 {
+        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32).ceil()
+            .max(
+                (self.vertex_count() as f32 / VERT_LIMIT as f32).ceil()
+            ) as u32
     }
 }
 
-pub struct Mesh {
-    pub(crate) name: String,
-    pub(crate) data: Vec<f32>,
+pub enum Mesh {
+    Raw(RawMesh),
+    Prepared(PreparedMesh)
 }
 
 impl Mesh {
-    //pub(crate) fn enumerate(&self) -> Vec<(usize, Vec3, Vec3, Vec2, u16)> {
-    //    let mut vec: Vec<(usize, Vec3, Vec3, Vec2, u16)> = vec![];
-    //    for i in 0..self.vertices.len() {
-    //        vec.push((
-    //            i,
-    //            self.vertices[i],
-    //            self.normals[i],
-    //            self.tex_coords[i],
-    //            self.materials[i],
-    //        ));
-    //    }
-    //    vec
-    //}
+    pub fn vertex_count(&self) -> u32 {
+        match self {
+            Mesh::Raw(raw) => (raw.vertices.len() / 3) as u32,
+            Mesh::Prepared(prepared) => prepared.vert_count
+        }
+    }
+
+    pub fn prepare(self) -> Mesh {
+        match self {
+            Mesh::Raw(raw) => Mesh::Prepared(raw.prepare()),
+            Mesh::Prepared(prepared) => Mesh::Prepared(prepared)
+        }
+    }
+
+    pub fn setup_matrix(&mut self, matrix_id: u32) {
+        match self {
+            Mesh::Raw(raw) => {}
+            Mesh::Prepared(prepared) => {}
+        }
+    }
+
+    pub fn setup_materials(&mut self, material_ids: &[u32]) {
+
+    }
+}
+
+pub struct RawMesh {
+    pub(crate) name: String,
+    pub(crate) indices: Vec<(u32, u16)>,//idx, mat
+    pub(crate) vertices: Vec<f32>,
+    pub(crate) normals: Vec<f32>,
+    pub(crate) tex_coords: Vec<f32>,
+}
+
+impl RawMesh {
+    fn prepare(self) -> PreparedMesh {
+        if self.indices.len() == 0 {
+            return PreparedMesh {
+                name,
+                data: Vec::new(),
+                vert_count: 0
+            }
+        }
+
+        let mut data = Vec::new();
+        let mut last_mat = self.indices[0].1;
+        let mut count = 0;
+        let mut index_offset = 0;
+        let mut current = (Vec::new(), Vec::new(), last_mat, 0);
+
+        for index in self.indices {
+            if last_mat != index.1 {
+                last_mat = index.1;
+                current.3 = count;
+                data.push(current);
+                index_offset += count;
+                count = 0;
+                current = (Vec::new(), Vec::new(), last_mat, 0);
+            }
+            let actual_index = index.0 - index_offset;
+            current.0.push(actual_index);
+
+            if (count <= actual_index) {
+                count += 1;
+                current.1.extend_from_slice(&[
+                    self.vertices[index.0 * 3],
+                    self.vertices[index.0 * 3 + 1],
+                    self.vertices[index.0 * 3 + 2],
+                    self.normals[index.0 * 3],
+                    self.normals[index.0 * 3 + 1],
+                    self.normals[index.0 * 3 + 2],
+                    self.tex_coords[index.0 * 2],
+                    self.tex_coords[index.0 * 2 + 1],
+                    0.0,
+                    0.0
+                ]);
+            }
+        }
+
+        PreparedMesh {
+            name,
+            data,
+            vert_count: index_offset
+        }
+    }
+}
+
+pub struct PreparedMesh {
+    name: String,
+    data: Vec<(Vec<u32>, Vec<f32>, u16, u32)>,
+    vert_count: u32
+}
+
+impl PreparedMesh {
+    pub fn setup_matrix(&mut self, matrix_id: u32) {
+        for data in self.data.iter_mut() {
+            let mut idx = MATRIX_OFFSET as usize;
+            while idx < data.1.len() {
+                data.1[idx] = matrix_id as f32;
+                idx += VERTEX_LAYOUT_3D.array_stride / 4;
+            }
+        }
+    }
+
+    pub fn setup_materials(&mut self, material_ids: &[u32]) {
+        for (data, id) in self.data.iter_mut().zip(material_ids.iter().cloned()) {
+            let mut idx = MATERIAL_OFFSET as usize;
+            while idx < data.1.len() {
+                data.1[idx] = id as f32;
+                idx += VERTEX_LAYOUT_3D.array_stride / 4;
+            }
+        }
+    }
 }
 
 pub struct Material {
@@ -112,14 +206,17 @@ pub struct Material {
     pub metallic_roughness_texture: Option<Arc<Texture>>,
     pub normal_texture: Option<Arc<Texture>>, //norm
 
-                                              //pub specular_texture: Option<Arc<Texture>>, //map_Ks
-                                              //pub occlusion_texture: Option<Arc<Texture>>, //map_d
-                                              //pub reflection_texture: Option<Arc<Texture>>, //refl
-                                              //pub bump_texture: Option<Arc<Texture>>, //bump
-                                              //pub emission_texture: Option<Arc<Texture>>,
+    //pub specular_texture: Option<Arc<Texture>>, //map_Ks
+    //pub occlusion_texture: Option<Arc<Texture>>, //map_d
+    //pub reflection_texture: Option<Arc<Texture>>, //refl
+    //pub bump_texture: Option<Arc<Texture>>, //bump
+    //pub emission_texture: Option<Arc<Texture>>,
 }
 
 impl Material {
+
+    pub const SIZE_BYTES: usize = 92;
+
     pub fn new() -> Self {
         Material {
             ambient: Color::<RGB, f32>::new(0.2, 0.2, 0.2, 1.0),
@@ -165,32 +262,6 @@ impl Material {
 impl Default for Material {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Model {
-    pub fn vertex_count(&self) -> u32 {
-        todo!()
-    }
-
-    pub fn is_simple_geometry(&self) -> bool {
-        self.vertex_count() < 5000
-            && self.materials.len() < 16
-            && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
-    }
-
-    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
-        self.materials
-            .iter()
-            .fold(0, |t, m| t + m.texture_count(texture_type))
-    }
-
-    pub fn single_batch(&self) -> bool {
-        self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32
-    }
-
-    pub fn min_batches(&self) -> u32 {
-        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32).ceil() as u32
     }
 }
 

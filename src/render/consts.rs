@@ -4,24 +4,18 @@ use std::sync::Arc;
 
 use mvutils::once::{CreateOnce, LazyInitOnce};
 use mvutils::{create_once, lazy_init};
-use wgpu::{
-    vertex_attr_array, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingType, BufferBindingType, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
-    TextureViewDimension, VertexBufferLayout, VertexStepMode,
-};
+use wgpu::{vertex_attr_array, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension, VertexBufferLayout, VertexStepMode, VertexFormat};
 
 use crate::render::common::Texture;
 
 pub(crate) const VERT_LIMIT: u64 = 10000;
 pub(crate) const VERT_LIMIT_2D_FLOATS: u64 = VERT_LIMIT * VERTEX_LAYOUT_2D.array_stride / 4;
 pub(crate) const VERT_LIMIT_2D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_2D.array_stride;
-pub(crate) const VERT_LIMIT_MODEL_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_MODEL_3D.array_stride;
-pub(crate) const VERT_LIMIT_BATCH_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_BATCH_3D.array_stride;
+pub(crate) const VERT_LIMIT_3D_BYTES: u64 = VERT_LIMIT * VERTEX_LAYOUT_3D.array_stride;
 pub(crate) const INDEX_LIMIT: u64 = VERT_LIMIT * 6;
 
 pub(crate) const VERTEX_2D_SIZE_FLOATS: usize = 22;
-pub(crate) const VERTEX_3D_MODEL_SIZE_FLOATS: usize = 9;
-pub(crate) const VERTEX_3D_BATCH_SIZE_FLOATS: usize = 16;
+pub(crate) const VERTEX_3D_SIZE_FLOATS: usize = 10;
 
 pub(crate) const FONT_SMOOTHING: f32 = 1.0 / 64.0;
 
@@ -34,10 +28,12 @@ create_once! {
     pub(crate) static DUMMY_TEXTURE: Arc<Texture>;
     pub(crate) static MAX_TEXTURES: usize;
     pub(crate) static MAX_LIGHTS: usize;
+    pub(crate) static MAX_MATERIALS: usize;
 }
 
 pub(crate) const TEXTURE_LIMIT: usize = 255;
 pub(crate) const LIGHT_LIMIT: usize = 255;
+pub(crate) const MATERIAL_LIMIT: usize = 255;
 
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
     array_stride: 88,
@@ -58,32 +54,20 @@ pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
     ],
 };
 
-pub(crate) const VERTEX_LAYOUT_MODEL_3D: VertexBufferLayout = VertexBufferLayout {
-    array_stride: 36,
-    step_mode: VertexStepMode::Vertex,
-    attributes: &vertex_attr_array![
-        0 => Float32x3, //pos
-        1 => Float32x3, //normal
-        2 => Float32x2, //uv
-        3 => Float32    //material id
-    ],
-};
-
-pub(crate) const VERTEX_LAYOUT_MODEL_3D_MAT_ID_OFFSET: usize = 8;
-
-pub(crate) const VERTEX_LAYOUT_BATCH_3D: VertexBufferLayout = VertexBufferLayout {
-    array_stride: 64,
+pub(crate) const VERTEX_LAYOUT_3D: VertexBufferLayout = VertexBufferLayout {
+    array_stride: 40,
     step_mode: VertexStepMode::Vertex,
     attributes: &vertex_attr_array![
         0 => Float32x3, //pos
         1 => Float32x3, //normal
         2 => Float32x2, //uv
         3 => Float32,   //material id
-        4 => Float32x4, //canvas coords
-        5 => Float32x2, //canvas data
-        6 => Float32    //model matrix idx
+        4 => Float32    //model matrix idx
     ],
 };
+
+pub(crate) const MATERIAL_OFFSET: u8 = 8;
+pub(crate) const MATRIX_OFFSET: u8 = 9;
 
 pub(crate) const VERTEX_LAYOUT_NONE: VertexBufferLayout = VertexBufferLayout {
     array_stride: 0,
@@ -94,13 +78,12 @@ pub(crate) const VERTEX_LAYOUT_NONE: VertexBufferLayout = VertexBufferLayout {
 pub(crate) const BIND_GROUP_2D: u8 = 0;
 pub(crate) const BIND_GROUP_TEXTURES: u8 = 1;
 pub(crate) const BIND_GROUP_MODEL_MATRIX: u8 = 2;
-pub(crate) const BIND_GROUP_GEOMETRY_MODEL_3D: u8 = 3;
-pub(crate) const BIND_GROUP_GEOMETRY_BATCH_3D: u8 = 4;
-pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 5;
-pub(crate) const BIND_GROUP_MODEL_3D: u8 = 6;
-pub(crate) const BIND_GROUP_BATCH_3D: u8 = 7;
-pub(crate) const BIND_GROUP_EFFECT: u8 = 8;
-pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 9;
+pub(crate) const BIND_GROUP_GEOMETRY_3D: u8 = 3;
+pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 4;
+pub(crate) const BIND_GROUP_MODEL_3D: u8 = 5;
+pub(crate) const BIND_GROUP_BATCH_3D: u8 = 6;
+pub(crate) const BIND_GROUP_EFFECT: u8 = 7;
+pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 8;
 
 lazy_init! {
     pub(crate) static BIND_GROUPS: HashMap<u8, BindGroupLayout> = HashMap::new();
@@ -153,7 +136,7 @@ pub(crate) const BIND_GROUP_LAYOUT_MODEL_MATRIX: BindGroupLayoutDescriptor =
         }],
     };
 
-pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D: BindGroupLayoutDescriptor =
+pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
         label: Some("Bind group layout geometry pass (model) 3D"),
         entries: &[
@@ -186,11 +169,6 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D: BindGroupLayoutDescriptor 
         ],
     };
 
-pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D: BindGroupLayoutDescriptor =
-    BindGroupLayoutDescriptor {
-        label: Some("Bind group layout geometry pass (batch) 3D"),
-        entries: &[],
-    };
 
 pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
@@ -245,15 +223,9 @@ pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
         ],
     };
 
-pub(crate) const BIND_GROUP_LAYOUT_MODEL_3D: BindGroupLayoutDescriptor =
+pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
         label: Some("Bind group layout forward render (model) 3D"),
-        entries: &[],
-    };
-
-pub(crate) const BIND_GROUP_LAYOUT_BATCH_3D: BindGroupLayoutDescriptor =
-    BindGroupLayoutDescriptor {
-        label: Some("Bind group layout forward render (batch) 3D"),
         entries: &[],
     };
 

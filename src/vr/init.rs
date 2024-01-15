@@ -16,13 +16,13 @@ use winit::dpi::PhysicalSize;
 use crate::render::common::Texture;
 use crate::render::consts::{
     BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
-    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_MODEL_3D, BIND_GROUP_LAYOUT_2D,
+    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D,
     BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM,
-    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D,
-    BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_MODEL_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX,
+    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_3D,
+    BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX,
     BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
     DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES,
-    TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_BATCH_3D, VERTEX_LAYOUT_MODEL_3D,
+    TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_MODEL_3D,
     VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
 };
 use crate::render::window::WindowSpecs;
@@ -180,15 +180,15 @@ impl VRState {
                 );
                 groups.insert(
                     BIND_GROUP_MODEL_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_3D),
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_3D),
                 );
                 groups.insert(
                     BIND_GROUP_GEOMETRY_BATCH_3D,
                     device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D),
                 );
                 groups.insert(
-                    BIND_GROUP_GEOMETRY_MODEL_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_MODEL_3D),
+                    BIND_GROUP_GEOMETRY_3D,
+                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_GEOMETRY_3D),
                 );
                 groups.insert(
                     BIND_GROUP_LIGHTING_3D,
