@@ -18,9 +18,9 @@ use crate::render::RenderCore;
 mod err;
 #[cfg(feature = "gui")]
 pub mod gui;
+pub mod input;
 pub mod render;
 pub mod resources;
-pub mod user_input;
 #[cfg(feature = "vr")]
 pub mod vr;
 

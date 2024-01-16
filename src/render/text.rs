@@ -1,6 +1,6 @@
+use hashbrown::HashMap;
 use std::cmp::max;
 use std::hash::{BuildHasher, Hasher};
-use hashbrown::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -34,7 +34,7 @@ pub struct Font {
     max_height: u16,
     max_width: u16,
 
-    kernings: HashMap<u64, i8, IdentityHasher>
+    kernings: HashMap<u64, i8, IdentityHasher>,
 }
 
 impl Font {
@@ -220,7 +220,9 @@ impl FontLoader {
         for line in lines {
             if line.starts_with("common ") {
                 for attrib in line.split_whitespace() {
-                    if !attrib.contains('=') { continue; }
+                    if !attrib.contains('=') {
+                        continue;
+                    }
                     let (name, value) = attrib.split_once('=').unwrap();
                     match name {
                         "scaleW" => atlas_width = value.parse::<u16>().unwrap_or(0),
@@ -229,8 +231,7 @@ impl FontLoader {
                         _ => {}
                     }
                 }
-            }
-            else if line.starts_with("char ") {
+            } else if line.starts_with("char ") {
                 let mut c = 0 as char;
                 let mut x = 0;
                 let mut y = 0;
@@ -242,7 +243,9 @@ impl FontLoader {
                 let mut page = 0;
                 let mut chnl = 0;
                 for attrib in line.split_whitespace() {
-                    if !attrib.contains('=') { continue; }
+                    if !attrib.contains('=') {
+                        continue;
+                    }
                     let (name, value) = attrib.split_once('=').unwrap();
                     match name {
                         "id" => {
@@ -250,7 +253,6 @@ impl FontLoader {
                                 c
                             } else {
                                 continue;
-
                             }
                         }
                         "x" => x = value.parse::<u16>().unwrap_or(0),
@@ -278,26 +280,18 @@ impl FontLoader {
                     }
                 }
                 let glyph = Glyph::new(
-                    x,
-                    y,
-                    width,
-                    height,
-                    xoffset,
-                    yoffset,
-                    xadvance,
-                    page,
-                    chnl,
-                    c,
+                    x, y, width, height, xoffset, yoffset, xadvance, page, chnl, c,
                 );
                 map.insert(c, glyph);
-            }
-            else if line.starts_with("kerning ") {
+            } else if line.starts_with("kerning ") {
                 let mut first = 0;
                 let mut second = 0;
                 let mut amount = 0;
 
                 for attrib in line.split_whitespace() {
-                    if !attrib.contains('=') { continue; }
+                    if !attrib.contains('=') {
+                        continue;
+                    }
                     let (name, value) = attrib.split_once('=').unwrap();
                     match name {
                         "first" => {
@@ -306,14 +300,14 @@ impl FontLoader {
                             } else {
                                 continue;
                             }
-                        },
+                        }
                         "second" => {
                             second = if let Ok(v) = value.parse::<u32>() {
                                 v
                             } else {
                                 continue;
                             }
-                        },
+                        }
                         "amount" => {
                             amount = if let Ok(v) = value.parse::<i8>() {
                                 if v == 0 {
@@ -323,7 +317,7 @@ impl FontLoader {
                             } else {
                                 continue;
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -339,8 +333,8 @@ impl FontLoader {
         }
 
         let mut tex_vec = Vec::with_capacity(textures.len());
-        for i in 0..textures.len() {
-            let mut texture = Texture::new(textures[i].to_vec());
+        for tex in textures {
+            let mut texture = Texture::new(tex.to_vec());
             texture.make(state);
             tex_vec.push(Arc::new(texture));
         }
@@ -350,14 +344,14 @@ impl FontLoader {
             alphabet: map,
             max_width,
             max_height,
-            kernings
+            kernings,
         }
     }
 }
 
 #[derive(Default)]
 struct IdentityHasher {
-    value: u64
+    value: u64,
 }
 
 impl Hasher for IdentityHasher {
@@ -384,7 +378,7 @@ impl BuildHasher for IdentityHasher {
 
 #[derive(Default)]
 struct CharIdentityHasher {
-    value: u32
+    value: u32,
 }
 
 impl Hasher for CharIdentityHasher {

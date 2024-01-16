@@ -1,11 +1,17 @@
+use std::mem;
 use std::sync::Arc;
 
-use glam::{Mat4, Vec2, Vec3};
 use crate::err::panic;
+use glam::{Mat4, Vec2, Vec3};
+use mvutils::lazy;
+use mvutils::once::Lazy;
+use mvutils::unsafe_utils::DangerousCell;
 
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::consts::{MATERIAL_OFFSET, MATRIX_OFFSET, MAX_TEXTURES, VERT_LIMIT, VERTEX_LAYOUT_3D};
+use crate::render::consts::{
+    MATERIAL_OFFSET, MATRIX_OFFSET, MAX_TEXTURES, VERTEX_LAYOUT_3D, VERT_LIMIT,
+};
 
 pub struct Light {
     direction: Vec3,
@@ -22,12 +28,15 @@ pub struct ModelArray {
 
 pub struct Model {
     pub(crate) mesh: Mesh,
-    pub(crate) materials: Vec<Material>,
+    pub(crate) materials: Vec<Arc<Material>>,
 }
 
 impl Model {
     pub fn texture_count(&self, texture_type: TextureType) -> u32 {
-        self.materials.iter().map(|mat| mat.texture_count(texture_type)).sum()
+        self.materials
+            .iter()
+            .map(|mat| mat.texture_count(texture_type))
+            .sum()
     }
 
     pub fn vertex_count(&self) -> u32 {
@@ -35,7 +44,7 @@ impl Model {
     }
 
     pub fn prepare(&mut self) {
-        self.mesh = self.mesh.prepare();
+        self.mesh.prepare();
     }
 
     pub fn is_simple_geometry(&self) -> bool {
@@ -49,30 +58,29 @@ impl Model {
     }
 
     pub fn min_batches(&self) -> u32 {
-        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32).ceil()
-            .max(
-                (self.vertex_count() as f32 / VERT_LIMIT as f32).ceil()
-            ) as u32
+        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32)
+            .ceil()
+            .max((self.vertex_count() as f32 / VERT_LIMIT as f32).ceil()) as u32
     }
 }
 
 pub enum Mesh {
     Raw(RawMesh),
-    Prepared(PreparedMesh)
+    Prepared(PreparedMesh),
 }
 
 impl Mesh {
     pub fn vertex_count(&self) -> u32 {
         match self {
             Mesh::Raw(raw) => (raw.vertices.len() / 3) as u32,
-            Mesh::Prepared(prepared) => prepared.vert_count
+            Mesh::Prepared(prepared) => prepared.vert_count,
         }
     }
 
-    pub fn prepare(self) -> Mesh {
-        match self {
-            Mesh::Raw(raw) => Mesh::Prepared(raw.prepare()),
-            Mesh::Prepared(prepared) => Mesh::Prepared(prepared)
+    pub fn prepare(&mut self) {
+        if let Mesh::Raw(raw) = self {
+            let prepared = raw.prepare();
+            let _ = mem::replace(self, Mesh::Prepared(prepared));
         }
     }
 
@@ -83,27 +91,26 @@ impl Mesh {
         }
     }
 
-    pub fn setup_materials(&mut self, material_ids: &[u32]) {
-
-    }
+    pub fn setup_materials(&mut self, material_ids: &[u32]) {}
 }
 
 pub struct RawMesh {
     pub(crate) name: String,
-    pub(crate) indices: Vec<(u32, u16)>,//idx, mat
+    pub(crate) indices: Vec<(u32, u16)>, //idx, mat
     pub(crate) vertices: Vec<f32>,
     pub(crate) normals: Vec<f32>,
     pub(crate) tex_coords: Vec<f32>,
 }
 
 impl RawMesh {
-    fn prepare(self) -> PreparedMesh {
-        if self.indices.len() == 0 {
+    fn prepare(&mut self) -> PreparedMesh {
+        //TODO: needs reworking, fails if indices skip (example: [0, 1, 6, 2, 3, 4, 3, 4, 5] would fail due to jump 1 -> 6)
+        if self.indices.is_empty() {
             return PreparedMesh {
-                name,
+                name: self.name.clone(),
                 data: Vec::new(),
-                vert_count: 0
-            }
+                vert_count: 0,
+            };
         }
 
         let mut data = Vec::new();
@@ -112,7 +119,7 @@ impl RawMesh {
         let mut index_offset = 0;
         let mut current = (Vec::new(), Vec::new(), last_mat, 0);
 
-        for index in self.indices {
+        for index in self.indices.drain(..) {
             if last_mat != index.1 {
                 last_mat = index.1;
                 current.3 = count;
@@ -124,27 +131,27 @@ impl RawMesh {
             let actual_index = index.0 - index_offset;
             current.0.push(actual_index);
 
-            if (count <= actual_index) {
+            if count <= actual_index {
                 count += 1;
                 current.1.extend_from_slice(&[
-                    self.vertices[index.0 * 3],
-                    self.vertices[index.0 * 3 + 1],
-                    self.vertices[index.0 * 3 + 2],
-                    self.normals[index.0 * 3],
-                    self.normals[index.0 * 3 + 1],
-                    self.normals[index.0 * 3 + 2],
-                    self.tex_coords[index.0 * 2],
-                    self.tex_coords[index.0 * 2 + 1],
+                    self.vertices[index.0 as usize * 3],
+                    self.vertices[index.0 as usize * 3 + 1],
+                    self.vertices[index.0 as usize * 3 + 2],
+                    self.normals[index.0 as usize * 3],
+                    self.normals[index.0 as usize * 3 + 1],
+                    self.normals[index.0 as usize * 3 + 2],
+                    self.tex_coords[index.0 as usize * 2],
+                    self.tex_coords[index.0 as usize * 2 + 1],
                     0.0,
-                    0.0
+                    0.0,
                 ]);
             }
         }
 
         PreparedMesh {
-            name,
+            name: self.name.clone(),
             data,
-            vert_count: index_offset
+            vert_count: index_offset,
         }
     }
 }
@@ -152,7 +159,7 @@ impl RawMesh {
 pub struct PreparedMesh {
     name: String,
     data: Vec<(Vec<u32>, Vec<f32>, u16, u32)>,
-    vert_count: u32
+    vert_count: u32,
 }
 
 impl PreparedMesh {
@@ -161,7 +168,7 @@ impl PreparedMesh {
             let mut idx = MATRIX_OFFSET as usize;
             while idx < data.1.len() {
                 data.1[idx] = matrix_id as f32;
-                idx += VERTEX_LAYOUT_3D.array_stride / 4;
+                idx += VERTEX_LAYOUT_3D.array_stride as usize / 4;
             }
         }
     }
@@ -171,12 +178,13 @@ impl PreparedMesh {
             let mut idx = MATERIAL_OFFSET as usize;
             while idx < data.1.len() {
                 data.1[idx] = id as f32;
-                idx += VERTEX_LAYOUT_3D.array_stride / 4;
+                idx += VERTEX_LAYOUT_3D.array_stride as usize / 4;
             }
         }
     }
 }
 
+#[repr(C)]
 pub struct Material {
     pub ambient: Color<RGB, f32>,
     //Ka
@@ -202,20 +210,23 @@ pub struct Material {
     //pub alpha_cutoff: f32,
     //pub double_side: bool,
     pub diffuse_texture: Option<Arc<Texture>>,
+    pub(crate) diffuse_id: DangerousCell<u16>,
     //map_Kd
     pub metallic_roughness_texture: Option<Arc<Texture>>,
+    pub(crate) metallic_id: DangerousCell<u16>,
     pub normal_texture: Option<Arc<Texture>>, //norm
-
-    //pub specular_texture: Option<Arc<Texture>>, //map_Ks
-    //pub occlusion_texture: Option<Arc<Texture>>, //map_d
-    //pub reflection_texture: Option<Arc<Texture>>, //refl
-    //pub bump_texture: Option<Arc<Texture>>, //bump
-    //pub emission_texture: Option<Arc<Texture>>,
+    pub(crate) normal_id: DangerousCell<u16>, //pub specular_texture: Option<Arc<Texture>>, //map_Ks
+                                              //pub occlusion_texture: Option<Arc<Texture>>, //map_d
+                                              //pub reflection_texture: Option<Arc<Texture>>, //refl
+                                              //pub bump_texture: Option<Arc<Texture>>, //bump
+                                              //pub emission_texture: Option<Arc<Texture>>,
 }
 
-impl Material {
+pub(crate) static DUMMY_MATERIAL: Lazy<Arc<Material>> = Lazy::new(|| Material::default().into());
 
-    pub const SIZE_BYTES: usize = 92;
+impl Material {
+    pub const SIZE_FLOATS: usize = 23;
+    pub const SIZE_BYTES: usize = Self::SIZE_FLOATS * 4;
 
     pub fn new() -> Self {
         Material {
@@ -241,6 +252,9 @@ impl Material {
             //emission_texture: None,
             //alpha_mode: AlphaMode::Opaque,
             //alpha_cutoff: 0.5,
+            diffuse_id: 0.into(),
+            metallic_id: 0.into(),
+            normal_id: 0.into(),
         }
     }
 
@@ -257,7 +271,49 @@ impl Material {
         }
         sum
     }
+
+    pub(crate) fn set_diffuse(&self, id: u16) {
+        self.diffuse_id.replace(id);
+    }
+
+    pub(crate) fn set_metallic(&self, id: u16) {
+        self.metallic_id.replace(id);
+    }
+
+    pub(crate) fn set_normal(&self, id: u16) {
+        self.normal_id.replace(id);
+    }
+
+    pub(crate) fn raw_data(&self) -> [f32; Self::SIZE_FLOATS] {
+        [
+            self.ambient.r(),
+            self.ambient.g(),
+            self.ambient.b(),
+            self.ambient.a(),
+            self.diffuse.r(),
+            self.diffuse.g(),
+            self.diffuse.b(),
+            self.diffuse.a(),
+            self.specular.r(),
+            self.specular.g(),
+            self.specular.b(),
+            self.specular.a(),
+            self.emission.r(),
+            self.emission.g(),
+            self.emission.b(),
+            self.emission.a(),
+            self.alpha,
+            self.specular_exponent,
+            self.metallic,
+            self.roughness,
+            *self.diffuse_id.get() as f32,
+            *self.metallic_id.get() as f32,
+            *self.normal_id.get() as f32,
+        ]
+    }
 }
+
+unsafe impl Sync for Material {}
 
 impl Default for Material {
     fn default() -> Self {

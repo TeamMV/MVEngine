@@ -9,7 +9,7 @@ use mvutils::utils::{Bytecode, TetrahedronOp};
 
 use crate::render::color::{Color, RGB};
 use crate::render::common::Texture;
-use crate::render::common3d::{Material, RawMesh, Model, Mesh};
+use crate::render::common3d::{Material, Mesh, Model, RawMesh};
 use crate::render::window::Window;
 use crate::render::ApplicationLoopCallbacks;
 
@@ -50,12 +50,12 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
     fn load_model(&self, data: &str, path: &str) -> Model {
         fn process_face(data: &str, material: u16) -> IVec4 {
-            let tokens = data.split("/").collect::<Vec<_>>();
+            let tokens = data.split('/').collect::<Vec<_>>();
             let pos = tokens[0].parse::<i32>().unwrap() - 1;
             let mut coords = -1;
             let mut normal = -1;
             if tokens.len() > 1 {
-                coords = (tokens[1].len() > 0).yn(tokens[1].parse::<i32>().unwrap() - 1, -1);
+                coords = (!tokens[1].is_empty()).yn(tokens[1].parse::<i32>().unwrap() - 1, -1);
                 if tokens.len() > 2 {
                     normal = tokens[2].parse::<i32>().unwrap() - 1;
                 }
@@ -83,7 +83,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
         for line in data.lines() {
             let tokens = line.split_whitespace().collect::<Vec<&str>>();
-            if tokens.len() == 0 {
+            if tokens.is_empty() {
                 continue;
             }
             match tokens[0] {
@@ -202,7 +202,7 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
 
         for line in data.lines() {
             let tokens = line.split_whitespace().collect::<Vec<&str>>();
-            if tokens.len() == 0 {
+            if tokens.is_empty() {
                 continue;
             }
             match tokens[0] {
@@ -299,7 +299,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
 
     fn load_model(&self, data: Bytecode) -> Model {
         let gltf = Gltf::from_slice(data.as_slice()).expect("There was a Problem load a 3d-Asset!");
-        let mut materials: Vec<Material> = Vec::new();
+        let mut materials: Vec<Arc<Material>> = Vec::new();
         for material in gltf.materials() {
             let mut mat = Material::new();
             //mat.double_side = material.double_sided();
@@ -332,15 +332,15 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             if let Some(info) = material.pbr_metallic_roughness().base_color_texture() {
                 mat.diffuse_texture = Some(Arc::new(self.construct_texture(&gltf, &info)));
             }
-            materials.push(mat);
+            materials.push(mat.into());
         }
 
-        for mesh in gltf.meshes() {
+        if let Some(mesh) = gltf.meshes().next() {
             let name = mesh.name().unwrap_or("").to_string();
             let mut vertices: Vec<Vec3> = Vec::new();
             let mut normals: Vec<Vec3> = Vec::new();
             let mut tex_coords: Vec<Vec2> = Vec::new();
-            let mut indices: Vec<(u32, usize)> = Vec::new();
+            let mut indices: Vec<(u32, u16)> = Vec::new();
             for primitive in mesh.primitives() {
                 vertices.append(&mut self.construct_vec3s(self.get_data_from_buffer_view(
                     &gltf,
@@ -354,12 +354,17 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
                     &gltf,
                     primitive.get(&Semantic::TexCoords(0)).unwrap().index(),
                 )));
-                indices.append(&mut self.construct::<u32>(
-                    self.get_data_from_buffer_view(&gltf, primitive.indices().unwrap().index()),
-                )
-                    .into_iter()
-                    .map(|i| (i, primitive.material().index().unwrap()))
-                    .collect_vec()
+                indices.append(
+                    &mut self
+                        .construct::<u32>(
+                            self.get_data_from_buffer_view(
+                                &gltf,
+                                primitive.indices().unwrap().index(),
+                            ),
+                        )
+                        .into_iter()
+                        .map(|i| (i, primitive.material().index().unwrap() as u16))
+                        .collect_vec(),
                 );
             }
 
@@ -388,10 +393,12 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             let parsed_mesh = RawMesh {
                 name,
                 vertices: vertices_f32,
-                indices: indices,
+                indices,
                 normals: normals_f32,
                 tex_coords: tex_coords_f32,
             };
+
+            //TODO: handle multi-mesh gltf models
 
             return Model {
                 mesh: Mesh::Raw(parsed_mesh),
@@ -399,7 +406,7 @@ impl<I: ApplicationLoopCallbacks> GLTFModelLoader<I> {
             };
         }
 
-        unreachable!()
+        panic!("GLTF file with no meshes!")
     }
 
     fn get_data_from_buffer_view(&self, gltf: &Gltf, idx: usize) -> Bytecode {

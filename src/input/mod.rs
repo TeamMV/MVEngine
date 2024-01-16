@@ -1,10 +1,10 @@
-use crate::user_input::input::{Input, State};
-use crate::user_input::InputAction::{Keyboard, Mouse};
+use crate::input::raw::{Input, State};
+use crate::input::InputAction::{Keyboard, Mouse};
 use mvutils::utils::Recover;
 use std::rc::Rc;
 use std::sync::RwLock;
 
-pub mod input;
+pub mod raw;
 
 pub(crate) struct InputCollector {
     default_processor: InputProcessorImpl,
@@ -129,26 +129,26 @@ impl InputProcessor for InputProcessorImpl {
 
         if let MouseAction::Wheel(x, y) = action {
             if y > 0.0 {
-                input.scroll[input::MOUSE_SCROLL_UP] = true;
-                input.scrollstates[input::MOUSE_SCROLL_UP] = y;
+                input.scroll[raw::MOUSE_SCROLL_UP] = true;
+                input.scrollstates[raw::MOUSE_SCROLL_UP] = y;
             }
             if y < 0.0 {
-                input.scroll[input::MOUSE_SCROLL_DOWN] = true;
-                input.scrollstates[input::MOUSE_SCROLL_DOWN] = y;
+                input.scroll[raw::MOUSE_SCROLL_DOWN] = true;
+                input.scrollstates[raw::MOUSE_SCROLL_DOWN] = y;
             }
             if x > 0.0 {
-                input.scroll[input::MOUSE_SCROLL_RIGHT] = true;
-                input.scrollstates[input::MOUSE_SCROLL_RIGHT] = x;
+                input.scroll[raw::MOUSE_SCROLL_RIGHT] = true;
+                input.scrollstates[raw::MOUSE_SCROLL_RIGHT] = x;
             }
             if x < 0.0 {
-                input.scroll[input::MOUSE_SCROLL_LEFT] = true;
-                input.scrollstates[input::MOUSE_SCROLL_LEFT] = x;
+                input.scroll[raw::MOUSE_SCROLL_LEFT] = true;
+                input.scrollstates[raw::MOUSE_SCROLL_LEFT] = x;
             }
         }
 
         if let MouseAction::Move(x, y) = action {
-            input.positions[input::MOUSE_POS_X] = x;
-            input.positions[input::MOUSE_POS_Y] = y;
+            input.positions[raw::MOUSE_POS_X] = x;
+            input.positions[raw::MOUSE_POS_Y] = y;
         }
     }
 

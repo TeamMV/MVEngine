@@ -73,7 +73,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
             ],
         });
@@ -107,7 +107,7 @@ impl DeferredPass {
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(&*DEFAULT_SAMPLER),
+                    resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -273,8 +273,8 @@ impl DeferredPass {
 
             let mut changed = false;
 
-            for i in 0..*MAX_TEXTURES {
-                if let Some(ref texture) = textures[i] {
+            for (i, tex) in textures.iter().enumerate().take(*MAX_TEXTURES) {
+                if let Some(ref texture) = tex {
                     if &texture_group.textures[i] != texture {
                         texture_group.set(i, texture.clone());
                         changed = true;
@@ -306,7 +306,7 @@ impl DeferredPass {
             self.state.queue.write_buffer(
                 &self.sibo,
                 0,
-                &[0, 1, 2, 0, 2, 3].as_slice().cast_bytes(),
+                [0, 1, 2, 0, 2, 3].as_slice().cast_bytes(),
             );
 
             self.light_pass
@@ -324,29 +324,5 @@ impl DeferredPass {
     pub(crate) fn finish(&mut self) {
         self.geom_pass.replace_null();
         self.light_pass.replace_null();
-    }
-}
-
-impl RenderPass3D for DeferredPass {
-    fn render_batch(
-        &self,
-        indices: &[u32],
-        vertices: &[f32],
-        textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT],
-        transforms: &[Mat4],
-    ) {
-        todo!()
-    }
-
-    fn render_model_instanced(
-        &self,
-        indices: &[u32],
-        vertices: &[f32],
-        textures: &[Option<Arc<Texture>>; TEXTURE_LIMIT],
-        canvas: &[f32; 6],
-        transforms: &[Mat4],
-        hum_instances: u32,
-    ) {
-        todo!()
     }
 }

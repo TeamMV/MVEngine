@@ -467,8 +467,8 @@ impl Input {
 
     pub fn position_from_string(s: &str) -> usize {
         match s.to_lowercase().as_str() {
-            "MOUSE_POS_X" => MOUSE_POS_X,
-            "MOUSE_POS_Y" => MOUSE_POS_Y,
+            "mouse_pos_x" => MOUSE_POS_X,
+            "mouse_pos_y" => MOUSE_POS_Y,
             _ => usize::MAX,
         }
     }

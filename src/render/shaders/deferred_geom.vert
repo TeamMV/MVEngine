@@ -23,7 +23,7 @@ void main() {
     matId = materialId;
     texCoord = uv;
     normal = normalVec;
-    vec4 fragPos = uniforms.uProjection * uniforms.uView * models.matrices[gl_InstanceIndex] * vec4(position, 1.0);
+    vec4 fragPos = uniforms.uProjection * uniforms.uView * models.matrices[gl_InstanceIndex][int(matId)] * vec4(position, 1.0);
     pos = fragPos.xyz;
     gl_Position = fragPos;
 }

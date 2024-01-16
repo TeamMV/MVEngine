@@ -4,6 +4,7 @@ use std::ptr::null_mut;
 use std::sync::Arc;
 
 use glam::Mat4;
+use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, Extent3d, IndexFormat,
@@ -115,7 +116,7 @@ impl RenderPass2D {
         let texture_group = TextureBindGroup::new(&shader, state, 1);
 
         Self {
-            state: unsafe { (state as *const State).as_ref() }.unwrap(),
+            state: unsafe { Unsafe::cast_static(state) },
             shader,
             vbo: vec![vbo],
             ibo: vec![ibo],
@@ -164,7 +165,11 @@ impl RenderPass2D {
 
     pub(crate) fn set_smoothing(&mut self, smoothing: f32) {
         self.smoothing = [smoothing];
-        self.state.queue.write_buffer(&self.smoothing_buffer, 0, self.smoothing.as_slice().cast_bytes());
+        self.state.queue.write_buffer(
+            &self.smoothing_buffer,
+            0,
+            self.smoothing.as_slice().cast_bytes(),
+        );
     }
 
     pub(crate) fn render(

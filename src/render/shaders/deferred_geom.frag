@@ -13,7 +13,7 @@ struct Material {
     float alpha;
     float specularExponent;
     float metallic;
-    float roughtness;
+    float roughness;
 
     float diffuseTextureId;
     float metallicRoughnessTextureId;
@@ -26,12 +26,12 @@ layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 texCoord;
 layout(location = 3) in float matId;
 
-layout(set = 0, binding = 1) uniform UNIFORMS {
+layout(set = 2, binding = 0) uniform UNIFORMS {
     Material materials[MAX_MATERIALS];
 } uniforms;
 
-layout(set = 0, binding = 2) uniform sampler SAMPLER;
-layout(set = 2, binding = 0) uniform texture2D TEXTURES[MAX_TEXTURES];
+layout(set = 0, binding = 1) uniform sampler SAMPLER;
+layout(set = 2, binding = 1) uniform texture2D TEXTURES[MAX_TEXTURES];
 
 float sq(float x) {
     return x * x;

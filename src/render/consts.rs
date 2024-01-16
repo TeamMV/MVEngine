@@ -4,7 +4,11 @@ use std::sync::Arc;
 
 use mvutils::once::{CreateOnce, LazyInitOnce};
 use mvutils::{create_once, lazy_init};
-use wgpu::{vertex_attr_array, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, Sampler, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension, VertexBufferLayout, VertexStepMode, VertexFormat};
+use wgpu::{
+    vertex_attr_array, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+    BindingType, BufferBindingType, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
+    TextureViewDimension, VertexBufferLayout, VertexFormat, VertexStepMode,
+};
 
 use crate::render::common::Texture;
 
@@ -80,8 +84,8 @@ pub(crate) const BIND_GROUP_TEXTURES: u8 = 1;
 pub(crate) const BIND_GROUP_MODEL_MATRIX: u8 = 2;
 pub(crate) const BIND_GROUP_GEOMETRY_3D: u8 = 3;
 pub(crate) const BIND_GROUP_LIGHTING_3D: u8 = 4;
-pub(crate) const BIND_GROUP_MODEL_3D: u8 = 5;
-pub(crate) const BIND_GROUP_BATCH_3D: u8 = 6;
+pub(crate) const BIND_GROUP_TEXTURES_3D: u8 = 5;
+pub(crate) const BIND_GROUP_3D: u8 = 6;
 pub(crate) const BIND_GROUP_EFFECT: u8 = 7;
 pub(crate) const BIND_GROUP_EFFECT_CUSTOM: u8 = 8;
 
@@ -121,21 +125,6 @@ pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayo
     ],
 };
 
-pub(crate) const BIND_GROUP_LAYOUT_MODEL_MATRIX: BindGroupLayoutDescriptor =
-    BindGroupLayoutDescriptor {
-        label: Some("Bind group layout model matrix"),
-        entries: &[BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::VERTEX,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }],
-    };
-
 pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
         label: Some("Bind group layout geometry pass (model) 3D"),
@@ -151,16 +140,6 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
                 count: None,
             },
             BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
                 binding: 2,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
@@ -168,7 +147,6 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
             },
         ],
     };
-
 
 pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
@@ -223,11 +201,10 @@ pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
         ],
     };
 
-pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor =
-    BindGroupLayoutDescriptor {
-        label: Some("Bind group layout forward render (model) 3D"),
-        entries: &[],
-    };
+pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
+    label: Some("Bind group layout forward render (model) 3D"),
+    entries: &[],
+};
 
 pub(crate) const BIND_GROUP_LAYOUT_EFFECT: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
     label: Some("Bind group layout effect"),

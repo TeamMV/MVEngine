@@ -52,13 +52,13 @@ impl<U: Fmt, T: Clone> Color<U, T> {
 }
 
 impl<U: Fmt, T> Color<U, T> {
-    pub fn new(c1: T, c2: T, c3: T, c4: T) -> Self {
+    pub const fn new(c1: T, c2: T, c3: T, c4: T) -> Self {
         Color {
             c1,
             c2,
             c3,
             c4,
-            phantom: Default::default(),
+            phantom: PhantomData,
         }
     }
 }
@@ -70,7 +70,7 @@ impl<U: Fmt, T: Clone> Clone for Color<U, T> {
             c2: self.c2.clone(),
             c3: self.c3.clone(),
             c4: self.c4.clone(),
-            phantom: Default::default(),
+            phantom: PhantomData,
         }
     }
 }

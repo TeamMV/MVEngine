@@ -5,14 +5,18 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::SystemTime;
 
-use crate::user_input;
-use crate::user_input::input::Input;
-use crate::user_input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
+use crate::input;
+use crate::input::raw::Input;
+use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
 use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
-use wgpu::{CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView, TextureViewDescriptor};
+use wgpu::{
+    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView,
+    TextureViewDescriptor,
+};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{
     ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
@@ -22,7 +26,11 @@ use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_MODEL_3D};
+use crate::render::consts::{
+    BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
+    BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
+};
 #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
@@ -31,7 +39,7 @@ use crate::render::init::State;
 use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
-use crate::render::{ApplicationLoopCallbacks, consts};
+use crate::render::{consts, ApplicationLoopCallbacks};
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -225,11 +233,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let deferred_pass_3d = DeferredPass::new(
             deferred_shader.setup_pipeline(
                 &state,
-                VERTEX_LAYOUT_MODEL_3D,
+                VERTEX_LAYOUT_3D,
                 &[
                     BIND_GROUP_GEOMETRY_3D,
-                    BIND_GROUP_MODEL_MATRIX,
-                    BIND_GROUP_TEXTURES,
+                    //BIND_GROUP_MODEL_MATRIX,
+                    BIND_GROUP_TEXTURES_3D,
                 ],
             ),
             &state,
@@ -696,30 +704,16 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 VERTEX_LAYOUT_2D,
                 &[BIND_GROUP_2D, BIND_GROUP_TEXTURES],
             )),
-            ShaderUsage::Render3D => CreatedShader::Render3D {
-                batch: shader.clone().setup_pipeline(
-                    self.state.get(),
-                    VERTEX_LAYOUT_3D,
-                    &[BIND_GROUP_BATCH_3D],
-                ),
-                model: shader.setup_pipeline(
-                    self.state.get(),
-                    VERTEX_LAYOUT_MODEL_3D,
-                    &[BIND_GROUP_MODEL_3D],
-                ),
-            },
-            ShaderUsage::GeometryPass => CreatedShader::GeometryPass {
-                batch: shader.clone().setup_pipeline(
-                    self.state.get(),
-                    VERTEX_LAYOUT_3D,
-                    &[BIND_GROUP_GEOMETRY_BATCH_3D],
-                ),
-                model: shader.setup_pipeline(
-                    self.state.get(),
-                    VERTEX_LAYOUT_MODEL_3D,
-                    &[BIND_GROUP_GEOMETRY_3D],
-                ),
-            },
+            ShaderUsage::Render3D => CreatedShader::Render3D(shader.clone().setup_pipeline(
+                self.state.get(),
+                VERTEX_LAYOUT_3D,
+                &[BIND_GROUP_3D],
+            )),
+            ShaderUsage::GeometryPass => CreatedShader::GeometryPass(shader.setup_pipeline(
+                self.state.get(),
+                VERTEX_LAYOUT_3D,
+                &[BIND_GROUP_GEOMETRY_3D],
+            )),
         }
     }
 
@@ -819,8 +813,8 @@ pub enum EffectShaderUsage {
 
 pub enum CreatedShader {
     Render2D(Shader),
-    Render3D { batch: Shader, model: Shader },
-    GeometryPass { batch: Shader, model: Shader },
+    Render3D(Shader),
+    GeometryPass(Shader),
     LightingPass(EffectShader),
     Effect(EffectShader),
 }

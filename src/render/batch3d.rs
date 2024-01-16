@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
+use crate::render::batch2d::{BatchGen, BatchType};
 use glam::Mat4;
 
 use crate::render::common::Texture;
 use crate::render::common3d::{Model, ModelArray};
-use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_BATCH_SIZE_FLOATS};
+use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_SIZE_FLOATS};
 use crate::render::init::PipelineBuilder;
 use crate::render::render3d::RenderPass3D;
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum BatchType3D {
-    Regular,
-    Stripped,
-}
-
-trait BatchGen {
-    fn get_render_mode(&self) -> u8;
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>);
-    fn batch_type(&self) -> BatchType3D;
-}
 
 struct RegularBatch;
 
@@ -29,26 +18,8 @@ impl BatchGen for RegularBatch {
         PipelineBuilder::RENDER_MODE_TRIANGLES
     }
 
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
-        if amt == 4 {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
-        } else {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0);
-            indices.insert((offset * 6 + 4) as usize, 0);
-            indices.insert((offset * 6 + 5) as usize, 0);
-        }
-    }
-
-    fn batch_type(&self) -> BatchType3D {
-        BatchType3D::Regular
+    fn batch_type(&self) -> BatchType {
+        BatchType::Regular
     }
 }
 
@@ -57,26 +28,8 @@ impl BatchGen for StrippedBatch {
         PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP
     }
 
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
-        if amt == 4 {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
-        } else {
-            indices.insert((offset * 6 + 0) as usize, 0 + offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0);
-            indices.insert((offset * 6 + 4) as usize, 0);
-            indices.insert((offset * 6 + 5) as usize, 0);
-        }
-    }
-
-    fn batch_type(&self) -> BatchType3D {
-        BatchType3D::Stripped
+    fn batch_type(&self) -> BatchType {
+        BatchType::Stripped
     }
 }
 
@@ -177,7 +130,7 @@ impl Batch3D {
 
     fn push_model(&mut self, model: Model, canvas: [f32; 6], model_matrix: Mat4) {}
 
-    fn batch_type(&self) -> BatchType3D {
+    fn batch_type(&self) -> BatchType {
         self.generator.batch_type()
     }
 }
@@ -190,17 +143,11 @@ enum RenderType3D {
 
 impl RenderType3D {
     fn is_model(&self) -> bool {
-        match self {
-            RenderType3D::Model(_) => true,
-            _ => false,
-        }
+        matches!(self, RenderType3D::Model(_))
     }
 
     fn is_batch(&self) -> bool {
-        match self {
-            RenderType3D::Batch(_) => true,
-            _ => false,
-        }
+        matches!(self, RenderType3D::Batch(_))
     }
 
     fn get_model(&mut self) -> &mut Model {
@@ -218,20 +165,10 @@ impl RenderType3D {
     }
 
     fn render(&self, processor: &impl RenderPass3D) {
-        match self {
-            RenderType3D::Batch(batch) => processor.render_batch(
-                &batch.indices,
-                &batch.data,
-                &batch.textures,
-                &batch.transformations,
-            ),
-            //RenderType3D::Model(model) => processor.render_model(),
-            //RenderType3D::ModelArray(array) => processor.render_model_instanced(),
-            _ => {}
-        }
+        todo!()
     }
 
-    fn batch_type(&self) -> BatchType3D {
+    fn batch_type(&self) -> BatchType {
         match self {
             RenderType3D::Batch(batch) => batch.batch_type(),
             _ => unreachable!(),
@@ -256,17 +193,17 @@ impl RenderType3D {
 //data
 
 pub(crate) union Vertex3D {
-    data: [f32; VERTEX_3D_BATCH_SIZE_FLOATS],
+    data: [f32; VERTEX_3D_SIZE_FLOATS],
 }
 
 impl Vertex3D {
     pub fn new() -> Self {
         Vertex3D {
-            data: [0.0; VERTEX_3D_BATCH_SIZE_FLOATS],
+            data: [0.0; VERTEX_3D_SIZE_FLOATS],
         }
     }
 
-    pub(crate) fn set(&mut self, data: [f32; VERTEX_3D_BATCH_SIZE_FLOATS]) {
+    pub(crate) fn set(&mut self, data: [f32; VERTEX_3D_SIZE_FLOATS]) {
         self.data = data;
     }
 
@@ -294,12 +231,6 @@ impl Vertex3D {
             ux,
             uy,
             material_id as f32,
-            canvas[0],
-            canvas[1],
-            canvas[2],
-            canvas[3],
-            canvas[4],
-            canvas[5],
             model_matrix as f32,
         ]);
     }
@@ -330,23 +261,21 @@ impl BatchController3D {
     }
 
     fn start(&mut self) {
-        self.batches.push(self.gen_batch(BatchType3D::Regular));
+        self.batches.push(self.gen_batch(BatchType::Regular));
     }
 
-    fn gen_batch(&self, batch_type: BatchType3D) -> RenderType3D {
+    fn gen_batch(&self, batch_type: BatchType) -> RenderType3D {
         match batch_type {
-            BatchType3D::Regular => {
-                RenderType3D::Batch(Batch3D::new(self.batch_limit, RegularBatch))
-            }
-            BatchType3D::Stripped => {
+            BatchType::Regular => RenderType3D::Batch(Batch3D::new(self.batch_limit, RegularBatch)),
+            BatchType::Stripped => {
                 RenderType3D::Batch(Batch3D::new(self.batch_limit, StrippedBatch))
             }
         }
     }
 
-    fn ensure_batch(&mut self, batch_type: BatchType3D, vertices: u32, textures: u32) {
+    fn ensure_batch(&mut self, batch_type: BatchType, vertices: u32, textures: u32) {
         if self.batches[self.current as usize].is_model() {
-            if batch_type == BatchType3D::Stripped {
+            if batch_type == BatchType::Stripped {
                 self.advance(batch_type);
                 return;
             } else {
@@ -362,7 +291,7 @@ impl BatchController3D {
             }
         }
         match batch_type {
-            BatchType3D::Regular => {
+            BatchType::Regular => {
                 if self.batches[self.current as usize].batch_type() != batch_type {
                     if self.previous >= 0
                         && self.batches[self.previous as usize].can_hold(vertices, textures)
@@ -379,7 +308,7 @@ impl BatchController3D {
                     self.previous = self.current as i32;
                 }
             }
-            BatchType3D::Stripped => {
+            BatchType::Stripped => {
                 if self.batches[self.current as usize].batch_type() == batch_type
                     && self.batches[self.current as usize].is_empty()
                 {
@@ -390,7 +319,7 @@ impl BatchController3D {
         }
     }
 
-    fn advance(&mut self, batch_type: BatchType3D) {
+    fn advance(&mut self, batch_type: BatchType) {
         self.current += 1;
         if self.batches.len() > self.current as usize {
             if self.batches[self.current as usize].batch_type() != batch_type {

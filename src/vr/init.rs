@@ -1,29 +1,42 @@
+use ash::vk::Handle;
 use bitflags::Flags;
 use std::cmp::min;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use ash::vk::Handle;
 
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
-use openxr::{EnvironmentBlendMode, FrameStream, FrameWaiter, OpenGL, Session, SystemId, ViewConfigurationType, Vulkan};
+use openxr::{
+    EnvironmentBlendMode, FrameStream, FrameWaiter, OpenGL, Session, SystemId,
+    ViewConfigurationType, Vulkan,
+};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{Adapter, AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
+use wgpu::{
+    Adapter, AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
+    Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, Device,
+    DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat,
+    InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor,
+    ShaderModule, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+    VertexBufferLayout, VertexState,
+};
 use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;
 use crate::render::consts::{
-    BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
-    BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D,
-    BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM,
-    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_GEOMETRY_3D,
-    BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX,
-    BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
-    DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES,
-    TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_MODEL_3D,
-    VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
+    BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_3D, BIND_GROUP_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_2D,
+    BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_BATCH_3D, BIND_GROUP_LAYOUT_EFFECT,
+    BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_3D,
+    BIND_GROUP_LAYOUT_GEOMETRY_BATCH_3D, BIND_GROUP_LAYOUT_LIGHTING_3D,
+    BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX,
+    BIND_GROUP_TEXTURES, BIND_GROUP_TEXTURES_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT,
+    LIGHT_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
+    VERTEX_LAYOUT_MODEL_3D, VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
 };
 use crate::render::window::WindowSpecs;
 
@@ -58,16 +71,24 @@ impl VRState {
                 panic!("No OpenXR compatible graphics drivers found");
             }
 
-            let layers = entry.enumerate_layers().expect("Couldn't find OpenXR layers");
+            let layers = entry
+                .enumerate_layers()
+                .expect("Couldn't find OpenXR layers");
 
             println!("Layers: {:?}", layers);
 
-            let xr_instance = entry.create_instance(&openxr::ApplicationInfo {
-                application_name: "",
-                application_version: 0,
-                engine_name: "MVEngine",
-                engine_version: 0,
-            }, &xr_extensions, &[],).expect("Couldn't create OpenXR instance");
+            let xr_instance = entry
+                .create_instance(
+                    &openxr::ApplicationInfo {
+                        application_name: "",
+                        application_version: 0,
+                        engine_name: "MVEngine",
+                        engine_version: 0,
+                    },
+                    &xr_extensions,
+                    &[],
+                )
+                .expect("Couldn't create OpenXR instance");
 
             let system = xr_instance
                 .system(openxr::FormFactor::HEAD_MOUNTED_DISPLAY)
@@ -77,7 +98,12 @@ impl VRState {
                 .enumerate_environment_blend_modes(system, ViewConfigurationType::PRIMARY_STEREO)
                 .expect("No blend modes supported by VR headset");
 
-            let blend_mode = blend_modes.contains(&EnvironmentBlendMode::OPAQUE).yn(EnvironmentBlendMode::OPAQUE, *blend_modes.get(0).expect("No blend modes supported by VR headset"));
+            let blend_mode = blend_modes.contains(&EnvironmentBlendMode::OPAQUE).yn(
+                EnvironmentBlendMode::OPAQUE,
+                *blend_modes
+                    .get(0)
+                    .expect("No blend modes supported by VR headset"),
+            );
 
             let instance = Instance::new(InstanceDescriptor {
                 backends,
@@ -119,8 +145,15 @@ impl VRState {
                 .expect("Could not create logical device!");
 
             let vr_state = match backend {
-                Backend::Vulkan => Self::init_vulkan(xr_instance, system, blend_mode, &instance, &adapter, &device),
-                _ => unreachable!()
+                Backend::Vulkan => Self::init_vulkan(
+                    xr_instance,
+                    system,
+                    blend_mode,
+                    &instance,
+                    &adapter,
+                    &device,
+                ),
+                _ => unreachable!(),
             };
 
             //let surface_caps = surface.get_capabilities(&adapter);
@@ -175,11 +208,11 @@ impl VRState {
                     device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX),
                 );
                 groups.insert(
-                    BIND_GROUP_BATCH_3D,
+                    BIND_GROUP_3D,
                     device.create_bind_group_layout(&BIND_GROUP_LAYOUT_BATCH_3D),
                 );
                 groups.insert(
-                    BIND_GROUP_MODEL_3D,
+                    BIND_GROUP_TEXTURES_3D,
                     device.create_bind_group_layout(&BIND_GROUP_LAYOUT_3D),
                 );
                 groups.insert(
@@ -251,10 +284,25 @@ impl VRState {
         }
     }
 
-    unsafe fn init_vulkan(xr_instance: openxr::Instance, system: SystemId, blend_mode: EnvironmentBlendMode, instance: &Instance, adapter: &Adapter, device: &Device) -> Self {
-        let vk_instance = instance.as_hal::<wgpu::hal::api::Vulkan>().expect("Corrupted Vulkan instance").shared_instance().raw_instance();
-        let vk_physical_device = adapter.as_hal(|a: Option<&wgpu::hal::api::Vulkan::Adapter>| a.expect("Corrupted Vulkan instance").raw_physical_device());
-        let vk_device = device.as_hal(|a: Option<&wgpu::hal::api::Vulkan::Device>| a.expect("Corrupted Vulkan instance").raw_device());
+    unsafe fn init_vulkan(
+        xr_instance: openxr::Instance,
+        system: SystemId,
+        blend_mode: EnvironmentBlendMode,
+        instance: &Instance,
+        adapter: &Adapter,
+        device: &Device,
+    ) -> Self {
+        let vk_instance = instance
+            .as_hal::<wgpu::hal::api::Vulkan>()
+            .expect("Corrupted Vulkan instance")
+            .shared_instance()
+            .raw_instance();
+        let vk_physical_device = adapter.as_hal(|a: Option<&wgpu::hal::api::Vulkan::Adapter>| {
+            a.expect("Corrupted Vulkan instance").raw_physical_device()
+        });
+        let vk_device = device.as_hal(|a: Option<&wgpu::hal::api::Vulkan::Device>| {
+            a.expect("Corrupted Vulkan instance").raw_device()
+        });
 
         let (session, frame_wait, frame_stream) = xr_instance
             .create_session::<Vulkan>(
@@ -277,7 +325,12 @@ impl VRState {
     //    Self::init_internal(xr_instance, session, frame_wait, frame_stream)
     //}
 
-    fn init_internal<G: openxr::Graphics>(xr_instance: openxr::Instance, session: Session<G>, frame_wait: FrameWaiter, frame_stream: FrameStream<Vulkan>) -> Self {
+    fn init_internal<G: openxr::Graphics>(
+        xr_instance: openxr::Instance,
+        session: Session<G>,
+        frame_wait: FrameWaiter,
+        frame_stream: FrameStream<Vulkan>,
+    ) -> Self {
         let action_set = xr_instance
             .create_action_set("input", "input pose information", 0)
             .expect("Couldn't get VR input");
@@ -311,7 +364,9 @@ impl VRState {
             )
             .expect("Failed to set bindings for hands");
 
-        session.attach_action_sets(&[&action_set]).expect("Failed to attach binding sets");
+        session
+            .attach_action_sets(&[&action_set])
+            .expect("Failed to attach binding sets");
 
         let right_space = right_action
             .create_space(session.clone(), openxr::Path::NULL, openxr::Posef::IDENTITY)

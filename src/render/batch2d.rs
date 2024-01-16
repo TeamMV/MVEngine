@@ -18,9 +18,27 @@ pub(crate) enum BatchType {
     Stripped,
 }
 
-trait BatchGen {
+pub(crate) trait BatchGen {
     fn get_render_mode(&self) -> u8;
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>);
+
+    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
+        if amt == 4 {
+            indices.insert((offset * 6) as usize, offset * 4);
+            indices.insert((offset * 6 + 1) as usize, offset * 4 + 1);
+            indices.insert((offset * 6 + 2) as usize, offset * 4 + 2);
+            indices.insert((offset * 6 + 3) as usize, offset * 4);
+            indices.insert((offset * 6 + 4) as usize, offset * 4 + 2);
+            indices.insert((offset * 6 + 5) as usize, offset * 4 + 3);
+        } else {
+            indices.insert((offset * 6) as usize, offset * 4);
+            indices.insert((offset * 6 + 1) as usize, offset * 4 + 1);
+            indices.insert((offset * 6 + 2) as usize, offset * 4 + 2);
+            indices.insert((offset * 6 + 3) as usize, 0);
+            indices.insert((offset * 6 + 4) as usize, 0);
+            indices.insert((offset * 6 + 5) as usize, 0);
+        }
+    }
+
     fn batch_type(&self) -> BatchType;
 }
 
@@ -33,24 +51,6 @@ impl BatchGen for RegularBatch {
         PipelineBuilder::RENDER_MODE_TRIANGLES
     }
 
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
-        if amt == 4 {
-            indices.insert((offset * 6) as usize, offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, offset * 4);
-            indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
-        } else {
-            indices.insert((offset * 6) as usize, offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0);
-            indices.insert((offset * 6 + 4) as usize, 0);
-            indices.insert((offset * 6 + 5) as usize, 0);
-        }
-    }
-
     fn batch_type(&self) -> BatchType {
         BatchType::Regular
     }
@@ -59,24 +59,6 @@ impl BatchGen for RegularBatch {
 impl BatchGen for StrippedBatch {
     fn get_render_mode(&self) -> u8 {
         PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP
-    }
-
-    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
-        if amt == 4 {
-            indices.insert((offset * 6) as usize, offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, offset * 4);
-            indices.insert((offset * 6 + 4) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 5) as usize, 3 + offset * 4);
-        } else {
-            indices.insert((offset * 6) as usize, offset * 4);
-            indices.insert((offset * 6 + 1) as usize, 1 + offset * 4);
-            indices.insert((offset * 6 + 2) as usize, 2 + offset * 4);
-            indices.insert((offset * 6 + 3) as usize, 0);
-            indices.insert((offset * 6 + 4) as usize, 0);
-            indices.insert((offset * 6 + 5) as usize, 0);
-        }
     }
 
     fn batch_type(&self) -> BatchType {
@@ -222,7 +204,7 @@ impl Batch2D {
             self.data.as_slice(),
             &self.textures,
             (self.generator.get_render_mode() == PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP)
-                .yn(true, false)
+                .yn(true, false),
         );
         self.force_clear();
     }

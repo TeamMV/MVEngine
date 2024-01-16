@@ -1,18 +1,39 @@
 use std::cmp::min;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::Arc;
 
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
+use wgpu::{
+    AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
+    Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode,
+    DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState,
+    FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode,
+    PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions,
+    SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState,
+};
 use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
 use crate::render::common::Texture;
-use crate::render::consts::{BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_BATCH_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_EFFECT, BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_3D, BIND_GROUP_LAYOUT_LIGHTING_3D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_MODEL_MATRIX, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MATERIAL_LIMIT, MAX_LIGHTS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D, VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES, MAX_MATERIALS};
+use crate::render::consts::{
+    BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_EFFECT,
+    BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_3D, BIND_GROUP_LAYOUT_LIGHTING_3D,
+    BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUP_TEXTURES_3D,
+    DEFAULT_SAMPLER, DUMMY_TEXTURE, INDEX_LIMIT, LIGHT_LIMIT, MATERIAL_LIMIT, MAX_LIGHTS,
+    MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
+    VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
+};
 use crate::render::window::WindowSpecs;
+
+#[cfg(feature = "3d")]
+use crate::render::common3d::Material;
 
 pub(crate) struct State {
     pub(crate) surface: Surface,
@@ -30,10 +51,7 @@ impl State {
     async fn init(window: &winit::window::Window, specs: &WindowSpecs) -> Self {
         unsafe {
             let instance = Instance::new(InstanceDescriptor {
-                backends: Backends::GL
-                    | Backends::VULKAN
-                    | Backends::DX12
-                    | Backends::METAL,
+                backends: Backends::GL | Backends::VULKAN | Backends::DX12 | Backends::METAL,
                 flags: InstanceFlags::from_build_config(),
                 dx12_shader_compiler: Default::default(),
                 gles_minor_version: Default::default(),
@@ -118,13 +136,36 @@ impl State {
                         }],
                     }),
                 );
+                #[cfg(feature = "3d")]
                 groups.insert(
-                    BIND_GROUP_MODEL_MATRIX,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_MODEL_MATRIX),
-                );
-                groups.insert(
-                    BIND_GROUP_MODEL_3D,
-                    device.create_bind_group_layout(&BIND_GROUP_LAYOUT_3D),
+                    BIND_GROUP_TEXTURES_3D,
+                    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                        label: Some("Bind group layout textures 3D"),
+                        entries: &[
+                            BindGroupLayoutEntry {
+                                binding: 0,
+                                visibility: ShaderStages::FRAGMENT,
+                                ty: BindingType::Buffer {
+                                    ty: BufferBindingType::Uniform,
+                                    has_dynamic_offset: false,
+                                    min_binding_size: Some(NonZeroU64::new_unchecked(
+                                        Material::SIZE_BYTES as u64 * *MAX_MATERIALS as u64,
+                                    )),
+                                },
+                                count: None,
+                            },
+                            BindGroupLayoutEntry {
+                                binding: 1,
+                                visibility: ShaderStages::FRAGMENT,
+                                ty: BindingType::Texture {
+                                    multisampled: false,
+                                    view_dimension: TextureViewDimension::D2,
+                                    sample_type: TextureSampleType::Float { filterable: true },
+                                },
+                                count: Some(NonZeroU32::new_unchecked(*MAX_TEXTURES as u32)),
+                            },
+                        ],
+                    }),
                 );
                 groups.insert(
                     BIND_GROUP_GEOMETRY_3D,
@@ -279,7 +320,6 @@ impl State {
             pass_op: wgpu::StencilOperation::IncrementClamp,
         };
 
-
         self.device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
@@ -377,9 +417,8 @@ impl<'a> PipelineBuilder<'a> {
     pub(crate) const POLYGON_MODE_LINE: u8 = 20;
     pub(crate) const POLYGON_MODE_POINT: u8 = 21;
     pub(crate) const VERTEX_LAYOUT_2D: u8 = 22;
-    pub(crate) const VERTEX_LAYOUT_MODEL_3D: u8 = 23;
-    pub(crate) const VERTEX_LAYOUT_BATCH_3D: u8 = 24;
-    pub(crate) const VERTEX_LAYOUT_NONE: u8 = 25;
+    pub(crate) const VERTEX_LAYOUT_3D: u8 = 23;
+    pub(crate) const VERTEX_LAYOUT_NONE: u8 = 24;
 
     pub(crate) fn begin(state: &'a State) -> Self {
         Self {
@@ -439,8 +478,7 @@ impl<'a> PipelineBuilder<'a> {
             Self::CULL_MODE => self.cull_mode = self.get_cull_mode(what),
             Self::VERTEX_LAYOUT => match what {
                 Self::VERTEX_LAYOUT_2D => self.vertex_layout = VERTEX_LAYOUT_2D,
-                Self::VERTEX_LAYOUT_MODEL_3D => self.vertex_layout = VERTEX_LAYOUT_MODEL_3D,
-                Self::VERTEX_LAYOUT_BATCH_3D => self.vertex_layout = VERTEX_LAYOUT_3D,
+                Self::VERTEX_LAYOUT_3D => self.vertex_layout = VERTEX_LAYOUT_3D,
                 Self::VERTEX_LAYOUT_NONE => self.vertex_layout = VERTEX_LAYOUT_NONE,
                 _ => {}
             },

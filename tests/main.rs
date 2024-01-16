@@ -1,15 +1,15 @@
+use mvutils::once::CreateOnce;
 use mvutils::utils::Recover;
 use std::sync::Arc;
-use mvutils::once::CreateOnce;
 
 use mvutils::version::Version;
 
+use mvcore::input::raw;
 use mvcore::render::color::RgbColor;
+use mvcore::render::common::TextureRegion;
 use mvcore::render::window::{Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::user_input::input;
 use mvcore::{ApplicationInfo, MVCore};
-use mvcore::render::common::{Texture, TextureRegion};
 
 fn main() {
     let core = MVCore::new(ApplicationInfo {
@@ -26,18 +26,25 @@ fn main() {
     specs.transparent = true;
     specs.width = 800;
     specs.height = 800;
-    core.get_render().run_window(specs, ApplicationLoop {
-        tex: CreateOnce::new()
-    });
+    core.get_render().run_window(
+        specs,
+        ApplicationLoop {
+            tex: CreateOnce::new(),
+        },
+    );
 }
 
 struct ApplicationLoop {
-    tex: CreateOnce<Arc<TextureRegion>>
+    tex: CreateOnce<Arc<TextureRegion>>,
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
     fn start(&self, window: Arc<Window<Self>>) {
-        self.tex.create(|| Arc::new(TextureRegion::from(Arc::new(window.create_texture(include_bytes!("cursor.png").to_vec())))));
+        self.tex.create(|| {
+            Arc::new(TextureRegion::from(Arc::new(
+                window.create_texture(include_bytes!("cursor.png").to_vec()),
+            )))
+        });
     }
 
     fn update(&self, window: Arc<Window<Self>>) {}
@@ -47,22 +54,31 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         let input = tmp.read().recover();
 
         window.draw_2d_pass(|ctx| {
-            if input.keys[input::KEY_C] {
+            if input.keys[raw::KEY_C] {
                 ctx.color(RgbColor::red());
             } else {
                 ctx.color(RgbColor::green());
             }
 
             let width = window.specs.get().width as i32;
-            let height = window.specs.get().height as i32;
+            //let height = window.specs.get().height as i32;
 
             ctx.rotate(input.positions[0] as f32 * (180.0 / width as f32));
             //ctx.scale((width as f32 - 90.0) / width as f32, (height as f32 - 90.0) / height as f32);
             ctx.scale(1.25, 1.25);
-            ctx.origin(window.specs.get().width as f32 / 2.0, window.specs.get().height as f32 / 2.0);
+            ctx.origin(
+                window.specs.get().width as f32 / 2.0,
+                window.specs.get().height as f32 / 2.0,
+            );
             //ctx.rectangle(input.positions[0] - 50, input.positions[1] - 50, 100, 100);
             ctx.color(RgbColor::transparent());
-            ctx.image(input.positions[0] - 10, input.positions[1] - 10, 20, 20, self.tex.clone());
+            ctx.image(
+                input.positions[0] - 10,
+                input.positions[1] - 10,
+                20,
+                20,
+                self.tex.clone(),
+            );
             //ctx.void_rectangle(0, 0, width, height, 2);
             ctx.reset_transformations();
             ctx.color(RgbColor::blue());

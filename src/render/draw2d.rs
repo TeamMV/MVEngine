@@ -1682,7 +1682,6 @@ impl DrawContext2D {
         let mut char_x = 0;
         let rad_rot = rotation.to_radians();
 
-        let mut i: usize = 0;
         let mut previous = 0 as char;
         for mut c in text.chars() {
             if !font.supports(c) {
@@ -1715,12 +1714,12 @@ impl DrawContext2D {
                 self.color.get_mut(2).copy_hue(d);
             }
 
-            i += 1;
-
             char_x += glyph.get_x_advance(height);
             let uv = glyph.get_uv();
 
-            let tex = self.batch.add_texture(font.get_texture(glyph.get_page() as usize), 4);
+            let tex = self
+                .batch
+                .add_texture(font.get_texture(glyph.get_page() as usize), 4);
 
             self.vertices.get_mut(0).set_texture_data(
                 ax as f32,

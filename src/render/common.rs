@@ -84,7 +84,7 @@ fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
 }
 
 mod preprocessor {
-    use crate::render::consts::{MAX_LIGHTS, MAX_TEXTURES, MAX_MATERIALS};
+    use crate::render::consts::{MAX_LIGHTS, MAX_MATERIALS, MAX_TEXTURES};
 
     const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURES";
     const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";
@@ -351,8 +351,8 @@ impl EffectShader {
     }
 
     pub(crate) fn setup<F>(&self, state: &State, f: F)
-        where
-            F: FnOnce(&mut BufferMaker),
+    where
+        F: FnOnce(&mut BufferMaker),
     {
         let mut maker = self.get_buffer_maker();
         f(&mut maker);
