@@ -10,13 +10,14 @@ use crate::input::raw::Input;
 use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
 use glam::Mat4;
 use mvutils::once::CreateOnce;
-use mvutils::unsafe_utils::DangerousCell;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
     RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView,
     TextureViewDescriptor,
 };
+use wgpu::core::command::RenderPass;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{
     ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
@@ -40,6 +41,7 @@ use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
 use crate::render::{consts, ApplicationLoopCallbacks};
+use crate::render::render3d::{ForwardPass, RenderPass3D};
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -154,6 +156,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
 
     #[cfg(feature = "3d")]
     deferred_pass_3d: DangerousCell<DeferredPass>,
+    forward_pass_3d: DangerousCell<ForwardPass>,
 
     effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
     effect_pass: DangerousCell<EffectPass>,
@@ -201,6 +204,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             include_str!("shaders/deferred_geom.frag"),
         );
 
+        let forward_shader = Shader::new_glsl(
+            include_str!("shaders/deferred_geom.vert"),
+            include_str!("shaders/default3d.frag"),
+        );
+
         //TODO: separate thread render (manually called from init)
         let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
@@ -241,6 +249,20 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 ],
             ),
             &state,
+        );
+
+        let forward_pass = ForwardPass::new(
+            forward_shader.setup_pipeline(
+                &state,
+                VERTEX_LAYOUT_3D,
+                &[
+                    BIND_GROUP_3D,
+                    BIND_GROUP_TEXTURES_3D,
+                ]
+            ),
+            &state,
+            Mat4::default(),
+            Mat4::default()
         );
 
         //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
@@ -290,6 +312,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
             input_collector: InputCollector::new(Arc::new(RwLock::new(Input::new()))).into(),
+            forward_pass_3d: forward_pass.into(),
         });
 
         #[cfg(feature = "3d")]
@@ -545,7 +568,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             self.application_loop.effect(self.clone());
 
             //#[cfg(feature = "3d")]
-            //self.render_3d(&mut encoder, &view);
+            self.render_3d(&mut encoder, &view);
 
             let input = self.input_collector.get_mut().get_input();
             input.write().recover().loop_states();
@@ -673,13 +696,50 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     #[cfg(feature = "3d")]
     fn render_3d(self: &Arc<Self>, encoder: &mut CommandEncoder, view: &TextureView) {
+        let encoder = encoder as *mut CommandEncoder;
         let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
-        self.deferred_pass_3d
+        let verts: &[f32] = &[
+            0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+            0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+            -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0
+        ];
+        let inds: &[u32] = &[0, 1, 2];
+
+        let mut render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Clear(wgpu::Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 0.0,
+                    }),
+                    store: StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+
+        self.forward_pass_3d
             .get_mut()
-            .new_frame(encoder, view, Mat4::default(), Mat4::default());
-        //self.deferred_pass_3d.get_mut().render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
-        self.deferred_pass_3d.get_mut().finish();
+            .new_frame(&mut render_pass, self.camera_3d.read().recover().get_projection(), Mat4::default());
+
+        self.forward_pass_3d.get_mut().render(
+            inds, verts, &[0; 1024].map(|_| None), &[Mat4::default()]
+        )
+
+        //self.deferred_pass_3d
+        //    .get_mut()
+        //    .new_frame(encoder, view, Mat4::default(), Mat4::default());
+        ////self.deferred_pass_3d.get_mut().render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+        //self.deferred_pass_3d.get_mut().finish();
     }
 
     pub fn create_texture(self: &Arc<Self>, binary: Bytecode) -> Texture {

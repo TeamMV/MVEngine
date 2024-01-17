@@ -42,6 +42,15 @@ impl<U: Fmt, T: Default> Default for Color<U, T> {
     }
 }
 
+impl<U: Fmt, T: Default + PartialEq> PartialEq for Color<U, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.c1 == other.c1 &&
+            self.c2 == other.c2 &&
+            self.c3 == other.c3 &&
+            self.c4 == other.c4
+    }
+}
+
 impl<U: Fmt, T: Clone> Color<U, T> {
     pub fn copy_of(&mut self, other: &Color<U, T>) {
         self.c1 = other.c1.clone();

@@ -72,17 +72,17 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             );
             //ctx.rectangle(input.positions[0] - 50, input.positions[1] - 50, 100, 100);
             ctx.color(RgbColor::transparent());
-            ctx.image(
-                input.positions[0] - 10,
-                input.positions[1] - 10,
-                20,
-                20,
-                self.tex.clone(),
-            );
+            //ctx.image(
+            //    input.positions[0] - 10,
+            //    input.positions[1] - 10,
+            //    20,
+            //    20,
+            //    self.tex.clone(),
+            //);
             //ctx.void_rectangle(0, 0, width, height, 2);
             ctx.reset_transformations();
             ctx.color(RgbColor::blue());
-            ctx.rectangle(input.positions[0] - 25, input.positions[1] - 25, 50, 50);
+            //ctx.rectangle(input.positions[0] - 25, input.positions[1] - 25, 50, 50);
             //ctx.void_rectangle(50, 50, window.specs.get().width as i32 - 100, window.specs.get().height as i32 - 100, 2);
             //ctx.color(RgbColor::white());
             //let mut t = char::from_u32(1168).unwrap().to_string();

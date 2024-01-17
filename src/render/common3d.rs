@@ -292,7 +292,19 @@ impl Material {
         if self.normal_texture.is_some() && texture_type.is_geometry() {
             sum += 1;
         }
-        if self.metallic_roughness_texture.is_some() && texture_type.is_geometry() {
+        if self.specular_texture.is_some() && texture_type.is_geometry() {
+            sum += 1;
+        }
+        if self.occlusion_texture.is_some() && texture_type.is_geometry() {
+            sum += 1;
+        }
+        if self.reflection_texture.is_some() && texture_type.is_geometry() {
+            sum += 1;
+        }
+        if self.bump_texture.is_some() && texture_type.is_geometry() {
+            sum += 1;
+        }
+        if self.emission_texture.is_some() && texture_type.is_geometry() {
             sum += 1;
         }
         sum
@@ -336,14 +348,14 @@ impl Material {
             self.specular_exponent,
             self.metallic,
             self.roughness,
-            *self.diffuse_id as f32,
-            *self.metallic_id as f32,
-            *self.normal_id as f32,
-            *self.specular_id as f32,
-            *self.occlusion_id as f32,
-            *self.reflection_id as f32,
-            *self.bump_id as f32,
-            *self.emission_id as f32,
+            self.diffuse_id as f32,
+            self.metallic_id as f32,
+            self.normal_id as f32,
+            self.specular_id as f32,
+            self.occlusion_id as f32,
+            self.reflection_id as f32,
+            self.bump_id as f32,
+            self.emission_id as f32,
         ]
     }
 

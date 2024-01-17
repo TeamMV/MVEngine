@@ -11,7 +11,7 @@ use wgpu::{
 };
 
 use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::common3d::{Material, DUMMY_MATERIAL};
+use crate::render::common3d::{Material, DUMMY_MATERIAL, TextureType};
 use crate::render::consts::{
     DEFAULT_SAMPLER, DUMMY_TEXTURE, MATERIAL_LIMIT, MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT,
 };
@@ -39,6 +39,13 @@ pub(crate) trait RenderPass3D {
         transforms: &[&[Mat4]],
         num_instances: u32,
     );
+
+    fn check_texture(&mut self, change: &mut bool, id: &mut u16, tex: &Option<Arc<Texture>>) {
+        if *id != 0 {
+            *change = true;
+            *id = if let Some(t) = tex { t.get_id() } else { 0 } as u16;
+        }
+    }
 }
 
 pub(crate) struct MaterialTextureComBindEdGroup {
@@ -48,7 +55,6 @@ pub(crate) struct MaterialTextureComBindEdGroup {
     pub(crate) materials: [Arc<Material>; MATERIAL_LIMIT],
     pub(crate) raw_materials: [[f32; Material::SIZE_FLOATS]; MATERIAL_LIMIT],
     pub(crate) material_buffer: Buffer,
-    pub(crate) num_textures: usize,
 }
 
 impl MaterialTextureComBindEdGroup {
@@ -92,16 +98,7 @@ impl MaterialTextureComBindEdGroup {
         self.textures[index] = texture;
     }
 
-    pub(crate) fn set_material(&mut self, index: usize, material: Arc<Material>) {
-        let old = &self.materials[index];
-
-        let mut changed: usize = 3;
-        if old.diffuse_id.get() == material.diffuse_id.get()    { changed -= 1; }
-        if old.metallic_id.get() == material.metallic_id.get()  { changed -= 1; }
-        if old.normal_id.get() == material.normal_id.get()      { changed -= 1; }
-
-        self.num_textures += changed;
-
+    pub(crate) fn set_material(&mut self, index: usize, material: Arc<Material>, texture_type: TextureType) {
         self.materials[index] = material;
     }
 
@@ -140,7 +137,7 @@ pub(crate) struct ForwardPass {
 }
 
 impl ForwardPass {
-    fn new(shader: Shader, state: &State, projection: Mat4, view: Mat4) -> Self {
+    pub(crate) fn new(shader: Shader, state: &State, projection: Mat4, view: Mat4) -> Self {
         let (vbo, ibo) = state.gen_buffers();
         let uniform_buffer = state.gen_uniform_buffer_sized(128);
         state
@@ -222,7 +219,7 @@ impl RenderPass3D for ForwardPass {
             if num_instances == 0 {
                 return;
             }
-            if num_instances != transforms.len() {
+            if num_instances != transforms.len() as u32 {
                 panic!("Invalid transformation matrix data! Expected {} instances, found {}", num_instances, transforms.len());
             }
 
@@ -262,11 +259,24 @@ impl RenderPass3D for ForwardPass {
             for (i, material) in materials.iter().enumerate().take(*MAX_MATERIALS) {
                 if let Some(ref material) = material {
                     if &texture_group.materials[i] != material {
-                        texture_group.set_material(i, material.clone());
+                        //remake all the textures if needed
+                        self.check_texture(&mut changed, &mut material.diffuse_id,    &material.diffuse_texture);
+                        self.check_texture(&mut changed, &mut material.metallic_id,   &material.metallic_roughness_texture);
+                        self.check_texture(&mut changed, &mut material.normal_id,     &material.normal_texture);
+                        self.check_texture(&mut changed, &mut material.specular_id,   &material.specular_texture);
+                        self.check_texture(&mut changed, &mut material.occlusion_id,  &material.occlusion_texture);
+                        self.check_texture(&mut changed, &mut material.reflection_id, &material.reflection_texture);
+                        self.check_texture(&mut changed, &mut material.bump_id,       &material.bump_texture);
+                        self.check_texture(&mut changed, &mut material.emission_id,   &material.emission_texture);
+                        //if material.diffuse_id != 0 {
+                        //    material.diffuse_id = if let Some(ref tex) = material.diffuse_texture { tex.get_id() } else { 0 } as u16
+                        //}
+
+                        texture_group.set_material(i, material.clone(), TextureType::Any);//i assume Any since this is the combined pass
                         changed = true;
                     }
                 } else if texture_group.materials[i] != DUMMY_MATERIAL.clone() {
-                    texture_group.set_material(i, DUMMY_MATERIAL.clone());
+                    texture_group.set_material(i, DUMMY_MATERIAL.clone(), TextureType::Any);
                     changed = true;
                 }
             }
