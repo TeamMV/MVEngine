@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::ptr::null_mut;
+use std::slice;
 use std::sync::Arc;
 
 use glam::Mat4;
@@ -20,15 +21,17 @@ use crate::render::render2d::TextureBindGroup;
 pub(crate) trait RenderPass3D {
     fn new_frame(&mut self, render_pass: &mut RenderPass, projection: Mat4, view_matrix: Mat4);
 
-    fn render_batch(
+    fn render(
         &mut self,
         indices: &[u32],
         vertices: &[f32],
         materials: &[Option<Arc<Material>>; MATERIAL_LIMIT],
         transforms: &[Mat4],
-    );
+    ) {
+        self.render_instanced(indices, vertices, materials, &[transforms], 1);
+    }
 
-    fn render_model_instanced(
+    fn render_instanced(
         &mut self,
         indices: &[u32],
         vertices: &[f32],
@@ -38,16 +41,17 @@ pub(crate) trait RenderPass3D {
     );
 }
 
-pub(crate) struct MaterialTextureBindGroup {
+pub(crate) struct MaterialTextureComBindEdGroup {
     pub(crate) bind_group: BindGroup,
     pub(crate) textures: [Arc<Texture>; TEXTURE_LIMIT],
     pub(crate) views: [&'static TextureView; TEXTURE_LIMIT],
     pub(crate) materials: [Arc<Material>; MATERIAL_LIMIT],
     pub(crate) raw_materials: [[f32; Material::SIZE_FLOATS]; MATERIAL_LIMIT],
     pub(crate) material_buffer: Buffer,
+    pub(crate) num_textures: usize,
 }
 
-impl MaterialTextureBindGroup {
+impl MaterialTextureComBindEdGroup {
     pub(crate) fn new(shader: &Shader, state: &State, index: u32) -> Self {
         let textures: [Arc<Texture>; TEXTURE_LIMIT] =
             [0; TEXTURE_LIMIT].map(|_| DUMMY_TEXTURE.clone());
@@ -89,6 +93,15 @@ impl MaterialTextureBindGroup {
     }
 
     pub(crate) fn set_material(&mut self, index: usize, material: Arc<Material>) {
+        let old = &self.materials[index];
+
+        let mut changed: usize = 3;
+        if old.diffuse_id.get() == material.diffuse_id.get()    { changed -= 1; }
+        if old.metallic_id.get() == material.metallic_id.get()  { changed -= 1; }
+        if old.normal_id.get() == material.normal_id.get()      { changed -= 1; }
+
+        self.num_textures += changed;
+
         self.materials[index] = material;
     }
 
@@ -108,6 +121,8 @@ impl MaterialTextureBindGroup {
             ],
         });
     }
+
+
 }
 
 pub(crate) struct ForwardPass {
@@ -117,7 +132,7 @@ pub(crate) struct ForwardPass {
     projection: Mat4,
     view: Mat4,
     uniform_buffer: Buffer,
-    texture_groups: Vec<MaterialTextureBindGroup>,
+    texture_groups: Vec<MaterialTextureComBindEdGroup>,
     uniform: BindGroup,
     pass: usize,
     ibo: Vec<Buffer>,
@@ -149,7 +164,7 @@ impl ForwardPass {
             ],
         });
 
-        let texture_groups = vec![MaterialTextureBindGroup::new(&shader, state, 2)];
+        let texture_groups = vec![MaterialTextureComBindEdGroup::new(&shader, state, 2)];
 
         Self {
             state: unsafe { Unsafe::cast_static(state) },
@@ -195,19 +210,37 @@ impl RenderPass3D for ForwardPass {
         };
     }
 
-    fn render_batch(
+    fn render_instanced(
         &mut self,
         indices: &[u32],
         vertices: &[f32],
         materials: &[Option<Arc<Material>>; MATERIAL_LIMIT],
-        transforms: &[Mat4],
+        transforms: &[&[Mat4]],
+        num_instances: u32,
     ) {
         unsafe {
+            if num_instances == 0 {
+                return;
+            }
+            if num_instances != transforms.len() {
+                panic!("Invalid transformation matrix data! Expected {} instances, found {}", num_instances, transforms.len());
+            }
+
+            let amount = transforms[0].len();
+
+            for t in transforms {
+                if t.len() != amount {
+                    panic!("All instances must have the same amount of transform matrices");
+                }
+            }
+
+            let transforms = slice::from_raw_parts(transforms[0].as_ptr(), amount * num_instances as usize);
+
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();
                 self.vbo.push(vbo);
                 self.ibo.push(ibo);
-                self.texture_groups.push(MaterialTextureBindGroup::new(
+                self.texture_groups.push(MaterialTextureComBindEdGroup::new(
                     &self.shader,
                     self.state,
                     2,
@@ -224,40 +257,30 @@ impl RenderPass3D for ForwardPass {
             self.state.queue.write_buffer(ibo, 0, indices.cast_bytes());
             self.state.queue.write_buffer(vbo, 0, vertices.cast_bytes());
 
-            // let mut changed = false;
-            //
-            // for (i, texture) in textures.iter().enumerate().take(*MAX_TEXTURES) {
-            //     if let Some(ref texture) = texture {
-            //         if &texture_group.textures[i] != texture {
-            //             texture_group.set(i, texture.clone());
-            //             changed = true;
-            //         }
-            //     } else if texture_group.textures[i] != DUMMY_TEXTURE.clone() {
-            //         texture_group.set(i, DUMMY_TEXTURE.clone());
-            //         changed = true;
-            //     }
-            // }
-            //
-            // if changed {
-            //     texture_group.remake(self.state, &self.shader, 1);
-            // }
+            let mut changed = false;
+
+            for (i, material) in materials.iter().enumerate().take(*MAX_MATERIALS) {
+                if let Some(ref material) = material {
+                    if &texture_group.materials[i] != material {
+                        texture_group.set_material(i, material.clone());
+                        changed = true;
+                    }
+                } else if texture_group.materials[i] != DUMMY_MATERIAL.clone() {
+                    texture_group.set_material(i, DUMMY_MATERIAL.clone());
+                    changed = true;
+                }
+            }
+
+            if changed {
+                texture_group.remake(self.state, &self.shader, 1);
+            }
 
             render_pass.set_bind_group(2, &texture_group.bind_group, &[]);
             render_pass.set_pipeline(self.shader.get_pipeline());
             render_pass.set_vertex_buffer(0, vbo.slice(..));
             render_pass.set_index_buffer(ibo.slice(..), IndexFormat::Uint32);
-            render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
+            render_pass.draw_indexed(0..indices.len() as u32, 0, 0..num_instances);
             self.pass += 1;
         }
-    }
-
-    fn render_model_instanced(
-        &mut self,
-        indices: &[u32],
-        vertices: &[f32],
-        materials: &[Option<Arc<Material>>; MATERIAL_LIMIT],
-        transforms: &[&[Mat4]],
-        num_instances: u32,
-    ) {
     }
 }

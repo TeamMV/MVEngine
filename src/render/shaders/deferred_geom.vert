@@ -16,14 +16,19 @@ layout(set = 0, binding = 0) uniform UNIFORMS {
 } uniforms;
 
 layout(std140, set = 1, binding = 0) buffer ModelMatrices {
+    float amount;
     mat4 matrices[];
 } models;
+
+mat4 modelMatrix(int id) {
+    return models.matrices[gl_InstanceIndex * int(model.amount) + id];
+}
 
 void main() {
     matId = materialId;
     texCoord = uv;
     normal = normalVec;
-    vec4 fragPos = uniforms.uProjection * uniforms.uView * models.matrices[gl_InstanceIndex][int(matId)] * vec4(position, 1.0);
+    vec4 fragPos = uniforms.uProjection * uniforms.uView * modelMatrix(int(matId)) * vec4(position, 1.0);
     pos = fragPos.xyz;
     gl_Position = fragPos;
 }
