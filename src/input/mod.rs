@@ -1,19 +1,21 @@
 use crate::input::raw::{Input, State};
 use crate::input::InputAction::{Keyboard, Mouse};
 use mvutils::utils::Recover;
-use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
+pub use consts::*;
+
+mod consts;
 pub mod raw;
 
 pub(crate) struct InputCollector {
     default_processor: InputProcessorImpl,
     gui_processor: GuiInputProcessor,
-    custom_processor: Option<Rc<RwLock<Box<dyn InputProcessor>>>>,
+    custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
 }
 
 impl InputCollector {
-    pub(crate) fn new(input: Rc<RwLock<Input>>) -> Self
+    pub(crate) fn new(input: Arc<RwLock<Input>>) -> Self
     where
         Self: Sized,
     {
@@ -24,12 +26,15 @@ impl InputCollector {
         }
     }
 
-    pub(crate) fn get_input(&self) -> Rc<RwLock<Input>> {
+    pub(crate) fn get_input(&self) -> Arc<RwLock<Input>> {
         self.default_processor.input()
     }
 
-    pub fn set_custom_processor(&mut self, custom_processor: Box<dyn InputProcessor>) {
-        self.custom_processor = Some(Rc::new(RwLock::new(custom_processor)));
+    pub fn set_custom_processor(
+        &mut self,
+        custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
+    ) {
+        self.custom_processor = custom_processor;
     }
 
     pub fn collect(&mut self, action: InputAction) {
@@ -80,10 +85,10 @@ pub enum MouseAction {
 }
 
 pub trait InputProcessor {
-    fn new(input: Rc<RwLock<Input>>) -> Self
+    fn new(input: Arc<RwLock<Input>>) -> Self
     where
         Self: Sized;
-    fn input(&self) -> Rc<RwLock<Input>>;
+    fn input(&self) -> Arc<RwLock<Input>>;
     fn mouse_change(&mut self, action: MouseAction);
     fn keyboard_change(&mut self, action: KeyboardAction);
     fn set_enabled(&mut self, enabled: bool);
@@ -100,19 +105,19 @@ pub trait InputProcessor {
 }
 
 pub struct InputProcessorImpl {
-    input: Rc<RwLock<Input>>,
+    input: Arc<RwLock<Input>>,
     enabled: bool,
 }
 
 impl InputProcessor for InputProcessorImpl {
-    fn new(input: Rc<RwLock<Input>>) -> Self {
+    fn new(input: Arc<RwLock<Input>>) -> Self {
         Self {
             input,
             enabled: true,
         }
     }
 
-    fn input(&self) -> Rc<RwLock<Input>> {
+    fn input(&self) -> Arc<RwLock<Input>> {
         self.input.clone()
     }
 
@@ -129,26 +134,26 @@ impl InputProcessor for InputProcessorImpl {
 
         if let MouseAction::Wheel(x, y) = action {
             if y > 0.0 {
-                input.scroll[raw::MOUSE_SCROLL_UP] = true;
-                input.scrollstates[raw::MOUSE_SCROLL_UP] = y;
+                input.scroll[MOUSE_SCROLL_UP] = true;
+                input.scrollstates[MOUSE_SCROLL_UP] = y;
             }
             if y < 0.0 {
-                input.scroll[raw::MOUSE_SCROLL_DOWN] = true;
-                input.scrollstates[raw::MOUSE_SCROLL_DOWN] = y;
+                input.scroll[MOUSE_SCROLL_DOWN] = true;
+                input.scrollstates[MOUSE_SCROLL_DOWN] = y;
             }
             if x > 0.0 {
-                input.scroll[raw::MOUSE_SCROLL_RIGHT] = true;
-                input.scrollstates[raw::MOUSE_SCROLL_RIGHT] = x;
+                input.scroll[MOUSE_SCROLL_RIGHT] = true;
+                input.scrollstates[MOUSE_SCROLL_RIGHT] = x;
             }
             if x < 0.0 {
-                input.scroll[raw::MOUSE_SCROLL_LEFT] = true;
-                input.scrollstates[raw::MOUSE_SCROLL_LEFT] = x;
+                input.scroll[MOUSE_SCROLL_LEFT] = true;
+                input.scrollstates[MOUSE_SCROLL_LEFT] = x;
             }
         }
 
         if let MouseAction::Move(x, y) = action {
-            input.positions[raw::MOUSE_POS_X] = x;
-            input.positions[raw::MOUSE_POS_Y] = y;
+            input.positions[MOUSE_POS_X] = x;
+            input.positions[MOUSE_POS_Y] = y;
         }
     }
 
@@ -173,12 +178,12 @@ impl InputProcessor for InputProcessorImpl {
 }
 
 pub(crate) struct GuiInputProcessor {
-    input: Rc<RwLock<Input>>,
+    input: Arc<RwLock<Input>>,
     enabled: bool,
 }
 
 impl InputProcessor for GuiInputProcessor {
-    fn new(input: Rc<RwLock<Input>>) -> Self
+    fn new(input: Arc<RwLock<Input>>) -> Self
     where
         Self: Sized,
     {
@@ -188,7 +193,7 @@ impl InputProcessor for GuiInputProcessor {
         }
     }
 
-    fn input(&self) -> Rc<RwLock<Input>> {
+    fn input(&self) -> Arc<RwLock<Input>> {
         todo!()
     }
 

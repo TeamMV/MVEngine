@@ -289,7 +289,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             deferred_pass_3d: deferred_pass_3d.into(),
             #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
-            input_collector: InputCollector::new(Rc::new(RwLock::new(Input::new()))).into(),
+            input_collector: InputCollector::new(Arc::new(RwLock::new(Input::new()))).into(),
         });
 
         #[cfg(feature = "3d")]
@@ -766,7 +766,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         *self.close.get_mut() = true;
     }
 
-    pub fn input(&self) -> Rc<RwLock<Input>> {
+    pub fn input(&self) -> Arc<RwLock<Input>> {
         self.input_collector.get().get_input()
     }
 }
