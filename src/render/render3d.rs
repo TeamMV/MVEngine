@@ -11,7 +11,7 @@ use wgpu::{
 };
 
 use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::common3d::{Material, DUMMY_MATERIAL, TextureType};
+use crate::render::common3d::{Material, DUMMY_MATERIAL, InstancedMaterial};
 use crate::render::consts::{
     DEFAULT_SAMPLER, DUMMY_TEXTURE, MATERIAL_LIMIT, MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT,
 };
@@ -39,32 +39,25 @@ pub(crate) trait RenderPass3D {
         transforms: &[&[Mat4]],
         num_instances: u32,
     );
-
-    fn check_texture(&mut self, change: &mut bool, id: &mut u16, tex: &Option<Arc<Texture>>) {
-        if *id != 0 {
-            *change = true;
-            *id = if let Some(t) = tex { t.get_id() } else { 0 } as u16;
-        }
-    }
 }
 
 pub(crate) struct MaterialTextureComBindEdGroup {
     pub(crate) bind_group: BindGroup,
-    pub(crate) textures: [Arc<Texture>; TEXTURE_LIMIT],
+    pub(crate) textures: [Option<Arc<Texture>>; TEXTURE_LIMIT],
+    pub(crate) using: [u16; TEXTURE_LIMIT],
     pub(crate) views: [&'static TextureView; TEXTURE_LIMIT],
-    pub(crate) materials: [Arc<Material>; MATERIAL_LIMIT],
+    pub(crate) materials: [Option<(Arc<Material>, InstancedMaterial)>; MATERIAL_LIMIT],
     pub(crate) raw_materials: [[f32; Material::SIZE_FLOATS]; MATERIAL_LIMIT],
     pub(crate) material_buffer: Buffer,
 }
 
 impl MaterialTextureComBindEdGroup {
     pub(crate) fn new(shader: &Shader, state: &State, index: u32) -> Self {
-        let textures: [Arc<Texture>; TEXTURE_LIMIT] =
-            [0; TEXTURE_LIMIT].map(|_| DUMMY_TEXTURE.clone());
+        let textures = [0; TEXTURE_LIMIT].map(|_| None);
         let views: [&'static TextureView; TEXTURE_LIMIT] =
             [DUMMY_TEXTURE.get_view(); TEXTURE_LIMIT];
-        let materials = [0; MATERIAL_LIMIT].map(|_| DUMMY_MATERIAL.clone());
-        let raw_materials = [0; MATERIAL_LIMIT].map(|_| DUMMY_MATERIAL.raw_data());
+        let materials = [0; MATERIAL_LIMIT].map(|_| None);
+        let raw_materials = [[0.0; Material::SIZE_FLOATS]; MATERIAL_LIMIT];
         let material_buffer =
             state.gen_uniform_buffer_sized(Material::SIZE_BYTES as u64 * *MAX_MATERIALS as u64);
 
@@ -86,6 +79,7 @@ impl MaterialTextureComBindEdGroup {
         Self {
             bind_group,
             textures,
+            using: [0; TEXTURE_LIMIT],
             views,
             materials,
             raw_materials,
@@ -95,11 +89,11 @@ impl MaterialTextureComBindEdGroup {
 
     pub(crate) fn set_texture(&mut self, index: usize, texture: Arc<Texture>) {
         self.views[index] = unsafe { (texture.get_view() as *const TextureView).as_ref().unwrap() };
-        self.textures[index] = texture;
+        self.textures[index] = Some(texture);
     }
 
-    pub(crate) fn set_material(&mut self, index: usize, material: Arc<Material>, texture_type: TextureType) {
-        self.materials[index] = material;
+    pub(crate) fn set_material(&mut self, index: usize, material: Arc<Material>) {
+        self.materials[index] = Some((material.clone(), material.into()));
     }
 
     pub(crate) fn remake(&mut self, state: &State, shader: &Shader, index: u32) {
@@ -119,7 +113,14 @@ impl MaterialTextureComBindEdGroup {
         });
     }
 
-
+    pub fn remap(&mut self) {
+        for (i, mat) in self.materials.iter_mut().enumerate() {
+            if let Some(mat) = mat {
+                mat.1.adapt(&*mat.0);
+                self.raw_materials[i] = mat.1.raw_data();
+            }
+        }
+    }
 }
 
 pub(crate) struct ForwardPass {
@@ -254,36 +255,7 @@ impl RenderPass3D for ForwardPass {
             self.state.queue.write_buffer(ibo, 0, indices.cast_bytes());
             self.state.queue.write_buffer(vbo, 0, vertices.cast_bytes());
 
-            let mut changed = false;
 
-            for (i, material) in materials.iter().enumerate().take(*MAX_MATERIALS) {
-                if let Some(ref material) = material {
-                    if &texture_group.materials[i] != material {
-                        //remake all the textures if needed
-                        self.check_texture(&mut changed, &mut material.diffuse_id,    &material.diffuse_texture);
-                        self.check_texture(&mut changed, &mut material.metallic_id,   &material.metallic_roughness_texture);
-                        self.check_texture(&mut changed, &mut material.normal_id,     &material.normal_texture);
-                        self.check_texture(&mut changed, &mut material.specular_id,   &material.specular_texture);
-                        self.check_texture(&mut changed, &mut material.occlusion_id,  &material.occlusion_texture);
-                        self.check_texture(&mut changed, &mut material.reflection_id, &material.reflection_texture);
-                        self.check_texture(&mut changed, &mut material.bump_id,       &material.bump_texture);
-                        self.check_texture(&mut changed, &mut material.emission_id,   &material.emission_texture);
-                        //if material.diffuse_id != 0 {
-                        //    material.diffuse_id = if let Some(ref tex) = material.diffuse_texture { tex.get_id() } else { 0 } as u16
-                        //}
-
-                        texture_group.set_material(i, material.clone(), TextureType::Any);//i assume Any since this is the combined pass
-                        changed = true;
-                    }
-                } else if texture_group.materials[i] != DUMMY_MATERIAL.clone() {
-                    texture_group.set_material(i, DUMMY_MATERIAL.clone(), TextureType::Any);
-                    changed = true;
-                }
-            }
-
-            if changed {
-                texture_group.remake(self.state, &self.shader, 1);
-            }
 
             render_pass.set_bind_group(2, &texture_group.bind_group, &[]);
             render_pass.set_pipeline(self.shader.get_pipeline());

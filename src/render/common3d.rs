@@ -1,3 +1,4 @@
+use std::intrinsics::size_of;
 use std::mem;
 use std::sync::Arc;
 
@@ -32,10 +33,10 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
+    pub fn texture_count(&self) -> u32 {
         self.materials
             .iter()
-            .map(|mat| mat.texture_count(texture_type))
+            .map(|mat| mat.texture_count())
             .sum()
     }
 
@@ -50,15 +51,15 @@ impl Model {
     pub fn is_simple_geometry(&self) -> bool {
         self.vertex_count() < 5000
             && self.materials.len() < 16
-            && self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32 / 4
+            && self.texture_count() <= *MAX_TEXTURES as u32 / 4
     }
 
     pub fn single_batch(&self) -> bool {
-        self.texture_count(TextureType::Geometry) <= *MAX_TEXTURES as u32
+        self.texture_count() <= *MAX_TEXTURES as u32
     }
 
     pub fn min_batches(&self) -> u32 {
-        (self.texture_count(TextureType::Geometry) as f32 / *MAX_TEXTURES as f32)
+        (self.texture_count() as f32 / *MAX_TEXTURES as f32)
             .ceil()
             .max((self.vertex_count() as f32 / VERT_LIMIT as f32).ceil()) as u32
     }
@@ -199,23 +200,6 @@ pub struct Material {
     pub roughness: f32,
     //4 floats
 
-    //pub transmission_filter: f32, //Tf
-    //pub illumination: u32, //illum
-    //pub sharpness: i32, //sharpness
-    //pub optical_density: f32, //Ni
-    //pub alpha_mode: AlphaMode,
-    //pub alpha_cutoff: f32,
-    //pub double_side: bool,
-    pub(crate) diffuse_id: u16,
-    pub(crate) metallic_id: u16,
-    pub(crate) normal_id: u16,
-    pub(crate) specular_id: u16,
-    pub(crate) occlusion_id: u16,
-    pub(crate) reflection_id: u16,
-    pub(crate) bump_id: u16,
-    pub(crate) emission_id: u16,
-    //8 floats
-
     pub diffuse_texture: Option<Arc<Texture>>,//main color map
     pub metallic_roughness_texture: Option<Arc<Texture>>,
     pub normal_texture: Option<Arc<Texture>>,
@@ -224,7 +208,7 @@ pub struct Material {
     pub reflection_texture: Option<Arc<Texture>>,
     pub bump_texture: Option<Arc<Texture>>,//same as normal, only z values with black/white gradient
     pub emission_texture: Option<Arc<Texture>>,
-    //remember these arent counted toward size
+    //8 floats
 }
 
 pub(crate) static DUMMY_MATERIAL: Lazy<Arc<Material>> = Lazy::new(|| Material::default().into());
@@ -232,16 +216,6 @@ pub(crate) static DUMMY_MATERIAL: Lazy<Arc<Material>> = Lazy::new(|| Material::d
 impl Material {
     pub const SIZE_FLOATS: usize = 28;
     pub const SIZE_BYTES: usize = Self::SIZE_FLOATS * 4;
-    // make sure to calculate removing anything that isnt needed for geom
-    //and everything that isnt for lighting in the other one
-
-    //geometry, as the name suggests, isnt doing any visuals
-    pub const SIZE_FLOATS_GEOM: usize = 0;
-    pub const SIZE_BYTES_GEOM: usize = Self::SIZE_FLOATS_GEOM * 4;
-
-    //this, on the other hand does need everything, so those 2 more fields are useless :P
-    pub const SIZE_FLOATS_LIGHT: usize = 28;
-    pub const SIZE_BYTES_LIGHT: usize = Self::SIZE_FLOATS_LIGHT * 4;
 
     pub fn new() -> Self {
         Material {
@@ -269,63 +243,71 @@ impl Material {
             emission: Color::<RGB, f32>::black(),
             //alpha_mode: AlphaMode::Opaque,
             //alpha_cutoff: 0.5,
-            diffuse_id: 0,
-            metallic_id: 0,
-            normal_id: 0,
-            specular_id: 0,
-            occlusion_id: 0,
-            reflection_id: 0,
-            bump_id: 0,
-            emission_id: 0,
         }
     }
 
-    pub fn texture_count(&self, texture_type: TextureType) -> u32 {
-        // dont forget this
+    pub fn texture_count(&self) -> u32 {
         let mut sum = 0;
-        if self.diffuse_texture.is_some() && texture_type.is_geometry() {
+        if self.diffuse_texture.is_some() {
             sum += 1;
         }
-        if self.metallic_roughness_texture.is_some() && texture_type.is_geometry() {
+        if self.metallic_roughness_texture.is_some() {
             sum += 1;
         }
-        if self.normal_texture.is_some() && texture_type.is_geometry() {
+        if self.normal_texture.is_some() {
             sum += 1;
         }
-        if self.specular_texture.is_some() && texture_type.is_geometry() {
+        if self.specular_texture.is_some() {
             sum += 1;
         }
-        if self.occlusion_texture.is_some() && texture_type.is_geometry() {
+        if self.occlusion_texture.is_some() {
             sum += 1;
         }
-        if self.reflection_texture.is_some() && texture_type.is_geometry() {
+        if self.reflection_texture.is_some() {
             sum += 1;
         }
-        if self.bump_texture.is_some() && texture_type.is_geometry() {
+        if self.bump_texture.is_some() {
             sum += 1;
         }
-        if self.emission_texture.is_some() && texture_type.is_geometry() {
+        if self.emission_texture.is_some() {
             sum += 1;
         }
         sum
     }
+}
 
-    pub(crate) fn set_diffuse(&mut self, id: u16) {
-        self.diffuse_id = id;
+unsafe impl Sync for Material {}
+
+impl Default for Material {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    pub(crate) fn set_metallic(&mut self, id: u16) {
-        self.metallic_id = id;
-    }
+pub(crate) struct InstancedMaterial {
+    pub ambient: Color<RGB, f32>,
+    pub diffuse: Color<RGB, f32>,
+    pub specular: Color<RGB, f32>,
+    pub emission: Color<RGB, f32>,
+    //16 floats
 
-    pub(crate) fn set_normal(&mut self, id: u16) {
-        self.normal_id = id;
-    }
+    pub alpha: f32,
+    pub specular_exponent: f32,
+    pub metallic: f32,
+    pub roughness: f32,
+    //4 floats
 
+    pub(crate) diffuse_id: u16,
+    pub(crate) metallic_id: u16,
+    pub(crate) normal_id: u16,
+    pub(crate) specular_id: u16,
+    pub(crate) occlusion_id: u16,
+    pub(crate) reflection_id: u16,
+    pub(crate) bump_id: u16,
+    pub(crate) emission_id: u16,
+}
 
-
-    // and make the copies of this, accodringly with the shaders
-    //and also update this one
+impl InstancedMaterial {
     pub(crate) fn raw_data(&self) -> [f32; Self::SIZE_FLOATS] {
         [
             self.ambient.r(),
@@ -359,54 +341,37 @@ impl Material {
         ]
     }
 
-    //And so are the 2 more methods!
-    pub(crate) fn set_diffuse_id(&mut self, diffuse_id: u16) {
-        self.diffuse_id = diffuse_id;
-    }
-    pub(crate) fn set_metallic_id(&mut self, metallic_id: u16) {
-        self.metallic_id = metallic_id;
-    }
-    pub(crate) fn set_normal_id(&mut self, normal_id: u16) {
-        self.normal_id = normal_id;
-    }
-    pub(crate) fn set_specular_id(&mut self, specular_id: u16) {
-        self.specular_id = specular_id;
-    }
-    pub(crate) fn set_occlusion_id(&mut self, occlusion_id: u16) {
-        self.occlusion_id = occlusion_id;
-    }
-    pub(crate) fn set_reflection_id(&mut self, reflection_id: u16) {
-        self.reflection_id = reflection_id;
-    }
-    pub(crate) fn set_bump_id(&mut self, bump_id: u16) {
-        self.bump_id = bump_id;
-    }
-    pub(crate) fn set_emission_id(&mut self, emission_id: u16) {
-        self.emission_id = emission_id;
+    pub(crate) fn adapt(&mut self, mat: &Material) {
+        self.ambient = mat.ambient;
+        self.diffuse = mat.diffuse;
+        self.specular = mat.specular;
+        self.emission = mat.emission;
+        self.alpha =  mat.alpha;
+        self.specular_exponent = mat.specular_exponent;
+        self.metallic = mat.metallic;
+        self.roughness = mat.roughness;
     }
 }
 
-unsafe impl Sync for Material {}
-
-impl Default for Material {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum TextureType {
-    Any,
-    Geometry,
-    Lighting,
-}
-
-impl TextureType {
-    pub fn is_geometry(&self) -> bool {
-        self == &TextureType::Geometry || self == &TextureType::Any
-    }
-
-    pub fn is_lighting(&self) -> bool {
-        self == &TextureType::Lighting || self == &TextureType::Any
+impl From<Material> for InstancedMaterial {
+    fn from(value: Material) -> Self {
+        InstancedMaterial {
+            ambient: value.ambient,
+            diffuse: value.diffuse,
+            specular: value.specular,
+            emission: value.emission,
+            alpha: value.alpha,
+            specular_exponent: value.specular_exponent,
+            metallic: value.metallic,
+            roughness: value.roughness,
+            diffuse_id: 0,
+            metallic_id: 0,
+            normal_id: 0,
+            specular_id: 0,
+            occlusion_id: 0,
+            reflection_id: 0,
+            bump_id: 0,
+            emission_id: 0,
+        }
     }
 }
