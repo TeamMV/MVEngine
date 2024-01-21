@@ -23,6 +23,7 @@ pub mod render;
 pub mod resources;
 #[cfg(feature = "vr")]
 pub mod vr;
+mod parsing;
 
 pub use mvcore_proc_macro::gui_element;
 

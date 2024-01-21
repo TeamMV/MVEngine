@@ -1,5 +1,6 @@
-mod elements;
-mod styles;
+pub mod elements;
+pub mod styles;
+pub mod parsing;
 
 pub struct Sides {
     pub top: i32,
