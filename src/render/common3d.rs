@@ -1,4 +1,3 @@
-use std::intrinsics::size_of;
 use std::mem;
 use std::sync::Arc;
 

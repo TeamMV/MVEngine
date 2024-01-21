@@ -23,10 +23,10 @@ use winit::event::{
     ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
 };
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Fullscreen, Theme, WindowBuilder, WindowId};
+use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
-use crate::render::common::{EffectShader, Shader, ShaderType, Texture};
+use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
 use crate::render::consts::{
     BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
     BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
@@ -41,6 +41,7 @@ use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
 use crate::render::{consts, ApplicationLoopCallbacks};
+#[cfg(feature = "3d")]
 use crate::render::render3d::{ForwardPass, RenderPass3D};
 
 pub struct WindowSpecs {
@@ -156,13 +157,15 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
 
     #[cfg(feature = "3d")]
     deferred_pass_3d: DangerousCell<DeferredPass>,
-    forward_pass_3d: DangerousCell<ForwardPass>,
 
     effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
     effect_pass: DangerousCell<EffectPass>,
     effect_buffer: DangerousCell<EBuffer>,
 
     input_collector: DangerousCell<InputCollector>,
+    cursor: DangerousCell<Cursor>,
+    prev_cursor: DangerousCell<Cursor>,
+    internal_window: DangerousCell<Arc<Mutex<winit::window::Window>>>
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
@@ -194,6 +197,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         let state = State::new(&internal_window, &specs);
 
+        let internal_window = Arc::new(Mutex::new(internal_window));
+
         let shader = Shader::new_glsl(
             include_str!("shaders/default.vert"),
             include_str!("shaders/default.frag"),
@@ -202,11 +207,6 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let deferred_shader = Shader::new_glsl(
             include_str!("shaders/deferred_geom.vert"),
             include_str!("shaders/deferred_geom.frag"),
-        );
-
-        let forward_shader = Shader::new_glsl(
-            include_str!("shaders/deferred_geom.vert"),
-            include_str!("shaders/default3d.frag"),
         );
 
         //TODO: separate thread render (manually called from init)
@@ -251,20 +251,6 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             &state,
         );
 
-        let forward_pass = ForwardPass::new(
-            forward_shader.setup_pipeline(
-                &state,
-                VERTEX_LAYOUT_3D,
-                &[
-                    BIND_GROUP_3D,
-                    BIND_GROUP_TEXTURES_3D,
-                ]
-            ),
-            &state,
-            Mat4::default(),
-            Mat4::default()
-        );
-
         //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         //tex.make(&state);
         //let tex = TextureRegion::from(Arc::new(tex));
@@ -275,6 +261,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         //let t = unsafe { &crate::r::TEXTURES }.get("hello").unwrap();
 
+        let internal_window_lock = internal_window.lock().unwrap();
+
         let effect_buffer = EBuffer::generate(&state, specs.width, specs.height);
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
@@ -283,7 +271,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
             specs.height,
-            internal_window.scale_factor() as f32 * 96.0,
+            internal_window_lock.scale_factor() as f32 * 96.0,
         );
 
         let camera_2d = Camera2D::new(specs.width, specs.height);
@@ -312,7 +300,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
             input_collector: InputCollector::new(Arc::new(RwLock::new(Input::new()))).into(),
-            forward_pass_3d: forward_pass.into(),
+            cursor: Cursor::Arrow.into(),
+            prev_cursor: Cursor::Arrow.into(),
+            internal_window: internal_window.clone().into()
         });
 
         #[cfg(feature = "3d")]
@@ -339,12 +329,16 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             *clone.operate_state.write().recover() = OperateState::Running
         });
 
-        internal_window.set_visible(true);
-        internal_window.set_cursor_visible(false);
+        let id = internal_window_lock.id();
+
+        internal_window_lock.set_visible(true);
+        internal_window_lock.set_cursor_visible(true);
+
+        drop(internal_window_lock);
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::NewEvents(cause) => if cause == StartCause::Init {},
-            Event::WindowEvent { event, window_id } if window_id == internal_window.id() => {
+            Event::WindowEvent { event, window_id } if window_id == id => {
                 window.process_window_event(event, window_id, control_flow);
             }
             Event::MainEventsCleared => {
@@ -364,7 +358,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     / time_f;
                 now = SystemTime::now();
                 if delta_f >= 1.0 {
-                    internal_window.request_redraw();
+                    let lock = internal_window.lock().unwrap();
+                    lock.request_redraw();
+                    drop(lock);
                     frames += 1;
                     delta_f -= 1.0;
                     *window.frame.get_mut() += 1;
@@ -387,7 +383,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 }
             }
             Event::RedrawRequested(window_id) => {
-                if window_id == internal_window.id() {
+                if window_id == id {
                     match window.render() {
                         Ok(_) => {}
                         Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
@@ -568,7 +564,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             self.application_loop.effect(self.clone());
 
             //#[cfg(feature = "3d")]
-            self.render_3d(&mut encoder, &view);
+            //self.render_3d(&mut encoder, &view);
 
             let input = self.input_collector.get_mut().get_input();
             input.write().recover().loop_states();
@@ -726,15 +722,6 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             occlusion_query_set: None,
         });
 
-
-        self.forward_pass_3d
-            .get_mut()
-            .new_frame(&mut render_pass, self.camera_3d.read().recover().get_projection(), Mat4::default());
-
-        self.forward_pass_3d.get_mut().render(
-            inds, verts, &[0; 1024].map(|_| None), &[Mat4::default()]
-        )
-
         //self.deferred_pass_3d
         //    .get_mut()
         //    .new_frame(encoder, view, Mat4::default(), Mat4::default());
@@ -829,6 +816,28 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn input(&self) -> Arc<RwLock<Input>> {
         self.input_collector.get().get_input()
     }
+
+    pub fn set_cursor(&self, cur: Cursor) {
+        if *self.cursor.get() == cur { return; }
+        self.prev_cursor.replace(self.cursor.get().clone());
+        let lock = self.internal_window.get().lock().unwrap();
+        if let Cursor::None = cur {
+            lock.set_cursor_visible(false);
+        } else {
+            lock.set_cursor_visible(true);
+            lock.set_cursor_icon(cur.map_to_winit());
+        }
+        drop(lock);
+        self.cursor.replace(cur);
+    }
+
+    pub fn get_cursor(&self) -> Cursor {
+        return self.cursor.get_val();
+    }
+
+    pub fn restore_cursor(&self) {
+        self.set_cursor(self.prev_cursor.get_val())
+    }
 }
 
 #[macro_export]
@@ -877,4 +886,53 @@ pub enum CreatedShader {
     GeometryPass(Shader),
     LightingPass(EffectShader),
     Effect(EffectShader),
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum Cursor {
+    None,
+    Arrow,
+    Busy,
+    SoftBusy,
+    ResizeX,
+    ResizeY,
+    ResizeXY,
+    Move,
+    Pointer,
+    Denied,
+    Text,
+
+    Crosshair,
+    VerticalText,
+    Cell,
+    Copy,
+    Grab,
+    ZoomIn,
+    ZoomOut,
+}
+
+impl Cursor {
+    pub(crate) fn map_to_winit(&self) -> CursorIcon {
+        match self {
+            Cursor::None => CursorIcon::Default,
+            Cursor::Arrow => CursorIcon::Arrow,
+            Cursor::Busy => CursorIcon::Wait,
+            Cursor::SoftBusy => CursorIcon::Progress,
+            Cursor::ResizeX => CursorIcon::EwResize,
+            Cursor::ResizeY => CursorIcon::NsResize,
+            Cursor::ResizeXY => CursorIcon::NwseResize,
+            Cursor::Move => CursorIcon::Move,
+            Cursor::Pointer => CursorIcon::Hand,
+            Cursor::Denied => CursorIcon::NotAllowed,
+            Cursor::Text => CursorIcon::Text,
+
+            Cursor::Crosshair => CursorIcon::Crosshair,
+            Cursor::VerticalText => CursorIcon::VerticalText,
+            Cursor::Cell => CursorIcon::Cell,
+            Cursor::Copy => CursorIcon::Copy,
+            Cursor::Grab => CursorIcon::Grab,
+            Cursor::ZoomIn => CursorIcon::ZoomIn,
+            Cursor::ZoomOut => CursorIcon::ZoomOut,
+        }
+    }
 }

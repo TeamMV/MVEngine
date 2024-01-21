@@ -1,9 +1,10 @@
-use crate::input::raw::{Input, State};
+use crate::input::raw::{Input};
 use crate::input::InputAction::{Keyboard, Mouse};
 use mvutils::utils::Recover;
 use std::sync::{Arc, RwLock};
 
 pub use consts::*;
+pub use raw::State;
 
 mod consts;
 pub mod raw;
