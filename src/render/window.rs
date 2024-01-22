@@ -32,7 +32,7 @@ use crate::render::consts::{
     BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
     BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
 };
-#[cfg(feature = "3d")]
+    #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
 use crate::render::init::State;
