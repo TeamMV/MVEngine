@@ -385,7 +385,7 @@ impl Parse for Color<RGB, u8> {
             if !(s.len() == 6 || s.len() == 8) {
                 return Err("# and 0x colors must contain 6 or 8 characters!");
             }
-            if !s.chars().map(char::to_ascii_uppercase).all(|c| VALID.contains(c)) {
+            if !s.chars().map(|c| c.to_ascii_uppercase()).all(|c| VALID.contains(&c)) {
                 return Err("# and 0x colors must be hexadecimal characters!");
             }
             let colors = s.split_sized(2);

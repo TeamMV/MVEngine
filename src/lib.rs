@@ -35,7 +35,7 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
-        let _ = env_logger::try_init();
+        mvlogger::init(std::io::stdout());
         //err::setup();
         let core = if info.multithreaded {
             MVCore {
