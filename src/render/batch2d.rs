@@ -21,7 +21,7 @@ pub(crate) enum BatchType {
 pub(crate) trait BatchGen {
     fn get_render_mode(&self) -> u8;
 
-    fn gen_indices(&self, mut amt: u16, offset: u32, indices: &mut Vec<u32>) {
+    fn gen_indices(&self, amt: u16, offset: u32, indices: &mut Vec<u32>) {
         if self.batch_type() == BatchType::Regular {
             if amt == 4 {
                 indices.insert((offset * 6) as usize, offset * 4);
@@ -41,7 +41,7 @@ pub(crate) trait BatchGen {
         }
         else {
             for mut i in 0..amt {
-                if indices.len() > 0 {
+                if !indices.is_empty() {
                     indices.push(indices.len() as u32);
                 } else {
                     indices.extend_from_slice(&[0, 1, 2]);

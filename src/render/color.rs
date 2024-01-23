@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use glam::{Vec3, Vec4};
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::SplitSized;
-use regex::Regex;
 
 pub type RgbColor = Color<RGB, f32>;
 pub type RgbGradient = Gradient<RGB, f32>;
@@ -377,15 +376,20 @@ impl Color<HSV, f32> {
     }
 }
 
+const VALID: [char; 16] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+
 impl Parse for Color<RGB, u8> {
     fn parse(s: &str) -> Result<Self, &str> {
         if s.starts_with('#') || s.starts_with("0x") {
             let s = s.replace('#', "").replace("0x", "");
-            if !Regex::new("^([0-9a-fA-F]{2}){3,4}$").unwrap().is_match(&s) {
-                return Err("Color xml: # and 0x colors must be hexadecimal characters!");
+            if !(s.len() == 6 || s.len() == 8) {
+                return Err("# and 0x colors must contain 6 or 8 characters!");
+            }
+            if !s.chars().map(char::to_ascii_uppercase).all(|c| VALID.contains(c)) {
+                return Err("# and 0x colors must be hexadecimal characters!");
             }
             let colors = s.split_sized(2);
-            Self::pv(colors, 16).map_err(|_| "Color xml: # colors must contain 6 or 8 characters!")
+            Self::pv(colors, 16).map_err(|_| "# and 0x colors must contain 6 or 8 characters!")
         } else {
             let colors = if s.contains(',') {
                 let string = s.replace(' ', "");
@@ -393,9 +397,9 @@ impl Parse for Color<RGB, u8> {
             } else if s.contains(' ') {
                 s.split_whitespace().map(str::to_string).collect::<Vec<_>>()
             } else {
-                return Err("Color xml: color values must be separated by space or comma!");
+                return Err("Color values must be separated by space or comma!");
             };
-            Self::pv(colors, 10).map_err(|_| "Color must have 3 or 4 parts!")
+            Self::pv(colors, 10).map_err(|_| "Color values must have 3 or 4 parts!")
         }
     }
 }

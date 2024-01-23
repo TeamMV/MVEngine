@@ -1,5 +1,4 @@
 use ash::vk::Handle;
-use bitflags::Flags;
 use std::cmp::min;
 use std::num::NonZeroU32;
 use std::sync::Arc;

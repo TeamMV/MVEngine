@@ -1,6 +1,6 @@
 use crate::gui::elements::GuiElementCallbacks;
 
-pub(crate) struct Unparsed {
+pub struct Unparsed {
     name: String,
     attributes: hashbrown::HashMap<String, String>,
     children: Vec<Unparsed>,

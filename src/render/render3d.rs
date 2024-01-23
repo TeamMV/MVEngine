@@ -116,7 +116,7 @@ impl MaterialTextureComBindEdGroup {
     pub fn remap(&mut self) {
         for (i, mat) in self.materials.iter_mut().enumerate() {
             if let Some(mat) = mat {
-                mat.1.adapt(&*mat.0);
+                mat.1.adapt(&mat.0);
                 self.raw_materials[i] = mat.1.raw_data();
             }
         }

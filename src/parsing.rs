@@ -21,12 +21,11 @@ pub trait Parser {
     fn t_attrib<T>(&self, name: String) -> Option<T>
     where T: FromStr, <T as FromStr>::Err: std::fmt::Debug {
         let attrib = self.attrib(name);
-        if attrib.is_some() {
-            let r = T::from_str(attrib.unwrap());
-            if r.is_ok() { return Some(r.unwrap()); }
-            return None;
+        if let Some(attrib) = attrib {
+            T::from_str(attrib).ok()
+        } else {
+            None
         }
-        None
     }
 
     fn has_attrib(&self, name: String) -> bool {

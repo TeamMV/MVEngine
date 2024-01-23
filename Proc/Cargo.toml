@@ -3,7 +3,7 @@ name = "mvcore-proc-macro"
 version = "0.1.0"
 edition = "2021"
 license-file = "LICENSE"
-rust-version = "1.69.0"
+rust-version = "1.75.0"
 authors = [
     "Maxim Savenkov",
     "Julian Hohenhausen"

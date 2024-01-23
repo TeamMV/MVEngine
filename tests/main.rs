@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use mvutils::version::Version;
 
-use mvcore::input::raw;
 use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
 use mvcore::render::window::{Cursor, Window, WindowSpecs};

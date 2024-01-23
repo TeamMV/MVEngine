@@ -307,7 +307,7 @@ pub(crate) struct InstancedMaterial {
 }
 
 impl InstancedMaterial {
-    pub(crate) fn raw_data(&self) -> [f32; Self::SIZE_FLOATS] {
+    pub(crate) fn raw_data(&self) -> [f32; Material::SIZE_FLOATS] {
         [
             self.ambient.r(),
             self.ambient.g(),
@@ -354,6 +354,29 @@ impl InstancedMaterial {
 
 impl From<Material> for InstancedMaterial {
     fn from(value: Material) -> Self {
+        InstancedMaterial {
+            ambient: value.ambient,
+            diffuse: value.diffuse,
+            specular: value.specular,
+            emission: value.emission,
+            alpha: value.alpha,
+            specular_exponent: value.specular_exponent,
+            metallic: value.metallic,
+            roughness: value.roughness,
+            diffuse_id: 0,
+            metallic_id: 0,
+            normal_id: 0,
+            specular_id: 0,
+            occlusion_id: 0,
+            reflection_id: 0,
+            bump_id: 0,
+            emission_id: 0,
+        }
+    }
+}
+
+impl From<Arc<Material>> for InstancedMaterial {
+    fn from(value: Arc<Material>) -> Self {
         InstancedMaterial {
             ambient: value.ambient,
             diffuse: value.diffuse,

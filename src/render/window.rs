@@ -702,7 +702,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         ];
         let inds: &[u32] = &[0, 1, 2];
 
-        let mut render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
+        let render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view,
@@ -819,7 +819,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
     pub fn set_cursor(&self, cur: Cursor) {
         if *self.cursor.get() == cur { return; }
-        self.prev_cursor.replace(self.cursor.get().clone());
+        self.prev_cursor.replace(*self.cursor.get());
         let lock = self.internal_window.get().lock().unwrap();
         if let Cursor::None = cur {
             lock.set_cursor_visible(false);
@@ -832,7 +832,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     }
 
     pub fn get_cursor(&self) -> Cursor {
-        return self.cursor.get_val();
+        self.cursor.get_val()
     }
 
     pub fn restore_cursor(&self) {
