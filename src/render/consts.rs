@@ -127,7 +127,7 @@ pub(crate) const BIND_GROUP_LAYOUT_2D: BindGroupLayoutDescriptor = BindGroupLayo
 
 pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
-        label: Some("Bind group layout geometry pass (model) 3D"),
+        label: Some("Bind group layout geometry pass 3D"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
@@ -140,7 +140,7 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
                 count: None,
             },
             BindGroupLayoutEntry {
-                binding: 2,
+                binding: 1,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
@@ -150,7 +150,7 @@ pub(crate) const BIND_GROUP_LAYOUT_GEOMETRY_3D: BindGroupLayoutDescriptor =
 
 pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     BindGroupLayoutDescriptor {
-        label: Some("Bind group layout lighting pass (model) 3D"),
+        label: Some("Bind group layout lighting pass 3D"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
@@ -202,7 +202,7 @@ pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     };
 
 pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: Some("Bind group layout forward render (model) 3D"),
+    label: Some("Bind group layout forward render 3D"),
     entries: &[],
 };
 

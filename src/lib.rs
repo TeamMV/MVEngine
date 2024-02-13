@@ -9,6 +9,7 @@
 //#![feature(specialization)]
 
 use std::sync::Arc;
+use log::LevelFilter;
 
 use mvsync::{MVSync, MVSyncSpecs};
 use mvutils::version::Version;
@@ -35,7 +36,7 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
-        mvlogger::init(std::io::stdout());
+        mvlogger::init(std::io::stdout(), LevelFilter::Debug);
         //err::setup();
         let core = if info.multithreaded {
             MVCore {

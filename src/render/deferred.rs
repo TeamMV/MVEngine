@@ -68,10 +68,6 @@ impl DeferredPass {
                     resource: uniform.as_entire_binding(),
                 },
                 BindGroupEntry {
-                    binding: 1,
-                    resource: material.as_entire_binding(),
-                },
-                BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::Sampler(&DEFAULT_SAMPLER),
                 },

@@ -187,6 +187,8 @@ impl PreparedMesh {
 #[repr(C)]
 #[derive(PartialEq)]
 pub struct Material {
+    pub id: u64,
+
     pub ambient: Color<RGB, f32>,
     pub diffuse: Color<RGB, f32>,
     pub specular: Color<RGB, f32>,
@@ -218,6 +220,7 @@ impl Material {
 
     pub fn new() -> Self {
         Material {
+            id: mvutils::utils::next_id("MVCore::Material"),
             ambient: Color::<RGB, f32>::new(0.2, 0.2, 0.2, 1.0),
             diffuse: Color::<RGB, f32>::new(0.8, 0.8, 0.8, 1.0),
             specular: Color::<RGB, f32>::white(),
@@ -273,6 +276,10 @@ impl Material {
         }
         sum
     }
+
+    pub fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 unsafe impl Sync for Material {}
@@ -296,14 +303,14 @@ pub(crate) struct InstancedMaterial {
     pub roughness: f32,
     //4 floats
 
-    pub(crate) diffuse_id: u16,
-    pub(crate) metallic_id: u16,
-    pub(crate) normal_id: u16,
-    pub(crate) specular_id: u16,
-    pub(crate) occlusion_id: u16,
-    pub(crate) reflection_id: u16,
-    pub(crate) bump_id: u16,
-    pub(crate) emission_id: u16,
+    pub(crate) diffuse_idx: u16,
+    pub(crate) metallic_idx: u16,
+    pub(crate) normal_idx: u16,
+    pub(crate) specular_idx: u16,
+    pub(crate) occlusion_idx: u16,
+    pub(crate) reflection_idx: u16,
+    pub(crate) bump_idx: u16,
+    pub(crate) emission_idx: u16,
 }
 
 impl InstancedMaterial {
@@ -329,18 +336,28 @@ impl InstancedMaterial {
             self.specular_exponent,
             self.metallic,
             self.roughness,
-            self.diffuse_id as f32,
-            self.metallic_id as f32,
-            self.normal_id as f32,
-            self.specular_id as f32,
-            self.occlusion_id as f32,
-            self.reflection_id as f32,
-            self.bump_id as f32,
-            self.emission_id as f32,
+            self.diffuse_idx as f32,
+            self.metallic_idx as f32,
+            self.normal_idx as f32,
+            self.specular_idx as f32,
+            self.occlusion_idx as f32,
+            self.reflection_idx as f32,
+            self.bump_idx as f32,
+            self.emission_idx as f32,
         ]
     }
 
-    pub(crate) fn adapt(&mut self, mat: &Material) {
+    pub(crate) fn adapt(&mut self, mat: &Material) -> bool {
+        let changed = self.ambient == mat.ambient ||
+        self.ambient == mat.ambient ||
+        self.diffuse == mat.diffuse ||
+        self.specular == mat.specular ||
+        self.emission == mat.emission ||
+        self.alpha ==  mat.alpha ||
+        self.specular_exponent == mat.specular_exponent ||
+        self.metallic == mat.metallic ||
+        self.roughness == mat.roughness;
+
         self.ambient = mat.ambient;
         self.diffuse = mat.diffuse;
         self.specular = mat.specular;
@@ -349,6 +366,7 @@ impl InstancedMaterial {
         self.specular_exponent = mat.specular_exponent;
         self.metallic = mat.metallic;
         self.roughness = mat.roughness;
+        changed
     }
 }
 
@@ -363,14 +381,14 @@ impl From<Material> for InstancedMaterial {
             specular_exponent: value.specular_exponent,
             metallic: value.metallic,
             roughness: value.roughness,
-            diffuse_id: 0,
-            metallic_id: 0,
-            normal_id: 0,
-            specular_id: 0,
-            occlusion_id: 0,
-            reflection_id: 0,
-            bump_id: 0,
-            emission_id: 0,
+            diffuse_idx: 0,
+            metallic_idx: 0,
+            normal_idx: 0,
+            specular_idx: 0,
+            occlusion_idx: 0,
+            reflection_idx: 0,
+            bump_idx: 0,
+            emission_idx: 0,
         }
     }
 }
@@ -386,14 +404,14 @@ impl From<Arc<Material>> for InstancedMaterial {
             specular_exponent: value.specular_exponent,
             metallic: value.metallic,
             roughness: value.roughness,
-            diffuse_id: 0,
-            metallic_id: 0,
-            normal_id: 0,
-            specular_id: 0,
-            occlusion_id: 0,
-            reflection_id: 0,
-            bump_id: 0,
-            emission_id: 0,
+            diffuse_idx: 0,
+            metallic_idx: 0,
+            normal_idx: 0,
+            specular_idx: 0,
+            occlusion_idx: 0,
+            reflection_idx: 0,
+            bump_idx: 0,
+            emission_idx: 0,
         }
     }
 }

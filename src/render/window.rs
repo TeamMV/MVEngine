@@ -27,11 +27,7 @@ use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{
-    BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
-    BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
-    BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
-};
+use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, MATERIAL_LIMIT, MAX_MATERIALS, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D};
     #[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
@@ -41,6 +37,9 @@ use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::text::FontLoader;
 use crate::render::{consts, ApplicationLoopCallbacks};
+use crate::render::color::RgbColor;
+#[cfg(feature = "3d")]
+use crate::render::common3d::Material;
 #[cfg(feature = "3d")]
 use crate::render::render3d::{ForwardPass, RenderPass3D};
 
@@ -155,8 +154,10 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     draw_2d: Mutex<DrawContext2D>,
     enabled_effects_2d: RwLock<Vec<String>>,
 
+    // #[cfg(feature = "3d")]
+    // deferred_pass_3d: DangerousCell<DeferredPass>,
     #[cfg(feature = "3d")]
-    deferred_pass_3d: DangerousCell<DeferredPass>,
+    forward_pass_3d: DangerousCell<ForwardPass>,
 
     effect_shaders: RwLock<HashMap<String, Arc<EffectShader>>>,
     effect_pass: DangerousCell<EffectPass>,
@@ -203,10 +204,17 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             include_str!("shaders/default.vert"),
             include_str!("shaders/default.frag"),
         );
+
+        // #[cfg(feature = "3d")]
+        // let deferred_shader = Shader::new_glsl(
+        //     include_str!("shaders/deferred_geom.vert"),
+        //     include_str!("shaders/deferred_geom.frag"),
+        // );
+
         #[cfg(feature = "3d")]
-        let deferred_shader = Shader::new_glsl(
+        let forward_shader = Shader::new_glsl(
             include_str!("shaders/deferred_geom.vert"),
-            include_str!("shaders/deferred_geom.frag"),
+            include_str!("shaders/forward.frag"),
         );
 
         //TODO: separate thread render (manually called from init)
@@ -237,19 +245,33 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         render_pass_2d.set_smoothing(FONT_SMOOTHING);
 
+        //#[cfg(feature = "3d")]
+        //let deferred_pass_3d = DeferredPass::new(
+        //    deferred_shader.setup_pipeline(
+        //        &state,
+        //        VERTEX_LAYOUT_3D,
+        //        &[
+        //            BIND_GROUP_GEOMETRY_3D,
+        //            BIND_GROUP_MODEL_MATRIX,
+        //            BIND_GROUP_TEXTURES_3D,
+        //        ],
+        //    ),
+        //    &state,
+        //);
+
         #[cfg(feature = "3d")]
-        let deferred_pass_3d = DeferredPass::new(
-            deferred_shader.setup_pipeline(
-                &state,
-                VERTEX_LAYOUT_3D,
-                &[
-                    BIND_GROUP_GEOMETRY_3D,
-                    //BIND_GROUP_MODEL_MATRIX,
-                    BIND_GROUP_TEXTURES_3D,
-                ],
-            ),
-            &state,
-        );
+        let forward_pass =
+            ForwardPass::new(forward_shader
+                                 .setup_pipeline(
+                                     &state, VERTEX_LAYOUT_3D,
+                                     &[BIND_GROUP_GEOMETRY_3D,
+                                         BIND_GROUP_MODEL_MATRIX,
+                                         BIND_GROUP_TEXTURES_3D,
+                                     ]),
+                             &state,
+                             Mat4::default(),
+                             Mat4::default()
+            );
 
         //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         //tex.make(&state);
@@ -295,14 +317,16 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             camera_3d: camera_3d.into(),
             effect_shaders: HashMap::new().into(),
             enabled_effects_2d: Vec::new().into(),
-            #[cfg(feature = "3d")]
-            deferred_pass_3d: deferred_pass_3d.into(),
+            // #[cfg(feature = "3d")]
+            // deferred_pass_3d: deferred_pass_3d.into(),
             #[cfg(feature = "3d")]
             model_loader: CreateOnce::new(),
             input_collector: InputCollector::new(Arc::new(RwLock::new(Input::new()))).into(),
             cursor: Cursor::Arrow.into(),
             prev_cursor: Cursor::Arrow.into(),
-            internal_window: internal_window.clone().into()
+            internal_window: internal_window.clone().into(),
+            #[cfg(feature = "3d")]
+            forward_pass_3d: forward_pass.into(),
         });
 
         #[cfg(feature = "3d")]
@@ -563,11 +587,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             self.application_loop.draw(self.clone());
             self.application_loop.effect(self.clone());
 
-            //#[cfg(feature = "3d")]
-            //self.render_3d(&mut encoder, &view);
-
             let input = self.input_collector.get_mut().get_input();
             input.write().recover().loop_states();
+
+            #[cfg(feature = "3d")]
+            self.render_3d(&mut encoder, &view);
 
             self.render_2d(&mut encoder, &view);
         } else {
@@ -696,13 +720,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
         let verts: &[f32] = &[
-            0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
-            0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
-            -0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0
+            100f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+            0.0, 50f32, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+            -50f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0
         ];
         let inds: &[u32] = &[0, 1, 2];
 
-        let render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
+        let mut render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view,
@@ -721,6 +745,21 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+
+        let cam = self.camera_2d.read().recover();
+
+        self.forward_pass_3d
+            .get_mut()
+            .new_frame(&mut render_pass, cam.get_projection(), cam.get_view());
+
+        let mut mat = Material::new();
+        mat.diffuse = RgbColor::red();
+
+        let mut mats = [0; MATERIAL_LIMIT].map(|_| None);
+        mats[0] = Some(Arc::new(mat));
+
+        self.forward_pass_3d.get_mut().render(inds, verts, &mats, &[Mat4::default()]);
+        self.forward_pass_3d.get_mut().finish();
 
         //self.deferred_pass_3d
         //    .get_mut()
