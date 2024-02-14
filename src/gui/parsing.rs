@@ -16,5 +16,5 @@ pub(crate) struct GuiParseSpec {
 }
 
 pub(crate) struct GuiElementParser {
-    parser: u16
+    parser: u32
 }

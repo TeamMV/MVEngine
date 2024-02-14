@@ -3,7 +3,11 @@ use crate::gui::styles::Origin::Custom;
 use mvutils::unsafe_utils::Unsafe;
 use std::convert::Infallible;
 use std::sync::Arc;
+use num_traits::Num;
 use winit::event::VirtualKeyCode::O;
+use crate::render::color::RgbColor;
+use crate::render::text::Font;
+use crate::resources::resources::R;
 
 pub struct Style {
     //position
@@ -16,6 +20,10 @@ pub struct Style {
     pub origin: GuiValue<Origin>,
     pub position: GuiValue<Position>,
     pub rotation_origin: GuiValue<Origin>,
+
+    pub text: TextStyle,
+
+    pub background_color: GuiValue<RgbColor>
 }
 
 #[derive(Default, Clone, Copy, Eq, PartialEq)]
@@ -54,7 +62,31 @@ pub enum Position {
     Relative,
 }
 
-pub struct TextStyle {}
+pub struct TextStyle {
+    pub size: GuiValue<f32>,
+    pub kerning: GuiValue<f32>,
+    pub skew: GuiValue<f32>,
+    pub stretch: GuiValue<Dimension<f32>>,
+    pub font: GuiValue<Arc<Font>>,
+}
+
+impl TextStyle {
+    pub const fn initial() -> Self {
+        Self {
+            size: GuiValue::Measurement(Unit::BarleyCorn(1.0)),
+            kerning: GuiValue::None,
+            skew: GuiValue::None,
+            stretch: GuiValue::None,
+            font: GuiValue::Auto
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Dimension<T: Num + Clone> {
+    pub width: T,
+    pub height: T
+}
 
 pub struct SideStyle {
     pub top: GuiValue<i32>,
@@ -161,6 +193,8 @@ pub(crate) const DEFAULT_STYLE: Style = Style {
     origin: GuiValue::Just(Origin::BottomLeft),
     position: GuiValue::Just(Position::Relative),
     rotation_origin: GuiValue::Just(Origin::Center),
+    text: TextStyle::initial(),
+    background_color: GuiValue::Just(RgbColor::white()),
 };
 
 #[macro_export]

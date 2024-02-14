@@ -456,7 +456,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     let index = Input::key_from_winit(
                         input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape),
                     );
-                    if self.input().read().recover().keys[index] {
+                    let tmp = self.input();
+                    let input = tmp.read().recover();
+                    if index > 0 && index < input.keys.len() {  }
+                    if input.keys[index] {
                         self.input_collector
                             .get_mut()
                             .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
@@ -468,6 +471,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                             .get_mut()
                             .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
                     }
+                    drop(input);
                 }
 
                 if let ElementState::Released = input.state {

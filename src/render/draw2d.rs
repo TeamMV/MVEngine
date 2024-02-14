@@ -44,8 +44,27 @@ impl Transformation {
     }
 }
 
+pub struct TextOptions {
+    skew: f32,
+    kerning: f32,
+    stretch_x: f32,
+    stretch_y: f32
+}
+
+impl TextOptions {
+    pub fn new() -> Self {
+        Self {
+            skew: 0.0,
+            kerning: 0.0,
+            stretch_x: 0.0,
+            stretch_y: 0.0,
+        }
+    }
+}
+
 pub struct DrawContext2D {
     trans: Transformation,
+    text_options: TextOptions,
     size: [f32; 2],
     color: Gradient<RGB, f32>,
     font: Arc<Font>,
@@ -62,6 +81,7 @@ pub struct DrawContext2D {
 impl DrawContext2D {
     pub(crate) fn new(font: Arc<Font>, width: u32, height: u32, dpi: f32) -> Self {
         DrawContext2D {
+            text_options: TextOptions::new(),
             trans: Transformation::new(),
             size: [width as f32, height as f32],
             color: Gradient::new(Color::<RGB, f32>::white()),
@@ -1697,10 +1717,10 @@ impl DrawContext2D {
 
             let y_off = glyph.get_y_offset(height) - height + glyph.get_height(height);
 
-            let ax = x + char_x + glyph.get_x_offset(height);
-            let ay = y - y_off;
-            let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);
-            let ay2 = y + glyph.get_height(height) - y_off;
+            let ax = x + char_x + glyph.get_x_offset(height);                           //left
+            let ay = y - y_off;                                                         //bottom
+            let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);//right
+            let ay2 = y + glyph.get_height(height) - y_off;                             //top
 
             if chroma {
                 self.reset_color();
@@ -1714,16 +1734,21 @@ impl DrawContext2D {
                 self.color.get_mut(2).copy_hue(d);
             }
 
-            char_x += glyph.get_x_advance(height);
+            char_x += glyph.get_x_advance(height) + self.text_options.stretch_x as i32 + self.text_options.skew as i32 + self.text_options.kerning as i32;
             let uv = glyph.get_uv();
 
             let tex = self
                 .batch
                 .add_texture(font.get_texture(glyph.get_page() as usize), 4);
 
+            let sx = self.text_options.stretch_x / 2f32;
+            let sy = self.text_options.stretch_y / 2f32;
+
+            let sk = self.text_options.skew;
+
             self.vertices.get_mut(0).set_texture_data(
-                ax as f32,
-                ay2 as f32,
+                ax as f32 - sx + sk,
+                ay2 as f32 + sy,
                 0.0,
                 rad_rot,
                 rx as f32,
@@ -1737,8 +1762,8 @@ impl DrawContext2D {
                 true,
             );
             self.vertices.get_mut(1).set_texture_data(
-                ax as f32,
-                ay as f32,
+                ax as f32 - sx - sk,
+                ay as f32 - sy,
                 0.0,
                 rad_rot,
                 rx as f32,
@@ -1752,8 +1777,8 @@ impl DrawContext2D {
                 true,
             );
             self.vertices.get_mut(2).set_texture_data(
-                ax2 as f32,
-                ay as f32,
+                ax2 as f32 + sx - sk,
+                ay as f32 - sy,
                 0.0,
                 rad_rot,
                 rx as f32,
@@ -1767,8 +1792,8 @@ impl DrawContext2D {
                 true,
             );
             self.vertices.get_mut(3).set_texture_data(
-                ax2 as f32,
-                ay2 as f32,
+                ax2 as f32 + sx - sk,
+                ay2 as f32 - sy,
                 0.0,
                 rad_rot,
                 rx as f32,

@@ -54,18 +54,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         let input = tmp.read().recover();
 
         window.draw_2d_pass(|ctx| {
-            if input.keys[input::KEY_C] {
-                ctx.color(RgbColor::red());
-                window.set_cursor(Cursor::None);
-            } else {
-                ctx.color(RgbColor::green());
-            }
-
-            if input.keystates[input::KEY_R] == input::State::JustPressed {
-                window.restore_cursor();
-            }
-
-            ctx.rectangle(100, 100, 100, 100);
+            ctx.text(false, 100, 100, 200, "Hello");
         });
     }
 

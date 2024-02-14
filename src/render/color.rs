@@ -238,31 +238,31 @@ impl Color<RGB, u8> {
 }
 
 impl Color<RGB, f32> {
-    pub fn white() -> Self {
+    pub const fn white() -> Self {
         Color::new(1.0, 1.0, 1.0, 1.0)
     }
-    pub fn black() -> Self {
+    pub const fn black() -> Self {
         Color::new(0.0, 0.0, 0.0, 1.0)
     }
-    pub fn red() -> Self {
+    pub const fn red() -> Self {
         Color::new(1.0, 0.0, 0.0, 1.0)
     }
-    pub fn green() -> Self {
+    pub const fn green() -> Self {
         Color::new(0.0, 1.0, 0.0, 1.0)
     }
-    pub fn blue() -> Self {
+    pub const fn blue() -> Self {
         Color::new(0.0, 0.0, 1.0, 1.0)
     }
-    pub fn yellow() -> Self {
+    pub const fn yellow() -> Self {
         Color::new(1.0, 1.0, 0.0, 1.0)
     }
-    pub fn magenta() -> Self {
+    pub const fn magenta() -> Self {
         Color::new(1.0, 0.0, 1.0, 1.0)
     }
-    pub fn cyan() -> Self {
+    pub const fn cyan() -> Self {
         Color::new(0.0, 1.0, 1.0, 1.0)
     }
-    pub fn transparent() -> Self {
+    pub const fn transparent() -> Self {
         Color::new(0.0, 0.0, 0.0, 0.0)
     }
 

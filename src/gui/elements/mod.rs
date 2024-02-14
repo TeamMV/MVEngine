@@ -1,3 +1,5 @@
+mod text;
+
 use crate::gui::styles::{GuiValue, Origin, Position, ResCon, Style};
 use crate::gui::Sides;
 use crate::render::draw2d::DrawContext2D;
@@ -12,13 +14,19 @@ pub struct GuiElementImpl {}
 
 impl GuiElementImpl {}
 
+pub trait DrawComponentBody {
+    fn draw_component_body(&self) where Self: GuiElement {
+
+    }
+}
+
 pub trait GuiElementCallbacks {
-    fn draw(&self, ctx: &mut DrawContext2D);
+    fn draw(&mut self, ctx: &mut DrawContext2D);
 }
 
 impl GuiElementCallbacks for GuiElementImpl {
-    fn draw(&self, ctx: &mut DrawContext2D) {
-        todo!()
+    fn draw(&mut self, ctx: &mut DrawContext2D) {
+
     }
 }
 

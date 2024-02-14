@@ -31,7 +31,7 @@ harness = false
 [profile.release]
 opt-level = 3
 strip = true
-lto = true
+lto = false
 debug = false
 codegen-units = 1
 panic = "unwind"

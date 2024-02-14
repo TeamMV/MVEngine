@@ -64,6 +64,8 @@ pub fn gui_element(input: TokenStream) -> TokenStream {
                     }
 
                     #implementation
+
+                    impl DrawComponentBody for #name {}
                 }
                 .into();
             }
@@ -211,7 +213,7 @@ pub fn gui_element_trait() -> TokenStream {
         proc_macro2::TokenStream::from_str(&a).unwrap()
     });
     quote! {
-        pub trait GuiElement: GuiElementCallbacks {
+        pub trait GuiElement: GuiElementCallbacks + DrawComponentBody {
             #( #functions )*
 
             fn compute_values(&mut self, ctx: &mut DrawContext2D) {

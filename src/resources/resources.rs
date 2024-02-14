@@ -9,6 +9,7 @@ use crate::render::color::{Color, Gradient, RGB};
 use crate::render::common::{Texture, TextureRegion};
 #[cfg(feature = "3d")]
 use crate::render::common3d::{Material, Model};
+use crate::render::text::Font;
 
 lazy! {
     static GLOBAL_RESOURCES: RwLock<GlobalResources> = GlobalResources::default().into();
@@ -43,6 +44,7 @@ impl R {
     impl_r!(materials, Material, true);
     impl_r!(colors, Color<RGB, f32>, true);
     impl_r!(gradients, Gradient<RGB, f32>, true);
+    impl_r!(fonts, Font);
 
     pub(crate) fn convert_texture_core(texture: &str, id: String) {
         let res = GLOBAL_RESOURCES.write_unchecked();
@@ -97,6 +99,7 @@ struct GlobalResources {
     materials: MutRes<Material>,
     colors: MutRes<Color<RGB, f32>>,
     gradients: MutRes<Gradient<RGB, f32>>,
+    fonts: Res<Font>
     //...
 }
 
