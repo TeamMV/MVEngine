@@ -3,11 +3,9 @@ use crate::render::draw2d::DrawContext2D;
 
 #[gui_element]
 pub struct GuiLabel {
-    text: String
+    text: String,
 }
 
 impl GuiElementCallbacks for GuiLabel {
-    fn draw(&mut self, ctx: &mut DrawContext2D) {
-
-    }
+    fn draw(&mut self, ctx: &mut DrawContext2D) {}
 }

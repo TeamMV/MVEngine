@@ -45,10 +45,10 @@ impl Transformation {
 }
 
 pub struct TextOptions {
-    skew: f32,
-    kerning: f32,
-    stretch_x: f32,
-    stretch_y: f32
+    pub skew: f32,
+    pub kerning: f32,
+    pub stretch_x: f32,
+    pub stretch_y: f32,
 }
 
 impl TextOptions {
@@ -64,7 +64,7 @@ impl TextOptions {
 
 pub struct DrawContext2D {
     trans: Transformation,
-    text_options: TextOptions,
+    pub text_options: TextOptions,
     size: [f32; 2],
     color: Gradient<RGB, f32>,
     font: Arc<Font>,
@@ -1334,6 +1334,202 @@ impl DrawContext2D {
         }
     }
 
+    pub fn ellipse_arc(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+    ) {
+        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, 0.0, x, y);
+    }
+
+    pub fn ellipse_arc_rotated(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+        rotation: f32,
+    ) {
+        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, rotation, x, y);
+    }
+
+    pub fn ellipse_arc_origin_rotated(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+        rotation: f32,
+        rx: i32,
+        ry: i32,
+    ) {
+        let r_range = std::f32::consts::TAU - (range as f32).to_radians();
+        let step = std::f32::consts::TAU / precision;
+        let rad_rot = rotation.to_radians();
+        let start = (start as f32).to_radians();
+        let mut i = start;
+        self.vertices.set_len(3);
+        while i < std::f32::consts::TAU - r_range + start {
+            self.vertices.get_mut(0).set_data(
+                x as f32 + radius_x as f32 * i.cos(),
+                y as f32 + radius_y as f32 * i.sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(1),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.vertices.get_mut(1).set_data(
+                x as f32 + radius_x as f32 * (i + step).cos(),
+                y as f32 + radius_y as f32 * (i + step).sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(1),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.vertices.get_mut(2).set_data(
+                x as f32,
+                y as f32,
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(0),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.batch.add_vertices(&self.vertices);
+            i += step;
+        }
+    }
+
+    pub fn void_ellipse_arc(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        thickness: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+    ) {
+        self.void_ellipse_arc_origin_rotated(x, y, radius_x, radius_y, thickness, range, start, precision, 0.0, 0, 0);
+    }
+
+    pub fn void_ellipse_arc_rotated(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        thickness: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+        rotation: f32,
+    ) {
+        self.void_ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, thickness, range, start, precision, rotation, x, y,
+        );
+    }
+
+    pub fn void_ellipse_arc_origin_rotated(
+        &mut self,
+        x: i32,
+        y: i32,
+        radius_x: i32,
+        radius_y: i32,
+        thickness: i32,
+        range: i32,
+        start: i32,
+        precision: f32,
+        rotation: f32,
+        rx: i32,
+        ry: i32,
+    ) {
+        let r_radius_x = radius_x - (thickness as f32 / 2.0).ceil() as i32;
+        let r_radius_y = radius_y - (thickness as f32 / 2.0).ceil() as i32;
+        let r_range = std::f32::consts::TAU - (range as f32).to_radians();
+        let step = std::f32::consts::TAU / precision;
+        let rad_rot = rotation.to_radians();
+
+        let start = (start as f32).to_radians();
+        let mut i = start;
+        self.vertices.set_len(4);
+        while i < std::f32::consts::TAU - r_range + start {
+            self.vertices.get_mut(0).set_data(
+                x as f32 + r_radius_x as f32 * i.cos(),
+                y as f32 + r_radius_y as f32 * i.sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(0),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.vertices.get_mut(1).set_data(
+                x as f32 + (r_radius_x + thickness) as f32 * i.cos(),
+                y as f32 + (r_radius_y + thickness) as f32 * i.sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(1),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.vertices.get_mut(2).set_data(
+                x as f32 + (r_radius_x + thickness) as f32 * (i + step).cos(),
+                y as f32 + (r_radius_y + thickness) as f32 * (i + step).sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(1),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.vertices.get_mut(3).set_data(
+                x as f32 + r_radius_x as f32 * (i + step).cos(),
+                y as f32 + r_radius_y as f32 * (i + step).sin(),
+                0.0,
+                rad_rot,
+                rx as f32,
+                ry as f32,
+                self.color.get(0),
+                self.trans.data,
+                self.use_cam,
+                false,
+            );
+            self.batch.add_vertices(&self.vertices);
+            i += step;
+        }
+    }
+
     pub fn line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, thickness: i32) {
         self.line_origin_rotated(x1, y1, x2, y2, thickness, 0.0, 0, 0);
     }
@@ -1717,10 +1913,10 @@ impl DrawContext2D {
 
             let y_off = glyph.get_y_offset(height) - height + glyph.get_height(height);
 
-            let ax = x + char_x + glyph.get_x_offset(height);                           //left
-            let ay = y - y_off;                                                         //bottom
-            let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height);//right
-            let ay2 = y + glyph.get_height(height) - y_off;                             //top
+            let ax = x + char_x + glyph.get_x_offset(height); //left
+            let ay = y - y_off; //bottom
+            let ax2 = x + char_x + glyph.get_x_offset(height) + glyph.get_width(height); //right
+            let ay2 = y + glyph.get_height(height) - y_off; //top
 
             if chroma {
                 self.reset_color();
@@ -1734,7 +1930,10 @@ impl DrawContext2D {
                 self.color.get_mut(2).copy_hue(d);
             }
 
-            char_x += glyph.get_x_advance(height) + self.text_options.stretch_x as i32 + self.text_options.skew as i32 + self.text_options.kerning as i32;
+            char_x += glyph.get_x_advance(height)
+                + self.text_options.stretch_x as i32
+                + self.text_options.skew as i32
+                + self.text_options.kerning as i32;
             let uv = glyph.get_uv();
 
             let tex = self
@@ -1792,7 +1991,7 @@ impl DrawContext2D {
                 true,
             );
             self.vertices.get_mut(3).set_texture_data(
-                ax2 as f32 + sx - sk,
+                ax2 as f32 + sx + sk,
                 ay2 as f32 - sy,
                 0.0,
                 rad_rot,

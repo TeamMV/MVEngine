@@ -12,12 +12,12 @@ use glam::Mat4;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
+use wgpu::core::command::RenderPass;
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
     RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView,
     TextureViewDescriptor,
 };
-use wgpu::core::command::RenderPass;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{
     ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
@@ -26,22 +26,27 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
+use crate::render::color::RgbColor;
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
-use crate::render::consts::{BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES, BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, MATERIAL_LIMIT, MAX_MATERIALS, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D};
-    #[cfg(feature = "3d")]
+#[cfg(feature = "3d")]
+use crate::render::common3d::Material;
+use crate::render::consts::{
+    BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
+    BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
+    BIND_GROUP_TEXTURES_3D, FONT_SMOOTHING, MATERIAL_LIMIT, MAX_MATERIALS, VERTEX_LAYOUT_2D,
+    VERTEX_LAYOUT_3D,
+};
+#[cfg(feature = "3d")]
 use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
 use crate::render::init::State;
 #[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
-use crate::render::text::FontLoader;
-use crate::render::{consts, ApplicationLoopCallbacks};
-use crate::render::color::RgbColor;
-#[cfg(feature = "3d")]
-use crate::render::common3d::Material;
 #[cfg(feature = "3d")]
 use crate::render::render3d::{ForwardPass, RenderPass3D};
+use crate::render::text::FontLoader;
+use crate::render::{consts, ApplicationLoopCallbacks};
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
@@ -166,7 +171,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     input_collector: DangerousCell<InputCollector>,
     cursor: DangerousCell<Cursor>,
     prev_cursor: DangerousCell<Cursor>,
-    internal_window: DangerousCell<Arc<Mutex<winit::window::Window>>>
+    internal_window: DangerousCell<Arc<Mutex<winit::window::Window>>>,
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
@@ -260,18 +265,20 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         //);
 
         #[cfg(feature = "3d")]
-        let forward_pass =
-            ForwardPass::new(forward_shader
-                                 .setup_pipeline(
-                                     &state, VERTEX_LAYOUT_3D,
-                                     &[BIND_GROUP_GEOMETRY_3D,
-                                         BIND_GROUP_MODEL_MATRIX,
-                                         BIND_GROUP_TEXTURES_3D,
-                                     ]),
-                             &state,
-                             Mat4::default(),
-                             Mat4::default()
-            );
+        let forward_pass = ForwardPass::new(
+            forward_shader.setup_pipeline(
+                &state,
+                VERTEX_LAYOUT_3D,
+                &[
+                    BIND_GROUP_GEOMETRY_3D,
+                    BIND_GROUP_MODEL_MATRIX,
+                    BIND_GROUP_TEXTURES_3D,
+                ],
+            ),
+            &state,
+            Mat4::default(),
+            Mat4::default(),
+        );
 
         //let mut tex = Texture::new(include_bytes!("textures/MVEngine.png").to_vec());
         //tex.make(&state);
@@ -458,7 +465,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     );
                     let tmp = self.input();
                     let input = tmp.read().recover();
-                    if index > 0 && index < input.keys.len() {  }
+                    if index > 0 && index < input.keys.len() {}
                     if input.keys[index] {
                         self.input_collector
                             .get_mut()
@@ -724,37 +731,39 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
         let verts: &[f32] = &[
-            100f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
-            0.0, 50f32, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
-            -50f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0
+            100f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 50f32, -10.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0, 1.0, -50f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
         ];
         let inds: &[u32] = &[0, 1, 2];
 
-        let mut render_pass = unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 0.0,
-                    }),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        let mut render_pass =
+            unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 0.0,
+                        }),
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
         let cam = self.camera_2d.read().recover();
 
-        self.forward_pass_3d
-            .get_mut()
-            .new_frame(&mut render_pass, cam.get_projection(), cam.get_view());
+        self.forward_pass_3d.get_mut().new_frame(
+            &mut render_pass,
+            cam.get_projection(),
+            cam.get_view(),
+        );
 
         let mut mat = Material::new();
         mat.diffuse = RgbColor::red();
@@ -762,7 +771,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let mut mats = [0; MATERIAL_LIMIT].map(|_| None);
         mats[0] = Some(Arc::new(mat));
 
-        self.forward_pass_3d.get_mut().render(inds, verts, &mats, &[Mat4::default()]);
+        self.forward_pass_3d
+            .get_mut()
+            .render(inds, verts, &mats, &[Mat4::default()]);
         self.forward_pass_3d.get_mut().finish();
 
         //self.deferred_pass_3d
@@ -861,7 +872,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     }
 
     pub fn set_cursor(&self, cur: Cursor) {
-        if *self.cursor.get() == cur { return; }
+        if *self.cursor.get() == cur {
+            return;
+        }
         self.prev_cursor.replace(*self.cursor.get());
         let lock = self.internal_window.get().lock().unwrap();
         if let Cursor::None = cur {

@@ -1,4 +1,4 @@
-use crate::input::raw::{Input};
+use crate::input::raw::Input;
 use crate::input::InputAction::{Keyboard, Mouse};
 use mvutils::utils::Recover;
 use std::sync::{Arc, RwLock};

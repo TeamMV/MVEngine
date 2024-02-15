@@ -1,12 +1,13 @@
-use std::{mem, ptr};
+use crate::err::panic;
+use mvutils::utils::Recover;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use mvutils::utils::Recover;
-use crate::err::panic;
+use std::{mem, ptr};
 
 pub trait Parser {
     fn parse(raw: Vec<u8>) -> Result<Self, String>
-    where Self: Sized;
+    where
+        Self: Sized;
 
     fn advance(&mut self) -> bool;
 
@@ -19,7 +20,10 @@ pub trait Parser {
     fn attrib(&self, name: String) -> Option<&str>;
 
     fn t_attrib<T>(&self, name: String) -> Option<T>
-    where T: FromStr, <T as FromStr>::Err: std::fmt::Debug {
+    where
+        T: FromStr,
+        <T as FromStr>::Err: std::fmt::Debug,
+    {
         let attrib = self.attrib(name);
         if let Some(attrib) = attrib {
             T::from_str(attrib).ok()
@@ -35,10 +39,13 @@ pub trait Parser {
     fn has_inner(&self) -> bool;
 
     fn inner(&self) -> Option<Self>
-    where Self: Sized;
+    where
+        Self: Sized;
 
     fn require_root(self, root: String) -> Option<Self>
-    where Self: Sized {
+    where
+        Self: Sized,
+    {
         let self_root = self.root();
         if !root.eq(&self_root) {
             panic!("Expected root {root}, found {self_root}");

@@ -1,15 +1,17 @@
+mod background;
 pub mod elements;
-pub mod styles;
 pub mod parsing;
+pub mod styles;
 
 pub mod element_file {
-    pub use mvcore_proc_macro::gui_element;
-    pub use crate::gui::elements::GuiElementCallbacks;
-    pub use crate::gui::elements::GuiElement;
+    pub use crate::gui::background::*;
     pub use crate::gui::elements::DrawComponentBody;
+    pub use crate::gui::elements::GuiElement;
+    pub use crate::gui::elements::GuiElementCallbacks;
     pub use crate::gui::styles::*;
-    pub use std::sync::Arc;
     pub use crate::gui::Sides;
+    pub use mvcore_proc_macro::gui_element;
+    pub use std::sync::Arc;
 }
 
 pub struct Sides {
@@ -25,5 +27,14 @@ impl Sides {
         self.bottom = data[1];
         self.left = data[2];
         self.right = data[3];
+    }
+
+    pub fn same(val: i32) -> Self {
+        Self {
+            top: val,
+            bottom: val,
+            left: val,
+            right: val,
+        }
     }
 }

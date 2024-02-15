@@ -1,3 +1,4 @@
+#![feature(new_uninit)]
 #![allow(unused_imports)]
 #![allow(clippy::too_many_arguments)]
 // These are temporary during development, unused functions and variables will need to be
@@ -8,8 +9,8 @@
 #![allow(unused_assignments)]
 //#![feature(specialization)]
 
-use std::sync::Arc;
 use log::LevelFilter;
+use std::sync::Arc;
 
 use mvsync::{MVSync, MVSyncSpecs};
 use mvutils::version::Version;
@@ -20,11 +21,11 @@ mod err;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod input;
+mod parsing;
 pub mod render;
 pub mod resources;
 #[cfg(feature = "vr")]
 pub mod vr;
-mod parsing;
 
 pub use mvcore_proc_macro::gui_element;
 

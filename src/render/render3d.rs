@@ -11,7 +11,7 @@ use wgpu::{
 };
 
 use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::common3d::{Material, DUMMY_MATERIAL, InstancedMaterial};
+use crate::render::common3d::{InstancedMaterial, Material, DUMMY_MATERIAL};
 use crate::render::consts::{
     DEFAULT_SAMPLER, DUMMY_TEXTURE, MATERIAL_LIMIT, MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT,
 };
@@ -55,12 +55,15 @@ pub(crate) struct MaterialTextureComBindEdGroup {
 macro_rules! remove {
     ($id:expr, $arr:expr, $view:expr) => {
         if $id > 0 {
-            if let Some((_, uses)) = &mut $arr[$id as usize] { 
+            if let Some((_, uses)) = &mut $arr[$id as usize] {
                 if *uses == 1 {
                     $arr[$id as usize] = None;
-                    $view[$id as usize] = unsafe { (DUMMY_TEXTURE.get_view() as *const TextureView).as_ref().unwrap() };
-                }
-                else {
+                    $view[$id as usize] = unsafe {
+                        (DUMMY_TEXTURE.get_view() as *const TextureView)
+                            .as_ref()
+                            .unwrap()
+                    };
+                } else {
                     *uses -= 1;
                 }
             }
@@ -85,7 +88,8 @@ macro_rules! add {
             if !found {
                 for i in 0..*MAX_TEXTURES {
                     if $arr[i].is_none() {
-                        $view[$index] = unsafe { (tex.get_view() as *const TextureView).as_ref().unwrap() };
+                        $view[$index] =
+                            unsafe { (tex.get_view() as *const TextureView).as_ref().unwrap() };
                         $arr[$index] = Some((tex.clone(), 1));
                         $inst = i as u16;
                         break;
@@ -131,7 +135,7 @@ impl MaterialTextureComBindEdGroup {
             material_buffer,
         }
     }
-    
+
     pub(crate) fn set(&mut self, index: usize, material: Arc<Material>) {
         if let Some((_, instanced_mat)) = &self.materials[index] {
             remove!(instanced_mat.diffuse_idx, self.textures, self.views);
@@ -146,14 +150,62 @@ impl MaterialTextureComBindEdGroup {
 
         let mut instanced: InstancedMaterial = material.clone().into();
 
-        add!(material.diffuse_texture, self.textures, self.views, instanced.diffuse_idx, index);
-        add!(material.metallic_roughness_texture, self.textures, self.views, instanced.metallic_idx, index);
-        add!(material.normal_texture, self.textures, self.views, instanced.normal_idx, index);
-        add!(material.specular_texture, self.textures, self.views, instanced.specular_idx, index);
-        add!(material.occlusion_texture, self.textures, self.views, instanced.occlusion_idx, index);
-        add!(material.reflection_texture, self.textures, self.views, instanced.reflection_idx, index);
-        add!(material.bump_texture, self.textures, self.views, instanced.bump_idx, index);
-        add!(material.emission_texture, self.textures, self.views, instanced.emission_idx, index);
+        add!(
+            material.diffuse_texture,
+            self.textures,
+            self.views,
+            instanced.diffuse_idx,
+            index
+        );
+        add!(
+            material.metallic_roughness_texture,
+            self.textures,
+            self.views,
+            instanced.metallic_idx,
+            index
+        );
+        add!(
+            material.normal_texture,
+            self.textures,
+            self.views,
+            instanced.normal_idx,
+            index
+        );
+        add!(
+            material.specular_texture,
+            self.textures,
+            self.views,
+            instanced.specular_idx,
+            index
+        );
+        add!(
+            material.occlusion_texture,
+            self.textures,
+            self.views,
+            instanced.occlusion_idx,
+            index
+        );
+        add!(
+            material.reflection_texture,
+            self.textures,
+            self.views,
+            instanced.reflection_idx,
+            index
+        );
+        add!(
+            material.bump_texture,
+            self.textures,
+            self.views,
+            instanced.bump_idx,
+            index
+        );
+        add!(
+            material.emission_texture,
+            self.textures,
+            self.views,
+            instanced.emission_idx,
+            index
+        );
 
         self.materials[index] = Some((material, instanced));
     }
@@ -206,7 +258,7 @@ pub(crate) struct TransformGroup {
     pub(crate) bind_group: BindGroup,
     buffer: Buffer,
     matrices: Vec<u8>,
-    index: u32
+    index: u32,
 }
 
 impl TransformGroup {
@@ -216,19 +268,17 @@ impl TransformGroup {
         let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Model matrices bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(index),
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                },
-            ],
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
         });
 
         Self {
             bind_group,
             buffer,
             matrices: Vec::new(),
-            index
+            index,
         }
     }
 
@@ -239,22 +289,20 @@ impl TransformGroup {
 
         if matrices.len() + 4 == self.matrices.len() {
             self.matrices = Vec::with_capacity(matrices.len() + 4);
-            self.matrices.append(&mut (amount as f32).to_ne_bytes().to_vec());
+            self.matrices
+                .append(&mut (amount as f32).to_ne_bytes().to_vec());
             self.matrices.append(&mut matrices.to_vec());
             state.queue.write_buffer(&self.buffer, 0, &self.matrices);
-        }
-        else {
+        } else {
             self.matrices = matrices.to_vec();
             self.buffer = state.gen_uniform_buffer(&self.matrices);
             self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Model matrices bind group"),
                 layout: &shader.get_pipeline().get_bind_group_layout(self.index),
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: self.buffer.as_entire_binding(),
-                    },
-                ],
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: self.buffer.as_entire_binding(),
+                }],
             });
         }
     }
@@ -361,7 +409,11 @@ impl RenderPass3D for ForwardPass {
                 return;
             }
             if num_instances != transforms.len() as u32 {
-                panic!("Invalid transformation matrix data! Expected {} instances, found {}", num_instances, transforms.len());
+                panic!(
+                    "Invalid transformation matrix data! Expected {} instances, found {}",
+                    num_instances,
+                    transforms.len()
+                );
             }
 
             let amount = transforms[0].len();
@@ -372,7 +424,10 @@ impl RenderPass3D for ForwardPass {
                 }
             }
 
-            let transforms = slice::from_raw_parts(transforms[0].as_ptr() as *const u8, amount * num_instances as usize * 64);
+            let transforms = slice::from_raw_parts(
+                transforms[0].as_ptr() as *const u8,
+                amount * num_instances as usize * 64,
+            );
 
             if self.ibo.len() <= self.pass {
                 let (vbo, ibo) = self.state.gen_buffers();

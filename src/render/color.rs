@@ -43,10 +43,7 @@ impl<U: Fmt, T: Default> Default for Color<U, T> {
 
 impl<U: Fmt, T: Default + PartialEq> PartialEq for Color<U, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.c1 == other.c1 &&
-            self.c2 == other.c2 &&
-            self.c3 == other.c3 &&
-            self.c4 == other.c4
+        self.c1 == other.c1 && self.c2 == other.c2 && self.c3 == other.c3 && self.c4 == other.c4
     }
 }
 
@@ -376,7 +373,9 @@ impl Color<HSV, f32> {
     }
 }
 
-const VALID: [char; 16] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+const VALID: [char; 16] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+];
 
 impl Parse for Color<RGB, u8> {
     fn parse(s: &str) -> Result<Self, &str> {
@@ -385,7 +384,11 @@ impl Parse for Color<RGB, u8> {
             if !(s.len() == 6 || s.len() == 8) {
                 return Err("# and 0x colors must contain 6 or 8 characters!");
             }
-            if !s.chars().map(|c| c.to_ascii_uppercase()).all(|c| VALID.contains(&c)) {
+            if !s
+                .chars()
+                .map(|c| c.to_ascii_uppercase())
+                .all(|c| VALID.contains(&c))
+            {
                 return Err("# and 0x colors must be hexadecimal characters!");
             }
             let colors = s.split_sized(2);

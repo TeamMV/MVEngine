@@ -172,18 +172,16 @@ impl State {
                     BIND_GROUP_MODEL_MATRIX,
                     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                         label: Some("Bind group layout model matrix"),
-                        entries: &[
-                            BindGroupLayoutEntry {
-                                binding: 0,
-                                visibility: ShaderStages::VERTEX,
-                                ty: BindingType::Buffer {
-                                    ty: BufferBindingType::Uniform,
-                                    has_dynamic_offset: false,
-                                    min_binding_size: Some(NonZeroU64::new_unchecked(4)),
-                                },
-                                count: None,
-                            }
-                        ],
+                        entries: &[BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: ShaderStages::VERTEX,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: Some(NonZeroU64::new_unchecked(4)),
+                            },
+                            count: None,
+                        }],
                     }),
                 );
                 groups.insert(

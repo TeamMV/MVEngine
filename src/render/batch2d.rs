@@ -38,8 +38,7 @@ pub(crate) trait BatchGen {
                 indices.insert((offset * 6 + 4) as usize, 0);
                 indices.insert((offset * 6 + 5) as usize, 0);
             }
-        }
-        else {
+        } else {
             for mut i in 0..amt {
                 if !indices.is_empty() {
                     indices.push(indices.len() as u32);
@@ -72,7 +71,6 @@ impl BatchGen for StrippedBatch {
     fn get_render_mode(&self) -> u8 {
         PipelineBuilder::RENDER_MODE_TRIANGLE_STRIP
     }
-
 
     fn batch_type(&self) -> BatchType {
         BatchType::Stripped

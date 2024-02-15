@@ -99,8 +99,7 @@ struct GlobalResources {
     materials: MutRes<Material>,
     colors: MutRes<Color<RGB, f32>>,
     gradients: MutRes<Gradient<RGB, f32>>,
-    fonts: Res<Font>
-    //...
+    fonts: Res<Font>, //...
 }
 
 pub struct Ref<T> {

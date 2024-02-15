@@ -12,9 +12,9 @@ pub trait GuiParsable<T: GuiElementCallbacks> {
 
 pub(crate) struct GuiParseSpec {
     tag_name: String,
-    attributes: Vec<String>
+    attributes: Vec<String>,
 }
 
 pub(crate) struct GuiElementParser {
-    parser: u32
+    parser: u32,
 }

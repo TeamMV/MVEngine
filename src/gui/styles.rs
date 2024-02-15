@@ -1,13 +1,13 @@
+use crate::gui::background::{Background, BackgroundInfo, RectangleBackground};
 use crate::gui::elements::{GuiElement, GuiElementImpl};
-use crate::gui::styles::Origin::Custom;
-use mvutils::unsafe_utils::Unsafe;
-use std::convert::Infallible;
-use std::sync::Arc;
-use num_traits::Num;
-use winit::event::VirtualKeyCode::O;
 use crate::render::color::RgbColor;
 use crate::render::text::Font;
 use crate::resources::resources::R;
+use mvutils::unsafe_utils::Unsafe;
+use num_traits::Num;
+use std::convert::Infallible;
+use std::sync::Arc;
+use winit::event::VirtualKeyCode::O;
 
 pub struct Style {
     //position
@@ -20,10 +20,11 @@ pub struct Style {
     pub origin: GuiValue<Origin>,
     pub position: GuiValue<Position>,
     pub rotation_origin: GuiValue<Origin>,
+    pub rotation: GuiValue<f32>,
 
     pub text: TextStyle,
 
-    pub background_color: GuiValue<RgbColor>
+    pub background: BackgroundInfo,
 }
 
 #[derive(Default, Clone, Copy, Eq, PartialEq)]
@@ -47,10 +48,30 @@ impl Origin {
     }
 
     pub fn get_custom(&self) -> Option<(i32, i32)> {
-        if let Custom(x, y) = self {
+        if let Origin::Custom(x, y) = self {
             Some((*x, *y))
         } else {
             None
+        }
+    }
+
+    pub fn resolve<E>(&self, elem: &E) -> Point<i32>
+    where
+        E: GuiElement + ?Sized,
+    {
+        match self {
+            Origin::TopLeft => Point::new(elem.border_x(), elem.border_y() + elem.height()),
+            Origin::BottomLeft => Point::new(elem.border_x(), elem.border_y()),
+            Origin::TopRight => Point::new(
+                elem.border_x() + elem.width(),
+                elem.border_y() + elem.height(),
+            ),
+            Origin::BottomRight => Point::new(elem.border_x() + elem.width(), elem.border_y()),
+            Origin::Center => Point::new(
+                elem.border_x() + elem.width() / 2,
+                elem.border_y() + elem.height() / 2,
+            ),
+            Origin::Custom(x, y) => Point::new(*x, *y),
         }
     }
 }
@@ -77,7 +98,7 @@ impl TextStyle {
             kerning: GuiValue::None,
             skew: GuiValue::None,
             stretch: GuiValue::None,
-            font: GuiValue::Auto
+            font: GuiValue::Auto,
         }
     }
 }
@@ -85,7 +106,25 @@ impl TextStyle {
 #[derive(Clone)]
 pub struct Dimension<T: Num + Clone> {
     pub width: T,
-    pub height: T
+    pub height: T,
+}
+
+impl<T: Num + Clone> Dimension<T> {
+    pub fn new(width: T, height: T) -> Self {
+        Self { width, height }
+    }
+}
+
+#[derive(Clone)]
+pub struct Point<T: Num + Clone> {
+    pub x: T,
+    pub y: T,
+}
+
+impl<T: Num + Clone> Point<T> {
+    pub fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
 }
 
 pub struct SideStyle {
@@ -183,19 +222,24 @@ fn no_parent<T>() -> T {
     panic!("Called Inherit on GuiElement without parent")
 }
 
-pub(crate) const DEFAULT_STYLE: Style = Style {
-    x: GuiValue::Just(0),
-    y: GuiValue::Just(0),
-    width: GuiValue::Just(0),
-    height: GuiValue::Just(0),
-    padding: SideStyle::all_i32(0),
-    margin: SideStyle::all_i32(0),
-    origin: GuiValue::Just(Origin::BottomLeft),
-    position: GuiValue::Just(Position::Relative),
-    rotation_origin: GuiValue::Just(Origin::Center),
-    text: TextStyle::initial(),
-    background_color: GuiValue::Just(RgbColor::white()),
-};
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            x: GuiValue::Just(0),
+            y: GuiValue::Just(0),
+            width: GuiValue::Just(0),
+            height: GuiValue::Just(0),
+            padding: SideStyle::all_i32(0),
+            margin: SideStyle::all_i32(0),
+            origin: GuiValue::Just(Origin::BottomLeft),
+            position: GuiValue::Just(Position::Relative),
+            rotation_origin: GuiValue::Just(Origin::Center),
+            rotation: GuiValue::Just(0.0),
+            text: TextStyle::initial(),
+            background: BackgroundInfo::default(),
+        }
+    }
+}
 
 #[macro_export]
 macro_rules! resolve {
@@ -208,7 +252,7 @@ macro_rules! resolve {
             }
             else {
                 log::error!("GuiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
-                $crate::gui::styles::DEFAULT_STYLE.$($style).*
+                $crate::gui::styles::Style::default().$($style).*
                 .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }

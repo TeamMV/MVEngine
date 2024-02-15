@@ -33,10 +33,7 @@ pub struct Model {
 
 impl Model {
     pub fn texture_count(&self) -> u32 {
-        self.materials
-            .iter()
-            .map(|mat| mat.texture_count())
-            .sum()
+        self.materials.iter().map(|mat| mat.texture_count()).sum()
     }
 
     pub fn vertex_count(&self) -> u32 {
@@ -194,20 +191,18 @@ pub struct Material {
     pub specular: Color<RGB, f32>,
     pub emission: Color<RGB, f32>,
     //16 floats
-
     pub alpha: f32,
     pub specular_exponent: f32,
     pub metallic: f32,
     pub roughness: f32,
     //4 floats
-
-    pub diffuse_texture: Option<Arc<Texture>>,//main color map
+    pub diffuse_texture: Option<Arc<Texture>>, //main color map
     pub metallic_roughness_texture: Option<Arc<Texture>>,
     pub normal_texture: Option<Arc<Texture>>,
-    pub specular_texture: Option<Arc<Texture>>,//light spots
+    pub specular_texture: Option<Arc<Texture>>, //light spots
     pub occlusion_texture: Option<Arc<Texture>>,
     pub reflection_texture: Option<Arc<Texture>>,
-    pub bump_texture: Option<Arc<Texture>>,//same as normal, only z values with black/white gradient
+    pub bump_texture: Option<Arc<Texture>>, //same as normal, only z values with black/white gradient
     pub emission_texture: Option<Arc<Texture>>,
     //8 floats
 }
@@ -230,7 +225,6 @@ impl Material {
             //illumination: 1,
             //sharpness: 0,
             //optical_density: 0.0,
-
             diffuse_texture: None,
             metallic_roughness_texture: None,
             normal_texture: None,
@@ -296,13 +290,11 @@ pub(crate) struct InstancedMaterial {
     pub specular: Color<RGB, f32>,
     pub emission: Color<RGB, f32>,
     //16 floats
-
     pub alpha: f32,
     pub specular_exponent: f32,
     pub metallic: f32,
     pub roughness: f32,
     //4 floats
-
     pub(crate) diffuse_idx: u16,
     pub(crate) metallic_idx: u16,
     pub(crate) normal_idx: u16,
@@ -348,21 +340,21 @@ impl InstancedMaterial {
     }
 
     pub(crate) fn adapt(&mut self, mat: &Material) -> bool {
-        let changed = self.ambient == mat.ambient ||
-        self.ambient == mat.ambient ||
-        self.diffuse == mat.diffuse ||
-        self.specular == mat.specular ||
-        self.emission == mat.emission ||
-        self.alpha ==  mat.alpha ||
-        self.specular_exponent == mat.specular_exponent ||
-        self.metallic == mat.metallic ||
-        self.roughness == mat.roughness;
+        let changed = self.ambient == mat.ambient
+            || self.ambient == mat.ambient
+            || self.diffuse == mat.diffuse
+            || self.specular == mat.specular
+            || self.emission == mat.emission
+            || self.alpha == mat.alpha
+            || self.specular_exponent == mat.specular_exponent
+            || self.metallic == mat.metallic
+            || self.roughness == mat.roughness;
 
         self.ambient = mat.ambient;
         self.diffuse = mat.diffuse;
         self.specular = mat.specular;
         self.emission = mat.emission;
-        self.alpha =  mat.alpha;
+        self.alpha = mat.alpha;
         self.specular_exponent = mat.specular_exponent;
         self.metallic = mat.metallic;
         self.roughness = mat.roughness;
