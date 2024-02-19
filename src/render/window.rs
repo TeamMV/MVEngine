@@ -20,9 +20,10 @@ use wgpu::{
 };
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{
-    ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
+    ElementState, Event, MouseScrollDelta, StartCause, WindowEvent,
 };
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget};
+use winit::keyboard::PhysicalKey;
 use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
@@ -181,7 +182,7 @@ unsafe impl<T: ApplicationLoopCallbacks> Sync for Window<T> {}
 impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
     pub fn run(mut specs: WindowSpecs, application_loop: T) {
-        let event_loop = EventLoop::new();
+        let event_loop = EventLoop::new().expect("Event loop already created!");
         let internal_window = WindowBuilder::new()
             .with_transparent(specs.transparent)
             .with_decorations(specs.decorated)
@@ -367,14 +368,27 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         drop(internal_window_lock);
 
-        event_loop.run(move |event, _, control_flow| match event {
+        event_loop.run(move |event, target| match event {
             Event::NewEvents(cause) => if cause == StartCause::Init {},
             Event::WindowEvent { event, window_id } if window_id == id => {
-                window.process_window_event(event, window_id, control_flow);
+                if event == WindowEvent::RedrawRequested {
+                    match window.render() {
+                        Ok(_) => {}
+                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
+                            window.specs.get().width,
+                            window.specs.get().height,
+                        )),
+                        Err(SurfaceError::OutOfMemory) => target.exit(),
+                        Err(e) => eprintln!("{:?}", e),
+                    }
+                }
+                else {
+                    window.process_window_event(event, window_id, target);
+                }
             }
-            Event::MainEventsCleared => {
+            Event::AboutToWait => {
                 if *window.close.get() {
-                    *control_flow = ControlFlow::Exit;
+                    target.exit();
                     return;
                 }
                 delta_f += now
@@ -413,42 +427,27 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     timer = SystemTime::now();
                 }
             }
-            Event::RedrawRequested(window_id) => {
-                if window_id == id {
-                    match window.render() {
-                        Ok(_) => {}
-                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
-                            window.specs.get().width,
-                            window.specs.get().height,
-                        )),
-                        Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        Err(e) => eprintln!("{:?}", e),
-                    }
-                }
-            }
-            Event::LoopDestroyed => {
+            Event::LoopExiting => {
                 window.application_loop.exit(window.clone());
             }
             _ => {}
-        });
+        }).expect("Error: Window main loop crashed!");
     }
 
     fn process_window_event(
         self: &Arc<Self>,
         event: WindowEvent,
         _id: WindowId,
-        control_flow: &mut ControlFlow,
+        target: &EventLoopWindowTarget<()>,
     ) {
         match event {
             WindowEvent::Resized(size) => {
                 self.resize(size);
             }
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                self.resize(*new_inner_size);
-            }
+            //WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {}
             WindowEvent::Moved(_pos) => {}
             WindowEvent::CloseRequested => {
-                *control_flow = ControlFlow::Exit;
+                target.exit();
             }
             WindowEvent::DroppedFile(_path) => {}
             WindowEvent::HoveredFile(_path) => {}
@@ -456,13 +455,15 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::Focused(_focus) => {}
             WindowEvent::KeyboardInput {
                 device_id,
-                input,
+                event,
                 is_synthetic,
             } => {
-                if let ElementState::Pressed = input.state {
-                    let index = Input::key_from_winit(
-                        input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape),
-                    );
+                let index = if let PhysicalKey::Code(code) = event.physical_key {
+                    Input::key_from_winit(code)
+                } else {
+                    return;
+                };
+                if let ElementState::Pressed = event.state {
                     let tmp = self.input();
                     let input = tmp.read().recover();
                     if index > 0 && index < input.keys.len() {}
@@ -481,12 +482,10 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     drop(input);
                 }
 
-                if let ElementState::Released = input.state {
+                if let ElementState::Released = event.state {
                     self.input_collector
                         .get_mut()
-                        .collect(InputAction::Keyboard(KeyboardAction::Release(
-                            Input::key_from_winit(input.virtual_keycode.unwrap()),
-                        )));
+                        .collect(InputAction::Keyboard(KeyboardAction::Release(index)));
                 }
             }
             WindowEvent::ModifiersChanged(_mods) => {}
@@ -757,7 +756,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 occlusion_query_set: None,
             });
 
-        let cam = self.camera_2d.read().recover();
+        let cam = self.camera_3d.read().recover();
 
         self.forward_pass_3d.get_mut().new_frame(
             &mut render_pass,
@@ -971,14 +970,14 @@ impl Cursor {
     pub(crate) fn map_to_winit(&self) -> CursorIcon {
         match self {
             Cursor::None => CursorIcon::Default,
-            Cursor::Arrow => CursorIcon::Arrow,
+            Cursor::Arrow => CursorIcon::Default,
             Cursor::Busy => CursorIcon::Wait,
             Cursor::SoftBusy => CursorIcon::Progress,
             Cursor::ResizeX => CursorIcon::EwResize,
             Cursor::ResizeY => CursorIcon::NsResize,
             Cursor::ResizeXY => CursorIcon::NwseResize,
             Cursor::Move => CursorIcon::Move,
-            Cursor::Pointer => CursorIcon::Hand,
+            Cursor::Pointer => CursorIcon::Pointer,
             Cursor::Denied => CursorIcon::NotAllowed,
             Cursor::Text => CursorIcon::Text,
 

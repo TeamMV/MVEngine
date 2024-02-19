@@ -1,9 +1,11 @@
+use std::alloc::Layout;
 use std::cmp::min;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::Arc;
 
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
+use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -36,7 +38,7 @@ use crate::render::window::WindowSpecs;
 use crate::render::common3d::Material;
 
 pub(crate) struct State {
-    pub(crate) surface: Surface,
+    pub(crate) surface: Surface<'static>,
     pub(crate) device: Device,
     pub(crate) queue: Queue,
     pub(crate) config: SurfaceConfiguration,
@@ -57,9 +59,20 @@ impl State {
                 gles_minor_version: Default::default(),
             });
 
-            let surface = instance
-                .create_surface(window)
-                .expect("Could not create window surface!");
+            let surface = {
+                let temp = instance
+                    .create_surface(window)
+                    .expect("Could not create window surface!");
+
+                // This is a hacky trick we use to generate a static lifetime, where we cast a pointer to () and then back to the object.
+                // We can do this since we know that the Surface and the lifetime it provides will ALWAYS outlive the State in our program.
+                let ptr = std::alloc::alloc(Layout::new::<Surface>()) as *mut Surface;
+                ptr.write(temp);
+                let ptr = ptr as *const ();
+                let read_value = std::ptr::read(ptr as *const Surface);
+                std::alloc::dealloc(ptr as *mut u8, Layout::new::<Surface>());
+                read_value
+            };
 
             let adapter = instance.request_adapter(
                 &RequestAdapterOptions {
@@ -80,8 +93,8 @@ impl State {
             let (device, queue) = adapter
                 .request_device(
                     &DeviceDescriptor {
-                        features: adapter.features(),
-                        limits: adapter.limits(),
+                        required_features: adapter.features(),
+                        required_limits: adapter.limits(),
                         label: Some("GPU"),
                     },
                     None,
@@ -110,6 +123,7 @@ impl State {
                 present_mode: specs
                     .vsync
                     .yn(PresentMode::AutoVsync, PresentMode::AutoNoVsync),
+                desired_maximum_frame_latency: 2,
                 alpha_mode: surface_alpha,
                 view_formats: vec![],
             };

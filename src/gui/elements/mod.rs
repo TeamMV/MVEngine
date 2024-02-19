@@ -42,10 +42,8 @@ impl GuiElementImpl {
 }
 
 pub trait DrawComponentBody {
-    fn draw_component_body(&self, ctx: &mut DrawContext2D)
-    where
-        Self: GuiElement, {
-        todo!()
+    fn draw_component_body(&self, ctx: &mut DrawContext2D) {
+
     }
 }
 

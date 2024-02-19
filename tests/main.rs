@@ -1,18 +1,13 @@
 use mvutils::once::CreateOnce;
-use mvutils::utils::Recover;
-use std::sync::{Arc, RwLock};
-use mvutils::unsafe_utils::DangerousCell;
+use std::sync::Arc;
 
 use mvutils::version::Version;
 
-use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
-use mvcore::render::window::{Cursor, Window, WindowSpecs};
+use mvcore::render::window::{Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::{input, ApplicationInfo, MVCore};
-use mvcore::gui::element_file::{Background, GuiValue, RoundedBackground};
-use mvcore::gui::elements::{GuiElement, GuiElementImpl};
-use mvcore::gui::styles::Dimension;
+use mvcore::{ApplicationInfo, MVCore};
+use mvcore::render::color::RgbColor;
 
 fn main() {
     let core = MVCore::new(ApplicationInfo {
@@ -33,14 +28,14 @@ fn main() {
         specs,
         ApplicationLoop {
             tex: CreateOnce::new(),
-            elem: Arc::new(RwLock::new(GuiElementImpl::test())),
+            // elem: Arc::new(RwLock::new(GuiElementImpl::test())),
         },
     );
 }
 
 struct ApplicationLoop {
     tex: CreateOnce<Arc<TextureRegion>>,
-    elem: Arc<RwLock<GuiElementImpl>>
+    // elem: Arc<RwLock<GuiElementImpl>>
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
@@ -50,35 +45,36 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
                 window.create_texture(include_bytes!("cursor.png").to_vec()),
             )))
         });
-        window.set_cursor(Cursor::SoftBusy);
     }
 
     fn update(&self, window: Arc<Window<Self>>) {}
 
     fn draw(&self, window: Arc<Window<Self>>) {
-        let tmp = window.input();
-        let input = tmp.read().recover();
-
-        let mut g = self.elem.write().recover();
-
-        g.style_mut().background.border_color = GuiValue::Just(RgbColor::white());
-        g.style_mut().background.main_color = GuiValue::Just(RgbColor::blue());
-        let bg = RoundedBackground::new(Dimension::new(100, 50));
-
+        // let tmp = window.input();
+        // let input = tmp.read().recover();
+        //
+        // let mut g = self.elem.write().recover();
+        //
+        // g.style_mut().background.border_color = GuiValue::Just(RgbColor::white());
+        // g.style_mut().background.main_color = GuiValue::Just(RgbColor::blue());
+        // let bg = RoundedBackground::new(Dimension::new(100, 50));
+        //
         window.draw_2d_pass(|ctx| {
-            //ctx.text_options.kerning = 20.0;
-            //ctx.text_options.skew = 20.0;
-            //ctx.color(RgbColor::white());
-            //ctx.text(false, 100, 100, 200, "Hello");
-            //ctx.color(RgbColor::red());
-            //ctx.ellipse_arc(200, 200, 200, 100, 90, 0, 200.0);
-            g.compute_values(ctx);
-            let mut a = self.elem.clone();
-            bg.draw(ctx, Arc::new(a.into_inner().unwrap()));
+            ctx.text_options.kerning = 20.0;
+            ctx.text_options.skew = 20.0;
+            ctx.color(RgbColor::white());
+            ctx.text(false, 100, 100, 200, "Hello");
+            ctx.color(RgbColor::red());
+            ctx.ellipse_arc(200, 200, 200, 100, 90, 0, 200.0);
+            ctx.color(RgbColor::transparent());
+            ctx.image(300, 300, 150, 150, self.tex.clone());
+            // g.compute_values(ctx);
+            // let mut a = self.elem.clone();
+            // bg.draw(ctx, Arc::new(a.into_inner().unwrap()));
         });
-
-        drop(g);
-        drop(bg);
+        //
+        // drop(g);
+        // drop(bg);
     }
 
     fn effect(&self, window: Arc<Window<Self>>) {

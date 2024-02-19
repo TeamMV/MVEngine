@@ -31,7 +31,7 @@ harness = false
 [profile.release]
 opt-level = 3
 strip = true
-lto = false
+lto = true
 debug = false
 codegen-units = 1
 panic = "unwind"
@@ -64,11 +64,9 @@ shaderc = "0.8.3"
 openal = "0.2.2"
 image = "0.24.8"
 
-# un-updatable dependecies
-# Do not update past 0.28.4 due to change in input (VirtualKeyCode -> Key(KeyCode || char)), this breaks our input system
-winit = "0.28.4"
-# Do not update past 0.18.0 due to change requiring newer winit version, and lifetime in Surface, which is a breaking change, breaking most of our code
-wgpu = { version = "0.18.0", features = ["spirv"] }
+# graphics dependencies
+winit = "0.29.10"
+wgpu = { version = "0.19.1", features = ["spirv"] }
 
 # to be replaced
 # ideally remove, for more lightweight one, or custom math for the limited functionality we need.

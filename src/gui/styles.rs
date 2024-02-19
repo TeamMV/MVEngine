@@ -7,7 +7,6 @@ use mvutils::unsafe_utils::Unsafe;
 use num_traits::Num;
 use std::convert::Infallible;
 use std::sync::Arc;
-use winit::event::VirtualKeyCode::O;
 
 pub struct Style {
     //position
