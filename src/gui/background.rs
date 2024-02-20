@@ -88,9 +88,7 @@ pub struct RoundedBackground {
 
 impl RoundedBackground {
     pub fn new(radii: Dimension<i32>) -> Self {
-        Self {
-            radius: radii,
-        }
+        Self { radius: radii }
     }
 }
 
@@ -111,7 +109,7 @@ impl Background for RoundedBackground {
             elem.height(),
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.rectangle_origin_rotated(
@@ -121,7 +119,7 @@ impl Background for RoundedBackground {
             elem.height() - 2 * self.radius.height,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.rectangle_origin_rotated(
@@ -131,7 +129,7 @@ impl Background for RoundedBackground {
             elem.height() - 2 * self.radius.height,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.ellipse_arc_origin_rotated(
@@ -144,7 +142,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.ellipse_arc_origin_rotated(
@@ -157,7 +155,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.ellipse_arc_origin_rotated(
@@ -170,7 +168,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.ellipse_arc_origin_rotated(
@@ -183,7 +181,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         let border = resolve!(elem, background.border_color);
@@ -199,7 +197,7 @@ impl Background for RoundedBackground {
             border_width,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.rectangle_origin_rotated(
@@ -209,7 +207,7 @@ impl Background for RoundedBackground {
             border_width,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.rectangle_origin_rotated(
@@ -219,7 +217,7 @@ impl Background for RoundedBackground {
             elem.height() - 2 * self.radius.height,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.rectangle_origin_rotated(
@@ -229,7 +227,7 @@ impl Background for RoundedBackground {
             elem.height() - 2 * self.radius.height,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.void_ellipse_arc_origin_rotated(
@@ -243,7 +241,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.void_ellipse_arc_origin_rotated(
@@ -257,7 +255,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.void_ellipse_arc_origin_rotated(
@@ -271,7 +269,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
 
         ctx.void_ellipse_arc_origin_rotated(
@@ -285,7 +283,7 @@ impl Background for RoundedBackground {
             prec,
             rot,
             rot_origin.x,
-            rot_origin.y
+            rot_origin.y,
         );
     }
 }

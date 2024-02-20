@@ -19,9 +19,7 @@ use wgpu::{
     TextureViewDescriptor,
 };
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{
-    ElementState, Event, MouseScrollDelta, StartCause, WindowEvent,
-};
+use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget};
 use winit::keyboard::PhysicalKey;
 use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
@@ -368,70 +366,71 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         drop(internal_window_lock);
 
-        event_loop.run(move |event, target| match event {
-            Event::NewEvents(cause) => if cause == StartCause::Init {},
-            Event::WindowEvent { event, window_id } if window_id == id => {
-                if event == WindowEvent::RedrawRequested {
-                    match window.render() {
-                        Ok(_) => {}
-                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
-                            window.specs.get().width,
-                            window.specs.get().height,
-                        )),
-                        Err(SurfaceError::OutOfMemory) => target.exit(),
-                        Err(e) => eprintln!("{:?}", e),
+        event_loop
+            .run(move |event, target| match event {
+                Event::NewEvents(cause) => if cause == StartCause::Init {},
+                Event::WindowEvent { event, window_id } if window_id == id => {
+                    if event == WindowEvent::RedrawRequested {
+                        match window.render() {
+                            Ok(_) => {}
+                            Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
+                                window.specs.get().width,
+                                window.specs.get().height,
+                            )),
+                            Err(SurfaceError::OutOfMemory) => target.exit(),
+                            Err(e) => eprintln!("{:?}", e),
+                        }
+                    } else {
+                        window.process_window_event(event, window_id, target);
                     }
                 }
-                else {
-                    window.process_window_event(event, window_id, target);
+                Event::AboutToWait => {
+                    if *window.close.get() {
+                        target.exit();
+                        return;
+                    }
+                    delta_f += now
+                        .elapsed()
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "System clock error: Time elapsed of -{}ns is not valid!",
+                                e.duration().as_nanos()
+                            )
+                        })
+                        .as_nanos() as f32
+                        / time_f;
+                    now = SystemTime::now();
+                    if delta_f >= 1.0 {
+                        let lock = internal_window.lock().unwrap();
+                        lock.request_redraw();
+                        drop(lock);
+                        frames += 1;
+                        delta_f -= 1.0;
+                        *window.frame.get_mut() += 1;
+                    }
+                    if timer
+                        .elapsed()
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "System clock error: Time elapsed of -{}ms is not valid!",
+                                e.duration().as_millis()
+                            )
+                        })
+                        .as_millis()
+                        >= 1000
+                    {
+                        *window.fps.get_mut() = frames;
+                        println!("{}", frames);
+                        frames = 0;
+                        timer = SystemTime::now();
+                    }
                 }
-            }
-            Event::AboutToWait => {
-                if *window.close.get() {
-                    target.exit();
-                    return;
+                Event::LoopExiting => {
+                    window.application_loop.exit(window.clone());
                 }
-                delta_f += now
-                    .elapsed()
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "System clock error: Time elapsed of -{}ns is not valid!",
-                            e.duration().as_nanos()
-                        )
-                    })
-                    .as_nanos() as f32
-                    / time_f;
-                now = SystemTime::now();
-                if delta_f >= 1.0 {
-                    let lock = internal_window.lock().unwrap();
-                    lock.request_redraw();
-                    drop(lock);
-                    frames += 1;
-                    delta_f -= 1.0;
-                    *window.frame.get_mut() += 1;
-                }
-                if timer
-                    .elapsed()
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "System clock error: Time elapsed of -{}ms is not valid!",
-                            e.duration().as_millis()
-                        )
-                    })
-                    .as_millis()
-                    >= 1000
-                {
-                    *window.fps.get_mut() = frames;
-                    println!("{}", frames);
-                    frames = 0;
-                    timer = SystemTime::now();
-                }
-            }
-            Event::LoopExiting => {
-                window.application_loop.exit(window.clone());
-            }
-            _ => {}
-        }).expect("Error: Window main loop crashed!");
+                _ => {}
+            })
+            .expect("Error: Window main loop crashed!");
     }
 
     fn process_window_event(

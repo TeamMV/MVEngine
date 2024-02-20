@@ -59,20 +59,13 @@ impl State {
                 gles_minor_version: Default::default(),
             });
 
-            let surface = {
-                let temp = instance
+            // Transmute to get rid of the generic lifetime
+            // We can do this since we know that the Surface and the lifetime it provides will ALWAYS outlive the State in our program.
+            let surface = std::mem::transmute(
+                instance
                     .create_surface(window)
-                    .expect("Could not create window surface!");
-
-                // This is a hacky trick we use to generate a static lifetime, where we cast a pointer to () and then back to the object.
-                // We can do this since we know that the Surface and the lifetime it provides will ALWAYS outlive the State in our program.
-                let ptr = std::alloc::alloc(Layout::new::<Surface>()) as *mut Surface;
-                ptr.write(temp);
-                let ptr = ptr as *const ();
-                let read_value = std::ptr::read(ptr as *const Surface);
-                std::alloc::dealloc(ptr as *mut u8, Layout::new::<Surface>());
-                read_value
-            };
+                    .expect("Could not create window surface!"),
+            );
 
             let adapter = instance.request_adapter(
                 &RequestAdapterOptions {

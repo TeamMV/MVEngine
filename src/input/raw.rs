@@ -1,5 +1,5 @@
 use super::consts::*;
-use winit::event::{MouseButton};
+use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
