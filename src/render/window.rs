@@ -771,7 +771,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         self.forward_pass_3d
             .get_mut()
-            .render(inds, verts, &mats, &[Mat4::default()]);
+            .render(inds, verts, &mats, &[Mat4::IDENTITY]);
         self.forward_pass_3d.get_mut().finish();
 
         //self.deferred_pass_3d

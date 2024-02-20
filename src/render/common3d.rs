@@ -216,8 +216,8 @@ impl Material {
     pub fn new() -> Self {
         Material {
             id: mvutils::utils::next_id("MVCore::Material"),
-            ambient: Color::<RGB, f32>::new(0.2, 0.2, 0.2, 1.0),
-            diffuse: Color::<RGB, f32>::new(0.8, 0.8, 0.8, 1.0),
+            ambient: Color::<RGB, f32>::white(),
+            diffuse: Color::<RGB, f32>::white(),
             specular: Color::<RGB, f32>::white(),
             alpha: 1.0,
             //transmission_filter: 0.0,
@@ -236,7 +236,7 @@ impl Material {
 
             metallic: 1.0,
             roughness: 1.0,
-            emission: Color::<RGB, f32>::black(),
+            emission: Color::<RGB, f32>::transparent(),
             //alpha_mode: AlphaMode::Opaque,
             //alpha_cutoff: 0.5,
         }
