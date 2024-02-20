@@ -8,17 +8,7 @@ use mvsync::block::AwaitSync;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{
-    AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
-    Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode,
-    DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState,
-    FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode,
-    PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions,
-    SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState,
-};
+use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, Features, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
 use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
@@ -83,10 +73,14 @@ impl State {
 
             let _ = MAX_MATERIALS.try_create(|| MATERIAL_LIMIT);
 
+            let mut features = adapter.features();
+
+            features.set(Features::MAPPABLE_PRIMARY_BUFFERS, false);
+
             let (device, queue) = adapter
                 .request_device(
                     &DeviceDescriptor {
-                        required_features: adapter.features(),
+                        required_features: features,
                         required_limits: adapter.limits(),
                         label: Some("GPU"),
                     },
