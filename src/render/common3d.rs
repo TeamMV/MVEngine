@@ -155,7 +155,7 @@ impl RawMesh {
 
 pub struct PreparedMesh {
     name: String,
-    data: Vec<(Vec<u32>, Vec<f32>, u16, u32)>,
+    pub(crate) data: Vec<(Vec<u32>, Vec<f32>, u16, u32)>,
     vert_count: u32,
 }
 

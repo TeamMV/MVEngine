@@ -177,17 +177,17 @@ impl<I: ApplicationLoopCallbacks> OBJModelLoader<I> {
         available_materials.insert(0, Material::default());
 
         todo!()
-        //Model {
-        //    mesh: RawMesh {
+        // Model {
+        //    mesh: Mesh::Raw(RawMesh {
         //        name,
         //        vertices,
         //        indices,
         //        normals,
         //        tex_coords,
         //        materials,
-        //    },
+        //    }),
         //    materials: available_materials,
-        //}
+        // }
     }
 
     fn load_materials(
