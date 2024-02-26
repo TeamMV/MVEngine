@@ -34,7 +34,7 @@ const ARGS: [(&str, &str, bool); 21] = [
     ("background", "Option<Arc<dyn Background>>", true),
 ];
 
-pub fn Ui_element(input: TokenStream) -> TokenStream {
+pub fn ui_element(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     match input.data {
@@ -70,9 +70,9 @@ pub fn Ui_element(input: TokenStream) -> TokenStream {
                 }
                 .into();
             }
-            _ => panic!("#[Ui_element] can only be used on a named struct."),
+            _ => panic!("#[ui_element] can only be used on a named struct."),
         },
-        _ => panic!("#[Ui_element] can only be used on a named struct."),
+        _ => panic!("#[ui_element] can only be used on a named struct."),
     }
 }
 
@@ -150,7 +150,7 @@ fn gen_impl(name: &Ident, generics: &Generics) -> proc_macro2::TokenStream {
     }
 }
 
-pub fn Ui_element_trait() -> TokenStream {
+pub fn ui_element_trait() -> TokenStream {
     let functions = ARGS.iter().map(|(name, ty, mutable)| {
         let a = if ty == &"String" {
             format!(
