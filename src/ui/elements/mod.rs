@@ -43,12 +43,7 @@ impl UiElementImpl {
 }
 
 pub trait DrawComponentBody {
-    fn draw_component_body(&self, ctx: &mut DrawContext2D)
-    where
-        Self: UiElement,
-    {
-        todo!()
-    }
+    fn draw_component_body(&self, ctx: &mut DrawContext2D) {}
 }
 
 pub trait UiElementCallbacks {

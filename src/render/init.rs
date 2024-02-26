@@ -1,22 +1,14 @@
+use std::alloc::Layout;
 use std::cmp::min;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::Arc;
 
 use itertools::Itertools;
 use mvsync::block::AwaitSync;
+use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{
-    AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
-    Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode,
-    DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, FilterMode, FragmentState,
-    FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode,
-    PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions,
-    SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState,
-};
+use wgpu::{AddressMode, Backend, Backends, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, ColorWrites, CompositeAlphaMode, DepthStencilState, Device, DeviceDescriptor, Extent3d, Face, Features, FilterMode, FragmentState, FrontFace, IndexFormat, InstanceDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RequestAdapterOptions, SamplerDescriptor, ShaderModule, ShaderStages, StencilState, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState};
 use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
@@ -36,7 +28,7 @@ use crate::render::window::WindowSpecs;
 use crate::render::common3d::Material;
 
 pub(crate) struct State {
-    pub(crate) surface: Surface,
+    pub(crate) surface: Surface<'static>,
     pub(crate) device: Device,
     pub(crate) queue: Queue,
     pub(crate) config: SurfaceConfiguration,
@@ -57,9 +49,13 @@ impl State {
                 gles_minor_version: Default::default(),
             });
 
-            let surface = instance
-                .create_surface(window)
-                .expect("Could not create window surface!");
+            // Transmute to get rid of the generic lifetime
+            // We can do this since we know that the Surface and the lifetime it provides will ALWAYS outlive the State in our program.
+            let surface = std::mem::transmute(
+                instance
+                    .create_surface(window)
+                    .expect("Could not create window surface!"),
+            );
 
             let adapter = instance.request_adapter(
                 &RequestAdapterOptions {
@@ -77,11 +73,15 @@ impl State {
 
             let _ = MAX_MATERIALS.try_create(|| MATERIAL_LIMIT);
 
+            let mut features = adapter.features();
+
+            features.set(Features::MAPPABLE_PRIMARY_BUFFERS, false);
+
             let (device, queue) = adapter
                 .request_device(
                     &DeviceDescriptor {
-                        features: adapter.features(),
-                        limits: adapter.limits(),
+                        required_features: features,
+                        required_limits: adapter.limits(),
                         label: Some("GPU"),
                     },
                     None,
@@ -110,6 +110,7 @@ impl State {
                 present_mode: specs
                     .vsync
                     .yn(PresentMode::AutoVsync, PresentMode::AutoNoVsync),
+                desired_maximum_frame_latency: 2,
                 alpha_mode: surface_alpha,
                 view_formats: vec![],
             };

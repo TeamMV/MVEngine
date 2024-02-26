@@ -37,7 +37,7 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
-        mvlogger::init(std::io::stdout(), LevelFilter::Off);
+        mvlogger::init(std::io::stdout(), LevelFilter::Warn);
         //err::setup();
         let core = if info.multithreaded {
             MVCore {

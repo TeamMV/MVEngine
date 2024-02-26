@@ -10,7 +10,7 @@ use mvutils::version::Version;
 
 use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
-use mvcore::render::window::{Cursor, Window, WindowSpecs};
+use mvcore::render::window::{Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::ui::ease;
 use mvcore::ui::ease::Easing;
