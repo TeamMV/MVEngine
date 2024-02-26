@@ -15,14 +15,12 @@ use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::ui::ease;
 use mvcore::ui::ease::Easing;
 use mvcore::ui::elements::UiElementImpl;
-use mvcore::ui::prelude::{
-    Background, Position, RectangleBackground, RoundedBackground, UiElement, UiElementCallbacks,
-    UiValue,
-};
+use mvcore::ui::prelude::{Background, BackgroundEffect, FillMode, Origin, Position, RectangleBackground, RippleCircleBackgroundEffect, RoundedBackground, TriggerOptions, UiElement, UiElementCallbacks, UiValue};
 use mvcore::ui::styles::Dimension;
 #[cfg(feature = "ui")]
 use mvcore::ui::timing::{DurationTask, TimingManager};
 use mvcore::{input, ApplicationInfo, MVCore};
+use mvcore::ui::timing::TIMING_MANAGER;
 
 fn main() {
     let core = MVCore::new(ApplicationInfo {
@@ -33,7 +31,7 @@ fn main() {
     });
     let mut specs = WindowSpecs::default();
     specs.vsync = false;
-    specs.fps = 1;
+    specs.fps = 60;
     specs.decorated = true;
     specs.resizable = true;
     specs.transparent = false;
@@ -43,12 +41,14 @@ fn main() {
         specs,
         ApplicationLoop {
             tex: CreateOnce::new(),
+            m: DangerousCell::new(false)
         },
     );
 }
 
 struct ApplicationLoop {
     tex: CreateOnce<Arc<TextureRegion>>,
+    m: DangerousCell<bool>
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
@@ -63,21 +63,44 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
     fn update(&self, window: Arc<Window<Self>>) {}
 
     fn draw(&self, window: Arc<Window<Self>>) {
-        let binding = window.input();
-        let input = binding.read().recover();
+        //let binding = window.input();
+        //let input = binding.read().recover();
 
-        let bg = RoundedBackground::new(Dimension::new(100, 50));
-        let mut elem = UiElementImpl::test();
-        let style = elem.style_mut();
-        style.background.main_color = UiValue::Just(RgbColor::blue());
-        style.background.border_color = UiValue::Just(RgbColor::white());
-        style.background.border_width = UiValue::Just(2);
+        //let bg = RoundedBackground::new(Dimension::new(100, 50));
+        //let mut elem = UiElementImpl::test();
+        //let style = elem.style_mut();
+        //style.background.main_color = UiValue::Just(RgbColor::blue());
+        //style.background.border_color = UiValue::Just(RgbColor::white());
+        //style.background.border_width = UiValue::Just(2);
 
-        window.draw_2d_pass(|ctx| unsafe {
-            elem.compute_values(ctx);
-            elem.draw(ctx);
-            bg.draw(ctx, Arc::new(RwLock::new(elem)));
-        });
+        //let elem = Arc::new(RwLock::new(elem));
+
+        //window.draw_2d_pass(|ctx| unsafe {
+        //    let mut e = elem.write().recover();
+        //    e.compute_values(ctx);
+        //    e.draw(ctx);
+        //    drop(e);
+        //    bg.draw(ctx, elem.clone());
+        //});
+
+        //let mx = input.positions[0];
+        //let my = input.positions[1];
+        //if input.mouse[input::MOUSE_LEFT] && !self.m.get_val() {
+        //    let mut effect = RippleCircleBackgroundEffect::new(RgbColor::white(), 10000, FillMode::Keep, Easing::default());
+        //    println!("trigger");
+        //    //effect.trigger(
+        //    //    Some(TriggerOptions { position: Some(Origin::Custom(mx, my)) }),
+        //    //    elem.clone(),
+        //    //    window.clone()
+        //    //);
+        //    *self.m.get_mut() = true;
+        //} else {
+        //    *self.m.get_mut() = false;
+        //}
+//
+        //unsafe {
+        //    TIMING_MANAGER.do_frame(1.0, 1);
+        //}
     }
 
     fn effect(&self, window: Arc<Window<Self>>) {

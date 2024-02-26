@@ -43,7 +43,9 @@ use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 use crate::render::render3d::{ForwardPass, RenderPass3D};
 use crate::render::text::FontLoader;
 use crate::render::{consts, ApplicationLoopCallbacks};
+#[cfg(feature = "3d")]
 use crate::render::common3d::{Mesh, Model};
+#[cfg(feature = "3d")]
 use crate::render::model::ModelFileType;
 
 pub struct WindowSpecs {
@@ -170,8 +172,6 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
     cursor: DangerousCell<Cursor>,
     prev_cursor: DangerousCell<Cursor>,
     internal_window: DangerousCell<Arc<Mutex<winit::window::Window>>>,
-
-    fig: CreateOnce<Model>
 }
 
 unsafe impl<T: ApplicationLoopCallbacks> Send for Window<T> {}
@@ -334,7 +334,6 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             internal_window: internal_window.clone().into(),
             #[cfg(feature = "3d")]
             forward_pass_3d: forward_pass.into(),
-            fig: CreateOnce::new(),
         });
 
         #[cfg(feature = "3d")]

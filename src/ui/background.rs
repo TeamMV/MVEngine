@@ -306,21 +306,23 @@ impl Background for RoundedBackground {
 pub(crate) struct BackgroundEffectInfo {
     pub(crate) fill_mode: FillMode,
     pub(crate) duration: u32,
+    pub(crate) color: Option<RgbColor>,
+    pub(crate) pos: Option<Point<i32>>,
     pub(crate) easing: Easing,
     pub(crate) elem: Option<Arc<RwLock<dyn UiElement>>>,
 }
 
 #[derive(Clone)]
-pub(crate) enum FillMode {
+pub enum FillMode {
     Keep,
     Revert,
 }
 
-pub(crate) struct TriggerOptions {
-    position: Option<Origin>,
+pub struct TriggerOptions {
+    pub position: Option<Origin>,
 }
 
-pub(crate) trait BackgroundEffect {
+pub trait BackgroundEffect {
     fn info(&self) -> &BackgroundEffectInfo;
     fn info_mut(&mut self) -> &mut BackgroundEffectInfo;
     fn trigger<T: ApplicationLoopCallbacks + Sized>(
@@ -330,7 +332,7 @@ pub(crate) trait BackgroundEffect {
         win: Arc<Window<T>>,
     );
     fn cancel(&self);
-    fn draw(&self, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>);
+    fn draw(info: &BackgroundEffectInfo, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>);
 }
 
 pub struct RippleCircleBackgroundEffect {
@@ -346,6 +348,8 @@ impl RippleCircleBackgroundEffect {
             info: BackgroundEffectInfo {
                 fill_mode,
                 duration,
+                color: None,
+                pos: None,
                 easing,
                 elem: None,
             },
@@ -392,23 +396,31 @@ impl BackgroundEffect for RippleCircleBackgroundEffect {
             }
         }
 
+        self.info.pos = Some(self.pos.clone());
+        self.info.color = Some(self.color.clone());
+
         self.info.elem = Some(elem.clone());
 
         unsafe {
-            self.task_id = TIMING_MANAGER.request(DurationTask::new(
+            let id = TIMING_MANAGER.request(DurationTask::new(
                 self.info.duration,
-                |state, time| {
-                    let state = state.background.unwrap();
-                    let percent = (time as f32).percentage(state.duration as f32);
-                    win.draw_2d_pass(|ctx| {
-                        self.draw(ctx, percent, state.elem.unwrap());
-                    })
+                move |state, time| {
+                    match state.background {
+                        None => {}
+                        Some(ref info) => {
+                            let percent = (time as f32).percentage(info.duration as f32);
+                            win.draw_2d_pass(|ctx| {
+                                RippleCircleBackgroundEffect::draw(info, ctx, percent, info.elem.as_ref().unwrap().clone());
+                            })
+                        }
+                    }
+
                 },
                 EffectState::background(self.info.clone()),
             ));
-        }
 
-        //timingManager
+            self.task_id = id;
+        }
     }
 
     fn cancel(&self) {
@@ -417,19 +429,23 @@ impl BackgroundEffect for RippleCircleBackgroundEffect {
         }
     }
 
-    fn draw(&self, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>) {
+    fn draw(info: &BackgroundEffectInfo, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>) {
+        println!("print");
         let e = elem.read().recover();
+        println!("print2");
         let diameter = ((e.width() * e.width() + e.height() * e.height()) as f32).sqrt();
 
         let rot = resolve!(e, rotation);
         let rot_origin = resolve!(e, rotation_origin).resolve(&*e);
 
-        let mut c = self.color.clone();
-        c.set_a(percent.value(255f32));
+        let pos = info.pos.as_ref().unwrap();
+
+        let mut c = info.color.unwrap();
+        c.set_a(percent.value(1f32));
         ctx.color(c);
         ctx.circle_origin_rotated(
-            self.pos.x,
-            self.pos.y,
+            pos.x,
+            pos.y,
             percent.value(diameter) as i32,
             percent.value(diameter),
             rot,
