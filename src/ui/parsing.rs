@@ -1,4 +1,4 @@
-use crate::gui::elements::GuiElementCallbacks;
+use crate::ui::elements::UiElementCallbacks;
 
 pub struct Unparsed {
     name: String,
@@ -6,15 +6,15 @@ pub struct Unparsed {
     children: Vec<Unparsed>,
 }
 
-pub trait GuiParsable<T: GuiElementCallbacks> {
+pub trait UiParsable<T: UiElementCallbacks> {
     fn try_parse(&self, unparsed: &Unparsed) -> Option<T>;
 }
 
-pub(crate) struct GuiParseSpec {
+pub(crate) struct UiParseSpec {
     tag_name: String,
     attributes: Vec<String>,
 }
 
-pub(crate) struct GuiElementParser {
+pub(crate) struct UiElementParser {
     parser: u32,
 }

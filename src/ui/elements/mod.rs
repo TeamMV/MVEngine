@@ -1,19 +1,20 @@
 mod text;
 
-use crate::gui::element_file::Background;
-use crate::gui::styles::{GuiValue, Origin, Position, ResCon, Style};
-use crate::gui::Sides;
+use crate::render::color::RgbColor;
 use crate::render::draw2d::DrawContext2D;
 use crate::resolve;
-use mvcore_proc_macro::{gui_element, gui_element_trait};
+use crate::ui::prelude::Background;
+use crate::ui::styles::{Origin, Position, ResCon, Style, UiValue};
+use crate::ui::Sides;
+use mvcore_proc_macro::{ui_element, ui_element_trait};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use std::sync::{Arc, RwLock};
 
-#[gui_element]
-pub struct GuiElementImpl {}
+#[ui_element]
+pub struct UiElementImpl {}
 
-impl GuiElementImpl {
+impl UiElementImpl {
     pub fn test() -> Self {
         Self {
             id: "test".to_string(),
@@ -45,12 +46,12 @@ pub trait DrawComponentBody {
     fn draw_component_body(&self, ctx: &mut DrawContext2D) {}
 }
 
-pub trait GuiElementCallbacks {
+pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut DrawContext2D);
 }
 
-impl GuiElementCallbacks for GuiElementImpl {
+impl UiElementCallbacks for UiElementImpl {
     fn draw(&mut self, ctx: &mut DrawContext2D) {}
 }
 
-gui_element_trait!();
+ui_element_trait!();
