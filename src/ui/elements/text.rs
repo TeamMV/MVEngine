@@ -1,11 +1,11 @@
-use crate::gui::element_file::*;
 use crate::render::draw2d::DrawContext2D;
+use crate::ui::prelude::*;
 
-#[gui_element]
-pub struct GuiLabel {
+#[ui_element]
+pub struct UiLabel {
     text: String,
 }
 
-impl GuiElementCallbacks for GuiLabel {
+impl UiElementCallbacks for UiLabel {
     fn draw(&mut self, ctx: &mut DrawContext2D) {}
 }

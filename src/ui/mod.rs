@@ -1,18 +1,10 @@
 mod background;
+pub mod ease;
 pub mod elements;
 pub mod parsing;
+pub mod prelude;
 pub mod styles;
-
-pub mod element_file {
-    pub use crate::gui::background::*;
-    pub use crate::gui::elements::DrawComponentBody;
-    pub use crate::gui::elements::GuiElement;
-    pub use crate::gui::elements::GuiElementCallbacks;
-    pub use crate::gui::styles::*;
-    pub use crate::gui::Sides;
-    pub use mvcore_proc_macro::gui_element;
-    pub use std::sync::Arc;
-}
+pub mod timing;
 
 pub struct Sides {
     pub top: i32,

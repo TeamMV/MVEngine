@@ -894,6 +894,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn restore_cursor(&self) {
         self.set_cursor(self.prev_cursor.get_val())
     }
+
+    #[cfg(feature = "ui")]
+    pub(crate) fn request_draw(&self) {}
 }
 
 #[macro_export]

@@ -1,8 +1,8 @@
-use crate::gui::background::{Background, BackgroundInfo, RectangleBackground};
-use crate::gui::elements::{GuiElement, GuiElementImpl};
 use crate::render::color::RgbColor;
 use crate::render::text::Font;
 use crate::resources::resources::R;
+use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
+use crate::ui::elements::{UiElement, UiElementImpl};
 use mvutils::unsafe_utils::Unsafe;
 use num_traits::Num;
 use std::convert::Infallible;
@@ -11,16 +11,16 @@ use winit::event::VirtualKeyCode::O;
 
 pub struct Style {
     //position
-    pub x: GuiValue<i32>,
-    pub y: GuiValue<i32>,
-    pub width: GuiValue<i32>,
-    pub height: GuiValue<i32>,
+    pub x: UiValue<i32>,
+    pub y: UiValue<i32>,
+    pub width: UiValue<i32>,
+    pub height: UiValue<i32>,
     pub padding: SideStyle,
     pub margin: SideStyle,
-    pub origin: GuiValue<Origin>,
-    pub position: GuiValue<Position>,
-    pub rotation_origin: GuiValue<Origin>,
-    pub rotation: GuiValue<f32>,
+    pub origin: UiValue<Origin>,
+    pub position: UiValue<Position>,
+    pub rotation_origin: UiValue<Origin>,
+    pub rotation: UiValue<f32>,
 
     pub text: TextStyle,
 
@@ -57,7 +57,7 @@ impl Origin {
 
     pub fn resolve<E>(&self, elem: &E) -> Point<i32>
     where
-        E: GuiElement + ?Sized,
+        E: UiElement + ?Sized,
     {
         match self {
             Origin::TopLeft => Point::new(elem.border_x(), elem.border_y() + elem.height()),
@@ -84,21 +84,21 @@ pub enum Position {
 }
 
 pub struct TextStyle {
-    pub size: GuiValue<f32>,
-    pub kerning: GuiValue<f32>,
-    pub skew: GuiValue<f32>,
-    pub stretch: GuiValue<Dimension<f32>>,
-    pub font: GuiValue<Arc<Font>>,
+    pub size: UiValue<f32>,
+    pub kerning: UiValue<f32>,
+    pub skew: UiValue<f32>,
+    pub stretch: UiValue<Dimension<f32>>,
+    pub font: UiValue<Arc<Font>>,
 }
 
 impl TextStyle {
     pub const fn initial() -> Self {
         Self {
-            size: GuiValue::Measurement(Unit::BarleyCorn(1.0)),
-            kerning: GuiValue::None,
-            skew: GuiValue::None,
-            stretch: GuiValue::None,
-            font: GuiValue::Auto,
+            size: UiValue::Measurement(Unit::BarleyCorn(1.0)),
+            kerning: UiValue::None,
+            skew: UiValue::None,
+            stretch: UiValue::None,
+            font: UiValue::Auto,
         }
     }
 }
@@ -128,23 +128,23 @@ impl<T: Num + Clone> Point<T> {
 }
 
 pub struct SideStyle {
-    pub top: GuiValue<i32>,
-    pub bottom: GuiValue<i32>,
-    pub left: GuiValue<i32>,
-    pub right: GuiValue<i32>,
+    pub top: UiValue<i32>,
+    pub bottom: UiValue<i32>,
+    pub left: UiValue<i32>,
+    pub right: UiValue<i32>,
 }
 
 impl SideStyle {
     pub const fn all_i32(v: i32) -> Self {
         Self {
-            top: GuiValue::Just(v),
-            bottom: GuiValue::Just(v),
-            left: GuiValue::Just(v),
-            right: GuiValue::Just(v),
+            top: UiValue::Just(v),
+            bottom: UiValue::Just(v),
+            left: UiValue::Just(v),
+            right: UiValue::Just(v),
         }
     }
 
-    pub fn all(v: GuiValue<i32>) -> Self {
+    pub fn all(v: UiValue<i32>) -> Self {
         Self {
             top: v.clone(),
             bottom: v.clone(),
@@ -163,25 +163,25 @@ impl SideStyle {
 }
 
 #[derive(Clone, Default)]
-pub enum GuiValue<T: Clone + 'static> {
+pub enum UiValue<T: Clone + 'static> {
     #[default]
     None,
     Auto,
     Inherit,
-    Clone(Arc<dyn GuiElement>),
+    Clone(Arc<dyn UiElement>),
     Just(T),
     Measurement(Unit),
 }
 
-impl<T: Clone + 'static> GuiValue<T> {
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<dyn GuiElement>>, map: F) -> Option<T>
+impl<T: Clone + 'static> UiValue<T> {
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<dyn UiElement>>, map: F) -> Option<T>
     where
-        F: Fn(&Style) -> &GuiValue<T>,
+        F: Fn(&Style) -> &UiValue<T>,
     {
         match self {
-            GuiValue::None => None,
-            GuiValue::Auto => None,
-            GuiValue::Inherit => map(parent.clone().unwrap_or_else(no_parent).style()).resolve(
+            UiValue::None => None,
+            UiValue::Auto => None,
+            UiValue::Inherit => map(parent.clone().unwrap_or_else(no_parent).style()).resolve(
                 dpi,
                 Some(
                     parent
@@ -192,9 +192,9 @@ impl<T: Clone + 'static> GuiValue<T> {
                 ),
                 map,
             ),
-            GuiValue::Clone(e) => map(e.style()).resolve(dpi, e.parent(), map),
-            GuiValue::Just(v) => Some(v.clone()),
-            GuiValue::Measurement(u) => {
+            UiValue::Clone(e) => map(e.style()).resolve(dpi, e.parent(), map),
+            UiValue::Just(v) => Some(v.clone()),
+            UiValue::Measurement(u) => {
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<i32>() {
                     unsafe {
                         let a = u.as_px(dpi);
@@ -208,33 +208,33 @@ impl<T: Clone + 'static> GuiValue<T> {
     }
 
     pub fn is_set(&self) -> bool {
-        !matches!(self, GuiValue::None | GuiValue::Auto)
+        !matches!(self, UiValue::None | UiValue::Auto)
     }
 }
 
-//impl<T: Clone + 'static> PartialEq for GuiValue<T> {
+//impl<T: Clone + 'static> PartialEq for UiValue<T> {
 //    fn eq(&self, other: &Self) -> bool {
 //        matches!(self, other)
 //    }
 //}
 
 fn no_parent<T>() -> T {
-    panic!("Called Inherit on GuiElement without parent")
+    panic!("Called Inherit on UiElement without parent")
 }
 
 impl Default for Style {
     fn default() -> Self {
         Self {
-            x: GuiValue::Just(0),
-            y: GuiValue::Just(0),
-            width: GuiValue::Just(0),
-            height: GuiValue::Just(0),
+            x: UiValue::Just(0),
+            y: UiValue::Just(0),
+            width: UiValue::Auto,
+            height: UiValue::Auto,
             padding: SideStyle::all_i32(0),
             margin: SideStyle::all_i32(0),
-            origin: GuiValue::Just(Origin::BottomLeft),
-            position: GuiValue::Just(Position::Relative),
-            rotation_origin: GuiValue::Just(Origin::Center),
-            rotation: GuiValue::Just(0.0),
+            origin: UiValue::Just(Origin::BottomLeft),
+            position: UiValue::Just(Position::Relative),
+            rotation_origin: UiValue::Just(Origin::Center),
+            rotation: UiValue::Just(0.0),
             text: TextStyle::initial(),
             background: BackgroundInfo::default(),
         }
@@ -245,14 +245,14 @@ impl Default for Style {
 macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
         {
-            let s: &GuiValue<_> = &$elem.style().$($style).*;
+            let s: &UiValue<_> = &$elem.style().$($style).*;
             let v: Option<_> = s.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style).*});
             if let Some(v) = v {
                 v
             }
             else {
-                log::error!("GuiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
-                $crate::gui::styles::Style::default().$($style).*
+                log::error!("UiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
+                $crate::ui::styles::Style::default().$($style).*
                 .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }

@@ -18,16 +18,16 @@ use mvutils::version::Version;
 use crate::render::RenderCore;
 
 mod err;
-#[cfg(feature = "gui")]
-pub mod gui;
 pub mod input;
 mod parsing;
 pub mod render;
 pub mod resources;
+#[cfg(feature = "ui")]
+pub mod ui;
 #[cfg(feature = "vr")]
 pub mod vr;
 
-pub use mvcore_proc_macro::gui_element;
+pub use mvcore_proc_macro::ui_element;
 
 pub struct MVCore {
     render: Arc<RenderCore>,
@@ -37,7 +37,7 @@ pub struct MVCore {
 
 impl MVCore {
     pub fn new(info: ApplicationInfo) -> Arc<MVCore> {
-        mvlogger::init(std::io::stdout(), LevelFilter::Debug);
+        mvlogger::init(std::io::stdout(), LevelFilter::Off);
         //err::setup();
         let core = if info.multithreaded {
             MVCore {
