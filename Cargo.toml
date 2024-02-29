@@ -37,7 +37,7 @@ codegen-units = 1
 panic = "unwind"
 
 [features]
-gui = []
+ui = []
 3d = ["dep:gltf"]
 vr = ["dep:openxr", "3d"]
 

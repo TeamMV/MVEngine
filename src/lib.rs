@@ -18,12 +18,12 @@ use mvutils::version::Version;
 use crate::render::RenderCore;
 
 mod err;
-#[cfg(feature = "gui")]
-pub mod gui;
 pub mod input;
 mod parsing;
 pub mod render;
 pub mod resources;
+#[cfg(feature = "ui")]
+pub mod ui;
 #[cfg(feature = "vr")]
 pub mod vr;
 
