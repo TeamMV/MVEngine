@@ -8,21 +8,17 @@ use std::time::SystemTime;
 use crate::input;
 use crate::input::raw::Input;
 use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
-use glam::Mat4;
+use glam::{Mat4, Vec3};
 use mvutils::once::CreateOnce;
+use mvutils::print::Col;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Bytecode, Recover, TetrahedronOp};
 use wgpu::core::command::RenderPass;
-use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView,
-    TextureViewDescriptor,
-};
+use wgpu::{Color, CommandEncoder, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StencilFaceState, StoreOp, SurfaceError, TextureView, TextureViewDescriptor};
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{
-    ElementState, Event, MouseScrollDelta, StartCause, VirtualKeyCode, WindowEvent,
-};
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget};
+use winit::keyboard::PhysicalKey;
 use winit::window::{CursorIcon, Fullscreen, Theme, WindowBuilder, WindowId};
 
 use crate::render::camera::{Camera2D, Camera3D};
@@ -157,7 +153,7 @@ pub struct Window<ApplicationLoop: ApplicationLoopCallbacks + 'static> {
 
     state: DangerousCell<State>,
     camera_2d: RwLock<Camera2D>,
-    camera_3d: RwLock<Camera3D>,
+    pub camera_3d: RwLock<Camera3D>,
 
     render_pass_2d: DangerousCell<RenderPass2D>,
     draw_2d: Mutex<DrawContext2D>,
@@ -185,7 +181,7 @@ unsafe impl<T: ApplicationLoopCallbacks> Sync for Window<T> {}
 impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     /// Starts the window loop, be aware that this function only finishes when the window is closed or terminated!
     pub fn run(mut specs: WindowSpecs, application_loop: T) {
-        let event_loop = EventLoop::new();
+        let event_loop = EventLoop::new().expect("Event loop already created!");
         let internal_window = WindowBuilder::new()
             .with_transparent(specs.transparent)
             .with_decorations(specs.decorated)
@@ -345,6 +341,8 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             .model_loader
             .create(|| ModelLoader::new(window.clone()));
 
+        //window.fig.create(|| window.model_loader.load_model("src/render/models/", ModelFileType::Obj, include_str!("models/fig.obj")));
+
         //TODO: separate thread render (manually called from init)
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
@@ -371,88 +369,87 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         drop(internal_window_lock);
 
-        event_loop.run(move |event, _, control_flow| match event {
-            Event::NewEvents(cause) => if cause == StartCause::Init {},
-            Event::WindowEvent { event, window_id } if window_id == id => {
-                window.process_window_event(event, window_id, control_flow);
-            }
-            Event::MainEventsCleared => {
-                if *window.close.get() {
-                    *control_flow = ControlFlow::Exit;
-                    return;
-                }
-                delta_f += now
-                    .elapsed()
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "System clock error: Time elapsed of -{}ns is not valid!",
-                            e.duration().as_nanos()
-                        )
-                    })
-                    .as_nanos() as f32
-                    / time_f;
-                now = SystemTime::now();
-                if delta_f >= 1.0 {
-                    let lock = internal_window.lock().unwrap();
-                    lock.request_redraw();
-                    drop(lock);
-                    frames += 1;
-                    delta_f -= 1.0;
-                    *window.frame.get_mut() += 1;
-                }
-                if timer
-                    .elapsed()
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "System clock error: Time elapsed of -{}ms is not valid!",
-                            e.duration().as_millis()
-                        )
-                    })
-                    .as_millis()
-                    >= 1000
-                {
-                    *window.fps.get_mut() = frames;
-                    println!("{}", frames);
-                    frames = 0;
-                    timer = SystemTime::now();
-                }
-            }
-            Event::RedrawRequested(window_id) => {
-                if window_id == id {
-                    match window.render() {
-                        Ok(_) => {}
-                        Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
-                            window.specs.get().width,
-                            window.specs.get().height,
-                        )),
-                        Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        Err(e) => eprintln!("{:?}", e),
+        event_loop
+            .run(move |event, target| match event {
+                Event::NewEvents(cause) => if cause == StartCause::Init {},
+                Event::WindowEvent { event, window_id } if window_id == id => {
+                    if event == WindowEvent::RedrawRequested {
+                        match window.render() {
+                            Ok(_) => {}
+                            Err(SurfaceError::Lost) => window.resize(PhysicalSize::new(
+                                window.specs.get().width,
+                                window.specs.get().height,
+                            )),
+                            Err(SurfaceError::OutOfMemory) => target.exit(),
+                            Err(e) => eprintln!("{:?}", e),
+                        }
+                    } else {
+                        window.process_window_event(event, window_id, target);
                     }
                 }
-            }
-            Event::LoopDestroyed => {
-                window.application_loop.exit(window.clone());
-            }
-            _ => {}
-        });
+                Event::AboutToWait => {
+                    if *window.close.get() {
+                        target.exit();
+                        return;
+                    }
+                    delta_f += now
+                        .elapsed()
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "System clock error: Time elapsed of -{}ns is not valid!",
+                                e.duration().as_nanos()
+                            )
+                        })
+                        .as_nanos() as f32
+                        / time_f;
+                    now = SystemTime::now();
+                    if delta_f >= 1.0 {
+                        let lock = internal_window.lock().unwrap();
+                        lock.request_redraw();
+                        drop(lock);
+                        frames += 1;
+                        delta_f -= 1.0;
+                        *window.frame.get_mut() += 1;
+                    }
+                    if timer
+                        .elapsed()
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "System clock error: Time elapsed of -{}ms is not valid!",
+                                e.duration().as_millis()
+                            )
+                        })
+                        .as_millis()
+                        >= 1000
+                    {
+                        *window.fps.get_mut() = frames;
+                        println!("{}", frames);
+                        frames = 0;
+                        timer = SystemTime::now();
+                    }
+                }
+                Event::LoopExiting => {
+                    window.application_loop.exit(window.clone());
+                }
+                _ => {}
+            })
+            .expect("Error: Window main loop crashed!");
     }
 
     fn process_window_event(
         self: &Arc<Self>,
         event: WindowEvent,
         _id: WindowId,
-        control_flow: &mut ControlFlow,
+        target: &EventLoopWindowTarget<()>,
     ) {
         match event {
             WindowEvent::Resized(size) => {
                 self.resize(size);
             }
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                self.resize(*new_inner_size);
-            }
+            //WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {}
             WindowEvent::Moved(_pos) => {}
             WindowEvent::CloseRequested => {
-                *control_flow = ControlFlow::Exit;
+                target.exit();
             }
             WindowEvent::DroppedFile(_path) => {}
             WindowEvent::HoveredFile(_path) => {}
@@ -460,17 +457,21 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             WindowEvent::Focused(_focus) => {}
             WindowEvent::KeyboardInput {
                 device_id,
-                input,
+                event,
                 is_synthetic,
             } => {
-                if let ElementState::Pressed = input.state {
-                    let index = Input::key_from_winit(
-                        input.virtual_keycode.unwrap_or(VirtualKeyCode::Escape),
-                    );
+                let index = if let PhysicalKey::Code(code) = event.physical_key {
+                    Input::key_from_winit(code)
+                } else {
+                    return;
+                };
+                if let ElementState::Pressed = event.state {
                     let tmp = self.input();
                     let input = tmp.read().recover();
                     if index > 0 && index < input.keys.len() {}
-                    if input.keys[index] {
+                    let pressed = input.keys[index];
+                    drop(input);
+                    if pressed {
                         self.input_collector
                             .get_mut()
                             .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
@@ -482,15 +483,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                             .get_mut()
                             .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
                     }
-                    drop(input);
                 }
 
-                if let ElementState::Released = input.state {
+                if let ElementState::Released = event.state {
                     self.input_collector
                         .get_mut()
-                        .collect(InputAction::Keyboard(KeyboardAction::Release(
-                            Input::key_from_winit(input.virtual_keycode.unwrap()),
-                        )));
+                        .collect(InputAction::Keyboard(KeyboardAction::Release(index)));
                 }
             }
             WindowEvent::ModifiersChanged(_mods) => {}
@@ -599,11 +597,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 });
 
         if state == OperateState::Running {
-            self.application_loop.draw(self.clone());
-            self.application_loop.effect(self.clone());
-
             let input = self.input_collector.get_mut().get_input();
             input.write().recover().loop_states();
+
+            self.application_loop.draw(self.clone());
+            self.application_loop.effect(self.clone());
 
             #[cfg(feature = "3d")]
             self.render_3d(&mut encoder, &view);
@@ -623,20 +621,22 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     fn render_2d(self: &Arc<Self>, encoder: &mut CommandEncoder, view: &TextureView) {
         let encoder = encoder as *mut CommandEncoder;
 
+        let clear = LoadOp::Clear(Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        });
+
         macro_rules! gen_pass {
-            ($e:ident, $v:expr) => {
+            ($e:ident, $v:expr, $l:expr) => {
                 unsafe { $e.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
                     label: Some("Render Pass"),
                     color_attachments: &[Some(RenderPassColorAttachment {
                         view: $v,
                         resolve_target: None,
                         ops: Operations {
-                            load: LoadOp::Clear(wgpu::Color {
-                                r: 0.0,
-                                g: 0.0,
-                                b: 0.0,
-                                a: 0.0,
-                            }),
+                            load: $l,
                             store: StoreOp::Store,
                         },
                     })],
@@ -647,29 +647,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             };
         }
 
-        unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 0.0,
-                    }),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
         let mut effects = self.enabled_effects_2d.write().recover();
 
-        let current = if effects.len() > 0 {
+        let (current, load) = if effects.len() > 0 {
             self.effect_pass.get_mut().new_frame(
                 SystemTime::now()
                     .duration_since(self.start_time)
@@ -678,11 +658,15 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 self.specs.get().width,
                 self.specs.get().height,
             );
-            self.effect_buffer.get().get_write()
+            (self.effect_buffer.get().get_write(), clear)
         } else {
-            view
+            #[cfg(feature = "3d")]
+            { (view, LoadOp::Load) }
+            #[cfg(not(feature = "3d"))]
+            { (view, clear) }
         };
-        let mut render_pass = gen_pass!(encoder, current);
+
+        let mut render_pass = gen_pass!(encoder, current, load);
 
         let cam = self.camera_2d.read().recover();
 
@@ -712,9 +696,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 self.effect_buffer.get_mut().swap();
                 self.effect_pass.get_mut().swap();
                 let mut pass = if remaining == 1 {
-                    gen_pass!(encoder, view)
+                    #[cfg(feature = "3d")]
+                    { gen_pass!(encoder, view, LoadOp::Load) }
+                    #[cfg(not(feature = "3d"))]
+                    { gen_pass!(encoder, view, clear) }
                 } else {
-                    gen_pass!(encoder, self.effect_buffer.get_mut().get_write())
+                    gen_pass!(encoder, self.effect_buffer.get_mut().get_write(), clear)
                 };
                 self.effect_pass.get_mut().new_target(&mut pass);
                 let effect_shader = shaders.get(shader.as_str());
@@ -734,11 +721,29 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let encoder = encoder as *mut CommandEncoder;
         let array: [Option<_>; 255] = [0; 255].map(|_| None::<T>);
 
-        let verts: &[f32] = &[
-            100f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 50f32, -10.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 1.0, 1.0, -50f32, 0.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+        let verts: Vec<f32> = vec![
+            0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.1, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0, 1.0, -0.1, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
         ];
-        let inds: &[u32] = &[0, 1, 2];
+        let inds: Vec<u32> = vec![
+            0, 1, 2
+        ];
+
+        // let deref = &*self.fig;
+        // let hacky = unsafe {
+        //     #[allow(invalid_reference_casting)]
+        //     let a = &mut *(deref as *const Model as *mut Model);
+        //     a.prepare();
+        // };
+        //
+        // if let Mesh::Prepared(p) = &self.fig.mesh {
+        //     for i in &p.data[0].0 {
+        //         inds.push(*i);
+        //     }
+        //     for v in &p.data[0].1 {
+        //         verts.push(*v);
+        //     }
+        // }
 
         let mut render_pass =
             unsafe { encoder.as_mut().unwrap() }.begin_render_pass(&RenderPassDescriptor {
@@ -747,7 +752,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                     view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(wgpu::Color {
+                        load: LoadOp::Clear(Color {
                             r: 0.0,
                             g: 0.0,
                             b: 0.0,
@@ -761,7 +766,12 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
                 occlusion_query_set: None,
             });
 
-        let cam = self.camera_2d.read().recover();
+        let mut cam = self.camera_3d.write().recover();
+
+        cam.fov = 120.0_f32.to_radians();
+        cam.zoom = 1.0;
+
+        cam.update_view();
 
         self.forward_pass_3d.get_mut().new_frame(
             &mut render_pass,
@@ -773,11 +783,11 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         mat.diffuse = RgbColor::red();
 
         let mut mats = [0; MATERIAL_LIMIT].map(|_| None);
-        mats[0] = Some(Arc::new(mat));
+        //mats[0] = Some(Arc::new(mat));
 
         self.forward_pass_3d
             .get_mut()
-            .render(inds, verts, &mats, &[Mat4::default()]);
+            .render(&inds, &verts, &mats, &[Mat4::IDENTITY]);
         self.forward_pass_3d.get_mut().finish();
 
         //self.deferred_pass_3d
@@ -898,6 +908,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
     pub fn restore_cursor(&self) {
         self.set_cursor(self.prev_cursor.get_val())
     }
+
+    #[cfg(feature = "ui")]
+    pub(crate) fn request_draw(&self) {}
 }
 
 #[macro_export]
@@ -975,14 +988,14 @@ impl Cursor {
     pub(crate) fn map_to_winit(&self) -> CursorIcon {
         match self {
             Cursor::None => CursorIcon::Default,
-            Cursor::Arrow => CursorIcon::Arrow,
+            Cursor::Arrow => CursorIcon::Default,
             Cursor::Busy => CursorIcon::Wait,
             Cursor::SoftBusy => CursorIcon::Progress,
             Cursor::ResizeX => CursorIcon::EwResize,
             Cursor::ResizeY => CursorIcon::NsResize,
             Cursor::ResizeXY => CursorIcon::NwseResize,
             Cursor::Move => CursorIcon::Move,
-            Cursor::Pointer => CursorIcon::Hand,
+            Cursor::Pointer => CursorIcon::Pointer,
             Cursor::Denied => CursorIcon::NotAllowed,
             Cursor::Text => CursorIcon::Text,
 

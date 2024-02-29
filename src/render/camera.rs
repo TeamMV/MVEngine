@@ -61,14 +61,14 @@ impl Camera2D {
 
 #[derive(Clone)]
 pub struct Camera3D {
-    pub(crate) position: Vec3,
-    pub(crate) rotation: Vec3,
-    pub(crate) zoom: f32,
+    pub position: Vec3,
+    pub rotation: Vec3,
+    pub zoom: f32,
     projection: Mat4,
     view: Mat4,
-    pub(crate) z_near: f32,
-    pub(crate) z_far: f32,
-    pub(crate) fov: f32,
+    pub z_near: f32,
+    pub z_far: f32,
+    pub fov: f32,
 }
 
 impl Camera3D {

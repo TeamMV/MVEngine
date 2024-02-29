@@ -1344,7 +1344,9 @@ impl DrawContext2D {
         start: i32,
         precision: f32,
     ) {
-        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, 0.0, x, y);
+        self.ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, range, start, precision, 0.0, x, y,
+        );
     }
 
     pub fn ellipse_arc_rotated(
@@ -1358,7 +1360,9 @@ impl DrawContext2D {
         precision: f32,
         rotation: f32,
     ) {
-        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, rotation, x, y);
+        self.ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, range, start, precision, rotation, x, y,
+        );
     }
 
     pub fn ellipse_arc_origin_rotated(
@@ -1433,7 +1437,9 @@ impl DrawContext2D {
         start: i32,
         precision: f32,
     ) {
-        self.void_ellipse_arc_origin_rotated(x, y, radius_x, radius_y, thickness, range, start, precision, 0.0, 0, 0);
+        self.void_ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, thickness, range, start, precision, 0.0, 0, 0,
+        );
     }
 
     pub fn void_ellipse_arc_rotated(

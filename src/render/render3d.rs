@@ -207,6 +207,7 @@ impl MaterialTextureComBindEdGroup {
             index
         );
 
+        self.raw_materials[index] = instanced.raw_data();
         self.materials[index] = Some((material, instanced));
     }
 
@@ -226,6 +227,7 @@ impl MaterialTextureComBindEdGroup {
     }
 
     pub(crate) fn remake(&mut self, state: &State, shader: &Shader, index: u32) {
+        state.queue.write_buffer(&self.material_buffer, 0, unsafe { slice::from_raw_parts(self.raw_materials.as_ptr() as *const u8, Material::SIZE_BYTES * *MAX_MATERIALS) });
         self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
             label: Some("bind group"),
             layout: &shader.get_pipeline().get_bind_group_layout(index),
@@ -258,6 +260,7 @@ pub(crate) struct TransformGroup {
     pub(crate) bind_group: BindGroup,
     buffer: Buffer,
     matrices: Vec<u8>,
+    amount: f32,
     index: u32,
 }
 
@@ -278,24 +281,27 @@ impl TransformGroup {
             bind_group,
             buffer,
             matrices: Vec::new(),
+            amount: 0.0,
             index,
         }
     }
 
     pub(crate) fn set(&mut self, shader: &Shader, state: &State, matrices: &[u8], amount: u32) {
-        if self.matrices.len() > 4 && matrices == &self.matrices[4..] {
+        if matrices == &self.matrices || matrices.len() == 0 {
             return;
         }
 
-        if matrices.len() + 4 == self.matrices.len() {
-            self.matrices = Vec::with_capacity(matrices.len() + 4);
-            self.matrices
-                .append(&mut (amount as f32).to_ne_bytes().to_vec());
-            self.matrices.append(&mut matrices.to_vec());
-            state.queue.write_buffer(&self.buffer, 0, &self.matrices);
+        let len = self.matrices.len();
+
+        self.amount = amount as f32;
+        self.matrices = matrices.to_vec();
+
+        if matrices.len() == len {
+            state.queue.write_buffer(&self.buffer, 16, &self.matrices);
         } else {
-            self.matrices = matrices.to_vec();
-            self.buffer = state.gen_uniform_buffer(&self.matrices);
+            self.buffer = state.gen_uniform_buffer_sized(self.matrices.len() as u64 + 16);
+            state.queue.write_buffer(&self.buffer, 0, &self.amount.to_ne_bytes());
+            state.queue.write_buffer(&self.buffer, 16, &self.matrices);
             self.bind_group = state.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Model matrices bind group"),
                 layout: &shader.get_pipeline().get_bind_group_layout(self.index),
@@ -456,6 +462,10 @@ impl RenderPass3D for ForwardPass {
                             texture_group.set(i, material.clone());
                             changed = true;
                         }
+                    }
+                    else {
+                        texture_group.set(i, material.clone());
+                        changed = true;
                     }
                 } else if texture_group.materials[i].is_some() {
                     texture_group.remove(i);
