@@ -1,3 +1,3 @@
 # MVCore
 
-Core rendering, Ui and asset library in rust.
+Core rendering, GUI and asset library in rust.

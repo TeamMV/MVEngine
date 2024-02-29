@@ -1,13 +1,13 @@
 use proc_macro::TokenStream;
 
-mod ui_element;
+mod gui_element;
 
 #[proc_macro_attribute]
-pub fn ui_element(_: TokenStream, input: TokenStream) -> TokenStream {
-    ui_element::ui_element(input)
+pub fn gui_element(_: TokenStream, input: TokenStream) -> TokenStream {
+    gui_element::gui_element(input)
 }
 
 #[proc_macro]
-pub fn ui_element_trait(_: TokenStream) -> TokenStream {
-    ui_element::ui_element_trait()
+pub fn gui_element_trait(_: TokenStream) -> TokenStream {
+    gui_element::gui_element_trait()
 }

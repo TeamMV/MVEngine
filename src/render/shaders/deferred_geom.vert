@@ -16,20 +16,13 @@ layout(set = 0, binding = 0) uniform UNIFORMS {
     mat4 uView;
 } uniforms;
 
-layout(std140, set = 1, binding = 0) uniform ModelMatrices {
+layout(std140, set = 1, binding = 0) buffer ModelMatrices {
     float amount;
-    mat4 matrices[1];
+    mat4 matrices[];
 } models;
 
-mat4 IDENTITY = mat4(
-    vec4(1.0, 0.0, 0.0, 0.0),
-    vec4(0.0, 1.0, 0.0, 0.0),
-    vec4(0.0, 0.0, 1.0, 0.0),
-    vec4(0.0, 0.0, 0.0, 1.0)
-);
-
 mat4 modelMatrix(int id) {
-    return id == 0 ? IDENTITY : models.matrices[gl_InstanceIndex * int(models.amount) + id - 1];
+    return models.matrices[gl_InstanceIndex * int(models.amount) + id];
 }
 
 void main() {

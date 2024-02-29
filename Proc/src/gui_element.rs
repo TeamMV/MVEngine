@@ -19,7 +19,7 @@ const ARGS: [(&str, &str, bool); 21] = [
     ("content_x", "i32", true),
     ("content_y", "i32", true),
     ("style", "Style", true),
-    ("parent", "Option<Arc<dyn UiElement>>", true),
+    ("parent", "Option<Arc<dyn GuiElement>>", true),
     ("resolve_context", "ResCon", true),
     ("content_width", "i32", true),
     ("content_height", "i32", true),
@@ -34,7 +34,7 @@ const ARGS: [(&str, &str, bool); 21] = [
     ("background", "Option<Arc<dyn Background>>", true),
 ];
 
-pub fn ui_element(input: TokenStream) -> TokenStream {
+pub fn gui_element(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     match input.data {
@@ -70,9 +70,9 @@ pub fn ui_element(input: TokenStream) -> TokenStream {
                 }
                 .into();
             }
-            _ => panic!("#[ui_element] can only be used on a named struct."),
+            _ => panic!("#[gui_element] can only be used on a named struct."),
         },
-        _ => panic!("#[ui_element] can only be used on a named struct."),
+        _ => panic!("#[gui_element] can only be used on a named struct."),
     }
 }
 
@@ -136,7 +136,7 @@ fn gen_impl(name: &Ident, generics: &Generics) -> proc_macro2::TokenStream {
         proc_macro2::TokenStream::from_str(&a).unwrap()
     });
     quote! {
-        impl #ig UiElement for #name #tg #wc {
+        impl #ig GuiElement for #name #tg #wc {
             #( #functions )*
         }
 
@@ -150,7 +150,7 @@ fn gen_impl(name: &Ident, generics: &Generics) -> proc_macro2::TokenStream {
     }
 }
 
-pub fn ui_element_trait() -> TokenStream {
+pub fn gui_element_trait() -> TokenStream {
     let functions = ARGS.iter().map(|(name, ty, mutable)| {
         let a = if ty == &"String" {
             format!(
@@ -214,7 +214,7 @@ pub fn ui_element_trait() -> TokenStream {
         proc_macro2::TokenStream::from_str(&a).unwrap()
     });
     quote! {
-        pub trait UiElement: UiElementCallbacks + DrawComponentBody {
+        pub trait GuiElement: GuiElementCallbacks + DrawComponentBody {
             #( #functions )*
 
             fn compute_values(&mut self, ctx: &mut DrawContext2D) {

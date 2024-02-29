@@ -37,7 +37,7 @@ create_once! {
 
 pub(crate) const TEXTURE_LIMIT: usize = 255;
 pub(crate) const LIGHT_LIMIT: usize = 256;
-pub(crate) const MATERIAL_LIMIT: usize = 256;
+pub(crate) const MATERIAL_LIMIT: usize = 1024;
 
 pub(crate) const VERTEX_LAYOUT_2D: VertexBufferLayout = VertexBufferLayout {
     array_stride: 88,

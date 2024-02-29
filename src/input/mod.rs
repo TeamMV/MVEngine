@@ -11,7 +11,7 @@ pub mod raw;
 
 pub(crate) struct InputCollector {
     default_processor: InputProcessorImpl,
-    ui_processor: UiInputProcessor,
+    gui_processor: GuiInputProcessor,
     custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
 }
 
@@ -22,7 +22,7 @@ impl InputCollector {
     {
         Self {
             default_processor: InputProcessorImpl::new(input.clone()),
-            ui_processor: UiInputProcessor::new(input),
+            gui_processor: GuiInputProcessor::new(input),
             custom_processor: None,
         }
     }
@@ -178,12 +178,12 @@ impl InputProcessor for InputProcessorImpl {
     }
 }
 
-pub(crate) struct UiInputProcessor {
+pub(crate) struct GuiInputProcessor {
     input: Arc<RwLock<Input>>,
     enabled: bool,
 }
 
-impl InputProcessor for UiInputProcessor {
+impl InputProcessor for GuiInputProcessor {
     fn new(input: Arc<RwLock<Input>>) -> Self
     where
         Self: Sized,

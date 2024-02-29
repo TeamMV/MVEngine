@@ -27,7 +27,7 @@ pub mod ui;
 #[cfg(feature = "vr")]
 pub mod vr;
 
-pub use mvcore_proc_macro::ui_element;
+pub use mvcore_proc_macro::gui_element;
 
 pub struct MVCore {
     render: Arc<RenderCore>,

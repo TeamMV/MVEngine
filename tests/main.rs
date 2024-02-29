@@ -1,16 +1,13 @@
 use mvutils::once::CreateOnce;
-use mvutils::unsafe_utils::DangerousCell;
-use mvutils::utils::{Map, Recover};
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::rc::Rc;
+use mvutils::utils::Recover;
 use std::sync::{Arc, RwLock};
+use mvutils::unsafe_utils::DangerousCell;
 
 use mvutils::version::Version;
 
 use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
-use mvcore::render::window::{Window, WindowSpecs};
+use mvcore::render::window::{Cursor, Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::ui::ease;
 use mvcore::ui::ease::Easing;
@@ -36,7 +33,7 @@ fn main() {
     specs.resizable = true;
     specs.transparent = false;
     specs.width = 800;
-    specs.height = 600;
+    specs.height = 800;
     core.get_render().run_window(
         specs,
         ApplicationLoop {
@@ -58,6 +55,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
                 window.create_texture(include_bytes!("cursor.png").to_vec()),
             )))
         });
+        window.set_cursor(Cursor::SoftBusy);
     }
 
     fn update(&self, window: Arc<Window<Self>>) {}

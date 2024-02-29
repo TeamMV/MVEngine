@@ -2,7 +2,7 @@
 name = "mvcore"
 version = "0.1.0"
 edition = "2021"
-description = "The MV core library. Rendering, assets and Ui."
+description = "The MV core library. Rendering, assets and GUI."
 authors = [
     "Maxim Savenkov <mqxf@mvteam.dev>",
     "Julian Hohenhausen <v22@mvteam.dev>"
@@ -13,7 +13,7 @@ keywords = [
     "rendering",
     "wgpu",
     "assets",
-    "ui"
+    "gui"
 ]
 categories = [
     "rendering",
@@ -31,7 +31,7 @@ harness = false
 [profile.release]
 opt-level = 3
 strip = true
-lto = true
+lto = false
 debug = false
 codegen-units = 1
 panic = "unwind"
@@ -47,9 +47,9 @@ vr = ["dep:openxr", "3d"]
 mvcore-proc-macro = { path = "Proc" }
 
 # mvteam dependencies
-mvutils = "0.5.6"
-mvsync = "1.1.9"
-mvlogger = "0.2.5"
+mvutils = "0.5.0"
+mvsync = "1.1.4"
+mvlogger = "0.2.1"
 
 # general dependencies
 bytebuffer = "2.2.0"
@@ -64,9 +64,11 @@ shaderc = "0.8.3"
 openal = "0.2.2"
 image = "0.24.8"
 
-# graphics dependencies
-winit = "0.29.10"
-wgpu = { version = "0.19.1", features = ["spirv"] }
+# un-updatable dependecies
+# Do not update past 0.28.4 due to change in input (VirtualKeyCode -> Key(KeyCode || char)), this breaks our input system
+winit = "0.28.4"
+# Do not update past 0.18.0 due to change requiring newer winit version, and lifetime in Surface, which is a breaking change, breaking most of our code
+wgpu = { version = "0.18.0", features = ["spirv"] }
 
 # to be replaced
 # ideally remove, for more lightweight one, or custom math for the limited functionality we need.
