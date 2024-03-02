@@ -2,14 +2,13 @@ use crate::render::color::RgbColor;
 use crate::render::text::Font;
 use crate::resources::resources::R;
 use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
-use crate::ui::elements::{UiElement, UiElementImpl};
+use crate::ui::elements::UiElement;
 use mvutils::unsafe_utils::Unsafe;
 use num_traits::Num;
 use std::convert::Infallible;
 use std::sync::Arc;
 
 pub struct Style {
-    //position
     pub x: UiValue<i32>,
     pub y: UiValue<i32>,
     pub width: UiValue<i32>,
