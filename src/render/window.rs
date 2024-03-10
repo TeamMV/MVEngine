@@ -300,8 +300,9 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
 
         let effect_pass = EffectPass::new(&state, &effect_buffer);
 
+        Arc::new(FontLoader::new().load_default_font(&state));
+
         let draw_2d = DrawContext2D::new(
-            Arc::new(FontLoader::new().load_default_font(&state)),
             specs.width,
             specs.height,
             internal_window_lock.scale_factor() as f32 * 96.0,

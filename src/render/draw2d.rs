@@ -79,13 +79,13 @@ pub struct DrawContext2D {
 
 #[allow(clippy::too_many_arguments)]
 impl DrawContext2D {
-    pub(crate) fn new(font: Arc<Font>, width: u32, height: u32, dpi: f32) -> Self {
+    pub(crate) fn new(width: u32, height: u32, dpi: f32) -> Self {
         DrawContext2D {
             text_options: TextOptions::new(),
             trans: Transformation::new(),
             size: [width as f32, height as f32],
             color: Gradient::new(Color::<RGB, f32>::white()),
-            font,
+            font: R::fonts().get_core("default"),
             batch: BatchController2D::new(),
             vertices: VertexGroup::new(),
             use_cam: true,

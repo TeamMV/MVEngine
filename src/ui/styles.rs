@@ -7,8 +7,28 @@ use mvutils::unsafe_utils::Unsafe;
 use num_traits::Num;
 use std::convert::Infallible;
 use std::sync::Arc;
+use mvutils::utils::TetrahedronOp;
 
-pub struct Style {
+#[macro_export]
+macro_rules! resolve {
+    ($elem:ident, $($style:ident).*) => {
+        {
+            let s: &UiValue<_> = &$elem.style().$($style).*;
+            let v: Option<_> = s.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style).*});
+            if let Some(v) = v {
+                v
+            }
+            else {
+                log::error!("UiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
+                $crate::ui::styles::UiStyle::default().$($style).*
+                .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
+                .expect("Default style could not be resolved")
+            }
+        }
+    };
+}
+
+pub struct UiStyle {
     pub x: UiValue<i32>,
     pub y: UiValue<i32>,
     pub width: UiValue<i32>,
@@ -19,6 +39,8 @@ pub struct Style {
     pub position: UiValue<Position>,
     pub rotation_origin: UiValue<Origin>,
     pub rotation: UiValue<f32>,
+    pub direction: UiValue<Direction>,
+    pub child_align: UiValue<ChildAlign>,
 
     pub text: TextStyle,
 
@@ -53,23 +75,29 @@ impl Origin {
         }
     }
 
-    pub fn resolve<E>(&self, elem: &E) -> Point<i32>
-    where
-        E: UiElement + ?Sized,
-    {
+    pub fn get_actual_x(&self, x: i32, width: i32) -> i32 {
         match self {
-            Origin::TopLeft => Point::new(elem.border_x(), elem.border_y() + elem.height()),
-            Origin::BottomLeft => Point::new(elem.border_x(), elem.border_y()),
-            Origin::TopRight => Point::new(
-                elem.border_x() + elem.width(),
-                elem.border_y() + elem.height(),
-            ),
-            Origin::BottomRight => Point::new(elem.border_x() + elem.width(), elem.border_y()),
-            Origin::Center => Point::new(
-                elem.border_x() + elem.width() / 2,
-                elem.border_y() + elem.height() / 2,
-            ),
-            Origin::Custom(x, y) => Point::new(*x, *y),
+            Origin::TopLeft => { x }
+            Origin::BottomLeft => { x }
+            Origin::TopRight => { x - width }
+            Origin::BottomRight => { x - width }
+            Origin::Center => { x - width / 2 }
+            Origin::Custom(cx, _) => {
+                x - cx
+            }
+        }
+    }
+
+    pub fn get_actual_y(&self, y: i32, height: i32) -> i32 {
+        match self {
+            Origin::TopLeft => { y - height }
+            Origin::BottomLeft => { y }
+            Origin::TopRight => { y - height }
+            Origin::BottomRight => { y }
+            Origin::Center => { y - height / 2 }
+            Origin::Custom(_, cy) => {
+                y - cy
+            }
         }
     }
 }
@@ -81,12 +109,38 @@ pub enum Position {
     Relative,
 }
 
+#[derive(Default, Clone, Copy, Eq, PartialEq)]
+pub enum Direction {
+    Vertical,
+    #[default]
+    Horizontal,
+}
+
+#[derive(Default, Clone, Copy, Eq, PartialEq)]
+pub enum TextFit {
+    ExpandParent,
+    #[default]
+    CropText,
+}
+
+#[derive(Default, Clone, Copy, Eq, PartialEq)]
+pub enum ChildAlign {
+    #[default]
+    Start,
+    End,
+    Middle,
+    OffsetStart(i32),
+    OffsetEnd(i32),
+    OffsetMiddle(i32),
+}
+
 pub struct TextStyle {
     pub size: UiValue<f32>,
     pub kerning: UiValue<f32>,
     pub skew: UiValue<f32>,
     pub stretch: UiValue<Dimension<f32>>,
     pub font: UiValue<Arc<Font>>,
+    pub fit: UiValue<TextFit>,
 }
 
 impl TextStyle {
@@ -97,6 +151,7 @@ impl TextStyle {
             skew: UiValue::None,
             stretch: UiValue::None,
             font: UiValue::Auto,
+            fit: UiValue::Auto,
         }
     }
 }
@@ -151,12 +206,12 @@ impl SideStyle {
         }
     }
 
-    pub fn horizontal(&self) -> i32 {
-        unimplemented!()
-    }
-
-    pub fn vertical(&self) -> i32 {
-        unimplemented!()
+    pub fn get(&self, elem: &impl UiElement) -> [i32; 4] {
+        let top = if self.top.is_set() { resolve!(elem, padding.top) } else { matches!(self.top, UiValue::Auto).yn(5, 0) };
+        let bottom = if self.bottom.is_set() { resolve!(elem, padding.bottom) } else { matches!(self.bottom, UiValue::Auto).yn(5, 0) };
+        let left = if self.left.is_set() { resolve!(elem, padding.left) } else { matches!(self.left, UiValue::Auto).yn(5, 0) };
+        let right = if self.right.is_set() { resolve!(elem, padding.right) } else { matches!(self.right, UiValue::Auto).yn(5, 0) };
+        [top, bottom, left, right]
     }
 }
 
@@ -174,7 +229,7 @@ pub enum UiValue<T: Clone + 'static> {
 impl<T: Clone + 'static> UiValue<T> {
     pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<dyn UiElement>>, map: F) -> Option<T>
     where
-        F: Fn(&Style) -> &UiValue<T>,
+        F: Fn(&UiStyle) -> &UiValue<T>,
     {
         match self {
             UiValue::None => None,
@@ -220,7 +275,7 @@ fn no_parent<T>() -> T {
     panic!("Called Inherit on UiElement without parent")
 }
 
-impl Default for Style {
+impl Default for UiStyle {
     fn default() -> Self {
         Self {
             x: UiValue::Just(0),
@@ -233,29 +288,12 @@ impl Default for Style {
             position: UiValue::Just(Position::Relative),
             rotation_origin: UiValue::Just(Origin::Center),
             rotation: UiValue::Just(0.0),
+            direction: UiValue::Auto,
+            child_align: UiValue::Auto,
             text: TextStyle::initial(),
             background: BackgroundInfo::default(),
         }
     }
-}
-
-#[macro_export]
-macro_rules! resolve {
-    ($elem:ident, $($style:ident).*) => {
-        {
-            let s: &UiValue<_> = &$elem.style().$($style).*;
-            let v: Option<_> = s.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style).*});
-            if let Some(v) = v {
-                v
-            }
-            else {
-                log::error!("UiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
-                $crate::ui::styles::Style::default().$($style).*
-                .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
-                .expect("Default style could not be resolved")
-            }
-        }
-    };
 }
 
 pub(crate) struct ResCon {

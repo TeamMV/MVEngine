@@ -11,11 +11,15 @@ use mvcore::render::window::{Cursor, Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::ui::ease;
 use mvcore::ui::ease::Easing;
-use mvcore::ui::prelude::{Background, BackgroundEffect, FillMode, Origin, Position, RectangleBackground, RippleCircleBackgroundEffect, RoundedBackground, TriggerOptions, UiElement, UiElementCallbacks, UiValue};
-use mvcore::ui::styles::Dimension;
+use mvcore::ui::styles::{Dimension, Position, TextFit, UiStyle, UiValue};
 #[cfg(feature = "ui")]
 use mvcore::ui::timing::{DurationTask, TimingManager};
 use mvcore::{input, ApplicationInfo, MVCore};
+use mvcore::ui::attributes::Attributes;
+use mvcore::ui::background::{Background, RoundedBackground};
+use mvcore::ui::elements::child::Child;
+use mvcore::ui::elements::lmao::LmaoElement;
+use mvcore::ui::elements::{UiElement, UiElementCallbacks};
 use mvcore::ui::timing::TIMING_MANAGER;
 
 fn main() {
@@ -60,25 +64,22 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
     fn update(&self, window: Arc<Window<Self>>) {}
 
     fn draw(&self, window: Arc<Window<Self>>) {
-        //let binding = window.input();
-        //let input = binding.read().recover();
+        let binding = window.input();
+        let input = binding.read().recover();
 
-        //let bg = RoundedBackground::new(Dimension::new(100, 50));
-        //let mut elem = UiElementImpl::test();
-        //let style = elem.style_mut();
-        //style.background.main_color = UiValue::Just(RgbColor::blue());
-        //style.background.border_color = UiValue::Just(RgbColor::white());
-        //style.background.border_width = UiValue::Just(2);
+        let mut elem = LmaoElement::new(Attributes::new(), UiStyle::default());
+        elem.add_child(Child::String("Hello".to_string()));
 
-        //let elem = Arc::new(RwLock::new(elem));
+        let style = elem.style_mut();
+        style.x = UiValue::Just(100);
+        style.y = UiValue::Just(100);
+        style.position = UiValue::Just(Position::Absolute);
+        style.text.fit = UiValue::Just(TextFit::ExpandParent);
 
-        //window.draw_2d_pass(|ctx| unsafe {
-        //    let mut e = elem.write().recover();
-        //    e.compute_values(ctx);
-        //    e.draw(ctx);
-        //    drop(e);
-        //    bg.draw(ctx, elem.clone());
-        //});
+        window.draw_2d_pass(|ctx| {
+            elem.state_mut().compute(&mut elem);
+            elem.draw(ctx);
+        });
 
         //let mx = input.positions[0];
         //let my = input.positions[1];

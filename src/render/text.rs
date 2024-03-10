@@ -8,6 +8,7 @@ use mvutils::utils::TetrahedronOp;
 
 use crate::render::common::Texture;
 use crate::render::init::State;
+use crate::resources::resources::R;
 
 pub struct TypeFace {
     pub regular: Arc<Font>,
@@ -187,8 +188,8 @@ impl FontLoader {
         FontLoader
     }
 
-    pub(crate) fn load_default_font(&self, state: &State) -> Font {
-        self.load_bitmap(
+    pub(crate) fn load_default_font(&self, state: &State) {
+        let font = self.load_bitmap(
             state,
             &[
                 include_bytes!("fonts/roboto1.png"),
@@ -198,7 +199,8 @@ impl FontLoader {
                 include_bytes!("fonts/roboto5.png"),
             ],
             include_str!("fonts/roboto.fnt"),
-        )
+        );
+        R::fonts().register_core("default".to_string(), Arc::new(font));
     }
 
     pub(crate) fn load_ttf(&self, contents: Vec<u8>) -> Font {
