@@ -1,11 +1,11 @@
-use std::sync::{Arc, RwLock};
-use mvutils::utils::Recover;
 use crate::ui::elements::UiElement;
+use mvutils::utils::Recover;
+use std::sync::{Arc, RwLock};
 
 pub enum Child {
     String(String),
     Element(Box<dyn UiElement>),
-    DynamicValue(Value<dyn ToString>)
+    DynamicValue(Value<dyn ToString>),
 }
 
 impl Child {

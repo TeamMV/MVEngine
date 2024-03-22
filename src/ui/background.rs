@@ -332,7 +332,12 @@ pub trait BackgroundEffect {
         win: Arc<Window<T>>,
     );
     fn cancel(&self);
-    fn draw(info: &BackgroundEffectInfo, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>);
+    fn draw(
+        info: &BackgroundEffectInfo,
+        ctx: &mut DrawContext2D,
+        percent: f32,
+        elem: Arc<RwLock<dyn UiElement>>,
+    );
 }
 
 pub struct RippleCircleBackgroundEffect {
@@ -404,17 +409,19 @@ impl BackgroundEffect for RippleCircleBackgroundEffect {
         unsafe {
             let id = TIMING_MANAGER.request(DurationTask::new(
                 self.info.duration,
-                move |state, time| {
-                    match state.background {
-                        None => {}
-                        Some(ref info) => {
-                            let percent = (time as f32).percentage(info.duration as f32);
-                            win.draw_2d_pass(|ctx| {
-                                RippleCircleBackgroundEffect::draw(info, ctx, percent, info.elem.as_ref().unwrap().clone());
-                            })
-                        }
+                move |state, time| match state.background {
+                    None => {}
+                    Some(ref info) => {
+                        let percent = (time as f32).percentage(info.duration as f32);
+                        win.draw_2d_pass(|ctx| {
+                            RippleCircleBackgroundEffect::draw(
+                                info,
+                                ctx,
+                                percent,
+                                info.elem.as_ref().unwrap().clone(),
+                            );
+                        })
                     }
-
                 },
                 EffectState::background(self.info.clone()),
             ));
@@ -429,7 +436,12 @@ impl BackgroundEffect for RippleCircleBackgroundEffect {
         }
     }
 
-    fn draw(info: &BackgroundEffectInfo, ctx: &mut DrawContext2D, percent: f32, elem: Arc<RwLock<dyn UiElement>>) {
+    fn draw(
+        info: &BackgroundEffectInfo,
+        ctx: &mut DrawContext2D,
+        percent: f32,
+        elem: Arc<RwLock<dyn UiElement>>,
+    ) {
         println!("print");
         let e = elem.read().recover();
         println!("print2");

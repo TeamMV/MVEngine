@@ -226,7 +226,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             include_str!("shaders/forward.frag"),
         );
 
-        //TODO: separate thread render (manually called from init)
+        //TODO: separate thread old_render (manually called from init)
         let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
         let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
@@ -236,7 +236,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
 
-        //TODO: separate thread render (manually called from init)
+        //TODO: separate thread old_render (manually called from init)
         pixelate.setup(&state, |maker| {
             maker.set_float(0, 10.0);
         });
@@ -346,7 +346,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
             .model_loader
             .create(|| ModelLoader::new(window.clone()));
 
-        //TODO: separate thread render (manually called from init)
+        //TODO: separate thread old_render (manually called from init)
         window.add_effect_shader("pixelate".to_string(), CreatedShader::Effect(pixelate));
         window.add_effect_shader("blur".to_string(), CreatedShader::Effect(blur));
         window.add_effect_shader("distort".to_string(), CreatedShader::Effect(distort));
@@ -784,7 +784,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         //self.deferred_pass_3d
         //    .get_mut()
         //    .new_frame(encoder, view, Mat4::default(), Mat4::default());
-        ////self.deferred_pass_3d.get_mut().render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
+        ////self.deferred_pass_3d.get_mut().old_render(self.model.mesh.indices.as_slice(), self.model.data_array(), &array, false, 1);
         //self.deferred_pass_3d.get_mut().finish();
     }
 

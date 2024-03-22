@@ -4,12 +4,14 @@ pub mod lmao;
 use crate::render::color::RgbColor;
 use crate::render::draw2d::DrawContext2D;
 use crate::resolve;
-use crate::ui::styles::{ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, TextFit, UiStyle, UiValue};
+use crate::ui::attributes::Attributes;
+use crate::ui::elements::child::Child;
+use crate::ui::styles::{
+    ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, TextFit, UiStyle, UiValue,
+};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use std::sync::{Arc, RwLock};
-use crate::ui::attributes::Attributes;
-use crate::ui::elements::child::Child;
 
 pub trait UiElementCallbacks {
     fn init(&mut self);
@@ -18,7 +20,9 @@ pub trait UiElementCallbacks {
 }
 
 pub trait UiElement: UiElementCallbacks {
-    fn new(attributes: Attributes, style: UiStyle) -> Self where Self: Sized;
+    fn new(attributes: Attributes, style: UiStyle) -> Self
+    where
+        Self: Sized;
 
     fn state(&self) -> &UiElementState;
 
@@ -52,7 +56,6 @@ pub(crate) struct UiElementState {
     bounding_height: i32,
 
     transforms: UiTransformations,
-
 }
 
 #[derive(Clone)]
@@ -60,7 +63,7 @@ pub(crate) struct UiTransformations {
     translation: Dimension<i32>,
     rotation: f32,
     scale: Dimension<f32>,
-    origin: Origin
+    origin: Origin,
 }
 
 impl UiElementState {
@@ -90,17 +93,37 @@ impl UiElementState {
     pub fn compute(&mut self, elem: &mut impl UiElement) {
         let style = elem.style();
 
-        let direction = if style.direction.is_set() { resolve!(elem, direction) } else { Direction::default() };
+        let direction = if style.direction.is_set() {
+            resolve!(elem, direction)
+        } else {
+            Direction::default()
+        };
 
-        let origin = if style.origin.is_set() { resolve!(elem, origin) } else { Origin::BottomLeft };
+        let origin = if style.origin.is_set() {
+            resolve!(elem, origin)
+        } else {
+            Origin::BottomLeft
+        };
 
-        let child_align = if style.child_align.is_set() { resolve!(elem, child_align) } else { ChildAlign::Start };
+        let child_align = if style.child_align.is_set() {
+            resolve!(elem, child_align)
+        } else {
+            ChildAlign::Start
+        };
 
         let width_auto = matches!(style.width, UiValue::Auto);
         let height_auto = matches!(style.height, UiValue::Auto);
 
-        let mut width = if style.width.is_set() { resolve!(elem, width) } else { 0 };
-        let mut height = if style.height.is_set() { resolve!(elem, height) } else { 0 };
+        let mut width = if style.width.is_set() {
+            resolve!(elem, width)
+        } else {
+            0
+        };
+        let mut height = if style.height.is_set() {
+            resolve!(elem, height)
+        } else {
+            0
+        };
 
         if width_auto || height_auto {
             let mut occupied_width = 0;
@@ -125,7 +148,6 @@ impl UiElementState {
                         occupied_width = occupied_width.max(e.state().bounding_width);
                         occupied_height += e.state().bounding_height;
                     }
-
                 } else {
                     let s = child.as_string();
 
@@ -171,14 +193,26 @@ impl UiElementState {
         self.bounding_width = self.width + margin[2] + margin[3];
         self.bounding_height = self.height + margin[0] + margin[1];
 
-        let position = if style.position.is_set() { resolve!(elem, position) } else { Position::Relative };
+        let position = if style.position.is_set() {
+            resolve!(elem, position)
+        } else {
+            Position::Relative
+        };
         if matches!(position, Position::Absolute) {
             if !matches!(style.x, UiValue::Auto) {
-                let x = if style.x.is_set() { resolve!(elem, x) } else { 0 };
+                let x = if style.x.is_set() {
+                    resolve!(elem, x)
+                } else {
+                    0
+                };
                 self.content_x = origin.get_actual_x(x, self.content_width);
             }
             if !matches!(style.y, UiValue::Auto) {
-                let y = if style.y.is_set() { resolve!(elem, y) } else { 0 };
+                let y = if style.y.is_set() {
+                    resolve!(elem, y)
+                } else {
+                    0
+                };
                 self.content_y = origin.get_actual_y(y, self.content_height);
             }
         }
@@ -188,63 +222,82 @@ impl UiElementState {
         self.bounding_x = self.x - margin[2];
         self.bounding_y = self.y - margin[1];
 
-        for e in elem.children_mut().filter(Child::is_element).map(|c| match c { Child::Element(ref mut e) => { e } _ => { unreachable!() } }) {
+        for e in elem
+            .children_mut()
+            .filter(Child::is_element)
+            .map(|c| match c {
+                Child::Element(ref mut e) => e,
+                _ => {
+                    unreachable!()
+                }
+            })
+        {
             //set xy of child to rel coords if pos=rel
 
-            let child_position = if e.style().position.is_set() { resolve!(e, position) } else { Position::Relative };
+            let child_position = if e.style().position.is_set() {
+                resolve!(e, position)
+            } else {
+                Position::Relative
+            };
             if matches!(child_position, Position::Relative) {
                 let stat = e.state_mut();
                 let x_off = stat.x;
                 let y_off = stat.y;
 
-                let child_origin = if e.style().origin.is_set() { resolve!(e, origin) } else { Origin::BottomLeft };
+                let child_origin = if e.style().origin.is_set() {
+                    resolve!(e, origin)
+                } else {
+                    Origin::BottomLeft
+                };
 
                 match direction {
                     Direction::Vertical => {
                         stat.content_y = child_origin.get_actual_y(y_off, stat.content_height);
-                        stat.content_x = child_origin.get_actual_x(match child_align {
-                            ChildAlign::Start => {
-                                self.content_x
-                            }
-                            ChildAlign::End => {
-                                self.content_x + self.content_width - stat.content_width
-                            }
-                            ChildAlign::Middle => {
-                                self.content_x + self.content_width / 2 - stat.content_width / 2
-                            }
-                            ChildAlign::OffsetStart(o) => {
-                                self.content_x + o
-                            }
-                            ChildAlign::OffsetEnd(o) => {
-                                self.content_x + self.content_width - stat.content_width - o
-                            }
-                            ChildAlign::OffsetMiddle(o) => {
-                                self.content_x + self.content_width / 2 - stat.content_width / 2 + o
-                            }
-                        }, stat.content_width);
+                        stat.content_x = child_origin.get_actual_x(
+                            match child_align {
+                                ChildAlign::Start => self.content_x,
+                                ChildAlign::End => {
+                                    self.content_x + self.content_width - stat.content_width
+                                }
+                                ChildAlign::Middle => {
+                                    self.content_x + self.content_width / 2 - stat.content_width / 2
+                                }
+                                ChildAlign::OffsetStart(o) => self.content_x + o,
+                                ChildAlign::OffsetEnd(o) => {
+                                    self.content_x + self.content_width - stat.content_width - o
+                                }
+                                ChildAlign::OffsetMiddle(o) => {
+                                    self.content_x + self.content_width / 2 - stat.content_width / 2
+                                        + o
+                                }
+                            },
+                            stat.content_width,
+                        );
                     }
                     Direction::Horizontal => {
                         stat.content_x = child_origin.get_actual_x(x_off, stat.content_width);
-                        stat.content_y = child_origin.get_actual_y(match child_align {
-                            ChildAlign::Start => {
-                                self.content_y
-                            }
-                            ChildAlign::End => {
-                                self.content_y + self.content_height - stat.content_height
-                            }
-                            ChildAlign::Middle => {
-                                self.content_y + self.content_height / 2 - stat.content_height / 2
-                            }
-                            ChildAlign::OffsetStart(o) => {
-                                self.content_y + o
-                            }
-                            ChildAlign::OffsetEnd(o) => {
-                                self.content_y + self.content_height - stat.content_height - o
-                            }
-                            ChildAlign::OffsetMiddle(o) => {
-                                self.content_y + self.content_height / 2 - stat.content_height / 2 + o
-                            }
-                        }, stat.content_height);
+                        stat.content_y = child_origin.get_actual_y(
+                            match child_align {
+                                ChildAlign::Start => self.content_y,
+                                ChildAlign::End => {
+                                    self.content_y + self.content_height - stat.content_height
+                                }
+                                ChildAlign::Middle => {
+                                    self.content_y + self.content_height / 2
+                                        - stat.content_height / 2
+                                }
+                                ChildAlign::OffsetStart(o) => self.content_y + o,
+                                ChildAlign::OffsetEnd(o) => {
+                                    self.content_y + self.content_height - stat.content_height - o
+                                }
+                                ChildAlign::OffsetMiddle(o) => {
+                                    self.content_y + self.content_height / 2
+                                        - stat.content_height / 2
+                                        + o
+                                }
+                            },
+                            stat.content_height,
+                        );
                     }
                 }
 

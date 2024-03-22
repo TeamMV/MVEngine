@@ -4,10 +4,10 @@ use crate::resources::resources::R;
 use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
 use crate::ui::elements::UiElement;
 use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::TetrahedronOp;
 use num_traits::Num;
 use std::convert::Infallible;
 use std::sync::Arc;
-use mvutils::utils::TetrahedronOp;
 
 #[macro_export]
 macro_rules! resolve {
@@ -77,27 +77,23 @@ impl Origin {
 
     pub fn get_actual_x(&self, x: i32, width: i32) -> i32 {
         match self {
-            Origin::TopLeft => { x }
-            Origin::BottomLeft => { x }
-            Origin::TopRight => { x - width }
-            Origin::BottomRight => { x - width }
-            Origin::Center => { x - width / 2 }
-            Origin::Custom(cx, _) => {
-                x - cx
-            }
+            Origin::TopLeft => x,
+            Origin::BottomLeft => x,
+            Origin::TopRight => x - width,
+            Origin::BottomRight => x - width,
+            Origin::Center => x - width / 2,
+            Origin::Custom(cx, _) => x - cx,
         }
     }
 
     pub fn get_actual_y(&self, y: i32, height: i32) -> i32 {
         match self {
-            Origin::TopLeft => { y - height }
-            Origin::BottomLeft => { y }
-            Origin::TopRight => { y - height }
-            Origin::BottomRight => { y }
-            Origin::Center => { y - height / 2 }
-            Origin::Custom(_, cy) => {
-                y - cy
-            }
+            Origin::TopLeft => y - height,
+            Origin::BottomLeft => y,
+            Origin::TopRight => y - height,
+            Origin::BottomRight => y,
+            Origin::Center => y - height / 2,
+            Origin::Custom(_, cy) => y - cy,
         }
     }
 }
@@ -207,10 +203,26 @@ impl SideStyle {
     }
 
     pub fn get(&self, elem: &impl UiElement) -> [i32; 4] {
-        let top = if self.top.is_set() { resolve!(elem, padding.top) } else { matches!(self.top, UiValue::Auto).yn(5, 0) };
-        let bottom = if self.bottom.is_set() { resolve!(elem, padding.bottom) } else { matches!(self.bottom, UiValue::Auto).yn(5, 0) };
-        let left = if self.left.is_set() { resolve!(elem, padding.left) } else { matches!(self.left, UiValue::Auto).yn(5, 0) };
-        let right = if self.right.is_set() { resolve!(elem, padding.right) } else { matches!(self.right, UiValue::Auto).yn(5, 0) };
+        let top = if self.top.is_set() {
+            resolve!(elem, padding.top)
+        } else {
+            matches!(self.top, UiValue::Auto).yn(5, 0)
+        };
+        let bottom = if self.bottom.is_set() {
+            resolve!(elem, padding.bottom)
+        } else {
+            matches!(self.bottom, UiValue::Auto).yn(5, 0)
+        };
+        let left = if self.left.is_set() {
+            resolve!(elem, padding.left)
+        } else {
+            matches!(self.left, UiValue::Auto).yn(5, 0)
+        };
+        let right = if self.right.is_set() {
+            resolve!(elem, padding.right)
+        } else {
+            matches!(self.right, UiValue::Auto).yn(5, 0)
+        };
         [top, bottom, left, right]
     }
 }

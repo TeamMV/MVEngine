@@ -15,22 +15,20 @@ use std::sync::Arc;
 use mvsync::{MVSync, MVSyncSpecs};
 use mvutils::version::Version;
 
-use crate::render::RenderCore;
-
 mod err;
+
 pub mod input;
-mod parsing;
 pub mod render;
-pub mod resources;
 #[cfg(feature = "ui")]
 pub mod ui;
 #[cfg(feature = "vr")]
 pub mod vr;
 
+pub mod temp;
+
 pub use mvcore_proc_macro::ui_element;
 
 pub struct MVCore {
-    render: Arc<RenderCore>,
     sync: Arc<MVSync>,
     info: ApplicationInfo,
 }
@@ -41,7 +39,6 @@ impl MVCore {
         //err::setup();
         let core = if info.multithreaded {
             MVCore {
-                render: RenderCore::new(),
                 sync: MVSync::labelled(
                     MVSyncSpecs {
                         thread_count: info.extra_threads + 1,
@@ -53,7 +50,6 @@ impl MVCore {
             }
         } else {
             MVCore {
-                render: RenderCore::new(),
                 sync: MVSync::new(MVSyncSpecs {
                     thread_count: info.extra_threads,
                     workers_per_thread: 16,
@@ -61,9 +57,7 @@ impl MVCore {
                 info,
             }
         };
-        let core = Arc::new(core);
-        core.render.set_core(core.clone());
-        core
+        core.into()
     }
 
     //pub fn loading_screen(self: &Arc<MVCore>, specs: LoadingScreenSpecs) -> Arc<LoadingScreen> {
@@ -72,10 +66,6 @@ impl MVCore {
 
     pub fn get_app_version(self: &Arc<MVCore>) -> Version {
         self.info.version
-    }
-
-    pub fn get_render(self: &Arc<MVCore>) -> Arc<RenderCore> {
-        self.render.clone()
     }
 
     pub fn get_sync(self: &Arc<MVCore>) -> Arc<MVSync> {

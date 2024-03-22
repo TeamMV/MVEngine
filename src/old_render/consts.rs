@@ -202,7 +202,7 @@ pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     };
 
 pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: Some("Bind group layout forward render 3D"),
+    label: Some("Bind group layout forward old_render 3D"),
     entries: &[],
 };
 
