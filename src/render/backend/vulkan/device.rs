@@ -228,11 +228,11 @@ impl VkDevice {
             panic!()
         });
 
-        let mut extensions = Vec::new();
-        extensions.push(ash::extensions::khr::Surface::name());
-
+        #[cfg(not(target_os = "windows"))]
+        let mut extensions = vec![ash::extensions::khr::Surface::name()];
         #[cfg(target_os = "windows")]
-        extensions.push(ash::extensions::khr::Win32Surface::name());
+        let mut extensions = vec![ash::extensions::khr::Surface::name(), ash::extensions::khr::Win32Surface::name()];
+
         #[cfg(target_os = "macos")]
         {
             extensions.push(ash::extensions::ext::MetalSurface::name());
@@ -325,10 +325,12 @@ impl VkDevice {
             .pfn_user_callback(Some(vulkan_debug_callback))
             .build();
 
-        unsafe { debug_utils.create_debug_utils_messenger(&create_info, None) }.unwrap_or_else(|e| {
-            log::error!("Failed to create debug utils messenger, error: {e}");
-            panic!()
-        })
+        unsafe { debug_utils.create_debug_utils_messenger(&create_info, None) }.unwrap_or_else(
+            |e| {
+                log::error!("Failed to create debug utils messenger, error: {e}");
+                panic!()
+            },
+        )
     }
 
     unsafe fn create_surface(
@@ -432,11 +434,11 @@ impl VkDevice {
                 panic!();
             }
 
-            let info = vk::Win32SurfaceCreateInfoKHR::builder()
-                .flags(vk::Win32SurfaceCreateFlagsKHR::empty())
+            let info = ash::vk::Win32SurfaceCreateInfoKHR::builder()
+                .flags(ash::vk::Win32SurfaceCreateFlagsKHR::empty())
                 .hinstance(hinstance)
                 .hwnd(hwnd);
-            let win32_loader = khr::Win32Surface::new(&self.shared.entry, &self.shared.raw);
+            let win32_loader = ash::extensions::khr::Win32Surface::new(entry, instance);
             win32_loader
                 .create_win32_surface(&info, None)
                 .unwrap_or_else(|_| {
@@ -506,7 +508,13 @@ impl VkDevice {
             #[cfg(target_os = "windows")]
             (RawWindowHandle::Win32(handle), _) => {
                 let hinstance = winapi::um::libloaderapi::GetModuleHandleW(std::ptr::null());
-                windows(hinstance as *mut _, handle.hwnd.get() as *mut _)
+                windows(
+                    hinstance as *mut _,
+                    handle.hwnd.get() as *mut _,
+                    extensions,
+                    entry,
+                    instance,
+                )
             }
             // #[cfg(target_os = "macos")]
             // (RawWindowHandle::AppKit(handle), _)
@@ -580,9 +588,7 @@ impl VkDevice {
         }
 
         match physical_device {
-            Some(x) => {
-                x
-            }
+            Some(x) => x,
             None => {
                 log::error!("Could find any suitable physical device!");
                 panic!()
@@ -617,9 +623,7 @@ impl VkDevice {
         let queues: Vec<(usize, ash::vk::QueueFamilyProperties)> = queues
             .iter()
             .enumerate()
-            .map(|(index, info)| {
-                (index, *info)
-            })
+            .map(|(index, info)| (index, *info))
             .collect();
 
         let mut queue_indices = QueueIndices::create();
@@ -840,7 +844,11 @@ impl VkDevice {
                 self.instance
                     .get_physical_device_format_properties(self.physical_device, *format)
             };
-            if (tiling == ash::vk::ImageTiling::LINEAR && (properties.linear_tiling_features & features) == features) || (tiling == ash::vk::ImageTiling::OPTIMAL && (properties.optimal_tiling_features & features) == features) {
+            if (tiling == ash::vk::ImageTiling::LINEAR
+                && (properties.linear_tiling_features & features) == features)
+                || (tiling == ash::vk::ImageTiling::OPTIMAL
+                    && (properties.optimal_tiling_features & features) == features)
+            {
                 return *format; // return first format on the list that fulfils requirements
             }
         }
