@@ -1,4 +1,7 @@
+use std::ffi::CString;
+
 pub(crate) mod buffer;
+pub(crate) mod command_buffer;
 pub(crate) mod descriptor_set;
 pub(crate) mod device;
 pub(crate) mod framebuffer;
@@ -25,4 +28,9 @@ pub enum Backend {
 pub struct Extent2D {
     pub width: u32,
     pub height: u32,
+}
+
+pub(crate) fn to_ascii_cstring(input: String) -> CString {
+    let ascii = input.chars().filter(|c| c.is_ascii()).collect::<String>();
+    CString::new(ascii.as_bytes()).expect("CString::new failed")
 }

@@ -39,6 +39,7 @@ panic = "unwind"
 [features]
 ui = []
 3d = ["dep:gltf"]
+ray-tracing = ["3d"]
 # vr = ["dep:openxr", "3d"]
 
 [dependencies]
@@ -49,7 +50,7 @@ mvcore-proc-macro = { path = "Proc" }
 # mvteam dependencies
 mvutils = "0.5.7"
 mvsync = "1.1.4"
-mvlogger = "0.2.1"
+mvlogger = "0.3.0"
 
 # general dependencies
 bytebuffer = "2.2.0"

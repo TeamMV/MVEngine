@@ -1,4 +1,5 @@
 pub(crate) mod buffer;
+pub(crate) mod command_buffer;
 pub(crate) mod descriptor_set;
 pub(crate) mod descriptors;
 pub(crate) mod device;

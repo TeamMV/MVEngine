@@ -1,5 +1,6 @@
 use crate::render::backend::Backend;
 use bitflags::bitflags;
+use mvcore_proc_macro::graphics_item;
 use mvutils::version::Version;
 use std::sync::Arc;
 
@@ -14,6 +15,7 @@ pub(crate) struct MVDeviceCreateInfo {
     pub(crate) device_extensions: Extensions,
 }
 
+#[graphics_item(clone)]
 #[derive(Clone)]
 pub(crate) enum Device {
     Vulkan(Arc<VkDevice>),

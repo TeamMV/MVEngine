@@ -4,9 +4,11 @@ use mvutils::version::Version;
 use shaderc::EnvVersion::Vulkan1_2;
 use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
+use std::fmt::Debug;
 use std::sync::Arc;
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use crate::render::backend::to_ascii_cstring;
 
 pub(crate) struct VkDevice {
     entry: ash::Entry,
@@ -44,13 +46,6 @@ pub(crate) struct CreateInfo {
 
 impl From<MVDeviceCreateInfo> for CreateInfo {
     fn from(value: MVDeviceCreateInfo) -> Self {
-        fn to_ascii_cstring(input: String) -> CString {
-            let ascii = input.chars().filter(|c| c.is_ascii()).collect::<String>();
-
-            // Create a CString from the ASCII bytes
-            CString::new(ascii.as_bytes()).expect("CString::new failed")
-        }
-
         CreateInfo {
             app_version: value.app_version,
             app_name: to_ascii_cstring(value.app_name),
@@ -231,7 +226,10 @@ impl VkDevice {
         #[cfg(not(target_os = "windows"))]
         let mut extensions = vec![ash::extensions::khr::Surface::name()];
         #[cfg(target_os = "windows")]
-        let mut extensions = vec![ash::extensions::khr::Surface::name(), ash::extensions::khr::Win32Surface::name()];
+        let mut extensions = vec![
+            ash::extensions::khr::Surface::name(),
+            ash::extensions::khr::Win32Surface::name(),
+        ];
 
         #[cfg(target_os = "macos")]
         {
@@ -320,7 +318,8 @@ impl VkDevice {
             .message_type(
                 ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
                     | ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
             )
             .pfn_user_callback(Some(vulkan_debug_callback))
             .build();
@@ -577,7 +576,9 @@ impl VkDevice {
             if Self::is_device_suitable(&device, instance, surface_khr, surface, extensions) {
                 physical_device = Some(device);
                 let properties = unsafe { instance.get_physical_device_properties(device) };
-                if properties.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU && prioritize_discrete {
+                if properties.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU
+                    && prioritize_discrete
+                {
                     break;
                 }
             }
@@ -781,6 +782,36 @@ impl VkDevice {
         extensions
     }
 
+    pub fn begin_debug_label(&self, cmd: &ash::vk::CommandBuffer, name: &CStr, color: &[f32; 4]) {
+        let label_info = ash::vk::DebugUtilsLabelEXT::builder()
+            .label_name(&name)
+            .color(*color)
+            .build();
+
+        unsafe {
+            self.debug_utils
+                .cmd_begin_debug_utils_label(*cmd, &label_info)
+        };
+    }
+
+    pub fn end_debug_label(&self, cmd: &ash::vk::CommandBuffer) {
+        unsafe { self.debug_utils.cmd_end_debug_utils_label(*cmd) };
+    }
+
+    pub fn set_object_name(&self, object_type: &ash::vk::ObjectType, handle: u64, name: &CStr) {
+        let name_info = ash::vk::DebugUtilsObjectNameInfoEXT::builder()
+            .object_handle(handle)
+            .object_name(&name)
+            .object_type(*object_type)
+            .build();
+
+        unsafe {
+            self.debug_utils
+                .set_debug_utils_object_name(self.device.handle(), &name_info)
+                .unwrap()
+        };
+    }
+
     pub fn get_device(&self) -> &ash::Device {
         &self.device
     }
@@ -848,17 +879,32 @@ impl VkDevice {
 
         ash::vk::Format::UNDEFINED // return undefined if none are supported
     }
+
+    pub fn get_graphics_queue(&self) -> &ash::vk::Queue {
+        &self.queues.graphics_queue
+    }
+
+    pub fn get_compute_queue(&self) -> &ash::vk::Queue {
+        &self.queues.compute_queue
+    }
+
+    pub fn get_present_queue(&self) -> &ash::vk::Queue {
+        &self.queues.present_queue
+    }
 }
 
 impl Drop for VkDevice {
     fn drop(&mut self) {
         unsafe {
-            self.device.destroy_command_pool(self.command_pools.compute_command_pool, None);
-            self.device.destroy_command_pool(self.command_pools.graphics_command_pool, None);
+            self.device
+                .destroy_command_pool(self.command_pools.compute_command_pool, None);
+            self.device
+                .destroy_command_pool(self.command_pools.graphics_command_pool, None);
             self.device.destroy_device(None);
 
             #[cfg(debug_assertions)]
-            self.debug_utils.destroy_debug_utils_messenger(self.debug_messenger, None);
+            self.debug_utils
+                .destroy_debug_utils_messenger(self.debug_messenger, None);
 
             self.instance.destroy_instance(None);
         }
@@ -891,7 +937,8 @@ unsafe extern "system" fn vulkan_debug_callback(
         ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL => "GENERAL",
         ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION => "VALIDATION",
         ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE => "PERFORMANCE",
-        _ => "",
+        ash::vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING => "DEVICE_ADDRESS_BINDING",
+        _ => "UNKNOWN",
     };
 
     match message_severity {
@@ -907,7 +954,9 @@ unsafe extern "system" fn vulkan_debug_callback(
         ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => {
             log::error!("Vulkan {ty} [{message_id_name} ({message_id_number})] : {message}")
         }
-        _ => {}
+        _ => {
+            log::trace!("Vulkan {ty} [{message_id_name} ({message_id_number})] : {message}")
+        }
     }
 
     ash::vk::FALSE
