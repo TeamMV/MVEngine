@@ -57,7 +57,7 @@ pub fn run() {
         let binary_result = compiler
             .compile_into_spirv(
                 str,
-                ShaderKind::Compute,
+                ShaderKind::Vertex,
                 "shader.glsl",
                 "main",
                 Some(&options),
@@ -70,32 +70,25 @@ pub fn run() {
     let bytes = compile(shader);
 
     let shader = Shader::new(device.clone(), MVShaderCreateInfo {
-        stage: ShaderStage::Compute,
+        stage: ShaderStage::Vertex,
         code: bytes,
         label: Some("Debug shader".to_string()),
     });
 
-    // let pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
-    //     shaders: vec![shader],
-    //     bindings: vec![],
-    //     attributes: vec![],
-    //     extent: Extent2D { width: 800, height: 600 },
-    //     topology: Topology::Triangle,
-    //     cull_mode: CullMode::Back,
-    //     enable_depth_test: true,
-    //     depth_clamp: true,
-    //     blending_enable: true,
-    //     descriptor_sets: vec![],
-    //     push_constants: vec![],
-    //     render_pass: swapchain.get_render_pass(),
-    //     color_attachments_count: 1,
-    //     label: Some("Debug pipeline".to_string()),
-    // });
-
-    let pipeline = Pipeline::<Compute>::new(device.clone(), MVComputePipelineCreateInfo {
-        shader,
+    let pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
+        shaders: vec![shader],
+        bindings: vec![],
+        attributes: vec![],
+        extent: Extent2D { width: 800, height: 600 },
+        topology: Topology::Triangle,
+        cull_mode: CullMode::Back,
+        enable_depth_test: true,
+        depth_clamp: true,
+        blending_enable: true,
         descriptor_sets: vec![],
         push_constants: vec![],
+        render_pass: swapchain.get_render_pass(),
+        color_attachments_count: 1,
         label: Some("Debug pipeline".to_string()),
     });
 

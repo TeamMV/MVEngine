@@ -1,11 +1,16 @@
 use crate::render::backend::device::{Extensions, MVDeviceCreateInfo};
-use hashbrown::HashSet;
+use hashbrown::{HashMap, HashSet};
 use mvutils::version::Version;
 use shaderc::EnvVersion::Vulkan1_2;
 use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use hashbrown::hash_map::Entry;
+use mvutils::hashers::U32IdentityHasher;
+use mvutils::once::CreateOnce;
+use mvutils::utils::Recover;
+use vk_mem::{Alloc, AllocatorPool};
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use crate::render::backend::to_ascii_cstring;
@@ -26,6 +31,9 @@ pub(crate) struct VkDevice {
 
     vsync_present_mode: ash::vk::PresentModeKHR,
     no_vsync_present_mode: ash::vk::PresentModeKHR,
+
+    allocator: Arc<vk_mem::Allocator>,
+    memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
 
     #[cfg(debug_assertions)]
     debug_messenger: ash::vk::DebugUtilsMessengerEXT,
@@ -158,6 +166,7 @@ impl VkDevice {
         .unwrap_or(ash::vk::PresentModeKHR::FIFO);
 
         let swapchain_khr = ash::extensions::khr::Swapchain::new(&instance, &device);
+        let allocator = Arc::new(Self::create_allocator(&instance, &physical_device, &device));
 
         Self {
             entry,
@@ -175,6 +184,8 @@ impl VkDevice {
             vsync_present_mode,
             no_vsync_present_mode,
             available_present_modes,
+            memory_pools: HashMap::with_hasher(U32IdentityHasher::default()).into(),
+            allocator
         }
     }
 
@@ -264,6 +275,18 @@ impl VkDevice {
         });
 
         extensions
+    }
+
+    fn create_allocator(
+        instance: &ash::Instance,
+        physical_device: &ash::vk::PhysicalDevice,
+        device: &ash::Device,
+    ) -> vk_mem::Allocator {
+        let create_info = vk_mem::AllocatorCreateInfo::new(instance, device, *physical_device);
+        let allocator =
+            vk_mem::Allocator::new(create_info).expect("Failed To Create VMA Allocator");
+
+        return allocator;
     }
 
     fn create_instance(entry: &ash::Entry, create_info: &CreateInfo) -> ash::Instance {
@@ -880,16 +903,106 @@ impl VkDevice {
         ash::vk::Format::UNDEFINED // return undefined if none are supported
     }
 
-    pub fn get_graphics_queue(&self) -> &ash::vk::Queue {
-        &self.queues.graphics_queue
+    pub fn allocate_buffer(
+        &self,
+        create_info: &ash::vk::BufferCreateInfo,
+        flags: ash::vk::MemoryPropertyFlags,
+        no_pool: bool
+    ) -> (ash::vk::Buffer, vk_mem::Allocation) {
+        let alloc_info = vk_mem::AllocationCreateInfo {
+            usage: vk_mem::MemoryUsage::Auto,
+            priority: 0.5,
+            required_flags: flags,
+            ..Default::default()
+        };
+
+        let index = unsafe { self.allocator.find_memory_type_index_for_buffer_info(create_info, &alloc_info) }.unwrap_or_else(|e| {
+            log::error!("Failed to find memory index, error: {e}");
+            panic!()
+        });
+
+        if no_pool {
+            let (buffer, allocation) = unsafe { self.allocator.create_buffer(&create_info, &alloc_info).unwrap() };
+            return (buffer, allocation);
+        }
+
+        match self.memory_pools.write().recover().entry(index) {
+            Entry::Occupied(entry) => {
+                let pool = entry.get();
+                unsafe { pool.create_buffer(create_info, &alloc_info) }.unwrap_or_else(|e| {
+                    // Pool may be full, so we just don't use it
+                    // TODO: create a new pool when this one fills up
+                    let (buffer, allocation) = unsafe { self.allocator.create_buffer(&create_info, &alloc_info).unwrap() };
+                    (buffer, allocation)
+                })
+            }
+            Entry::Vacant(entry) => {
+                let mut pool_info = vk_mem::PoolCreateInfo::new();
+                pool_info = pool_info.block_size(create_info.size);
+                let pool = self.allocator.create_pool(&pool_info).unwrap();
+                let pool = entry.insert(pool);
+
+                let (buffer, allocation) = unsafe { pool.create_buffer(&create_info, &alloc_info).unwrap() };
+                (buffer, allocation)
+            }
+        }
     }
 
-    pub fn get_compute_queue(&self) -> &ash::vk::Queue {
-        &self.queues.compute_queue
+    pub(crate) fn get_allocator(&self) -> &vk_mem::Allocator {
+        &self.allocator
     }
 
-    pub fn get_present_queue(&self) -> &ash::vk::Queue {
-        &self.queues.present_queue
+    pub(crate) fn begin_single_time_command(&self, pool: ash::vk::CommandPool) -> ash::vk::CommandBuffer {
+        let alloc_info = ash::vk::CommandBufferAllocateInfo::builder()
+            .command_pool(*pool)
+            .level(ash::vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1)
+            .build();
+
+        let cmd_buffer = unsafe { self.device.allocate_command_buffers(&alloc_info) }
+            .expect("Failed to allocate cmd buffer");
+        return cmd_buffer[0];
+    }
+
+    pub(crate) fn end_single_time_command(&self, command_buffer: ash::vk::CommandBuffer, pool: ash::vk::CommandPool, queue: ash::vk::Queue ) {
+        unsafe { self.device.end_command_buffer(command_buffer) }
+            .expect("Failed to end command buffer");
+
+        let cmd_vec = vec![command_buffer];
+        let submit_info = vec![ash::vk::SubmitInfo::builder()
+            .command_buffers(&cmd_vec)
+            .build()];
+
+        unsafe {
+            self.device
+                .queue_submit(queue, &submit_info, ash::vk::Fence::null())
+        }
+            .expect("Failed to submit cmd buffer");
+
+        // Wait for GPU
+        unsafe { self.device.queue_wait_idle(queue) }.unwrap();
+
+        unsafe { self.device.free_command_buffers(pool, &cmd_vec) };
+    }
+
+    pub(crate) fn get_compute_command_pool(&self) -> ash::vk::CommandPool {
+        self.command_pools.compute_command_pool
+    }
+
+    pub(crate) fn get_graphics_command_pool(&self) -> ash::vk::CommandPool {
+        self.command_pools.graphics_command_pool
+    }
+
+    pub(crate) fn get_graphics_queue(&self) -> ash::vk::Queue {
+        self.queues.graphics_queue
+    }
+
+    pub(crate) fn get_compute_queue(&self) -> ash::vk::Queue {
+        self.queues.compute_queue
+    }
+
+    pub(crate) fn get_present_queue(&self) -> ash::vk::Queue {
+        self.queues.present_queue
     }
 }
 

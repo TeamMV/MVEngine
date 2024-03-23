@@ -3,7 +3,12 @@ use crate::render::backend::vulkan::device::VkDevice;
 use ash::vk::Handle;
 use std::ffi::CString;
 use std::sync::Arc;
+use mvutils::lazy;
 use crate::render::backend::to_ascii_cstring;
+
+lazy! {
+    static ENTRY: CString = CString::new("main").unwrap();
+}
 
 pub(crate) struct CreateInfo {
     stage: ash::vk::ShaderStageFlags,
@@ -89,7 +94,7 @@ impl VkShader {
         ash::vk::PipelineShaderStageCreateInfo::builder()
             .stage(self.stage)
             .module(self.handle)
-            .name(CString::new("main").unwrap().as_c_str())
+            .name(ENTRY.as_c_str())
             .build()
     }
 }

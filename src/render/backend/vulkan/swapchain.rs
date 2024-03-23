@@ -3,7 +3,6 @@ use crate::render::backend::swapchain::{
 };
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::Extent2D;
-use openal::capture::devices;
 use std::ops::Not;
 use std::sync::Arc;
 

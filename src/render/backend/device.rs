@@ -3,6 +3,7 @@ use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
 use mvutils::version::Version;
 use std::sync::Arc;
+use crate::render::backend::command_buffer::CommandBuffer;
 
 use crate::render::backend::vulkan::device::VkDevice;
 
@@ -39,6 +40,94 @@ impl Device {
             Backend::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {
+        match self {
+            Device::Vulkan(device) => CommandBuffer::Vulkan(device.begin_single_time_command(pool.as_vulkan())),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn end_single_time_command(&self, buffer: CommandBuffer, pool: CommandPool, queue: Queue) {
+        match self {
+            Device::Vulkan(device) => device.end_single_time_command(buffer.as_vulkan(), pool.as_vulkan(), queue.as_vulkan()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_graphics_command_pool(&self) -> CommandPool {
+        match self {
+            Device::Vulkan(device) => CommandPool::Vulkan(device.get_graphics_command_pool()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_compute_command_pool(&self) -> CommandPool {
+        match self {
+            Device::Vulkan(device) => CommandPool::Vulkan(device.get_compute_command_pool()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_graphics_queue(&self) -> Queue {
+        match self {
+            Device::Vulkan(device) => Queue::Vulkan(device.get_graphics_queue()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_compute_queue(&self) -> Queue {
+        match self {
+            Device::Vulkan(device) => Queue::Vulkan(device.get_compute_queue()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_present_queue(&self) -> Queue {
+        match self {
+            Device::Vulkan(device) => Queue::Vulkan(device.get_present_queue()),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
+}
+
+#[graphics_item(copy)]
+pub(crate) enum CommandPool {
+    Vulkan(ash::vk::CommandPool),
+    #[cfg(target_os = "macos")]
+    Metal,
+    #[cfg(target_os = "windows")]
+    DirectX,
+}
+
+#[graphics_item(copy)]
+pub(crate) enum Queue {
+    Vulkan(ash::vk::Queue),
+    #[cfg(target_os = "macos")]
+    Metal,
+    #[cfg(target_os = "windows")]
+    DirectX,
 }
 
 bitflags! {

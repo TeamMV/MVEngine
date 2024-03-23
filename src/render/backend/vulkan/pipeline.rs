@@ -348,7 +348,7 @@ impl VkPipeline<Compute> {
 
         let pipeline = unsafe { device.get_device().create_compute_pipelines(ash::vk::PipelineCache::null(), &compute_info, None)}.unwrap_or_else(|e| {
             log::error!("Failed to create pipeline! error: {}", e.1);
-            panic!();
+            panic!()
         })[0];
 
         Self {
