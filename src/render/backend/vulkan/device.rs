@@ -575,25 +575,18 @@ impl VkDevice {
 
         for device in devices {
             if Self::is_device_suitable(&device, instance, surface_khr, surface, extensions) {
+                physical_device = Some(device);
                 let properties = unsafe { instance.get_physical_device_properties(device) };
-                if properties.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU
-                    && prioritize_discrete
-                {
-                    physical_device = Some(device);
+                if properties.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU && prioritize_discrete {
                     break;
-                } else {
-                    physical_device = Some(device);
                 }
             }
         }
 
-        match physical_device {
-            Some(x) => x,
-            None => {
-                log::error!("Could find any suitable physical device!");
-                panic!()
-            }
-        }
+        physical_device.unwrap_or_else(|| {
+            log::error!("Could find any suitable physical device!");
+            panic!()
+        })
     }
 
     fn is_device_suitable(
@@ -854,6 +847,21 @@ impl VkDevice {
         }
 
         ash::vk::Format::UNDEFINED // return undefined if none are supported
+    }
+}
+
+impl Drop for VkDevice {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.destroy_command_pool(self.command_pools.compute_command_pool, None);
+            self.device.destroy_command_pool(self.command_pools.graphics_command_pool, None);
+            self.device.destroy_device(None);
+
+            #[cfg(debug_assertions)]
+            self.debug_utils.destroy_debug_utils_messenger(self.debug_messenger, None);
+
+            self.instance.destroy_instance(None);
+        }
     }
 }
 
