@@ -223,6 +223,7 @@ impl VkPipeline {
             panic!();
         })[0];
 
+        #[cfg(debug_assertions)]
         device.set_object_name(&ash::vk::ObjectType::PIPELINE, pipeline.as_raw(), create_info.debug_name.as_c_str());
 
         Self {
@@ -280,11 +281,11 @@ impl VkPipeline {
             color_blend_attachments.push(ash::vk::PipelineColorBlendAttachmentState::builder()
                 .color_write_mask(ash::vk::ColorComponentFlags::RGBA)
                 .blend_enable(create_info.blending_enable)
-                .src_alpha_blend_factor(ash::vk::BlendFactor::SRC_ALPHA)
+                .src_color_blend_factor(ash::vk::BlendFactor::SRC_ALPHA)
                 .dst_color_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
                 .color_blend_op(ash::vk::BlendOp::ADD)
                 .src_alpha_blend_factor(ash::vk::BlendFactor::ONE)
-                .dst_alpha_blend_factor(ash::vk::BlendFactor::ZERO)
+                .dst_alpha_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
                 .alpha_blend_op(ash::vk::BlendOp::ADD)
                 .build()
             )

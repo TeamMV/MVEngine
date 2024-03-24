@@ -11,3 +11,4 @@ pub(crate) mod sampler;
 pub(crate) mod sbt;
 pub(crate) mod shader;
 pub(crate) mod swapchain;
+mod Vertex;

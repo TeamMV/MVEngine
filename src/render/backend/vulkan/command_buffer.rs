@@ -48,7 +48,7 @@ impl VkCommandBuffer {
         })[0];
 
         #[cfg(debug_assertions)]
-        device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
+        device.set_object_name(&ash::vk::ObjectType::COMMAND_BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
 
         Self {
             device,

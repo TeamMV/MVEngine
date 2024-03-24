@@ -1,4 +1,3 @@
-#![feature(new_uninit)]
 #![allow(unused_imports)]
 #![allow(clippy::too_many_arguments)]
 // These are temporary during development, unused functions and variables will need to be

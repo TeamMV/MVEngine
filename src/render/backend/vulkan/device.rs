@@ -124,10 +124,13 @@ impl VkDevice {
         };
 
         let surface_khr = ash::extensions::khr::Surface::new(&entry, &instance);
+
         let extensions = Self::get_required_extensions(&create_info.device_extensions);
         let physical_device =
             Self::pick_physical_device(&surface, &surface_khr, &instance, true, &extensions);
+
         let properties = Self::get_physical_device_properties(&instance, &physical_device);
+
         let (device, queues) = Self::create_logical_device(
             &surface_khr,
             &surface,
@@ -171,7 +174,9 @@ impl VkDevice {
         Self {
             entry,
             instance,
+            #[cfg(debug_assertions)]
             debug_messenger,
+            #[cfg(debug_assertions)]
             debug_utils,
             surface_extension: surface_khr,
             swapchain_extension: swapchain_khr,
@@ -802,6 +807,7 @@ impl VkDevice {
         extensions
     }
 
+    #[cfg(debug_assertions)]
     pub fn begin_debug_label(&self, cmd: &ash::vk::CommandBuffer, name: &CStr, color: &[f32; 4]) {
         let label_info = ash::vk::DebugUtilsLabelEXT::builder()
             .label_name(name)
@@ -814,10 +820,12 @@ impl VkDevice {
         };
     }
 
+    #[cfg(debug_assertions)]
     pub fn end_debug_label(&self, cmd: &ash::vk::CommandBuffer) {
         unsafe { self.debug_utils.cmd_end_debug_utils_label(*cmd) };
     }
 
+    #[cfg(debug_assertions)]
     pub fn set_object_name(&self, object_type: &ash::vk::ObjectType, handle: u64, name: &CStr) {
         let name_info = ash::vk::DebugUtilsObjectNameInfoEXT::builder()
             .object_handle(handle)

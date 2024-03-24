@@ -17,7 +17,7 @@ use crate::render::backend::pipeline::{Compute, CullMode, Graphics, MVComputePip
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 
 pub fn run() {
-    mvlogger::init(std::io::stdout(), LevelFilter::Trace);
+    mvlogger::init(std::io::stdout(), LevelFilter::Debug);
 
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new()
@@ -114,7 +114,7 @@ pub fn run() {
 
     let mut frames = 0;
     let mut delta_f = 0.0;
-    let time_f = 1000000000.0 / 60.0;
+    let time_f = 1000000000.0 / 1000000.0;
     let mut now = SystemTime::now();
     let mut timer = SystemTime::now();
 
@@ -127,7 +127,10 @@ pub fn run() {
                     }
                     WindowEvent::RedrawRequested => {
                         //do rendering in here
-                        let image_index = swapchain.acquire_next_image().unwrap();
+
+                        let image_index = swapchain.acquire_next_image().unwrap_or_else(|_| {
+                            loop {}
+                        });
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
                         let framebuffer = swapchain.get_current_framebuffer();
@@ -136,17 +139,20 @@ pub fn run() {
 
                         pipeline.bind(cmd);
 
-                        framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 0.0])], Extent2D {
+                        framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])], Extent2D {
                             width: 800,
                             height: 600,
                         });
 
                         cmd.draw(3, 0);
 
+                        framebuffer.end_render_pass(cmd);
+
                         cmd.end();
 
-                        swapchain.submit_command_buffer(cmd, image_index).unwrap();
-
+                        swapchain.submit_command_buffer(cmd, image_index).unwrap_or_else(|_| {
+                            loop {}
+                        });
                     }
                     _ => {}
                 }

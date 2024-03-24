@@ -33,6 +33,7 @@ opt-level = 3
 strip = true
 lto = false
 debug = false
+debug-assertions = false
 codegen-units = 1
 panic = "unwind"
 
