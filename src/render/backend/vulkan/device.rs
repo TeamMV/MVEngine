@@ -283,10 +283,7 @@ impl VkDevice {
         device: &ash::Device,
     ) -> vk_mem::Allocator {
         let create_info = vk_mem::AllocatorCreateInfo::new(instance, device, *physical_device);
-        let allocator =
-            vk_mem::Allocator::new(create_info).expect("Failed To Create VMA Allocator");
-
-        return allocator;
+        vk_mem::Allocator::new(create_info).expect("Failed To Create VMA Allocator")
     }
 
     fn create_instance(entry: &ash::Entry, create_info: &CreateInfo) -> ash::Instance {
@@ -807,7 +804,7 @@ impl VkDevice {
 
     pub fn begin_debug_label(&self, cmd: &ash::vk::CommandBuffer, name: &CStr, color: &[f32; 4]) {
         let label_info = ash::vk::DebugUtilsLabelEXT::builder()
-            .label_name(&name)
+            .label_name(name)
             .color(*color)
             .build();
 
@@ -824,7 +821,7 @@ impl VkDevice {
     pub fn set_object_name(&self, object_type: &ash::vk::ObjectType, handle: u64, name: &CStr) {
         let name_info = ash::vk::DebugUtilsObjectNameInfoEXT::builder()
             .object_handle(handle)
-            .object_name(&name)
+            .object_name(name)
             .object_type(*object_type)
             .build();
 
@@ -909,9 +906,16 @@ impl VkDevice {
         flags: ash::vk::MemoryPropertyFlags,
         no_pool: bool
     ) -> (ash::vk::Buffer, vk_mem::Allocation) {
+
+        let alloc_flags = if flags.contains(ash::vk::MemoryPropertyFlags::HOST_VISIBLE) {
+            vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM
+        } else {
+            vk_mem::AllocationCreateFlags::empty()
+        };
         let alloc_info = vk_mem::AllocationCreateInfo {
             usage: vk_mem::MemoryUsage::Auto,
             priority: 0.5,
+            flags: alloc_flags,
             required_flags: flags,
             ..Default::default()
         };
@@ -922,7 +926,7 @@ impl VkDevice {
         });
 
         if no_pool {
-            let (buffer, allocation) = unsafe { self.allocator.create_buffer(&create_info, &alloc_info).unwrap() };
+            let (buffer, allocation) = unsafe { self.allocator.create_buffer(create_info, &alloc_info).unwrap() };
             return (buffer, allocation);
         }
 
@@ -932,17 +936,19 @@ impl VkDevice {
                 unsafe { pool.create_buffer(create_info, &alloc_info) }.unwrap_or_else(|e| {
                     // Pool may be full, so we just don't use it
                     // TODO: create a new pool when this one fills up
-                    let (buffer, allocation) = unsafe { self.allocator.create_buffer(&create_info, &alloc_info).unwrap() };
+
+                    let (buffer, allocation) = unsafe { self.allocator.create_buffer(create_info, &alloc_info).unwrap() };
                     (buffer, allocation)
                 })
             }
             Entry::Vacant(entry) => {
                 let mut pool_info = vk_mem::PoolCreateInfo::new();
-                pool_info = pool_info.block_size(create_info.size);
+                pool_info = pool_info.memory_type_index(index);
+                pool_info = pool_info.block_size(16 * 1024 * 1024); // 16 MB pools
                 let pool = self.allocator.create_pool(&pool_info).unwrap();
                 let pool = entry.insert(pool);
 
-                let (buffer, allocation) = unsafe { pool.create_buffer(&create_info, &alloc_info).unwrap() };
+                let (buffer, allocation) = unsafe { pool.create_buffer(create_info, &alloc_info).unwrap() };
                 (buffer, allocation)
             }
         }
@@ -954,14 +960,14 @@ impl VkDevice {
 
     pub(crate) fn begin_single_time_command(&self, pool: ash::vk::CommandPool) -> ash::vk::CommandBuffer {
         let alloc_info = ash::vk::CommandBufferAllocateInfo::builder()
-            .command_pool(*pool)
+            .command_pool(pool)
             .level(ash::vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1)
             .build();
 
         let cmd_buffer = unsafe { self.device.allocate_command_buffers(&alloc_info) }
             .expect("Failed to allocate cmd buffer");
-        return cmd_buffer[0];
+        cmd_buffer[0]
     }
 
     pub(crate) fn end_single_time_command(&self, command_buffer: ash::vk::CommandBuffer, pool: ash::vk::CommandPool, queue: ash::vk::Queue ) {
@@ -1009,6 +1015,8 @@ impl VkDevice {
 impl Drop for VkDevice {
     fn drop(&mut self) {
         unsafe {
+            self.memory_pools.write().recover().drain();
+
             self.device
                 .destroy_command_pool(self.command_pools.compute_command_pool, None);
             self.device
@@ -1018,6 +1026,8 @@ impl Drop for VkDevice {
             #[cfg(debug_assertions)]
             self.debug_utils
                 .destroy_debug_utils_messenger(self.debug_messenger, None);
+
+            self.surface_extension.destroy_surface(self.surface, None);
 
             self.instance.destroy_instance(None);
         }

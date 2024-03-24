@@ -75,7 +75,7 @@ fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
         .compile_into_spirv(
             processed.as_str(),
             type_of_shader.into(),
-            "shader.glsl",
+            "shader.vert",
             "main",
             Some(&options),
         )

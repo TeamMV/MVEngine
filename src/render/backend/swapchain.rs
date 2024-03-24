@@ -3,6 +3,7 @@ use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::swapchain::VkSwapchain;
 use crate::render::backend::Extent2D;
+use crate::render::backend::framebuffer::Framebuffer;
 
 pub(crate) struct MVSwapchainCreateInfo {
     pub(crate) extent: Extent2D,
@@ -23,9 +24,7 @@ pub(crate) enum Swapchain {
 impl Swapchain {
     pub(crate) fn new(device: Device, create_info: MVSwapchainCreateInfo) -> Swapchain {
         match device {
-            Device::Vulkan(device) => {
-                Swapchain::Vulkan(VkSwapchain::new(device, create_info.into()))
-            }
+            Device::Vulkan(device) => Swapchain::Vulkan(VkSwapchain::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -33,9 +32,19 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_render_pass(&self) -> RenderPass {
+    pub(crate) fn get_framebuffer(&self, index: usize) -> Framebuffer {
         match self {
-            Swapchain::Vulkan(swapchain) => RenderPass::Vulkan(swapchain.get_render_pass()),
+            Swapchain::Vulkan(swapchain) => Framebuffer::Vulkan(swapchain.get_framebuffer(index)),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_current_framebuffer(&self) -> Framebuffer {
+        match self {
+            Swapchain::Vulkan(swapchain) => Framebuffer::Vulkan(swapchain.get_current_framebuffer()),
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -75,7 +84,15 @@ impl Swapchain {
 
     pub(crate) fn submit_command_buffer(
         &mut self,
-        buffer: &[CommandBuffer],
+        buffer: &CommandBuffer,
+        image_index: u32,
+    ) -> Result<(), SwapchainError> {
+        self.submit_command_buffers(&[buffer], image_index)
+    }
+
+    pub(crate) fn submit_command_buffers(
+        &mut self,
+        buffer: &[&CommandBuffer],
         image_index: u32,
     ) -> Result<(), SwapchainError> {
         match self {
@@ -83,7 +100,7 @@ impl Swapchain {
                 .submit_command_buffer(
                     &buffer
                         .iter()
-                        .map(CommandBuffer::as_vulkan)
+                        .map(|b| b.as_vulkan().get_handle())
                         .collect::<Vec<_>>(),
                     image_index,
                 )
@@ -104,19 +121,19 @@ impl Swapchain {
             Swapchain::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn get_current_frame(&self) -> u32 {
+        match self {
+            Swapchain::Vulkan(swapchain) => swapchain.get_current_frame(),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
 }
 
-#[graphics_item(copy)]
-pub(crate) enum RenderPass {
-    Vulkan(ash::vk::RenderPass),
-    #[cfg(target_os = "macos")]
-    Metal,
-    #[cfg(target_os = "windows")]
-    DirectX,
-}
-
-impl RenderPass {}
-
+#[derive(Debug, Copy, Clone)]
 pub(crate) enum PresentMode {
     Immediate,
     Mailbox,
@@ -124,6 +141,7 @@ pub(crate) enum PresentMode {
     FifoRelaxed,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub(crate) enum SwapchainError {
     OutOfDate,
     Suboptimal,

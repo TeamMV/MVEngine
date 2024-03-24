@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 use mvcore_proc_macro::graphics_item;
 use mvutils::sealable;
+use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::descriptor_set::DescriptorSetLayout;
 use crate::render::backend::device::Device;
 use crate::render::backend::Extent2D;
+use crate::render::backend::framebuffer::Framebuffer;
 use crate::render::backend::shader::{Shader, ShaderStage};
-use crate::render::backend::swapchain::RenderPass;
 use crate::render::backend::vulkan::pipeline::VkPipeline;
 use crate::render::backend::vulkan::shader::VkShader;
 
@@ -77,7 +78,7 @@ pub(crate) struct MVGraphicsPipelineCreateInfo {
     pub(crate) blending_enable: bool,
     pub(crate) descriptor_sets: Vec<DescriptorSetLayout>,
     pub(crate) push_constants: Vec<PushConstant>,
-    pub(crate) render_pass: RenderPass,
+    pub(crate) framebuffer: Framebuffer,
     pub(crate) color_attachments_count: u32,
 
     pub(crate) label: Option<String>,
@@ -112,7 +113,7 @@ pub(crate) enum Pipeline<Type: PipelineType = Graphics> {
 }
 
 impl Pipeline {
-    pub fn new(device: Device, create_info: MVGraphicsPipelineCreateInfo) -> Self {
+    pub(crate) fn new(device: Device, create_info: MVGraphicsPipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<Graphics>::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
@@ -121,10 +122,20 @@ impl Pipeline {
             Device::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+        match self {
+            Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
+            #[cfg(target_os = "macos")]
+            Pipeline::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Pipeline::DirectX => unimplemented!(),
+        }
+    }
 }
 
 impl Pipeline<Compute> {
-    pub fn new(device: Device, create_info: MVComputePipelineCreateInfo) -> Self {
+    pub(crate) fn new(device: Device, create_info: MVComputePipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<Compute>::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
@@ -133,17 +144,37 @@ impl Pipeline<Compute> {
             Device::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+        match self {
+            Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
+            #[cfg(target_os = "macos")]
+            Pipeline::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Pipeline::DirectX => unimplemented!(),
+        }
+    }
 }
 
 #[cfg(feature = "ray-tracing")]
 impl Pipeline<RayTracing> {
-    pub fn new(device: Device, create_info: MVRayTracingPipelineCreateInfo) -> Self {
+    pub(crate) fn new(device: Device, create_info: MVRayTracingPipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<RayTracing>::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             Device::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+        match self {
+            Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
+            #[cfg(target_os = "macos")]
+            Pipeline::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Pipeline::DirectX => unimplemented!(),
         }
     }
 }

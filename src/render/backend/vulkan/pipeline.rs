@@ -121,7 +121,7 @@ impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
             blending_enable: value.blending_enable,
             descriptor_set_layouts: value.descriptor_sets.into_iter().map(DescriptorSetLayout::into_vulkan).collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
-            render_pass: value.render_pass.as_vulkan(),
+            render_pass: value.framebuffer.as_vulkan().get_render_pass(),
             color_attachments_count: value.color_attachments_count,
 
             #[cfg(debug_assertions)]
@@ -181,8 +181,8 @@ pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
 impl<Type: PipelineType> VkPipeline<Type> {
     fn create_pipeline_layout(device: &Arc<VkDevice>, descriptor_set_layouts: &[ash::vk::DescriptorSetLayout], push_constants: &[ash::vk::PushConstantRange]) -> ash::vk::PipelineLayout {
         let layout_info = ash::vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&descriptor_set_layouts)
-            .push_constant_ranges(&push_constants)
+            .set_layouts(descriptor_set_layouts)
+            .push_constant_ranges(push_constants)
             .build();
 
         unsafe { device.get_device().create_pipeline_layout(&layout_info, None)}.unwrap_or_else(|e| {
@@ -336,6 +336,10 @@ impl VkPipeline {
             dynamic_state_info
         }
     }
+
+    pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
+        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::GRAPHICS, self.handle) };
+    }
 }
 
 impl VkPipeline<Compute> {
@@ -358,10 +362,24 @@ impl VkPipeline<Compute> {
             _phantom: Default::default(),
         }
     }
+
+    pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
+        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::COMPUTE, self.handle) };
+    }
 }
 
 #[cfg(feature = "ray-tracing")]
 impl VkPipeline<RayTracing> {
 
+    pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
+        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::RAY_TRACING_KHR, self.handle) };
+    }
+}
+
+impl<Type: PipelineType> Drop for VkPipeline<Type> {
+    fn drop(&mut self) {
+        unsafe { self.device.get_device().destroy_pipeline(self.handle, None) };
+        unsafe { self.device.get_device().destroy_pipeline_layout(self.layout, None) };
+    }
 }
 

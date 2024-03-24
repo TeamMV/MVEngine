@@ -61,12 +61,12 @@ impl VkBuffer {
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .build();
 
-        let (buffer, allocation) = device.allocate_buffer(&vk_create_info, create_info.memory_properties, false);
+        let (buffer, allocation) = device.allocate_buffer(&vk_create_info, create_info.memory_properties, create_info.no_pool);
 
         #[cfg(debug_assertions)]
         device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
 
-        return Self {
+        Self {
             device,
             handle: buffer,
             allocation,
@@ -87,18 +87,9 @@ impl VkBuffer {
         let ptr = data.as_ptr();
         let size = data.len();
 
-        let mut cmd;
-        let has_cmd_provided = provided_cmd.is_some();
-        if !has_cmd_provided {
-            cmd = self.device.begin_single_time_command(self.device.get_compute_command_pool());
-        }
-        else {
-            cmd = provided_cmd.unwrap();
-        }
-
         // Host Visible
         if !self.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
-            let need_to_map_buffer = self.mapped == std::ptr::null_mut();
+            let need_to_map_buffer = self.mapped.is_null();
             if need_to_map_buffer {
                 self.map();
             }
@@ -125,20 +116,19 @@ impl VkBuffer {
 
             staging_buffer.map();
 
-            staging_buffer.write_to_buffer(data, size as ash::vk::DeviceSize, Some(cmd));
+            staging_buffer.write_to_buffer(data, size as ash::vk::DeviceSize, None);
 
             staging_buffer.unmap();
 
-            Self::copy_buffer(&staging_buffer, self, size as ash::vk::DeviceSize, 0, 0, Some(cmd));
-        }
-
-        if !has_cmd_provided {
-            self.device.end_single_time_command(cmd, self.device.get_compute_command_pool(), self.device.get_compute_queue());
+            Self::copy_buffer(&staging_buffer, self, size as ash::vk::DeviceSize, 0, 0, provided_cmd);
         }
     }
 
-    pub(crate) fn flush(&self) {
-        unsafe { self.device.get_allocator().flush_allocation(*self.allocation, 0, *self.buffer_size) }.unwrap();
+    pub(crate) fn flush(&mut self) {
+        self.device.get_allocator().flush_allocation(&self.allocation, 0, self.buffer_size as usize).unwrap_or_else(|e| {
+            log::error!("Failed to flush buffer, error: {e}");
+            panic!()
+        });
     }
 
     pub(crate) fn get_descriptor_info(&self, size: ash::vk::DeviceSize, offset: ash::vk::DeviceSize) -> ash::vk::DescriptorBufferInfo {
@@ -149,7 +139,7 @@ impl VkBuffer {
             .build()
     }
 
-    pub(crate) fn copy_buffer(src_buffer: &VkBuffer, dst_buffer: &VkBuffer, size: ash::vk::DeviceSize, src_offset: ash::vk::DeviceSize, dst_offset: ash::vk::DeviceSize, provided_cmd: Option<ash::vk::CommandBuffer>) {
+    pub(crate) fn copy_buffer(src_buffer: &VkBuffer, dst_buffer: &mut VkBuffer, size: ash::vk::DeviceSize, src_offset: ash::vk::DeviceSize, dst_offset: ash::vk::DeviceSize, provided_cmd: Option<ash::vk::CommandBuffer>) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd, false)
         } else {
@@ -162,7 +152,7 @@ impl VkBuffer {
             .size(size)
             .build()];
 
-        unsafe { src_buffer.device.get_device().cmd_copy_buffer(cmd, *src_buffer.get_buffer(), *dst_buffer.get_buffer(), &copy_region) }
+        unsafe { src_buffer.device.get_device().cmd_copy_buffer(cmd, src_buffer.get_buffer(), dst_buffer.get_buffer(), &copy_region) }
 
         if end {
             src_buffer.device.end_single_time_command(cmd, src_buffer.device.get_compute_command_pool(), src_buffer.device.get_compute_queue());
@@ -192,10 +182,20 @@ impl VkBuffer {
     }
 
     fn get_alignment(instance_size: &ash::vk::DeviceSize, min_offset_alignment: &ash::vk::DeviceSize) -> ash::vk::DeviceSize {
-        return (instance_size + min_offset_alignment - 1) & !(min_offset_alignment - 1);
+        (instance_size + min_offset_alignment - 1) & !(min_offset_alignment - 1)
     }
 
     pub(crate) fn get_buffer(&self) -> ash::vk::Buffer {
         self.handle
+    }
+}
+
+impl Drop for VkBuffer {
+    fn drop(&mut self) {
+        if !self.mapped.is_null() {
+            self.unmap();
+        }
+
+        unsafe { self.device.get_allocator().destroy_buffer(self.handle, &mut self.allocation) };
     }
 }

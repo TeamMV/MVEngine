@@ -27,6 +27,12 @@ pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
                     item
                 }
 
+                pub fn as_vulkan_mut(&mut self) -> &mut #vk {
+                    #[allow(irrefutable_let_patterns)]
+                    let #ident::Vulkan(item) = self else { unreachable!() };
+                    item
+                }
+
                 pub fn into_vulkan(self) -> #vk {
                     #[allow(irrefutable_let_patterns)]
                     let #ident::Vulkan(item) = self else { unreachable!() };

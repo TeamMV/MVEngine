@@ -29,7 +29,7 @@ pub(crate) enum Buffer {
 impl Buffer {
     pub(crate) fn new(device: Device, create_info: MVBufferCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Buffer::Vulkan(VkBuffer::new(device, create_info.into()).into()),
+            Device::Vulkan(device) => Buffer::Vulkan(VkBuffer::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -37,9 +37,9 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn write(&mut self, data: &[u8], offset: u64, command_buffer: Option<CommandBuffer>) {
+    pub(crate) fn write(&mut self, data: &[u8], offset: u64, command_buffer: Option<&CommandBuffer>) {
         match self {
-            Buffer::Vulkan(buffer) => buffer.write_to_buffer(data, offset, command_buffer.map(CommandBuffer::into_vulkan)),
+            Buffer::Vulkan(buffer) => buffer.write_to_buffer(data, offset, command_buffer.map(|buffer| buffer.as_vulkan().get_handle())),
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -47,9 +47,9 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn flush(&self, size: u64, offset: u64) {
+    pub(crate) fn flush(&mut self) {
         match self {
-            Buffer::Vulkan(buffer) => buffer.flush(size, offset)),
+            Buffer::Vulkan(buffer) => buffer.flush(),
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -67,20 +67,21 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn copy_buffer(src: &Buffer, dst: &Buffer, size: u64, command_buffer: Option<CommandBuffer>) {
+    pub(crate) fn copy_buffer(src: &mut Buffer, dst: &mut Buffer, size: u64, src_offset: u64, dst_offset: u64, command_buffer: Option<&CommandBuffer>) {
         match (src, dst) {
-            (Buffer::Vulkan(src), Buffer::Vulkan(dst)) => VkBuffer::copy_buffer(src, dst, size, command_buffer.map(CommandBuffer::into_vulkan)),
+            (Buffer::Vulkan(src), Buffer::Vulkan(dst)) => VkBuffer::copy_buffer(src, dst, size, src_offset, dst_offset, command_buffer.map(|buffer| buffer.as_vulkan().get_handle())),
             #[cfg(target_os = "macos")]
             (Buffer::Metal, Buffer::Metal) => unimplemented!(),
             #[cfg(target_os = "windows")]
             (Buffer::DirectX, Buffer::DirectX) => unimplemented!(),
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
             (_, _) => unreachable!(),
         }
     }
 
-    pub(crate) fn map(&mut self, size: u64, offset: u64) {
+    pub(crate) fn map(&mut self) {
         match self {
-            Buffer::Vulkan(buffer) => buffer.map(size, offset),
+            Buffer::Vulkan(buffer) => buffer.map(),
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

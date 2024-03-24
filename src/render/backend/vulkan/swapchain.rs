@@ -1,10 +1,9 @@
-use crate::render::backend::swapchain::{
-    MVSwapchainCreateInfo, PresentMode, Swapchain, SwapchainError,
-};
+use crate::render::backend::swapchain::{MVSwapchainCreateInfo, PresentMode, Swapchain, SwapchainError};
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::Extent2D;
 use std::ops::Not;
 use std::sync::Arc;
+use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -18,10 +17,7 @@ pub(crate) struct VkSwapchain {
     in_flight_fences: Vec<ash::vk::Fence>,
     wait_semaphores: Vec<ash::vk::Semaphore>,
     signal_semaphores: Vec<ash::vk::Semaphore>,
-    presentable_images: Vec<ash::vk::Image>,
-    presentable_image_views: Vec<ash::vk::ImageView>,
-    presentable_framebuffers: Vec<ash::vk::Framebuffer>,
-    presentable_render_pass: ash::vk::RenderPass,
+    presentable_framebuffers: Vec<Arc<VkFramebuffer>>,
     present_mode: ash::vk::PresentModeKHR,
     max_frames_in_flight: u32,
 }
@@ -165,10 +161,11 @@ impl VkSwapchain {
             panic!();
         });
 
-        let mut views = Vec::new();
-        for image in &images {
+        let render_pass = Self::create_render_pass(&device, color_format.format);
+
+        let framebuffers = images.into_iter().map(|image| {
             let view_create_info = ash::vk::ImageViewCreateInfo::builder()
-                .image(*image)
+                .image(image)
                 .view_type(ash::vk::ImageViewType::TYPE_2D)
                 .format(color_format.format)
                 .subresource_range(
@@ -182,27 +179,17 @@ impl VkSwapchain {
                 )
                 .build();
 
-            views.push(
-                unsafe {
-                    device
-                        .get_device()
-                        .create_image_view(&view_create_info, None)
-                }
-                .unwrap_or_else(|e| {
-                    log::error!("Create image view failed, error: {e}");
-                    panic!()
-                }),
-            );
-        }
+            let view = unsafe {
+                device
+                    .get_device()
+                    .create_image_view(&view_create_info, None)
+            }.unwrap_or_else(|e| {
+                log::error!("Create image view failed, error: {e}");
+                panic!()
+            });
 
-        let render_pass = Self::create_render_pass(&device, color_format.format);
-        let framebuffers = Self::create_framebuffers(
-            &device,
-            &images,
-            &views,
-            &render_pass,
-            &create_info.window_extent,
-        );
+            Arc::new(VkFramebuffer::from(device.clone(), image, view, render_pass, create_info.window_extent))
+        }).collect();
 
         let (wait_semaphores, signal_semaphores, in_flight_fences) =
             Self::create_sync_objects(&device, create_info.max_frames_in_flight);
@@ -217,10 +204,7 @@ impl VkSwapchain {
             in_flight_fences,
             wait_semaphores,
             signal_semaphores,
-            presentable_images: images,
-            presentable_image_views: views,
             presentable_framebuffers: framebuffers,
-            presentable_render_pass: render_pass,
             present_mode,
             max_frames_in_flight: create_info.max_frames_in_flight,
         }
@@ -348,43 +332,6 @@ impl VkSwapchain {
         })
     }
 
-    fn create_framebuffers(
-        device: &Arc<VkDevice>,
-        images: &[ash::vk::Image],
-        views: &[ash::vk::ImageView],
-        render_pass: &ash::vk::RenderPass,
-        extent: &ash::vk::Extent2D,
-    ) -> Vec<ash::vk::Framebuffer> {
-        let index = 0;
-        let mut framebuffers = Vec::new();
-        for image in images {
-            let attachment = [views[index]];
-
-            let framebuffer_info = ash::vk::FramebufferCreateInfo::builder()
-                .attachments(&attachment)
-                .attachment_count(1)
-                .render_pass(*render_pass)
-                .width(extent.width)
-                .height(extent.height)
-                .layers(1)
-                .build();
-
-            framebuffers.push(
-                unsafe {
-                    device
-                        .get_device()
-                        .create_framebuffer(&framebuffer_info, None)
-                }
-                .unwrap_or_else(|e| {
-                    log::error!("Failed to create swapchain framebuffer, error: {e}");
-                    panic!()
-                }),
-            );
-        }
-
-        framebuffers
-    }
-
     fn create_sync_objects(
         device: &Arc<VkDevice>,
         max_frames_in_flight: u32,
@@ -439,27 +386,27 @@ impl VkSwapchain {
         (wait_semaphores, signal_semaphores, in_flight_fences)
     }
 
-    pub fn get_render_pass(&self) -> ash::vk::RenderPass {
-        self.presentable_render_pass
+    pub(crate) fn get_framebuffer(&self, index: usize) -> Arc<VkFramebuffer> {
+        self.presentable_framebuffers[index].clone()
     }
 
-    pub fn get_framebuffer(&self, index: usize) -> ash::vk::Framebuffer {
-        self.presentable_framebuffers[index]
+    pub(crate) fn get_current_framebuffer(&self) -> Arc<VkFramebuffer> {
+        self.presentable_framebuffers[self.current_frame as usize].clone()
     }
 
-    pub fn get_extent(&self) -> ash::vk::Extent2D {
+    pub(crate) fn get_extent(&self) -> ash::vk::Extent2D {
         self.current_extent
     }
 
-    pub fn get_aspect_ratio(&self) -> f32 {
+    pub(crate) fn get_aspect_ratio(&self) -> f32 {
         self.current_extent.width as f32 / self.current_extent.height as f32
     }
 
-    pub fn get_current_present_mode(&self) -> ash::vk::PresentModeKHR {
+    pub(crate) fn get_current_present_mode(&self) -> ash::vk::PresentModeKHR {
         self.present_mode
     }
 
-    pub fn submit_command_buffer(
+    pub(crate) fn submit_command_buffer(
         &mut self,
         buffer: &[ash::vk::CommandBuffer],
         image_index: u32,
@@ -472,13 +419,13 @@ impl VkSwapchain {
         let submit_info = [ash::vk::SubmitInfo::builder()
             .wait_semaphores(&wait_semaphores)
             .signal_semaphores(&signal_semaphores)
-            .command_buffers(&buffer)
+            .command_buffers(buffer)
             .wait_dst_stage_mask(&wait_stages)
             .build()];
 
         unsafe {
             self.device.get_device().queue_submit(
-                *self.device.get_graphics_queue(),
+                self.device.get_graphics_queue(),
                 &submit_info,
                 self.in_flight_fences[self.current_frame as usize],
             )
@@ -495,7 +442,7 @@ impl VkSwapchain {
         let suboptimal = unsafe {
             self.device
                 .get_swapchain_extension()
-                .queue_present(*self.device.get_present_queue(), &present_info)
+                .queue_present(self.device.get_present_queue(), &present_info)
         }?;
 
         suboptimal
@@ -504,7 +451,7 @@ impl VkSwapchain {
             .ok_or(ash::vk::Result::SUBOPTIMAL_KHR)
     }
 
-    pub fn acquire_next_image(&self) -> Result<u32, ash::vk::Result> {
+    pub(crate) fn acquire_next_image(&self) -> Result<u32, ash::vk::Result> {
         let fences = [self.in_flight_fences[self.current_frame as usize]];
         unsafe {
             self.device.get_device().wait_for_fences(
@@ -534,5 +481,26 @@ impl VkSwapchain {
             .not()
             .then_some(image)
             .ok_or(ash::vk::Result::SUBOPTIMAL_KHR)
+    }
+
+    pub(crate) fn get_current_frame(&self) -> u32 {
+        self.current_frame
+    }
+}
+
+impl Drop for VkSwapchain {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.get_swapchain_extension().destroy_swapchain(self.handle, None);
+            self.device.get_device().destroy_render_pass(self.presentable_framebuffers[0].get_render_pass(), None);
+        };
+
+        for i in 0..self.max_frames_in_flight {
+            unsafe {
+                self.device.get_device().destroy_fence(self.in_flight_fences[i as usize], None);
+                self.device.get_device().destroy_semaphore(self.signal_semaphores[i as usize], None);
+                self.device.get_device().destroy_semaphore(self.wait_semaphores[i as usize], None);
+            }
+        }
     }
 }
