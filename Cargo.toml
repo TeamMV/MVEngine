@@ -28,6 +28,9 @@ name = "test"
 path = "tests/main.rs"
 harness = false
 
+[profile.dev]
+# opt-level = 3
+
 [profile.release]
 opt-level = 3
 strip = true

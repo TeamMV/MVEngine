@@ -97,9 +97,9 @@ pub fn run() {
     });
 
     let vertex_data = [
-        0.5f32, 0.0, 1.0, 0.0, 0.0,
-        -0.5, 0.0, 0.0, 1.0, 0.0,
-        0.0, -0.5, 0.0, 0.0, 1.0,
+        0.0f32, -0.5, 1.0, 0.0, 0.0,
+        0.5, 0.5, 0.0, 1.0, 0.0,
+        -0.5, 0.5, 0.0, 0.0, 1.0,
     ];
 
     let index_data = [
@@ -109,7 +109,7 @@ pub fn run() {
     let mut vertex_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
         instance_size: (2 + 3) * 4,
         instance_count: 3,
-        usage: BufferUsage::VERTEX_BUFFER,
+        buffer_usage: BufferUsage::VERTEX_BUFFER,
         memory_properties: MemoryProperties::DEVICE_LOCAL,
         minimum_alignment: 1,
         no_pool: false,
@@ -124,7 +124,7 @@ pub fn run() {
     let mut index_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
         instance_size: 4,
         instance_count: 3,
-        usage: BufferUsage::INDEX_BUFFER,
+        buffer_usage: BufferUsage::INDEX_BUFFER,
         memory_properties: MemoryProperties::DEVICE_LOCAL,
         minimum_alignment: 1,
         no_pool: false,
@@ -154,6 +154,22 @@ pub fn run() {
         color_attachments_count: 1,
         label: Some("Debug pipeline".to_string()),
     });
+
+    // let mut index = 0;
+    // loop {
+    //     Buffer::new(device.clone(), MVBufferCreateInfo {
+    //         instance_size: 1024,
+    //         instance_count: 1,
+    //         buffer_usage: BufferUsage::VERTEX_BUFFER,
+    //         memory_properties: MemoryProperties::DEVICE_LOCAL,
+    //         minimum_alignment: 1,
+    //         no_pool: false,
+    //         memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+    //         label: Some("test_buffer".to_string()),
+    //     });
+    //     index += 1;
+    //     println!("Allocated {index} buffers");
+    // }
 
     let mut frames = 0;
     let mut delta_f = 0.0;

@@ -23,7 +23,7 @@ impl From<MVBufferCreateInfo> for CreateInfo {
         CreateInfo {
             instance_size: value.instance_size,
             instance_count: value.instance_count as u64,
-            usage_flags: ash::vk::BufferUsageFlags::from_raw(value.usage.bits()),
+            usage_flags: ash::vk::BufferUsageFlags::from_raw(value.buffer_usage.bits()),
             memory_properties: ash::vk::MemoryPropertyFlags::from_raw(value.memory_properties.bits() as u32),
             minimum_alignment: value.minimum_alignment,
             no_pool: value.no_pool,
@@ -66,6 +66,11 @@ impl VkBuffer {
 
         #[cfg(debug_assertions)]
         device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
+
+        let mut usage_flags = create_info.usage_flags;
+        if create_info.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+            usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
+        }
 
         Self {
             device,

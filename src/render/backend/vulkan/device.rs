@@ -333,28 +333,55 @@ impl VkDevice {
             .map(|s| s.as_ptr())
             .collect::<Vec<_>>();
 
-        let instance_layers = {
-            entry.enumerate_instance_layer_properties()
-        };
-        let instance_layers = instance_layers.unwrap_or_else(|e| {
-            log::warn!("enumerate_instance_layer_properties: {:?}", e);
+        let instance_layers = entry.enumerate_instance_layer_properties().unwrap_or_else(|e| {
+            log::warn!("Failed to enumerate vulkan layers: {}", e);
+            #[cfg(debug_assertions)]
+            log::info!("Vulkan will be unable to load validation layers");
             vec![]
         });
-        for layer in instance_layers {
-            log::info!("{:?}", layer);
-        }
 
         // Layer Names, right now just a debug layer
         // We also need them as *const c_char
+        #[allow(unused_mut)]
+        let mut layers = vec![];
+
         #[cfg(debug_assertions)]
-        let layers = vec![b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const c_char];
-        #[cfg(not(debug_assertions))]
-        let layers = vec![];
+        unsafe {
+            let validation = CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const c_char);
+            for layer in instance_layers {
+                if layer.layer_name.contains(&0) {
+                    let name = CStr::from_ptr(layer.layer_name.as_ptr());
+                    if name == validation {
+                        layers.push(validation.as_ptr());
+                    }
+                }
+            }
+            if layers.is_empty() {
+                log::warn!("Validation layers could not be enabled, since they were not available");
+            }
+        }
+
+        let mut debug_create_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::builder()
+            .message_severity(
+                ash::vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                    | ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                    | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                    | ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+            )
+            .message_type(
+                ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                    | ash::vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
+            )
+            .pfn_user_callback(Some(vulkan_debug_callback))
+            .build();
 
         let create_info = ash::vk::InstanceCreateInfo::builder()
             .application_info(&app_create_info)
-            .enabled_extension_names(&layers)
+            .enabled_layer_names(&layers)
             .enabled_extension_names(&extensions_ptr)
+            .push_next(&mut debug_create_info)
             .build();
 
         log::trace!("vkCreateInstance");
@@ -1001,10 +1028,10 @@ impl VkDevice {
             .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
             .build();
 
-        // unsafe { self.device.begin_command_buffer(cmd, &begin_info)}.unwrap_or_else(|e| {
-        //     log::error!("Failed to begin recording command buffer, error: {e}");
-        //     panic!();
-        // });
+        unsafe { self.device.begin_command_buffer(cmd, &begin_info)}.unwrap_or_else(|e| {
+            log::error!("Failed to begin recording command buffer, error: {e}");
+            panic!();
+        });
 
         cmd
     }
@@ -1082,9 +1109,6 @@ unsafe extern "system" fn vulkan_debug_callback(
 ) -> ash::vk::Bool32 {
     let callback_data = *p_callback_data;
     let message_id_number = callback_data.message_id_number;
-
-    let message = CStr::from_ptr(callback_data.p_message).to_string_lossy();
-    println!("{message}");
 
     let message_id_name = if callback_data.p_message_id_name.is_null() {
         std::borrow::Cow::from("")

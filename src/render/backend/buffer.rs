@@ -9,7 +9,7 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 pub(crate) struct MVBufferCreateInfo {
     pub(crate) instance_size: u64,
     pub(crate) instance_count: u32,
-    pub(crate) usage: BufferUsage,
+    pub(crate) buffer_usage: BufferUsage,
     pub(crate) memory_properties: MemoryProperties,
     pub(crate) minimum_alignment: u64,
     pub(crate) no_pool: bool,

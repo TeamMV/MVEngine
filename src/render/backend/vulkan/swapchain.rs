@@ -127,7 +127,7 @@ impl VkSwapchain {
 
         let indices_vec = [
             indices.graphics_queue_index.unwrap(),
-            indices.graphics_queue_index.unwrap(),
+            indices.compute_queue_index.unwrap(),
         ];
 
         // if graphics and present queue are the same which happens on some hardware create images in exclusive sharing mode
