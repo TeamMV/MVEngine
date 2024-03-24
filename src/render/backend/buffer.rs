@@ -13,6 +13,7 @@ pub(crate) struct MVBufferCreateInfo {
     pub(crate) memory_properties: MemoryProperties,
     pub(crate) minimum_alignment: u64,
     pub(crate) no_pool: bool,
+    pub(crate) memory_usage: gpu_alloc::UsageFlags,
 
     pub(crate) label: Option<String>
 }
@@ -40,16 +41,6 @@ impl Buffer {
     pub(crate) fn write(&mut self, data: &[u8], offset: u64, command_buffer: Option<&CommandBuffer>) {
         match self {
             Buffer::Vulkan(buffer) => buffer.write_to_buffer(data, offset, command_buffer.map(|buffer| buffer.as_vulkan().get_handle())),
-            #[cfg(target_os = "macos")]
-            Buffer::Metal => unimplemented!(),
-            #[cfg(target_os = "windows")]
-            Buffer::DirectX => unimplemented!(),
-        }
-    }
-
-    pub(crate) fn flush(&mut self) {
-        match self {
-            Buffer::Vulkan(buffer) => buffer.flush(),
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

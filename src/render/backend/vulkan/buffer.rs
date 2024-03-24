@@ -12,6 +12,7 @@ pub(crate) struct CreateInfo {
     memory_properties: ash::vk::MemoryPropertyFlags,
     minimum_alignment: ash::vk::DeviceSize,
     no_pool: bool,
+    memory_usage_flags: gpu_alloc::UsageFlags,
 
     #[cfg(debug_assertions)]
     debug_name: CString
@@ -26,6 +27,7 @@ impl From<MVBufferCreateInfo> for CreateInfo {
             memory_properties: ash::vk::MemoryPropertyFlags::from_raw(value.memory_properties.bits() as u32),
             minimum_alignment: value.minimum_alignment,
             no_pool: value.no_pool,
+            memory_usage_flags: value.memory_usage,
 
             #[cfg(debug_assertions)]
             debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
@@ -38,7 +40,7 @@ pub(crate) struct VkBuffer {
 
     handle: ash::vk::Buffer,
     mapped: *mut u8,
-    allocation: vk_mem::Allocation,
+    block: Option<gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>>,
     buffer_size: ash::vk::DeviceSize,
     instance_count: ash::vk::DeviceSize,
     instance_size: ash::vk::DeviceSize,
@@ -46,8 +48,7 @@ pub(crate) struct VkBuffer {
     usage_flags: ash::vk::BufferUsageFlags,
     memory_properties: ash::vk::MemoryPropertyFlags,
     no_pool: bool,
-    pool: Option<vk_mem::AllocatorPool>
-
+    memory_usage_flags: gpu_alloc::UsageFlags,
 }
 
 impl VkBuffer {
@@ -61,7 +62,7 @@ impl VkBuffer {
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .build();
 
-        let (buffer, allocation) = device.allocate_buffer(&vk_create_info, create_info.memory_properties, create_info.no_pool);
+        let (buffer, block) = device.allocate_buffer(&vk_create_info, create_info.memory_properties, create_info.no_pool, gpu_alloc::UsageFlags::HOST_ACCESS);
 
         #[cfg(debug_assertions)]
         device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
@@ -69,7 +70,7 @@ impl VkBuffer {
         Self {
             device,
             handle: buffer,
-            allocation,
+            block: Some(block),
             mapped: std::ptr::null_mut(),
             buffer_size,
             instance_size: alignment,
@@ -78,7 +79,7 @@ impl VkBuffer {
             usage_flags: create_info.usage_flags,
             memory_properties: create_info.memory_properties,
             no_pool: false, // always false for now
-            pool: None // always false for now
+            memory_usage_flags: create_info.memory_usage_flags
         }
     }
 
@@ -106,6 +107,7 @@ impl VkBuffer {
                 usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
                 memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
                 minimum_alignment: 1,
+                memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS | gpu_alloc::UsageFlags::TRANSIENT | gpu_alloc::UsageFlags::UPLOAD,
                 no_pool: false,
 
                 #[cfg(debug_assertions)]
@@ -122,13 +124,6 @@ impl VkBuffer {
 
             Self::copy_buffer(&staging_buffer, self, size as ash::vk::DeviceSize, 0, 0, provided_cmd);
         }
-    }
-
-    pub(crate) fn flush(&mut self) {
-        self.device.get_allocator().flush_allocation(&self.allocation, 0, self.buffer_size as usize).unwrap_or_else(|e| {
-            log::error!("Failed to flush buffer, error: {e}");
-            panic!()
-        });
     }
 
     pub(crate) fn get_descriptor_info(&self, size: ash::vk::DeviceSize, offset: ash::vk::DeviceSize) -> ash::vk::DescriptorBufferInfo {
@@ -165,10 +160,12 @@ impl VkBuffer {
             panic!();
         }
 
-        self.mapped = unsafe { self.device.get_allocator().map_memory(&mut self.allocation) }.unwrap_or_else(|e| {
-            log::error!("Failed to map memory, error: {e}");
-            panic!();
-        });
+        let block = self.block.as_mut().expect("Memory block of buffer should never be None");
+
+        self.mapped = unsafe { block.map(gpu_alloc_ash::AshMemoryDevice::wrap(self.device.get_device()), 0, block.size() as usize) }.unwrap_or_else(|e| {
+            log::error!("Failed to flush buffer, error: {e}");
+            panic!()
+        }).as_ptr();
     }
 
     pub(crate) fn unmap(&mut self) {
@@ -177,7 +174,7 @@ impl VkBuffer {
             panic!();
         }
 
-        unsafe { self.device.get_allocator().unmap_memory(&mut self.allocation) };
+        unsafe { self.block.as_mut().expect("Memory block of buffer should never be None").unmap(gpu_alloc_ash::AshMemoryDevice::wrap(self.device.get_device())) };
         self.mapped = std::ptr::null_mut();
     }
 
@@ -196,6 +193,6 @@ impl Drop for VkBuffer {
             self.unmap();
         }
 
-        unsafe { self.device.get_allocator().destroy_buffer(self.handle, &mut self.allocation) };
+        self.device.deallocate_buffer(self.handle, self.block.take().expect("Memory block of buffer should never be None"));
     }
 }

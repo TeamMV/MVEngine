@@ -95,4 +95,44 @@ impl CommandBuffer {
             CommandBuffer::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn draw_indexed(&self, index_count: u32, first_index: u32) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.draw_indexed(index_count, 1, first_index, 0),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn draw_indexed_instanced(&self, index_count: u32, instance_count: u32, first_index: u32, first_instance: u32) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.draw_indexed(index_count, instance_count, first_index, first_instance),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn bind_vertex_buffer(&self, buffer: &Buffer) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.bind_vertex_buffer(buffer.as_vulkan()),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn bind_index_buffer(&self, buffer: &Buffer) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.bind_index_buffer(buffer.as_vulkan()),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
 }

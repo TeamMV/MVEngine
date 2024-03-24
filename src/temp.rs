@@ -13,7 +13,7 @@ use winit::window::WindowBuilder;
 use crate::render::backend::buffer::{Buffer, BufferUsage, MemoryProperties, MVBufferCreateInfo};
 use crate::render::backend::command_buffer::{CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo};
 use crate::render::backend::framebuffer::ClearColor;
-use crate::render::backend::pipeline::{Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
+use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 
 pub fn run() {
@@ -26,6 +26,7 @@ pub fn run() {
             width: 800,
             height: 600,
         }))
+        .with_title("HelloTriangle Application")
         .build(&event_loop)
         .unwrap();
 
@@ -95,10 +96,52 @@ pub fn run() {
         label: Some("Fragment shader".to_string()),
     });
 
+    let vertex_data = [
+        0.5f32, 0.0, 1.0, 0.0, 0.0,
+        -0.5, 0.0, 0.0, 1.0, 0.0,
+        0.0, -0.5, 0.0, 0.0, 1.0,
+    ];
+
+    let index_data = [
+        0u32, 1, 2
+    ];
+
+    let mut vertex_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
+        instance_size: (2 + 3) * 4,
+        instance_count: 3,
+        usage: BufferUsage::VERTEX_BUFFER,
+        memory_properties: MemoryProperties::DEVICE_LOCAL,
+        minimum_alignment: 1,
+        no_pool: false,
+        memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+        label: Some("Vertex buffer".to_string()),
+    });
+
+    let byte_data_vertex = unsafe { std::slice::from_raw_parts(vertex_data.as_ptr() as *const u8, vertex_data.len() * 4) };
+
+    vertex_buffer.write(byte_data_vertex, 0, None);
+
+    let mut index_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
+        instance_size: 4,
+        instance_count: 3,
+        usage: BufferUsage::INDEX_BUFFER,
+        memory_properties: MemoryProperties::DEVICE_LOCAL,
+        minimum_alignment: 1,
+        no_pool: false,
+        memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+        label: Some("Index buffer".to_string()),
+    });
+
+    let byte_data_index = unsafe { std::slice::from_raw_parts(index_data.as_ptr() as *const u8, index_data.len() * 4) };
+
+    index_buffer.write(byte_data_index, 0, None);
+
     let pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
         shaders: vec![vertex_shader, fragment_shader],
-        bindings: vec![],
-        attributes: vec![],
+        attributes: vec![
+            AttributeType::Float32x2,
+            AttributeType::Float32x3,
+        ],
         extent: Extent2D { width: 800, height: 600 },
         topology: Topology::Triangle,
         cull_mode: CullMode::None,
@@ -144,7 +187,10 @@ pub fn run() {
                             height: 600,
                         });
 
-                        cmd.draw(3, 0);
+                        cmd.bind_vertex_buffer(&vertex_buffer);
+                        cmd.bind_index_buffer(&index_buffer);
+
+                        cmd.draw_indexed(3, 0);
 
                         framebuffer.end_render_pass(cmd);
 

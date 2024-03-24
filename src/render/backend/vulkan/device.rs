@@ -6,13 +6,14 @@ use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
+use gpu_alloc::Config;
 use hashbrown::hash_map::Entry;
 use mvutils::hashers::U32IdentityHasher;
 use mvutils::once::CreateOnce;
 use mvutils::utils::Recover;
-use vk_mem::{Alloc, AllocatorPool};
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use crate::err::panic;
 use crate::render::backend::to_ascii_cstring;
 
 pub(crate) struct VkDevice {
@@ -32,8 +33,9 @@ pub(crate) struct VkDevice {
     vsync_present_mode: ash::vk::PresentModeKHR,
     no_vsync_present_mode: ash::vk::PresentModeKHR,
 
-    allocator: Arc<vk_mem::Allocator>,
-    memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
+    allocator: RwLock<gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>>,
+    valid_memory_types: u32,
+    //memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
 
     #[cfg(debug_assertions)]
     debug_messenger: ash::vk::DebugUtilsMessengerEXT,
@@ -169,7 +171,7 @@ impl VkDevice {
         .unwrap_or(ash::vk::PresentModeKHR::FIFO);
 
         let swapchain_khr = ash::extensions::khr::Swapchain::new(&instance, &device);
-        let allocator = Arc::new(Self::create_allocator(&instance, &physical_device, &device));
+        let (allocator, valid_memory_types) = Self::create_allocator(&instance, physical_device);
 
         Self {
             entry,
@@ -189,8 +191,9 @@ impl VkDevice {
             vsync_present_mode,
             no_vsync_present_mode,
             available_present_modes,
-            memory_pools: HashMap::with_hasher(U32IdentityHasher::default()).into(),
-            allocator
+            //memory_pools: HashMap::with_hasher(U32IdentityHasher::default()).into(),
+            allocator: allocator.into(),
+            valid_memory_types,
         }
     }
 
@@ -284,11 +287,34 @@ impl VkDevice {
 
     fn create_allocator(
         instance: &ash::Instance,
-        physical_device: &ash::vk::PhysicalDevice,
-        device: &ash::Device,
-    ) -> vk_mem::Allocator {
-        let create_info = vk_mem::AllocatorCreateInfo::new(instance, device, *physical_device);
-        vk_mem::Allocator::new(create_info).expect("Failed To Create VMA Allocator")
+        physical_device: ash::vk::PhysicalDevice
+    ) -> (gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>, u32) {
+        let properties = unsafe { gpu_alloc_ash::device_properties(instance, ash::vk::API_VERSION_1_2, physical_device) }.unwrap();
+        let config = Config::i_am_prototyping();
+        let allocator = gpu_alloc::GpuAllocator::new(config, properties);
+
+        log::trace!("vkGetPhysicalDeviceMemoryProperties");
+        let mem_properties = unsafe {
+            instance.get_physical_device_memory_properties(physical_device)
+        };
+
+        let known_flags: ash::vk::MemoryPropertyFlags =
+            ash::vk::MemoryPropertyFlags::DEVICE_LOCAL
+            | ash::vk::MemoryPropertyFlags::HOST_VISIBLE
+            | ash::vk::MemoryPropertyFlags::HOST_COHERENT
+            | ash::vk::MemoryPropertyFlags::HOST_CACHED
+            | ash::vk::MemoryPropertyFlags::LAZILY_ALLOCATED;
+
+        let memory_types = &mem_properties.memory_types[..mem_properties.memory_type_count as usize];
+        let valid_memory_types = memory_types.iter().enumerate().fold(0, |u, (i, mem)| {
+            if known_flags.contains(mem.property_flags) {
+                u | (1 << i)
+            } else {
+                u
+            }
+        });
+
+        (allocator, valid_memory_types)
     }
 
     fn create_instance(entry: &ash::Entry, create_info: &CreateInfo) -> ash::Instance {
@@ -306,6 +332,17 @@ impl VkDevice {
             .into_iter()
             .map(|s| s.as_ptr())
             .collect::<Vec<_>>();
+
+        let instance_layers = {
+            entry.enumerate_instance_layer_properties()
+        };
+        let instance_layers = instance_layers.unwrap_or_else(|e| {
+            log::warn!("enumerate_instance_layer_properties: {:?}", e);
+            vec![]
+        });
+        for layer in instance_layers {
+            log::info!("{:?}", layer);
+        }
 
         // Layer Names, right now just a debug layer
         // We also need them as *const c_char
@@ -908,62 +945,44 @@ impl VkDevice {
         ash::vk::Format::UNDEFINED // return undefined if none are supported
     }
 
-    pub fn allocate_buffer(
+    pub(crate) fn allocate_buffer(
         &self,
         create_info: &ash::vk::BufferCreateInfo,
         flags: ash::vk::MemoryPropertyFlags,
-        no_pool: bool
-    ) -> (ash::vk::Buffer, vk_mem::Allocation) {
+        no_pool: bool,
+        usage_flags: gpu_alloc::UsageFlags,
+    ) -> (ash::vk::Buffer, gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+        let buffer = unsafe { self.device.create_buffer(&create_info, None) }.unwrap();
+        let req = unsafe { self.device.get_buffer_memory_requirements(buffer) };
 
-        let alloc_flags = if flags.contains(ash::vk::MemoryPropertyFlags::HOST_VISIBLE) {
-            vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM
-        } else {
-            vk_mem::AllocationCreateFlags::empty()
-        };
-        let alloc_info = vk_mem::AllocationCreateInfo {
-            usage: vk_mem::MemoryUsage::Auto,
-            priority: 0.5,
-            flags: alloc_flags,
-            required_flags: flags,
-            ..Default::default()
-        };
+        let alignment = req.alignment - 1;
 
-        let index = unsafe { self.allocator.find_memory_type_index_for_buffer_info(create_info, &alloc_info) }.unwrap_or_else(|e| {
-            log::error!("Failed to find memory index, error: {e}");
+        let block = unsafe { self.allocator.write().recover().alloc(
+            gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
+            gpu_alloc::Request {
+                size: req.size,
+                align_mask: alignment,
+                usage: usage_flags,
+                memory_types: req.memory_type_bits & self.valid_memory_types,
+            },
+        )}.unwrap_or_else(|e| {
+            log::error!("Failed to allocate memory, error: {e}");
             panic!()
         });
 
-        if no_pool {
-            let (buffer, allocation) = unsafe { self.allocator.create_buffer(create_info, &alloc_info).unwrap() };
-            return (buffer, allocation);
-        }
+        unsafe { self.device.bind_buffer_memory(buffer, *block.memory(), block.offset())}.unwrap_or_else(|e| {
+            log::error!("Failed to bind buffer memory");
+            panic!();
+        });
 
-        match self.memory_pools.write().recover().entry(index) {
-            Entry::Occupied(entry) => {
-                let pool = entry.get();
-                unsafe { pool.create_buffer(create_info, &alloc_info) }.unwrap_or_else(|e| {
-                    // Pool may be full, so we just don't use it
-                    // TODO: create a new pool when this one fills up
-
-                    let (buffer, allocation) = unsafe { self.allocator.create_buffer(create_info, &alloc_info).unwrap() };
-                    (buffer, allocation)
-                })
-            }
-            Entry::Vacant(entry) => {
-                let mut pool_info = vk_mem::PoolCreateInfo::new();
-                pool_info = pool_info.memory_type_index(index);
-                pool_info = pool_info.block_size(16 * 1024 * 1024); // 16 MB pools
-                let pool = self.allocator.create_pool(&pool_info).unwrap();
-                let pool = entry.insert(pool);
-
-                let (buffer, allocation) = unsafe { pool.create_buffer(create_info, &alloc_info).unwrap() };
-                (buffer, allocation)
-            }
-        }
+        (buffer, block)
     }
 
-    pub(crate) fn get_allocator(&self) -> &vk_mem::Allocator {
-        &self.allocator
+    pub(crate) fn deallocate_buffer(&self, buffer: ash::vk::Buffer, block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+        unsafe {
+            self.allocator.write().recover().dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
+            self.device.destroy_buffer(buffer, None);
+        }
     }
 
     pub(crate) fn begin_single_time_command(&self, pool: ash::vk::CommandPool) -> ash::vk::CommandBuffer {
@@ -973,14 +992,28 @@ impl VkDevice {
             .command_buffer_count(1)
             .build();
 
-        let cmd_buffer = unsafe { self.device.allocate_command_buffers(&alloc_info) }
-            .expect("Failed to allocate cmd buffer");
-        cmd_buffer[0]
+        let cmd = unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
+            log::error!("Failed to allocate command buffer, error: {e}");
+            panic!()
+        })[0];
+
+        let begin_info = ash::vk::CommandBufferBeginInfo::builder()
+            .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+            .build();
+
+        // unsafe { self.device.begin_command_buffer(cmd, &begin_info)}.unwrap_or_else(|e| {
+        //     log::error!("Failed to begin recording command buffer, error: {e}");
+        //     panic!();
+        // });
+
+        cmd
     }
 
     pub(crate) fn end_single_time_command(&self, command_buffer: ash::vk::CommandBuffer, pool: ash::vk::CommandPool, queue: ash::vk::Queue ) {
-        unsafe { self.device.end_command_buffer(command_buffer) }
-            .expect("Failed to end command buffer");
+        unsafe { self.device.end_command_buffer(command_buffer) }.unwrap_or_else(|e| {
+            log::error!("Failed to end command buffer, error: {e}");
+            panic!();
+        });
 
         let cmd_vec = vec![command_buffer];
         let submit_info = vec![ash::vk::SubmitInfo::builder()
@@ -1023,8 +1056,6 @@ impl VkDevice {
 impl Drop for VkDevice {
     fn drop(&mut self) {
         unsafe {
-            self.memory_pools.write().recover().drain();
-
             self.device
                 .destroy_command_pool(self.command_pools.compute_command_pool, None);
             self.device
@@ -1051,6 +1082,9 @@ unsafe extern "system" fn vulkan_debug_callback(
 ) -> ash::vk::Bool32 {
     let callback_data = *p_callback_data;
     let message_id_number = callback_data.message_id_number;
+
+    let message = CStr::from_ptr(callback_data.p_message).to_string_lossy();
+    println!("{message}");
 
     let message_id_name = if callback_data.p_message_id_name.is_null() {
         std::borrow::Cow::from("")

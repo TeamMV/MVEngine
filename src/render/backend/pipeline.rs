@@ -21,17 +21,7 @@ pub(crate) struct RayTracing;
 #[cfg(feature = "ray-tracing")]
 impl PipelineType for RayTracing {}
 
-pub(crate) enum VertexInputRate {
-    Vertex,
-    Instance,
-}
-
-pub(crate) struct Binding {
-    pub(crate) binding: u32,
-    pub(crate) stride: u32,
-    pub(crate) input_rate: VertexInputRate,
-}
-
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum AttributeType {
     Float32,
     Float32x2,
@@ -39,13 +29,7 @@ pub(crate) enum AttributeType {
     Float32x4,
 }
 
-pub(crate) struct Attribute {
-    pub(crate) location: u32,
-    pub(crate) binding: u32,
-    pub(crate) offset: u32,
-    pub(crate) ty: AttributeType
-}
-
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum Topology {
     Line,
     LineStrip,
@@ -53,6 +37,7 @@ pub(crate) enum Topology {
     TriangleStrip,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum CullMode {
     None,
     Front,
@@ -68,8 +53,7 @@ pub(crate) struct PushConstant {
 
 pub(crate) struct MVGraphicsPipelineCreateInfo {
     pub(crate) shaders: Vec<Shader>,
-    pub(crate) bindings: Vec<Binding>,
-    pub(crate) attributes: Vec<Attribute>,
+    pub(crate) attributes: Vec<AttributeType>,
     pub(crate) extent: Extent2D,
     pub(crate) topology: Topology,
     pub(crate) cull_mode: CullMode,

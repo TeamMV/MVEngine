@@ -4,6 +4,7 @@ use ash::vk::Handle;
 use crate::err::panic;
 use crate::render::backend::command_buffer::{CommandBufferLevel, MVCommandBufferCreateInfo};
 use crate::render::backend::to_ascii_cstring;
+use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 
 pub(crate) struct CreateInfo {
@@ -82,6 +83,18 @@ impl VkCommandBuffer {
     
     pub(crate) fn draw(&self, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32) {
         unsafe { self.device.get_device().cmd_draw(self.handle, vertex_count, instance_count, first_vertex, first_instance) };
+    }
+
+    pub(crate) fn draw_indexed(&self, index_count: u32, instance_count: u32, first_index: u32, first_instance: u32) {
+        unsafe { self.device.get_device().cmd_draw_indexed(self.handle, index_count, instance_count, first_index, 0, first_instance) };
+    }
+
+    pub(crate) fn bind_vertex_buffer(&self, buffer: &VkBuffer) {
+        unsafe { self.device.get_device().cmd_bind_vertex_buffers(self.handle, 0, &[buffer.get_buffer()], &[0])}
+    }
+
+    pub(crate) fn bind_index_buffer(&self, buffer: &VkBuffer) {
+        unsafe { self.device.get_device().cmd_bind_index_buffer(self.handle, buffer.get_buffer(), 0, ash::vk::IndexType::UINT32)};
     }
 
     pub(crate) fn get_handle(&self) -> ash::vk::CommandBuffer {

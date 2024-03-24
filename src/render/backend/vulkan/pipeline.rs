@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ash::vk::Handle;
 use crate::err::panic;
 use crate::render::backend::descriptor_set::DescriptorSetLayout;
-use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, PipelineType, PushConstant, Topology, VertexInputRate};
+use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, PipelineType, PushConstant, Topology};
 use crate::render::backend::shader::Shader;
 use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
@@ -95,24 +95,41 @@ impl From<PushConstant> for ash::vk::PushConstantRange {
     }
 }
 
+fn attributes(attributes: Vec<AttributeType>) -> (Vec<ash::vk::VertexInputAttributeDescription>, Vec<ash::vk::VertexInputBindingDescription>) {
+    let mut vk_attributes = Vec::with_capacity(attributes.len());
+
+    let mut offset = 0;
+    for (location, data) in attributes.into_iter().enumerate() {
+        vk_attributes.push(ash::vk::VertexInputAttributeDescription {
+            location: location as u32,
+            binding: 0,
+            format: data.into(),
+            offset,
+        });
+        offset += match data {
+            AttributeType::Float32 => 4,
+            AttributeType::Float32x2 => 8,
+            AttributeType::Float32x3 => 12,
+            AttributeType::Float32x4 => 16,
+        };
+    }
+
+    let binding_description = vec![ash::vk::VertexInputBindingDescription {
+        binding: 0,
+        stride: offset,
+        input_rate: ash::vk::VertexInputRate::VERTEX,
+    }];
+
+    (vk_attributes, binding_description)
+}
+
 impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
     fn from(value: MVGraphicsPipelineCreateInfo) -> Self {
+        let (attribute_descriptions, bindings_descriptions) = attributes(value.attributes);
         GraphicsCreateInfo {
             shaders: value.shaders.into_iter().map(Shader::into_vulkan).collect(),
-            bindings_descriptions: value.bindings.into_iter().map(|binding| ash::vk::VertexInputBindingDescription {
-                binding: binding.binding,
-                stride: binding.stride,
-                input_rate: match binding.input_rate {
-                    VertexInputRate::Vertex => ash::vk::VertexInputRate::VERTEX,
-                    VertexInputRate::Instance => ash::vk::VertexInputRate::INSTANCE,
-                },
-            }).collect(),
-            attribute_descriptions: value.attributes.into_iter().map(|attribute| ash::vk::VertexInputAttributeDescription {
-                location: attribute.location,
-                binding: attribute.binding,
-                format: attribute.ty.into(),
-                offset: attribute.offset,
-            }).collect(),
+            bindings_descriptions,
+            attribute_descriptions,
             extent: value.extent.into(),
             topology: value.topology.into(),
             cull_mode: value.cull_mode.into(),
