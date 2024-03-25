@@ -9,10 +9,12 @@ pub(crate) mod image;
 pub(crate) mod pipeline;
 pub(crate) mod push_constant;
 pub(crate) mod sampler;
-pub(crate) mod sbt;
 pub(crate) mod shader;
 pub(crate) mod swapchain;
 pub(crate) mod vulkan;
+
+#[cfg(feature = "ray-tracing")]
+pub(crate) mod sbt;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum Backend {

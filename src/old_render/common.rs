@@ -212,7 +212,7 @@ impl Shader {
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
                     .bind_groups(bind_groups)
-                    .build(),
+                ,
             );
 
             self.stripped_pipeline = Some(
@@ -224,8 +224,7 @@ impl Shader {
                     )
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                    .bind_groups(bind_groups)
-                    .build(),
+                    .bind_groups(bind_groups),
             );
             self
         }
@@ -327,8 +326,7 @@ impl EffectShader {
                     )
                     .shader(PipelineBuilder::SHADER_VERTEX, &vert)
                     .shader(PipelineBuilder::SHADER_FRAGMENT, &frag)
-                    .bind_groups(bind_groups)
-                    .build(),
+                    .bind_groups(bind_groups),
             );
 
             self.buffer = Some(state.gen_uniform_buffer_sized((self.uniform_size * 4).max(4)));

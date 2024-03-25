@@ -123,6 +123,16 @@ impl Device {
             Device::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn wait_idle(&self) {
+        match self {
+            Device::Vulkan(device) => device.wait_idle(),
+            #[cfg(target_os = "macos")]
+            Device::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Device::DirectX => unimplemented!(),
+        }
+    }
 }
 
 #[graphics_item(copy)]

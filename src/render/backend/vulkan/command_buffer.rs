@@ -25,7 +25,7 @@ impl From<MVCommandBufferCreateInfo> for CreateInfo {
             pool: value.pool.into_vulkan(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -40,8 +40,7 @@ impl VkCommandBuffer {
         let vk_create_info = ash::vk::CommandBufferAllocateInfo::builder()
             .level(create_info.level)
             .command_pool(create_info.pool)
-            .command_buffer_count(1)
-            .build();
+            .command_buffer_count(1);
 
         let buffer = unsafe {
             device
@@ -74,7 +73,7 @@ impl VkCommandBuffer {
     }
 
     pub(crate) fn begin(&self) {
-        let begin_info = ash::vk::CommandBufferBeginInfo::builder().build();
+        let begin_info = ash::vk::CommandBufferBeginInfo::builder();
 
         unsafe {
             self.device

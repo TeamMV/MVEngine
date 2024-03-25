@@ -6,16 +6,15 @@ use std::ffi::CString;
 use std::sync::Arc;
 
 pub(crate) struct CreateInfo {
-    instance_size: ash::vk::DeviceSize,
-    instance_count: ash::vk::DeviceSize,
-    usage_flags: ash::vk::BufferUsageFlags,
-    memory_properties: ash::vk::MemoryPropertyFlags,
-    minimum_alignment: ash::vk::DeviceSize,
-    no_pool: bool,
-    memory_usage_flags: gpu_alloc::UsageFlags,
+    pub instance_size: ash::vk::DeviceSize,
+    pub instance_count: ash::vk::DeviceSize,
+    pub usage_flags: ash::vk::BufferUsageFlags,
+    pub memory_properties: ash::vk::MemoryPropertyFlags,
+    pub minimum_alignment: ash::vk::DeviceSize,
+    pub memory_usage_flags: gpu_alloc::UsageFlags,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    pub debug_name: CString,
 }
 
 impl From<MVBufferCreateInfo> for CreateInfo {
@@ -28,11 +27,10 @@ impl From<MVBufferCreateInfo> for CreateInfo {
                 value.memory_properties.bits() as u32,
             ),
             minimum_alignment: value.minimum_alignment,
-            no_pool: value.no_pool,
             memory_usage_flags: value.memory_usage,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -60,20 +58,21 @@ impl VkBuffer {
         let buffer_size = alignment * create_info.instance_count;
 
         let mut usage_flags = create_info.usage_flags;
-        if create_info.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+        if create_info
+            .memory_properties
+            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
             usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
         }
 
         let vk_create_info = ash::vk::BufferCreateInfo::builder()
             .size(buffer_size)
             .usage(usage_flags)
-            .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
-            .build();
+            .sharing_mode(ash::vk::SharingMode::EXCLUSIVE);
 
         let (buffer, block) = device.allocate_buffer(
             &vk_create_info,
             create_info.memory_properties,
-            create_info.no_pool,
             gpu_alloc::UsageFlags::HOST_ACCESS,
         );
 
@@ -83,14 +82,7 @@ impl VkBuffer {
             buffer.as_raw(),
             create_info.debug_name.as_c_str(),
         );
-		
-        let mut usage_flags = create_info.usage_flags;
-        if create_info
-            .memory_properties
-            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
-        {
-            usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
-        }
+
         Self {
             device,
             handle: buffer,
@@ -143,7 +135,6 @@ impl VkBuffer {
                 memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS
                     | gpu_alloc::UsageFlags::TRANSIENT
                     | gpu_alloc::UsageFlags::UPLOAD,
-                no_pool: false,
 
                 #[cfg(debug_assertions)]
                 debug_name: CString::new("Staging Buffer").unwrap(),
@@ -173,11 +164,11 @@ impl VkBuffer {
         size: ash::vk::DeviceSize,
         offset: ash::vk::DeviceSize,
     ) -> ash::vk::DescriptorBufferInfo {
-        ash::vk::DescriptorBufferInfo::builder()
-            .buffer(self.handle)
-            .offset(offset)
-            .range(size)
-            .build()
+        ash::vk::DescriptorBufferInfo {
+            buffer: self.handle,
+            offset,
+            range: size,
+        }
     }
 
     pub(crate) fn copy_buffer(
@@ -191,20 +182,19 @@ impl VkBuffer {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd, false)
         } else {
-            (src_buffer.device.begin_single_time_command(src_buffer.device.get_graphics_command_pool()), true)
             (
                 src_buffer
                     .device
-                    .begin_single_time_command(src_buffer.device.get_compute_command_pool()),
+                    .begin_single_time_command(src_buffer.device.get_graphics_command_pool()),
                 true,
             )
         };
 
-        let copy_region = [ash::vk::BufferCopy::builder()
-            .src_offset(src_offset)
-            .dst_offset(dst_offset)
-            .size(size)
-            .build()];
+        let copy_region = [ash::vk::BufferCopy {
+            src_offset,
+            dst_offset,
+            size,
+        }];
 
         unsafe {
             src_buffer.device.get_device().cmd_copy_buffer(
@@ -216,11 +206,10 @@ impl VkBuffer {
         }
 
         if end {
-            src_buffer.device.end_single_time_command(cmd, src_buffer.device.get_graphics_command_pool(), src_buffer.device.get_graphics_queue());
             src_buffer.device.end_single_time_command(
                 cmd,
-                src_buffer.device.get_compute_command_pool(),
-                src_buffer.device.get_compute_queue(),
+                src_buffer.device.get_graphics_command_pool(),
+                src_buffer.device.get_graphics_queue(),
             );
         }
     }

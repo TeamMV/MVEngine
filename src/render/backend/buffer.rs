@@ -12,7 +12,6 @@ pub(crate) struct MVBufferCreateInfo {
     pub(crate) buffer_usage: BufferUsage,
     pub(crate) memory_properties: MemoryProperties,
     pub(crate) minimum_alignment: u64,
-    pub(crate) no_pool: bool,
     pub(crate) memory_usage: gpu_alloc::UsageFlags,
 
     pub(crate) label: Option<String>,

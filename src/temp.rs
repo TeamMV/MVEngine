@@ -14,12 +14,12 @@ use crate::render::backend::{Backend, Extent2D};
 use log::LevelFilter;
 use mvutils::version::Version;
 use shaderc::{EnvVersion, OptimizationLevel, ShaderKind, SpirvVersion, TargetEnv};
-use std::ops::Add;
 use std::time::{Duration, Instant, SystemTime};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
+use crate::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo};
 
 pub fn run() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -56,7 +56,7 @@ pub fn run() {
             },
             previous: None,
             vsync: false,
-            max_frames_in_flight: 3,
+            max_frames_in_flight: 2,
         },
     );
 
@@ -108,7 +108,9 @@ pub fn run() {
     );
 
     let vertex_data = [
-        0.0f32, -0.5, 1.0, 0.0, 0.0, 0.5, 0.5, 0.0, 1.0, 0.0, -0.5, 0.5, 0.0, 0.0, 1.0,
+        0.0f32, -0.5,
+        0.5, 0.5,
+        -0.5, 0.5
     ];
 
     let index_data = [0u32, 1, 2];
@@ -121,7 +123,6 @@ pub fn run() {
             buffer_usage: BufferUsage::VERTEX_BUFFER,
             memory_properties: MemoryProperties::DEVICE_LOCAL,
             minimum_alignment: 1,
-            no_pool: false,
             memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             label: Some("Vertex buffer".to_string()),
         },
@@ -141,7 +142,6 @@ pub fn run() {
             buffer_usage: BufferUsage::INDEX_BUFFER,
             memory_properties: MemoryProperties::DEVICE_LOCAL,
             minimum_alignment: 1,
-            no_pool: false,
             memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             label: Some("Index buffer".to_string()),
         },
@@ -153,29 +153,63 @@ pub fn run() {
 
     index_buffer.write(byte_data_index, 0, None);
 
-    let pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
-        shaders: vec![vertex_shader, fragment_shader],
-        attributes: vec![
-            AttributeType::Float32x2,
-            AttributeType::Float32x3,
+    let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
+        bindings: vec![
+            DescriptorSetLayoutBinding {
+                index: 0,
+                stages: ShaderStage::Vertex,
+                ty: DescriptorType::UniformBuffer,
+                count: 1,
+            }
         ],
-        extent: Extent2D { width: 800, height: 600 },
-        topology: Topology::Triangle,
-        cull_mode: CullMode::None,
-        enable_depth_test: true,
-        depth_clamp: false, // feature only
-        blending_enable: true,
-        descriptor_sets: vec![],
-        push_constants: vec![],
-        framebuffer: swapchain.get_current_framebuffer(),
-        color_attachments_count: 1,
-        label: Some("Debug pipeline".to_string()),
+        label: Some("Color descriptor set layout".to_string()),
     });
+
+    let mut uniform_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
+        instance_size: 16 * 3,
+        instance_count: 1,
+        buffer_usage: BufferUsage::UNIFORM_BUFFER,
+        memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
+        minimum_alignment: 1,
+        memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
+        label: Some("Uniform Buffer".to_string()),
+    });
+
+    let color = [
+        1.0f32, 0.0, 0.0, 1.0,
+        0.0, 1.0, 0.0, 1.0,
+        0.0, 0.0, 1.0, 1.0
+    ];
+
+    let bytes = unsafe { std::slice::from_raw_parts(color.as_ptr() as *const u8, color.len() * 4) };
+
+    uniform_buffer.write(bytes, 0, None);
+
+    let descriptor_pool = DescriptorPool::new(device.clone(), MVDescriptorPoolCreateInfo {
+        sizes: vec![DescriptorPoolSize {
+            ty: DescriptorType::UniformBuffer,
+            count: 1,
+        }],
+        max_sets: 1,
+        flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
+        label: Some("Descriptor pool".to_string()),
+    });
+
+    let mut descriptor_set = DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
+        pool: descriptor_pool.clone(),
+        layout: descriptor_set_layout.clone(),
+        label: Some("Color descriptor set".to_string()),
+    });
+
+    descriptor_set.add_buffer(0, &uniform_buffer, 0, 16 * 3);
+
+    descriptor_set.build();
+
     let pipeline = Pipeline::<Graphics>::new(
         device.clone(),
         MVGraphicsPipelineCreateInfo {
             shaders: vec![vertex_shader, fragment_shader],
-            attributes: vec![AttributeType::Float32x2, AttributeType::Float32x3],
+            attributes: vec![AttributeType::Float32x2],
             extent: Extent2D {
                 width: 800,
                 height: 600,
@@ -183,9 +217,9 @@ pub fn run() {
             topology: Topology::Triangle,
             cull_mode: CullMode::None,
             enable_depth_test: true,
-            depth_clamp: true,
+            depth_clamp: false, // feature only
             blending_enable: true,
-            descriptor_sets: vec![],
+            descriptor_sets: vec![descriptor_set_layout],
             push_constants: vec![],
             framebuffer: swapchain.get_current_framebuffer(),
             color_attachments_count: 1,
@@ -193,34 +227,18 @@ pub fn run() {
         },
     );
 
-    // let mut index = 0;
-    // loop {
-    //     Buffer::new(device.clone(), MVBufferCreateInfo {
-    //         instance_size: 1024,
-    //         instance_count: 1,
-    //         buffer_usage: BufferUsage::VERTEX_BUFFER,
-    //         memory_properties: MemoryProperties::DEVICE_LOCAL,
-    //         minimum_alignment: 1,
-    //         no_pool: false,
-    //         memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-    //         label: Some("test_buffer".to_string()),
-    //     });
-    //     index += 1;
-    //     println!("Allocated {index} buffers");
-    // }
-
     let mut frames = 0;
     let mut delta_f = 0.0;
-    let time_f = 1000000000.0 / 1000000.0;
+    let time_f: f32 = 1000000000.0 / 144.0;
     let mut now = SystemTime::now();
     let mut timer = SystemTime::now();
+    let mut time: f32 = 0.0;
 
     event_loop
         .run(|event, target| {
             if let Event::WindowEvent { event, .. } = event {
                 match event {
                     WindowEvent::CloseRequested => {
-                        todo!("call device_wait_idle in here");
                         target.exit();
                     }
                     WindowEvent::RedrawRequested => {
@@ -230,13 +248,30 @@ pub fn run() {
                             log::error!("Can't resize swapchain!");
                             panic!();
                         });
-                        let image_index =
-                            swapchain.acquire_next_image().unwrap_or_else(|_| loop {});
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
                         let framebuffer = swapchain.get_current_framebuffer();
 
                         cmd.begin();
+
+
+                        let r = time.sin();
+                        let g = 1.0f32;
+                        let b = time.cos();
+
+                        time += delta_f * 15.0;
+
+                        let color = [
+                            r, g, b, 1.0,
+                            g, b, r, 1.0,
+                            b, r, g, 1.0
+                        ];
+
+                        let bytes = unsafe { std::slice::from_raw_parts(color.as_ptr() as *const u8, color.len() * 4) };
+
+                        uniform_buffer.write(bytes, 0, Some(cmd));
+
+                        descriptor_set.bind(&cmd, &pipeline, 0);
 
                         pipeline.bind(cmd);
 
@@ -258,17 +293,19 @@ pub fn run() {
 
                         cmd.end();
 
-                        swapchain.submit_command_buffer(cmd, image_index).unwrap_or_else(|_| {
-                            log::error!("Can't resize swapchain!");
-                            panic!();
-                        });
                         swapchain
                             .submit_command_buffer(cmd, image_index)
-                            .unwrap_or_else(|_| loop {});
+                            .unwrap_or_else(|_| {
+                                log::error!("Can't resize swapchain!");
+                                panic!();
+                            });
                     }
                     _ => {}
                 }
             } else if let Event::AboutToWait = event {
+                // if frames > 2 {
+                //     panic!()
+                // }
                 delta_f += now
                     .elapsed()
                     .unwrap_or_else(|e| {
@@ -303,6 +340,8 @@ pub fn run() {
                     frames = 0;
                     timer = SystemTime::now();
                 }
+            } else if let Event::LoopExiting = event {
+                device.wait_idle();
             }
         })
         .unwrap();

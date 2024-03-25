@@ -21,42 +21,17 @@ pub(crate) struct CreateInfo {
 impl From<MVShaderCreateInfo> for CreateInfo {
     fn from(value: MVShaderCreateInfo) -> Self {
         CreateInfo {
-            stage: value.stage.into(),
+            stage: ash::vk::ShaderStageFlags::from_raw(value.stage.bits()),
             shader_code: value.code,
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
-        }
-    }
-}
-
-impl From<ShaderStage> for ash::vk::ShaderStageFlags {
-    fn from(value: ShaderStage) -> Self {
-        match value {
-            ShaderStage::Vertex => ash::vk::ShaderStageFlags::VERTEX,
-            ShaderStage::TesselationControl => ash::vk::ShaderStageFlags::TESSELLATION_CONTROL,
-            ShaderStage::TesselationEvaluation => {
-                ash::vk::ShaderStageFlags::TESSELLATION_EVALUATION
-            }
-            ShaderStage::Geometry => ash::vk::ShaderStageFlags::GEOMETRY,
-            ShaderStage::Fragment => ash::vk::ShaderStageFlags::FRAGMENT,
-            ShaderStage::Compute => ash::vk::ShaderStageFlags::COMPUTE,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::RayGen => ash::vk::ShaderStageFlags::RAYGEN_KHR,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::Miss => ash::vk::ShaderStageFlags::MISS_KHR,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::AnyHit => ash::vk::ShaderStageFlags::ANY_HIT_KHR,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::ClosestHit => ash::vk::ShaderStageFlags::CLOSEST_HIT_KHR,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::Intersection => ash::vk::ShaderStageFlags::INTERSECTION_KHR,
-            #[cfg(feature = "ray-tracing")]
-            ShaderStage::Callable => ash::vk::ShaderStageFlags::CALLABLE_KHR,
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
 
 pub(crate) struct VkShader {
+    device: Arc<VkDevice>,
+
     stage: ash::vk::ShaderStageFlags,
     handle: ash::vk::ShaderModule,
 }
@@ -64,8 +39,7 @@ pub(crate) struct VkShader {
 impl VkShader {
     pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
         let vk_create_info = ash::vk::ShaderModuleCreateInfo::builder()
-            .code(&create_info.shader_code)
-            .build();
+            .code(&create_info.shader_code);
 
         let module = unsafe {
             device
@@ -85,16 +59,26 @@ impl VkShader {
         );
 
         Self {
+            device: device.clone(),
             handle: module,
             stage: create_info.stage,
         }
     }
 
     pub fn create_stage_create_info(&self) -> ash::vk::PipelineShaderStageCreateInfo {
-        ash::vk::PipelineShaderStageCreateInfo::builder()
-            .stage(self.stage)
-            .module(self.handle)
-            .name(ENTRY.as_c_str())
-            .build()
+        ash::vk::PipelineShaderStageCreateInfo {
+            stage: self.stage,
+            module: self.handle,
+            p_name: ENTRY.as_ptr(),
+            ..Default::default()
+        }
+    }
+}
+
+impl Drop for VkShader {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.get_device().destroy_shader_module(self.handle, None);
+        }
     }
 }

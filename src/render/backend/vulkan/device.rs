@@ -12,7 +12,8 @@ use shaderc::EnvVersion::Vulkan1_2;
 use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
@@ -33,7 +34,7 @@ pub(crate) struct VkDevice {
     vsync_present_mode: ash::vk::PresentModeKHR,
     no_vsync_present_mode: ash::vk::PresentModeKHR,
 
-    allocator: RwLock<gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>>,
+    allocator: Mutex<gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>>,
     valid_memory_types: u32,
     //memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
     #[cfg(debug_assertions)]
@@ -209,8 +210,7 @@ impl VkDevice {
         {
             let pool_info = ash::vk::CommandPoolCreateInfo::builder()
                 .queue_family_index(indices.graphics_queue_index.unwrap())
-                .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-                .build();
+                .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
             graphics_pool = unsafe { device.create_command_pool(&pool_info, None) }.unwrap();
         }
@@ -219,8 +219,7 @@ impl VkDevice {
         {
             let pool_info = ash::vk::CommandPoolCreateInfo::builder()
                 .queue_family_index(indices.graphics_queue_index.unwrap())
-                .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-                .build();
+                .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
             compute_pool = unsafe { device.create_command_pool(&pool_info, None) }.unwrap();
         }
@@ -325,8 +324,7 @@ impl VkDevice {
             .application_name(create_info.app_name.as_c_str())
             .application_version(create_info.app_version.as_vulkan_version())
             .engine_version(create_info.engine_version.as_vulkan_version())
-            .api_version(ash::vk::API_VERSION_1_2)
-            .build();
+            .api_version(ash::vk::API_VERSION_1_2);
 
         // Instance Extensions
         let extensions_ptr = Self::instance_extensions(entry)
@@ -365,6 +363,7 @@ impl VkDevice {
             }
         }
 
+        #[cfg(debug_assertions)]
         let mut debug_create_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
                 ash::vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
@@ -378,15 +377,15 @@ impl VkDevice {
                     | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
                     | ash::vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
             )
-            .pfn_user_callback(Some(vulkan_debug_callback))
-            .build();
+            .pfn_user_callback(Some(vulkan_debug_callback));
 
         let create_info = ash::vk::InstanceCreateInfo::builder()
             .application_info(&app_create_info)
             .enabled_layer_names(&layers)
-            .enabled_extension_names(&extensions_ptr)
-            .push_next(&mut debug_create_info)
-            .build();
+            .enabled_extension_names(&extensions_ptr);
+
+        #[cfg(debug_assertions)]
+        let create_info = create_info.push_next(&mut debug_create_info);
 
         log::trace!("vkCreateInstance");
         unsafe { entry.create_instance(&create_info, None) }.unwrap_or_else(|e| {
@@ -414,8 +413,7 @@ impl VkDevice {
                     | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
                     | ash::vk::DebugUtilsMessageTypeFlagsEXT::DEVICE_ADDRESS_BINDING,
             )
-            .pfn_user_callback(Some(vulkan_debug_callback))
-            .build();
+            .pfn_user_callback(Some(vulkan_debug_callback));
 
         unsafe { debug_utils.create_debug_utils_messenger(&create_info, None) }.unwrap_or_else(
             |e| {
@@ -557,8 +555,7 @@ impl VkDevice {
         //         let metal_loader = ext::MetalSurface::new(&self.shared.entry, &self.shared.raw);
         //         let vk_info = vk::MetalSurfaceCreateInfoEXT::builder()
         //             .flags(vk::MetalSurfaceCreateFlagsEXT::empty())
-        //             .layer(layer as *mut _)
-        //             .build();
+        //             .layer(layer as *mut _);
         //
         //         unsafe { metal_loader.create_metal_surface(&vk_info, None).unwrap() }
         //     };
@@ -771,7 +768,7 @@ impl VkDevice {
             let info = ash::vk::DeviceQueueCreateInfo::builder()
                 .queue_family_index(index)
                 .queue_priorities(&[1.0]);
-            queue_create_infos.push(info.build());
+            queue_create_infos.push(*info);
         }
 
         let extensions = Self::get_required_extensions(extensions)
@@ -786,13 +783,10 @@ impl VkDevice {
             .buffer_device_address(true);
         features = features.push_next(&mut device_address);
 
-        let mut features = features.build();
-
         let create_info = ash::vk::DeviceCreateInfo::builder()
             .enabled_extension_names(&extensions)
             .queue_create_infos(&queue_create_infos)
-            .push_next(&mut features)
-            .build();
+            .push_next(&mut features);
 
         let device = unsafe { instance.create_device(*physical_device, &create_info, None) }
             .expect("Failed to create logical device!");
@@ -880,8 +874,7 @@ impl VkDevice {
     pub fn begin_debug_label(&self, cmd: &ash::vk::CommandBuffer, name: &CStr, color: &[f32; 4]) {
         let label_info = ash::vk::DebugUtilsLabelEXT::builder()
             .label_name(name)
-            .color(*color)
-            .build();
+            .color(*color);
 
         unsafe {
             self.debug_utils
@@ -899,8 +892,7 @@ impl VkDevice {
         let name_info = ash::vk::DebugUtilsObjectNameInfoEXT::builder()
             .object_handle(handle)
             .object_name(name)
-            .object_type(*object_type)
-            .build();
+            .object_type(*object_type);
 
         unsafe {
             self.debug_utils
@@ -981,7 +973,6 @@ impl VkDevice {
         &self,
         create_info: &ash::vk::BufferCreateInfo,
         flags: ash::vk::MemoryPropertyFlags,
-        no_pool: bool,
         usage_flags: gpu_alloc::UsageFlags,
     ) -> (
         ash::vk::Buffer,
@@ -990,14 +981,12 @@ impl VkDevice {
         let buffer = unsafe { self.device.create_buffer(create_info, None) }.unwrap();
         let req = unsafe { self.device.get_buffer_memory_requirements(buffer) };
 
-        let alignment = req.alignment - 1;
-
         let block = unsafe {
-            self.allocator.write().recover().alloc(
+            self.allocator.lock().alloc(
                 gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
                 gpu_alloc::Request {
                     size: req.size,
-                    align_mask: alignment,
+                    align_mask: req.alignment - 1,
                     usage: usage_flags,
                     memory_types: req.memory_type_bits & self.valid_memory_types,
                 },
@@ -1020,6 +1009,43 @@ impl VkDevice {
         (buffer, block)
     }
 
+    pub(crate) fn allocate_image(&self, create_info: &ash::vk::ImageCreateInfo, flags: ash::vk::MemoryPropertyFlags, usage_flags: gpu_alloc::UsageFlags)
+        ->
+        (ash::vk::Image,
+        gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>)
+    {
+        let image = unsafe { self.device.create_image(create_info, None) }.unwrap();
+        let req = unsafe { self.device.get_image_memory_requirements(image) };
+
+        let alignment = req.alignment - 1;
+
+        let block = unsafe {
+            self.allocator.lock().alloc(
+                gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
+                gpu_alloc::Request {
+                    size: req.size,
+                    align_mask: alignment,
+                    usage: usage_flags,
+                    memory_types: req.memory_type_bits & self.valid_memory_types,
+                },
+            )
+        }
+            .unwrap_or_else(|e| {
+                log::error!("Failed to allocate memory, error: {e}");
+                panic!()
+            });
+
+        unsafe {
+            self.device
+                .bind_image_memory(image, *block.memory(), block.offset())
+        }.unwrap_or_else(|e| {
+                log::error!("Failed to bind buffer memory");
+                panic!();
+            });
+
+        (image, block)
+    }
+
     pub(crate) fn deallocate_buffer(
         &self,
         buffer: ash::vk::Buffer,
@@ -1027,10 +1053,18 @@ impl VkDevice {
     ) {
         unsafe {
             self.allocator
-                .write()
-                .recover()
+                .lock()
                 .dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
             self.device.destroy_buffer(buffer, None);
+        }
+    }
+
+    pub(crate) fn deallocate_image(&self, image: ash::vk::Image, block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+        unsafe {
+            self.allocator
+                .lock()
+                .dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
+            self.device.destroy_image(image, None);
         }
     }
 
@@ -1041,8 +1075,7 @@ impl VkDevice {
         let alloc_info = ash::vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool)
             .level(ash::vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1)
-            .build();
+            .command_buffer_count(1);
 
         let cmd =
             unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
@@ -1051,8 +1084,7 @@ impl VkDevice {
             })[0];
 
         let begin_info = ash::vk::CommandBufferBeginInfo::builder()
-            .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-            .build();
+            .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
         unsafe { self.device.begin_command_buffer(cmd, &begin_info) }.unwrap_or_else(|e| {
             log::error!("Failed to begin recording command buffer, error: {e}");
@@ -1074,13 +1106,12 @@ impl VkDevice {
         });
 
         let cmd_vec = vec![command_buffer];
-        let submit_info = vec![ash::vk::SubmitInfo::builder()
-            .command_buffers(&cmd_vec)
-            .build()];
+        let submit_info = ash::vk::SubmitInfo::builder().command_buffers(&cmd_vec);
 
+        let vk_info = [*submit_info];
         unsafe {
             self.device
-                .queue_submit(queue, &submit_info, ash::vk::Fence::null())
+                .queue_submit(queue, &vk_info, ash::vk::Fence::null())
         }
         .expect("Failed to submit cmd buffer");
 
@@ -1112,6 +1143,10 @@ impl VkDevice {
 
     pub(crate) fn wait_idle(&self) {
         unsafe { self.device.device_wait_idle().unwrap() };
+    }
+
+    pub(crate) fn get_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {
+        self.properties
     }
 }
 

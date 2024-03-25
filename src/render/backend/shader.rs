@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
 use mvcore_proc_macro::graphics_item;
@@ -9,25 +10,27 @@ pub(crate) struct MVShaderCreateInfo {
     pub(crate) label: Option<String>,
 }
 
-pub(crate) enum ShaderStage {
-    Vertex,
-    TesselationControl,
-    TesselationEvaluation,
-    Geometry,
-    Fragment,
-    Compute,
-    #[cfg(feature = "ray-tracing")]
-    RayGen,
-    #[cfg(feature = "ray-tracing")]
-    Miss,
-    #[cfg(feature = "ray-tracing")]
-    AnyHit,
-    #[cfg(feature = "ray-tracing")]
-    ClosestHit,
-    #[cfg(feature = "ray-tracing")]
-    Intersection,
-    #[cfg(feature = "ray-tracing")]
-    Callable,
+bitflags! {
+     pub(crate) struct ShaderStage: u32 {
+        const Vertex = 1;
+        const TesselationControl = 1 << 1;
+        const TesselationEvaluation = 1 << 2;
+        const Geometry = 1 << 3;
+        const Fragment = 1 << 4;
+        const Compute = 1 << 5;
+        #[cfg(feature = "ray-tracing")]
+        const RayGen = 1 << 8;
+        #[cfg(feature = "ray-tracing")]
+        const AnyHit = 1 << 9;
+        #[cfg(feature = "ray-tracing")]
+        const ClosestHit = 1 << 10;
+        #[cfg(feature = "ray-tracing")]
+        const Miss = 1 << 11;
+        #[cfg(feature = "ray-tracing")]
+        const Intersection = 1 << 12;
+        #[cfg(feature = "ray-tracing")]
+        const Callable = 1 << 13;
+    }
 }
 
 #[graphics_item(ref)]

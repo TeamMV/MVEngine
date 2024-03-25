@@ -28,13 +28,10 @@ name = "test"
 path = "tests/main.rs"
 harness = false
 
-[profile.dev]
-# opt-level = 3
-
 [profile.release]
 opt-level = 3
 strip = true
-lto = false
+lto = true
 debug = false
 debug-assertions = false
 codegen-units = 1
@@ -63,6 +60,7 @@ log = "0.4.20"
 num-traits = "0.2.17"
 hashbrown = "0.14.3"
 bitflags = "2.5.0"
+parking_lot = "0.12.1"
 
 # specific dependencies
 include_dir = "0.7.3"

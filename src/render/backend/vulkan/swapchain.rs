@@ -118,8 +118,7 @@ impl VkSwapchain {
             .pre_transform(swapchain_capabilities.capabilities.current_transform)
             .composite_alpha(ash::vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
-            .clipped(true) // discards pixels that are obscured (for example behind other window)
-            .build();
+            .clipped(true); // discards pixels that are obscured (for example behind other window);
 
         if create_info.prev_swapchain.is_some() {
             vk_create_info.old_swapchain = create_info.prev_swapchain.unwrap().handle;
@@ -173,15 +172,14 @@ impl VkSwapchain {
                     .view_type(ash::vk::ImageViewType::TYPE_2D)
                     .format(color_format.format)
                     .subresource_range(
-                        ash::vk::ImageSubresourceRange::builder()
-                            .aspect_mask(ash::vk::ImageAspectFlags::COLOR)
-                            .base_mip_level(0)
-                            .level_count(1)
-                            .base_array_layer(0)
-                            .layer_count(1)
-                            .build(),
-                    )
-                    .build();
+                        ash::vk::ImageSubresourceRange {
+                            aspect_mask: ash::vk::ImageAspectFlags::COLOR,
+                            base_mip_level: 0,
+                            level_count: 1,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        }
+                    );
 
                 let view = unsafe {
                     device
@@ -301,37 +299,33 @@ impl VkSwapchain {
             .stencil_load_op(ash::vk::AttachmentLoadOp::DONT_CARE)
             .stencil_store_op(ash::vk::AttachmentStoreOp::DONT_CARE)
             .initial_layout(ash::vk::ImageLayout::UNDEFINED)
-            .final_layout(ash::vk::ImageLayout::PRESENT_SRC_KHR)
-            .build();
+            .final_layout(ash::vk::ImageLayout::PRESENT_SRC_KHR);
 
-        let color_attachment_ref = [ash::vk::AttachmentReference::builder()
-            .attachment(0)
-            .layout(ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .build()];
+        let color_attachment_ref = [ash::vk::AttachmentReference {
+            attachment: 0,
+            layout: ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        }];
 
-        let subpass = [ash::vk::SubpassDescription::builder()
+        let subpass = ash::vk::SubpassDescription::builder()
             .pipeline_bind_point(ash::vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&color_attachment_ref)
-            .build()];
+            .color_attachments(&color_attachment_ref);
 
-        let dependency = [ash::vk::SubpassDependency::builder()
-            .src_subpass(ash::vk::SUBPASS_EXTERNAL)
-            .dst_subpass(0)
-            .src_stage_mask(ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_stage_mask(
-                ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-                    | ash::vk::PipelineStageFlags::FRAGMENT_SHADER,
-            )
-            .src_access_mask(ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .dst_access_mask(ash::vk::AccessFlags::COLOR_ATTACHMENT_READ)
-            .build()];
+        let dependency = [ash::vk::SubpassDependency {
+            src_subpass: ash::vk::SUBPASS_EXTERNAL,
+            dst_subpass: 0,
+            src_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | ash::vk::PipelineStageFlags::FRAGMENT_SHADER,
+            src_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_READ,
+            dependency_flags: ash::vk::DependencyFlags::empty(),
+        }];
 
-        let attachments = [color_attachment];
+        let attachments = [*color_attachment];
+        let subpasses = [*subpass];
         let render_pass_create_info = ash::vk::RenderPassCreateInfo::builder()
             .attachments(&attachments)
-            .subpasses(&subpass)
-            .dependencies(&dependency)
-            .build();
+            .subpasses(&subpasses)
+            .dependencies(&dependency);
 
         unsafe {
             device
@@ -352,11 +346,10 @@ impl VkSwapchain {
         Vec<ash::vk::Semaphore>,
         Vec<ash::vk::Fence>,
     ) {
-        let semaphore_create_info = ash::vk::SemaphoreCreateInfo::builder().build();
+        let semaphore_create_info = ash::vk::SemaphoreCreateInfo::builder();
 
         let fence_create_info = ash::vk::FenceCreateInfo::builder()
-            .flags(ash::vk::FenceCreateFlags::SIGNALED)
-            .build();
+            .flags(ash::vk::FenceCreateFlags::SIGNALED);
 
         let mut wait_semaphores = Vec::new();
         let mut signal_semaphores = Vec::new();
@@ -428,17 +421,17 @@ impl VkSwapchain {
         let wait_stages = [ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let swapchain = [self.handle];
         let image_indices = [image_index];
-        let submit_info = [ash::vk::SubmitInfo::builder()
+        let submit_info = ash::vk::SubmitInfo::builder()
             .wait_semaphores(&wait_semaphores)
             .signal_semaphores(&signal_semaphores)
             .command_buffers(buffer)
-            .wait_dst_stage_mask(&wait_stages)
-            .build()];
+            .wait_dst_stage_mask(&wait_stages);
 
+        let vk_info = [*submit_info];
         unsafe {
             self.device.get_device().queue_submit(
                 self.device.get_graphics_queue(),
-                &submit_info,
+                &vk_info,
                 self.in_flight_fences[self.current_frame as usize],
             )
         }?;
@@ -446,8 +439,7 @@ impl VkSwapchain {
         let present_info = ash::vk::PresentInfoKHR::builder()
             .wait_semaphores(&signal_semaphores)
             .swapchains(&swapchain)
-            .image_indices(&image_indices)
-            .build();
+            .image_indices(&image_indices);
 
         self.current_frame = (self.current_frame + 1) % self.max_frames_in_flight;
 

@@ -3,6 +3,8 @@ use crate::render::backend::device::{CommandPool, Device};
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use mvcore_proc_macro::graphics_item;
+use crate::render::backend::descriptor_set::DescriptorSet;
+use crate::render::backend::pipeline::{Pipeline, PipelineType};
 
 pub(crate) enum CommandBufferLevel {
     Primary,
@@ -170,5 +172,9 @@ impl CommandBuffer {
             #[cfg(target_os = "windows")]
             CommandBuffer::DirectX => unimplemented!(),
         }
+    }
+
+    pub(crate) fn bind_descriptor_set<Type: PipelineType>(&self, pipeline: &Pipeline, descriptor_set: &mut DescriptorSet, set_index: u32) {
+        descriptor_set.bind(self, pipeline, set_index);
     }
 }

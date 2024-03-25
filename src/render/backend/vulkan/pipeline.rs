@@ -14,6 +14,7 @@ use ash::vk::Handle;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use num_traits::AsPrimitive;
 
 pub(crate) struct GraphicsCreateInfo {
     shaders: Vec<VkShader>,
@@ -91,7 +92,7 @@ impl From<CullMode> for ash::vk::CullModeFlags {
 impl From<PushConstant> for ash::vk::PushConstantRange {
     fn from(value: PushConstant) -> Self {
         ash::vk::PushConstantRange {
-            stage_flags: value.shader.into(),
+            stage_flags: ash::vk::ShaderStageFlags::from_raw(value.shader.bits()),
             offset: value.offset,
             size: value.size,
         }
@@ -147,14 +148,14 @@ impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(DescriptorSetLayout::into_vulkan)
+                .map(|layout| layout.into_vulkan().get_layout())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
             render_pass: value.framebuffer.as_vulkan().get_render_pass(),
             color_attachments_count: value.color_attachments_count,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -166,12 +167,12 @@ impl From<MVComputePipelineCreateInfo> for ComputeCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(DescriptorSetLayout::into_vulkan)
+                .map(|layout| layout.into_vulkan().get_layout())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -198,27 +199,23 @@ impl From<MVRayTracingPipelineCreateInfo> for RayTracingCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(DescriptorSetLayout::into_vulkan)
+                .map(|layout| layout.into_vulkan().get_layout())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or("".to_string())),
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
 
-struct PipelineConfigInfo {
-    input_assembly_info: ash::vk::PipelineInputAssemblyStateCreateInfo,
-    rasterization_info: ash::vk::PipelineRasterizationStateCreateInfo,
-    multisample_info: ash::vk::PipelineMultisampleStateCreateInfo,
+struct PipelineConfigInfo<'a> {
+    input_assembly_info: ash::vk::PipelineInputAssemblyStateCreateInfoBuilder<'a>,
+    rasterization_info: ash::vk::PipelineRasterizationStateCreateInfoBuilder<'a>,
+    multisample_info: ash::vk::PipelineMultisampleStateCreateInfoBuilder<'a>,
     color_blend_attachments: Vec<ash::vk::PipelineColorBlendAttachmentState>,
-    color_blend_info: ash::vk::PipelineColorBlendStateCreateInfo,
-    depth_stencil_info: ash::vk::PipelineDepthStencilStateCreateInfo,
-    vertex_input_info: ash::vk::PipelineVertexInputStateCreateInfo,
-    viewport_info: ash::vk::PipelineViewportStateCreateInfo
-    viewport_info: ash::vk::PipelineViewportStateCreateInfo,
-    dynamic_state_info: ash::vk::PipelineDynamicStateCreateInfo,
+    depth_stencil_info: ash::vk::PipelineDepthStencilStateCreateInfoBuilder<'a>,
+    vertex_input_info: ash::vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
 }
 
 pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
@@ -236,8 +233,7 @@ impl<Type: PipelineType> VkPipeline<Type> {
     ) -> ash::vk::PipelineLayout {
         let layout_info = ash::vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(descriptor_set_layouts)
-            .push_constant_ranges(push_constants)
-            .build();
+            .push_constant_ranges(push_constants);
 
         unsafe {
             device
@@ -248,6 +244,14 @@ impl<Type: PipelineType> VkPipeline<Type> {
             log::error!("Failed to create pipeline layout for error: {e}");
             panic!();
         })
+    }
+
+    pub(crate) fn get_handle(&self) -> ash::vk::Pipeline {
+        self.handle
+    }
+
+    pub(crate) fn get_layout(&self) -> ash::vk::PipelineLayout {
+        self.layout
     }
 }
 
@@ -262,35 +266,71 @@ impl VkPipeline {
 
         let mut shader_stages = Vec::new();
 
-        for shader in create_info.shaders {
+        for shader in &create_info.shaders {
             shader_stages.push(shader.create_stage_create_info());
         }
 
-        let dynamic_states = [ash::vk::DynamicState::SCISSOR, ash::vk::DynamicState::VIEWPORT];
+        let viewports = [
+            ash::vk::Viewport {
+                x: 0.0,
+                y: 0.0,
+                width: create_info.extent.width as f32,
+                height: create_info.extent.height as f32,
+                min_depth: 0.0,
+                max_depth: 1.0,
+            }
+        ];
+
+        let scissors = [
+            ash::vk::Rect2D {
+                offset: ash::vk::Offset2D {
+                    x: 0,
+                    y: 0,
+                },
+                extent: ash::vk::Extent2D {
+                    width: create_info.extent.width,
+                    height: create_info.extent.height,
+                },
+            }
+        ];
+
+        let viewport_state_info = ash::vk::PipelineViewportStateCreateInfo::builder()
+            .viewport_count(1)
+            .viewports(&viewports)
+            .scissor_count(1)
+            .scissors(&scissors);
 
         let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&dynamic_states)
-            .build();
+            .dynamic_states(&[
+                ash::vk::DynamicState::SCISSOR,
+                ash::vk::DynamicState::VIEWPORT,
+            ]);
 
-        let graphics_create_info = [ash::vk::GraphicsPipelineCreateInfo::builder()
+        let color_blend_info = ash::vk::PipelineColorBlendStateCreateInfo::builder()
+            .logic_op_enable(false)
+            .logic_op(ash::vk::LogicOp::COPY)
+            .attachments(&config_info.color_blend_attachments);
+
+        let graphics_create_info = ash::vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stages)
             .vertex_input_state(&config_info.vertex_input_info)
             .input_assembly_state(&config_info.input_assembly_info)
-            .viewport_state(&config_info.viewport_info)
+            .viewport_state(&viewport_state_info)
             .rasterization_state(&config_info.rasterization_info)
             .multisample_state(&config_info.multisample_info)
-            .color_blend_state(&config_info.color_blend_info)
+            .color_blend_state(&color_blend_info)
             .dynamic_state(&dynamic_state_info)
             .depth_stencil_state(&config_info.depth_stencil_info)
             .layout(layout)
             .render_pass(create_info.render_pass)
-            .subpass(0)
-            .build()];
+            .subpass(0);
+
+        let vk_info = [*graphics_create_info];
 
         let pipeline = unsafe {
             device.get_device().create_graphics_pipelines(
                 ash::vk::PipelineCache::null(),
-                &graphics_create_info,
+                &vk_info,
                 None,
             )
         }
@@ -320,27 +360,7 @@ impl VkPipeline {
             || create_info.topology == ash::vk::PrimitiveTopology::TRIANGLE_STRIP;
         let input_assembly_info = ash::vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(create_info.topology)
-            .primitive_restart_enable(enable_primitive_restart)
-            .build();
-
-        let viewport_info = [ash::vk::Viewport::builder()
-            .x(0.0)
-            .y(0.0)
-            .width(create_info.extent.width as f32)
-            .height(create_info.extent.height as f32)
-            .min_depth(0.0f32)
-            .max_depth(1.0f32)
-            .build()];
-
-        let offset = ash::vk::Offset2D::builder().x(0).y(0).build();
-        let extent = ash::vk::Extent2D::builder()
-            .height(create_info.extent.width)
-            .width(create_info.extent.height)
-            .build();
-        let scissor_info = [ash::vk::Rect2D::builder()
-            .offset(offset)
-            .extent(extent)
-            .build()];
+            .primitive_restart_enable(enable_primitive_restart);
 
         let rasterization_info = ash::vk::PipelineRasterizationStateCreateInfo::builder()
             .cull_mode(create_info.cull_mode)
@@ -349,38 +369,30 @@ impl VkPipeline {
             .polygon_mode(ash::vk::PolygonMode::FILL)
             .line_width(1.0f32)
             .front_face(ash::vk::FrontFace::CLOCKWISE)
-            .depth_bias_enable(false)
-            .build();
+            .depth_bias_enable(false);
 
         let multisample_info = ash::vk::PipelineMultisampleStateCreateInfo::builder()
             .sample_shading_enable(false)
             .rasterization_samples(ash::vk::SampleCountFlags::TYPE_1) // rn just one sample
             .min_sample_shading(1.0f32)
             .alpha_to_coverage_enable(false)
-            .alpha_to_one_enable(false)
-            .build();
+            .alpha_to_one_enable(false);
 
         let mut color_blend_attachments = Vec::new();
         for i in 0..create_info.color_attachments_count {
             color_blend_attachments.push(
-                ash::vk::PipelineColorBlendAttachmentState::builder()
-                    .color_write_mask(ash::vk::ColorComponentFlags::RGBA)
-                    .blend_enable(create_info.blending_enable)
-                    .src_color_blend_factor(ash::vk::BlendFactor::SRC_ALPHA)
-                    .dst_color_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .color_blend_op(ash::vk::BlendOp::ADD)
-                    .src_alpha_blend_factor(ash::vk::BlendFactor::ONE)
-                    .dst_alpha_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .alpha_blend_op(ash::vk::BlendOp::ADD)
-                    .build(),
+                ash::vk::PipelineColorBlendAttachmentState {
+                    blend_enable: create_info.blending_enable as u32,
+                    src_color_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
+                    dst_color_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+                    color_blend_op: ash::vk::BlendOp::ADD,
+                    src_alpha_blend_factor: ash::vk::BlendFactor::ONE,
+                    dst_alpha_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+                    alpha_blend_op: ash::vk::BlendOp::ADD,
+                    color_write_mask: ash::vk::ColorComponentFlags::RGBA,
+                },
             )
         }
-
-        let color_blend_info = ash::vk::PipelineColorBlendStateCreateInfo::builder()
-            .logic_op_enable(false)
-            .logic_op(ash::vk::LogicOp::COPY)
-            .attachments(&color_blend_attachments)
-            .build();
 
         let depth_stencil_info = ash::vk::PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(create_info.enable_depth_test)
@@ -389,41 +401,19 @@ impl VkPipeline {
             .depth_bounds_test_enable(false)
             .min_depth_bounds(0.0f32)
             .max_depth_bounds(1.0f32)
-            .stencil_test_enable(false) // we'll get back to that
-            .build();
+            .stencil_test_enable(false); // we'll get back to that
 
         let vertex_input_info = ash::vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_attribute_descriptions(&create_info.attribute_descriptions)
-            .vertex_binding_descriptions(&create_info.bindings_descriptions)
-            .build();
-
-        let viewport_state_info = ash::vk::PipelineViewportStateCreateInfo::builder()
-            .viewport_count(1)
-            .viewports(&viewport_info)
-            .scissor_count(1)
-            .scissors(&scissor_info)
-            .build();
-
-        let dynamic_states = [
-            ash::vk::DynamicState::SCISSOR,
-            ash::vk::DynamicState::VIEWPORT,
-        ];
-
-        let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&dynamic_states)
-            .build();
+            .vertex_binding_descriptions(&create_info.bindings_descriptions);
 
         PipelineConfigInfo {
             input_assembly_info,
             rasterization_info,
             multisample_info,
             color_blend_attachments,
-            color_blend_info,
             depth_stencil_info,
             vertex_input_info,
-            viewport_info: viewport_state_info
-            viewport_info: viewport_state_info,
-            dynamic_state_info,
         }
     }
 
@@ -436,14 +426,6 @@ impl VkPipeline {
             )
         };
     }
-
-    pub(crate) fn get_handle(&self) -> ash::vk::Pipeline {
-        self.handle
-    }
-
-    pub(crate) fn get_layout(&self) -> ash::vk::PipelineLayout {
-        self.layout
-    }
 }
 
 impl VkPipeline<Compute> {
@@ -453,15 +435,16 @@ impl VkPipeline<Compute> {
             &create_info.descriptor_set_layouts,
             &create_info.push_constants,
         );
-        let compute_info = [ash::vk::ComputePipelineCreateInfo::builder()
+        let compute_info = ash::vk::ComputePipelineCreateInfo::builder()
             .layout(layout)
-            .stage(create_info.shader.create_stage_create_info())
-            .build()];
+            .stage(create_info.shader.create_stage_create_info());
+
+        let vk_info = [*compute_info];
 
         let pipeline = unsafe {
             device.get_device().create_compute_pipelines(
                 ash::vk::PipelineCache::null(),
-                &compute_info,
+                &vk_info,
                 None,
             )
         }

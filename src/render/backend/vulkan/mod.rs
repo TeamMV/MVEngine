@@ -8,6 +8,8 @@ pub(crate) mod image;
 pub(crate) mod pipeline;
 pub(crate) mod push_constant;
 pub(crate) mod sampler;
-pub(crate) mod sbt;
 pub(crate) mod shader;
 pub(crate) mod swapchain;
+
+#[cfg(feature = "ray-tracing")]
+pub(crate) mod sbt;
