@@ -1,9 +1,9 @@
-use std::ffi::CString;
-use std::sync::Arc;
-use ash::vk::Handle;
 use crate::render::backend::buffer::MVBufferCreateInfo;
 use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
+use ash::vk::Handle;
+use std::ffi::CString;
+use std::sync::Arc;
 
 pub(crate) struct CreateInfo {
     instance_size: ash::vk::DeviceSize,
@@ -15,7 +15,7 @@ pub(crate) struct CreateInfo {
     memory_usage_flags: gpu_alloc::UsageFlags,
 
     #[cfg(debug_assertions)]
-    debug_name: CString
+    debug_name: CString,
 }
 
 impl From<MVBufferCreateInfo> for CreateInfo {
@@ -24,7 +24,9 @@ impl From<MVBufferCreateInfo> for CreateInfo {
             instance_size: value.instance_size,
             instance_count: value.instance_count as u64,
             usage_flags: ash::vk::BufferUsageFlags::from_raw(value.buffer_usage.bits()),
-            memory_properties: ash::vk::MemoryPropertyFlags::from_raw(value.memory_properties.bits() as u32),
+            memory_properties: ash::vk::MemoryPropertyFlags::from_raw(
+                value.memory_properties.bits() as u32,
+            ),
             minimum_alignment: value.minimum_alignment,
             no_pool: value.no_pool,
             memory_usage_flags: value.memory_usage,
@@ -53,7 +55,8 @@ pub(crate) struct VkBuffer {
 
 impl VkBuffer {
     pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
-        let alignment = Self::get_alignment(&create_info.instance_size, &create_info.minimum_alignment);
+        let alignment =
+            Self::get_alignment(&create_info.instance_size, &create_info.minimum_alignment);
         let buffer_size = alignment * create_info.instance_count;
 
         let mut usage_flags = create_info.usage_flags;
@@ -67,11 +70,27 @@ impl VkBuffer {
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .build();
 
-        let (buffer, block) = device.allocate_buffer(&vk_create_info, create_info.memory_properties, create_info.no_pool, gpu_alloc::UsageFlags::HOST_ACCESS);
+        let (buffer, block) = device.allocate_buffer(
+            &vk_create_info,
+            create_info.memory_properties,
+            create_info.no_pool,
+            gpu_alloc::UsageFlags::HOST_ACCESS,
+        );
 
         #[cfg(debug_assertions)]
-        device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
-
+        device.set_object_name(
+            &ash::vk::ObjectType::BUFFER,
+            buffer.as_raw(),
+            create_info.debug_name.as_c_str(),
+        );
+		
+        let mut usage_flags = create_info.usage_flags;
+        if create_info
+            .memory_properties
+            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
+            usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
+        }
         Self {
             device,
             handle: buffer,
@@ -84,17 +103,25 @@ impl VkBuffer {
             usage_flags,
             memory_properties: create_info.memory_properties,
             no_pool: false, // always false for now
-            memory_usage_flags: create_info.memory_usage_flags
+            memory_usage_flags: create_info.memory_usage_flags,
         }
     }
 
     // We'll need wrapper for these
-    pub(crate) fn write_to_buffer(&mut self, data: &[u8], offset: ash::vk::DeviceSize, provided_cmd: Option<ash::vk::CommandBuffer>) {
+    pub(crate) fn write_to_buffer(
+        &mut self,
+        data: &[u8],
+        offset: ash::vk::DeviceSize,
+        provided_cmd: Option<ash::vk::CommandBuffer>,
+    ) {
         let ptr = data.as_ptr();
         let size = data.len();
 
         // Host Visible
-        if !self.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+        if !self
+            .memory_properties
+            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
             let need_to_map_buffer = self.mapped.is_null();
             if need_to_map_buffer {
                 self.map();
@@ -105,14 +132,17 @@ impl VkBuffer {
             if need_to_map_buffer {
                 self.unmap()
             }
-        } else { // Device Local
+        } else {
+            // Device Local
             let buffer_create_info = CreateInfo {
                 instance_size: size as ash::vk::DeviceSize,
                 instance_count: self.instance_count,
                 usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
                 memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
                 minimum_alignment: 1,
-                memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS | gpu_alloc::UsageFlags::TRANSIENT | gpu_alloc::UsageFlags::UPLOAD,
+                memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS
+                    | gpu_alloc::UsageFlags::TRANSIENT
+                    | gpu_alloc::UsageFlags::UPLOAD,
                 no_pool: false,
 
                 #[cfg(debug_assertions)]
@@ -127,11 +157,22 @@ impl VkBuffer {
 
             staging_buffer.unmap();
 
-            Self::copy_buffer(&staging_buffer, self, size as ash::vk::DeviceSize, 0, 0, provided_cmd);
+            Self::copy_buffer(
+                &staging_buffer,
+                self,
+                size as ash::vk::DeviceSize,
+                0,
+                0,
+                provided_cmd,
+            );
         }
     }
 
-    pub(crate) fn get_descriptor_info(&self, size: ash::vk::DeviceSize, offset: ash::vk::DeviceSize) -> ash::vk::DescriptorBufferInfo {
+    pub(crate) fn get_descriptor_info(
+        &self,
+        size: ash::vk::DeviceSize,
+        offset: ash::vk::DeviceSize,
+    ) -> ash::vk::DescriptorBufferInfo {
         ash::vk::DescriptorBufferInfo::builder()
             .buffer(self.handle)
             .offset(offset)
@@ -139,11 +180,24 @@ impl VkBuffer {
             .build()
     }
 
-    pub(crate) fn copy_buffer(src_buffer: &VkBuffer, dst_buffer: &mut VkBuffer, size: ash::vk::DeviceSize, src_offset: ash::vk::DeviceSize, dst_offset: ash::vk::DeviceSize, provided_cmd: Option<ash::vk::CommandBuffer>) {
+    pub(crate) fn copy_buffer(
+        src_buffer: &VkBuffer,
+        dst_buffer: &mut VkBuffer,
+        size: ash::vk::DeviceSize,
+        src_offset: ash::vk::DeviceSize,
+        dst_offset: ash::vk::DeviceSize,
+        provided_cmd: Option<ash::vk::CommandBuffer>,
+    ) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd, false)
         } else {
             (src_buffer.device.begin_single_time_command(src_buffer.device.get_graphics_command_pool()), true)
+            (
+                src_buffer
+                    .device
+                    .begin_single_time_command(src_buffer.device.get_compute_command_pool()),
+                true,
+            )
         };
 
         let copy_region = [ash::vk::BufferCopy::builder()
@@ -152,38 +206,77 @@ impl VkBuffer {
             .size(size)
             .build()];
 
-        unsafe { src_buffer.device.get_device().cmd_copy_buffer(cmd, src_buffer.get_buffer(), dst_buffer.get_buffer(), &copy_region) }
+        unsafe {
+            src_buffer.device.get_device().cmd_copy_buffer(
+                cmd,
+                src_buffer.get_buffer(),
+                dst_buffer.get_buffer(),
+                &copy_region,
+            )
+        }
 
         if end {
             src_buffer.device.end_single_time_command(cmd, src_buffer.device.get_graphics_command_pool(), src_buffer.device.get_graphics_queue());
+            src_buffer.device.end_single_time_command(
+                cmd,
+                src_buffer.device.get_compute_command_pool(),
+                src_buffer.device.get_compute_queue(),
+            );
         }
     }
 
     pub(crate) fn map(&mut self) {
-        if self.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+        if self
+            .memory_properties
+            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
             log::error!("Can't map device local buffer!");
             panic!();
         }
 
-        let block = self.block.as_mut().expect("Memory block of buffer should never be None");
+        let block = self
+            .block
+            .as_mut()
+            .expect("Memory block of buffer should never be None");
 
-        self.mapped = unsafe { block.map(gpu_alloc_ash::AshMemoryDevice::wrap(self.device.get_device()), 0, block.size() as usize) }.unwrap_or_else(|e| {
+        self.mapped = unsafe {
+            block.map(
+                gpu_alloc_ash::AshMemoryDevice::wrap(self.device.get_device()),
+                0,
+                block.size() as usize,
+            )
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to flush buffer, error: {e}");
             panic!()
-        }).as_ptr();
+        })
+        .as_ptr();
     }
 
     pub(crate) fn unmap(&mut self) {
-        if self.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+        if self
+            .memory_properties
+            .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
             log::error!("Can't unmap device local buffer!");
             panic!();
         }
 
-        unsafe { self.block.as_mut().expect("Memory block of buffer should never be None").unmap(gpu_alloc_ash::AshMemoryDevice::wrap(self.device.get_device())) };
+        unsafe {
+            self.block
+                .as_mut()
+                .expect("Memory block of buffer should never be None")
+                .unmap(gpu_alloc_ash::AshMemoryDevice::wrap(
+                    self.device.get_device(),
+                ))
+        };
         self.mapped = std::ptr::null_mut();
     }
 
-    fn get_alignment(instance_size: &ash::vk::DeviceSize, min_offset_alignment: &ash::vk::DeviceSize) -> ash::vk::DeviceSize {
+    fn get_alignment(
+        instance_size: &ash::vk::DeviceSize,
+        min_offset_alignment: &ash::vk::DeviceSize,
+    ) -> ash::vk::DeviceSize {
         (instance_size + min_offset_alignment - 1) & !(min_offset_alignment - 1)
     }
 
@@ -198,6 +291,11 @@ impl Drop for VkBuffer {
             self.unmap();
         }
 
-        self.device.deallocate_buffer(self.handle, self.block.take().expect("Memory block of buffer should never be None"));
+        self.device.deallocate_buffer(
+            self.handle,
+            self.block
+                .take()
+                .expect("Memory block of buffer should never be None"),
+        );
     }
 }

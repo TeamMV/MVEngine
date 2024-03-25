@@ -1,10 +1,10 @@
-use std::ffi::CString;
-use std::sync::Arc;
-use bitflags::bitflags;
-use mvcore_proc_macro::graphics_item;
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::buffer::VkBuffer;
+use bitflags::bitflags;
+use mvcore_proc_macro::graphics_item;
+use std::ffi::CString;
+use std::sync::Arc;
 
 pub(crate) struct MVBufferCreateInfo {
     pub(crate) instance_size: u64,
@@ -15,7 +15,7 @@ pub(crate) struct MVBufferCreateInfo {
     pub(crate) no_pool: bool,
     pub(crate) memory_usage: gpu_alloc::UsageFlags,
 
-    pub(crate) label: Option<String>
+    pub(crate) label: Option<String>,
 }
 
 #[graphics_item(ref)]
@@ -38,9 +38,18 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn write(&mut self, data: &[u8], offset: u64, command_buffer: Option<&CommandBuffer>) {
+    pub(crate) fn write(
+        &mut self,
+        data: &[u8],
+        offset: u64,
+        command_buffer: Option<&CommandBuffer>,
+    ) {
         match self {
-            Buffer::Vulkan(buffer) => buffer.write_to_buffer(data, offset, command_buffer.map(|buffer| buffer.as_vulkan().get_handle())),
+            Buffer::Vulkan(buffer) => buffer.write_to_buffer(
+                data,
+                offset,
+                command_buffer.map(|buffer| buffer.as_vulkan().get_handle()),
+            ),
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -50,7 +59,9 @@ impl Buffer {
 
     pub(crate) fn get_descriptor_info(&self, size: u64, offset: u64) -> DescriptorBufferInfo {
         match self {
-            Buffer::Vulkan(buffer) => DescriptorBufferInfo::Vulkan(buffer.get_descriptor_info(size, offset)),
+            Buffer::Vulkan(buffer) => {
+                DescriptorBufferInfo::Vulkan(buffer.get_descriptor_info(size, offset))
+            }
             #[cfg(target_os = "macos")]
             Buffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -58,9 +69,23 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn copy_buffer(src: &mut Buffer, dst: &mut Buffer, size: u64, src_offset: u64, dst_offset: u64, command_buffer: Option<&CommandBuffer>) {
+    pub(crate) fn copy_buffer(
+        src: &mut Buffer,
+        dst: &mut Buffer,
+        size: u64,
+        src_offset: u64,
+        dst_offset: u64,
+        command_buffer: Option<&CommandBuffer>,
+    ) {
         match (src, dst) {
-            (Buffer::Vulkan(src), Buffer::Vulkan(dst)) => VkBuffer::copy_buffer(src, dst, size, src_offset, dst_offset, command_buffer.map(|buffer| buffer.as_vulkan().get_handle())),
+            (Buffer::Vulkan(src), Buffer::Vulkan(dst)) => VkBuffer::copy_buffer(
+                src,
+                dst,
+                size,
+                src_offset,
+                dst_offset,
+                command_buffer.map(|buffer| buffer.as_vulkan().get_handle()),
+            ),
             #[cfg(target_os = "macos")]
             (Buffer::Metal, Buffer::Metal) => unimplemented!(),
             #[cfg(target_os = "windows")]

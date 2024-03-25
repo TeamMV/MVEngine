@@ -1,6 +1,6 @@
-use mvcore_proc_macro::graphics_item;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
+use mvcore_proc_macro::graphics_item;
 
 pub(crate) struct MVShaderCreateInfo {
     pub(crate) stage: ShaderStage,

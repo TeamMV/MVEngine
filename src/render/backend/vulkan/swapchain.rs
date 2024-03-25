@@ -1,9 +1,11 @@
-use crate::render::backend::swapchain::{MVSwapchainCreateInfo, PresentMode, Swapchain, SwapchainError};
+use crate::render::backend::swapchain::{
+    MVSwapchainCreateInfo, PresentMode, Swapchain, SwapchainError,
+};
 use crate::render::backend::vulkan::device::VkDevice;
+use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
 use crate::render::backend::Extent2D;
 use std::ops::Not;
 use std::sync::Arc;
-use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -163,33 +165,43 @@ impl VkSwapchain {
 
         let render_pass = Self::create_render_pass(&device, color_format.format);
 
-        let framebuffers = images.into_iter().map(|image| {
-            let view_create_info = ash::vk::ImageViewCreateInfo::builder()
-                .image(image)
-                .view_type(ash::vk::ImageViewType::TYPE_2D)
-                .format(color_format.format)
-                .subresource_range(
-                    ash::vk::ImageSubresourceRange::builder()
-                        .aspect_mask(ash::vk::ImageAspectFlags::COLOR)
-                        .base_mip_level(0)
-                        .level_count(1)
-                        .base_array_layer(0)
-                        .layer_count(1)
-                        .build(),
-                )
-                .build();
+        let framebuffers = images
+            .into_iter()
+            .map(|image| {
+                let view_create_info = ash::vk::ImageViewCreateInfo::builder()
+                    .image(image)
+                    .view_type(ash::vk::ImageViewType::TYPE_2D)
+                    .format(color_format.format)
+                    .subresource_range(
+                        ash::vk::ImageSubresourceRange::builder()
+                            .aspect_mask(ash::vk::ImageAspectFlags::COLOR)
+                            .base_mip_level(0)
+                            .level_count(1)
+                            .base_array_layer(0)
+                            .layer_count(1)
+                            .build(),
+                    )
+                    .build();
 
-            let view = unsafe {
-                device
-                    .get_device()
-                    .create_image_view(&view_create_info, None)
-            }.unwrap_or_else(|e| {
-                log::error!("Create image view failed, error: {e}");
-                panic!()
-            });
+                let view = unsafe {
+                    device
+                        .get_device()
+                        .create_image_view(&view_create_info, None)
+                }
+                .unwrap_or_else(|e| {
+                    log::error!("Create image view failed, error: {e}");
+                    panic!()
+                });
 
-            Arc::new(VkFramebuffer::from(device.clone(), image, view, render_pass, create_info.window_extent))
-        }).collect();
+                Arc::new(VkFramebuffer::from(
+                    device.clone(),
+                    image,
+                    view,
+                    render_pass,
+                    create_info.window_extent,
+                ))
+            })
+            .collect();
 
         let (wait_semaphores, signal_semaphores, in_flight_fences) =
             Self::create_sync_objects(&device, create_info.max_frames_in_flight);
@@ -454,19 +466,12 @@ impl VkSwapchain {
     pub(crate) fn acquire_next_image(&self) -> Result<u32, ash::vk::Result> {
         let fences = [self.in_flight_fences[self.current_frame as usize]];
         unsafe {
-            self.device.get_device().wait_for_fences(
-                &fences,
-                true,
-                u64::MAX,
-            )
-        }
-        .unwrap();
-        unsafe {
             self.device
                 .get_device()
-                .reset_fences(&fences)
+                .wait_for_fences(&fences, true, u64::MAX)
         }
         .unwrap();
+        unsafe { self.device.get_device().reset_fences(&fences) }.unwrap();
 
         let (image, suboptimal) = unsafe {
             self.device.get_swapchain_extension().acquire_next_image(
@@ -491,15 +496,25 @@ impl VkSwapchain {
 impl Drop for VkSwapchain {
     fn drop(&mut self) {
         unsafe {
-            self.device.get_swapchain_extension().destroy_swapchain(self.handle, None);
-            self.device.get_device().destroy_render_pass(self.presentable_framebuffers[0].get_render_pass(), None);
+            self.device
+                .get_swapchain_extension()
+                .destroy_swapchain(self.handle, None);
+            self.device
+                .get_device()
+                .destroy_render_pass(self.presentable_framebuffers[0].get_render_pass(), None);
         };
 
         for i in 0..self.max_frames_in_flight {
             unsafe {
-                self.device.get_device().destroy_fence(self.in_flight_fences[i as usize], None);
-                self.device.get_device().destroy_semaphore(self.signal_semaphores[i as usize], None);
-                self.device.get_device().destroy_semaphore(self.wait_semaphores[i as usize], None);
+                self.device
+                    .get_device()
+                    .destroy_fence(self.in_flight_fences[i as usize], None);
+                self.device
+                    .get_device()
+                    .destroy_semaphore(self.signal_semaphores[i as usize], None);
+                self.device
+                    .get_device()
+                    .destroy_semaphore(self.wait_semaphores[i as usize], None);
             }
         }
     }
