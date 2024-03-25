@@ -1,10 +1,10 @@
+use crate::render::backend::command_buffer::CommandBuffer;
+use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::Backend;
 use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
 use mvutils::version::Version;
 use std::sync::Arc;
-use crate::render::backend::command_buffer::CommandBuffer;
-use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 
 use crate::render::backend::vulkan::device::VkDevice;
 
@@ -44,7 +44,10 @@ impl Device {
 
     pub(crate) fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {
         match self {
-            Device::Vulkan(device) => CommandBuffer::Vulkan(VkCommandBuffer::from(device.clone(), device.begin_single_time_command(pool.as_vulkan()))),
+            Device::Vulkan(device) => CommandBuffer::Vulkan(VkCommandBuffer::from(
+                device.clone(),
+                device.begin_single_time_command(pool.as_vulkan()),
+            )),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -52,9 +55,18 @@ impl Device {
         }
     }
 
-    pub(crate) fn end_single_time_command(&self, buffer: CommandBuffer, pool: CommandPool, queue: Queue) {
+    pub(crate) fn end_single_time_command(
+        &self,
+        buffer: CommandBuffer,
+        pool: CommandPool,
+        queue: Queue,
+    ) {
         match self {
-            Device::Vulkan(device) => device.end_single_time_command(buffer.as_vulkan().get_handle(), pool.as_vulkan(), queue.as_vulkan()),
+            Device::Vulkan(device) => device.end_single_time_command(
+                buffer.as_vulkan().get_handle(),
+                pool.as_vulkan(),
+                queue.as_vulkan(),
+            ),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

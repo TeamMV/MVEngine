@@ -29,7 +29,7 @@ path = "tests/main.rs"
 harness = false
 
 [profile.dev]
-# opt-level = 3
+# opt-level = 3 # this is a breaking change for some reason, vkCmdBeginRenderPass
 
 [profile.release]
 opt-level = 3

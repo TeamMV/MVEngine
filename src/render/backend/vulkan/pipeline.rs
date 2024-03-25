@@ -1,16 +1,19 @@
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::Arc;
-use ash::vk::Handle;
 use crate::err::panic;
 use crate::render::backend::descriptor_set::DescriptorSetLayout;
-use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, PipelineType, PushConstant, Topology};
+use crate::render::backend::pipeline::{
+    AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
+    MVGraphicsPipelineCreateInfo, PipelineType, PushConstant, Topology,
+};
+#[cfg(feature = "ray-tracing")]
+use crate::render::backend::pipeline::{MVRayTracingPipelineCreateInfo, RayTracing};
 use crate::render::backend::shader::Shader;
 use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::shader::{CreateInfo, VkShader};
-#[cfg(feature = "ray-tracing")]
-use crate::render::backend::pipeline::{RayTracing, MVRayTracingPipelineCreateInfo};
+use ash::vk::Handle;
+use std::ffi::CString;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 pub(crate) struct GraphicsCreateInfo {
     shaders: Vec<VkShader>,
@@ -28,7 +31,7 @@ pub(crate) struct GraphicsCreateInfo {
     color_attachments_count: u32,
 
     #[cfg(debug_assertions)]
-    debug_name: CString
+    debug_name: CString,
 }
 
 pub(crate) struct ComputeCreateInfo {
@@ -37,7 +40,7 @@ pub(crate) struct ComputeCreateInfo {
     push_constants: Vec<ash::vk::PushConstantRange>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString
+    debug_name: CString,
 }
 
 #[cfg(feature = "ray-tracing")]
@@ -49,7 +52,7 @@ pub(crate) struct RayTracingCreateInfo {
     push_constants: Vec<ash::vk::PushConstantRange>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString
+    debug_name: CString,
 }
 
 impl From<AttributeType> for ash::vk::Format {
@@ -95,7 +98,12 @@ impl From<PushConstant> for ash::vk::PushConstantRange {
     }
 }
 
-fn attributes(attributes: Vec<AttributeType>) -> (Vec<ash::vk::VertexInputAttributeDescription>, Vec<ash::vk::VertexInputBindingDescription>) {
+fn attributes(
+    attributes: Vec<AttributeType>,
+) -> (
+    Vec<ash::vk::VertexInputAttributeDescription>,
+    Vec<ash::vk::VertexInputBindingDescription>,
+) {
     let mut vk_attributes = Vec::with_capacity(attributes.len());
 
     let mut offset = 0;
@@ -136,7 +144,11 @@ impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
             enable_depth_test: value.enable_depth_test,
             depth_clamp: value.depth_clamp,
             blending_enable: value.blending_enable,
-            descriptor_set_layouts: value.descriptor_sets.into_iter().map(DescriptorSetLayout::into_vulkan).collect(),
+            descriptor_set_layouts: value
+                .descriptor_sets
+                .into_iter()
+                .map(DescriptorSetLayout::into_vulkan)
+                .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
             render_pass: value.framebuffer.as_vulkan().get_render_pass(),
             color_attachments_count: value.color_attachments_count,
@@ -151,7 +163,11 @@ impl From<MVComputePipelineCreateInfo> for ComputeCreateInfo {
     fn from(value: MVComputePipelineCreateInfo) -> Self {
         ComputeCreateInfo {
             shader: value.shader.into_vulkan(),
-            descriptor_set_layouts: value.descriptor_sets.into_iter().map(DescriptorSetLayout::into_vulkan).collect(),
+            descriptor_set_layouts: value
+                .descriptor_sets
+                .into_iter()
+                .map(DescriptorSetLayout::into_vulkan)
+                .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
@@ -164,10 +180,26 @@ impl From<MVComputePipelineCreateInfo> for ComputeCreateInfo {
 impl From<MVRayTracingPipelineCreateInfo> for RayTracingCreateInfo {
     fn from(value: MVRayTracingPipelineCreateInfo) -> Self {
         RayTracingCreateInfo {
-            ray_gen_shaders: value.ray_gen_shaders.into_iter().map(Shader::into_vulkan).collect(),
-            closest_hit_shaders: value.closest_hit_shaders.into_iter().map(Shader::into_vulkan).collect(),
-            miss_shaders: value.miss_shaders.into_iter().map(Shader::into_vulkan).collect(),
-            descriptor_set_layouts: value.descriptor_sets.into_iter().map(DescriptorSetLayout::into_vulkan).collect(),
+            ray_gen_shaders: value
+                .ray_gen_shaders
+                .into_iter()
+                .map(Shader::into_vulkan)
+                .collect(),
+            closest_hit_shaders: value
+                .closest_hit_shaders
+                .into_iter()
+                .map(Shader::into_vulkan)
+                .collect(),
+            miss_shaders: value
+                .miss_shaders
+                .into_iter()
+                .map(Shader::into_vulkan)
+                .collect(),
+            descriptor_set_layouts: value
+                .descriptor_sets
+                .into_iter()
+                .map(DescriptorSetLayout::into_vulkan)
+                .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
@@ -185,7 +217,7 @@ struct PipelineConfigInfo {
     depth_stencil_info: ash::vk::PipelineDepthStencilStateCreateInfo,
     vertex_input_info: ash::vk::PipelineVertexInputStateCreateInfo,
     viewport_info: ash::vk::PipelineViewportStateCreateInfo,
-    dynamic_state_info: ash::vk::PipelineDynamicStateCreateInfo
+    dynamic_state_info: ash::vk::PipelineDynamicStateCreateInfo,
 }
 
 pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
@@ -196,13 +228,22 @@ pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
 }
 
 impl<Type: PipelineType> VkPipeline<Type> {
-    fn create_pipeline_layout(device: &Arc<VkDevice>, descriptor_set_layouts: &[ash::vk::DescriptorSetLayout], push_constants: &[ash::vk::PushConstantRange]) -> ash::vk::PipelineLayout {
+    fn create_pipeline_layout(
+        device: &Arc<VkDevice>,
+        descriptor_set_layouts: &[ash::vk::DescriptorSetLayout],
+        push_constants: &[ash::vk::PushConstantRange],
+    ) -> ash::vk::PipelineLayout {
         let layout_info = ash::vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(descriptor_set_layouts)
             .push_constant_ranges(push_constants)
             .build();
 
-        unsafe { device.get_device().create_pipeline_layout(&layout_info, None)}.unwrap_or_else(|e| {
+        unsafe {
+            device
+                .get_device()
+                .create_pipeline_layout(&layout_info, None)
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to create pipeline layout for error: {e}");
             panic!();
         })
@@ -211,7 +252,11 @@ impl<Type: PipelineType> VkPipeline<Type> {
 
 impl VkPipeline {
     pub fn new(device: Arc<VkDevice>, create_info: GraphicsCreateInfo) -> Self {
-        let layout = Self::create_pipeline_layout(&device, &create_info.descriptor_set_layouts, &create_info.push_constants);
+        let layout = Self::create_pipeline_layout(
+            &device,
+            &create_info.descriptor_set_layouts,
+            &create_info.push_constants,
+        );
         let config_info = Self::create_pipeline_config_info(&create_info);
 
         let mut shader_stages = Vec::new();
@@ -235,13 +280,24 @@ impl VkPipeline {
             .subpass(0)
             .build()];
 
-        let pipeline = unsafe { device.get_device().create_graphics_pipelines(ash::vk::PipelineCache::null(), &graphics_create_info, None) }.unwrap_or_else(|(_, e)| {
+        let pipeline = unsafe {
+            device.get_device().create_graphics_pipelines(
+                ash::vk::PipelineCache::null(),
+                &graphics_create_info,
+                None,
+            )
+        }
+        .unwrap_or_else(|(_, e)| {
             log::error!("Failed to create pipeline! error: {e}");
             panic!();
         })[0];
 
         #[cfg(debug_assertions)]
-        device.set_object_name(&ash::vk::ObjectType::PIPELINE, pipeline.as_raw(), create_info.debug_name.as_c_str());
+        device.set_object_name(
+            &ash::vk::ObjectType::PIPELINE,
+            pipeline.as_raw(),
+            create_info.debug_name.as_c_str(),
+        );
 
         Self {
             device,
@@ -252,8 +308,9 @@ impl VkPipeline {
     }
 
     fn create_pipeline_config_info(create_info: &GraphicsCreateInfo) -> PipelineConfigInfo {
-
-        let enable_primitive_restart = create_info.topology == ash::vk::PrimitiveTopology::LINE_STRIP || create_info.topology == ash::vk::PrimitiveTopology::TRIANGLE_STRIP;
+        let enable_primitive_restart = create_info.topology
+            == ash::vk::PrimitiveTopology::LINE_STRIP
+            || create_info.topology == ash::vk::PrimitiveTopology::TRIANGLE_STRIP;
         let input_assembly_info = ash::vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(create_info.topology)
             .primitive_restart_enable(enable_primitive_restart)
@@ -269,7 +326,10 @@ impl VkPipeline {
             .build()];
 
         let offset = ash::vk::Offset2D::builder().x(0).y(0).build();
-        let extent = ash::vk::Extent2D::builder().height(create_info.extent.width).width(create_info.extent.height).build();
+        let extent = ash::vk::Extent2D::builder()
+            .height(create_info.extent.width)
+            .width(create_info.extent.height)
+            .build();
         let scissor_info = [ash::vk::Rect2D::builder()
             .offset(offset)
             .extent(extent)
@@ -295,16 +355,17 @@ impl VkPipeline {
 
         let mut color_blend_attachments = Vec::new();
         for i in 0..create_info.color_attachments_count {
-            color_blend_attachments.push(ash::vk::PipelineColorBlendAttachmentState::builder()
-                .color_write_mask(ash::vk::ColorComponentFlags::RGBA)
-                .blend_enable(create_info.blending_enable)
-                .src_color_blend_factor(ash::vk::BlendFactor::SRC_ALPHA)
-                .dst_color_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                .color_blend_op(ash::vk::BlendOp::ADD)
-                .src_alpha_blend_factor(ash::vk::BlendFactor::ONE)
-                .dst_alpha_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                .alpha_blend_op(ash::vk::BlendOp::ADD)
-                .build()
+            color_blend_attachments.push(
+                ash::vk::PipelineColorBlendAttachmentState::builder()
+                    .color_write_mask(ash::vk::ColorComponentFlags::RGBA)
+                    .blend_enable(create_info.blending_enable)
+                    .src_color_blend_factor(ash::vk::BlendFactor::SRC_ALPHA)
+                    .dst_color_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .color_blend_op(ash::vk::BlendOp::ADD)
+                    .src_alpha_blend_factor(ash::vk::BlendFactor::ONE)
+                    .dst_alpha_blend_factor(ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .alpha_blend_op(ash::vk::BlendOp::ADD)
+                    .build(),
             )
         }
 
@@ -336,7 +397,10 @@ impl VkPipeline {
             .scissors(&scissor_info)
             .build();
 
-        let dynamic_states = [ash::vk::DynamicState::SCISSOR, ash::vk::DynamicState::VIEWPORT];
+        let dynamic_states = [
+            ash::vk::DynamicState::SCISSOR,
+            ash::vk::DynamicState::VIEWPORT,
+        ];
 
         let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
             .dynamic_states(&dynamic_states)
@@ -351,24 +415,41 @@ impl VkPipeline {
             depth_stencil_info,
             vertex_input_info,
             viewport_info: viewport_state_info,
-            dynamic_state_info
+            dynamic_state_info,
         }
     }
 
     pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
-        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::GRAPHICS, self.handle) };
+        unsafe {
+            self.device.get_device().cmd_bind_pipeline(
+                command_buffer,
+                ash::vk::PipelineBindPoint::GRAPHICS,
+                self.handle,
+            )
+        };
     }
 }
 
 impl VkPipeline<Compute> {
     pub fn new(device: Arc<VkDevice>, create_info: ComputeCreateInfo) -> Self {
-        let layout = Self::create_pipeline_layout(&device, &create_info.descriptor_set_layouts, &create_info.push_constants);
+        let layout = Self::create_pipeline_layout(
+            &device,
+            &create_info.descriptor_set_layouts,
+            &create_info.push_constants,
+        );
         let compute_info = [ash::vk::ComputePipelineCreateInfo::builder()
             .layout(layout)
             .stage(create_info.shader.create_stage_create_info())
             .build()];
 
-        let pipeline = unsafe { device.get_device().create_compute_pipelines(ash::vk::PipelineCache::null(), &compute_info, None)}.unwrap_or_else(|e| {
+        let pipeline = unsafe {
+            device.get_device().create_compute_pipelines(
+                ash::vk::PipelineCache::null(),
+                &compute_info,
+                None,
+            )
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to create pipeline! error: {}", e.1);
             panic!()
         })[0];
@@ -382,22 +463,36 @@ impl VkPipeline<Compute> {
     }
 
     pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
-        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::COMPUTE, self.handle) };
+        unsafe {
+            self.device.get_device().cmd_bind_pipeline(
+                command_buffer,
+                ash::vk::PipelineBindPoint::COMPUTE,
+                self.handle,
+            )
+        };
     }
 }
 
 #[cfg(feature = "ray-tracing")]
 impl VkPipeline<RayTracing> {
-
     pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
-        unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::RAY_TRACING_KHR, self.handle) };
+        unsafe {
+            self.device.get_device().cmd_bind_pipeline(
+                command_buffer,
+                ash::vk::PipelineBindPoint::RAY_TRACING_KHR,
+                self.handle,
+            )
+        };
     }
 }
 
 impl<Type: PipelineType> Drop for VkPipeline<Type> {
     fn drop(&mut self) {
         unsafe { self.device.get_device().destroy_pipeline(self.handle, None) };
-        unsafe { self.device.get_device().destroy_pipeline_layout(self.layout, None) };
+        unsafe {
+            self.device
+                .get_device()
+                .destroy_pipeline_layout(self.layout, None)
+        };
     }
 }
-

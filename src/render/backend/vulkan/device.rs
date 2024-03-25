@@ -1,20 +1,20 @@
+use crate::err::panic;
 use crate::render::backend::device::{Extensions, MVDeviceCreateInfo};
+use crate::render::backend::to_ascii_cstring;
+use gpu_alloc::Config;
+use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
+use mvutils::hashers::U32IdentityHasher;
+use mvutils::once::CreateOnce;
+use mvutils::utils::Recover;
 use mvutils::version::Version;
 use shaderc::EnvVersion::Vulkan1_2;
 use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-use gpu_alloc::Config;
-use hashbrown::hash_map::Entry;
-use mvutils::hashers::U32IdentityHasher;
-use mvutils::once::CreateOnce;
-use mvutils::utils::Recover;
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use crate::err::panic;
-use crate::render::backend::to_ascii_cstring;
 
 pub(crate) struct VkDevice {
     entry: ash::Entry,
@@ -36,7 +36,6 @@ pub(crate) struct VkDevice {
     allocator: RwLock<gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>>,
     valid_memory_types: u32,
     //memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
-
     #[cfg(debug_assertions)]
     debug_messenger: ash::vk::DebugUtilsMessengerEXT,
     #[cfg(debug_assertions)]
@@ -287,25 +286,27 @@ impl VkDevice {
 
     fn create_allocator(
         instance: &ash::Instance,
-        physical_device: ash::vk::PhysicalDevice
+        physical_device: ash::vk::PhysicalDevice,
     ) -> (gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>, u32) {
-        let properties = unsafe { gpu_alloc_ash::device_properties(instance, ash::vk::API_VERSION_1_2, physical_device) }.unwrap();
+        let properties = unsafe {
+            gpu_alloc_ash::device_properties(instance, ash::vk::API_VERSION_1_2, physical_device)
+        }
+        .unwrap();
         let config = Config::i_am_prototyping();
         let allocator = gpu_alloc::GpuAllocator::new(config, properties);
 
         log::trace!("vkGetPhysicalDeviceMemoryProperties");
-        let mem_properties = unsafe {
-            instance.get_physical_device_memory_properties(physical_device)
-        };
+        let mem_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
 
-        let known_flags: ash::vk::MemoryPropertyFlags =
-            ash::vk::MemoryPropertyFlags::DEVICE_LOCAL
+        let known_flags: ash::vk::MemoryPropertyFlags = ash::vk::MemoryPropertyFlags::DEVICE_LOCAL
             | ash::vk::MemoryPropertyFlags::HOST_VISIBLE
             | ash::vk::MemoryPropertyFlags::HOST_COHERENT
             | ash::vk::MemoryPropertyFlags::HOST_CACHED
             | ash::vk::MemoryPropertyFlags::LAZILY_ALLOCATED;
 
-        let memory_types = &mem_properties.memory_types[..mem_properties.memory_type_count as usize];
+        let memory_types =
+            &mem_properties.memory_types[..mem_properties.memory_type_count as usize];
         let valid_memory_types = memory_types.iter().enumerate().fold(0, |u, (i, mem)| {
             if known_flags.contains(mem.property_flags) {
                 u | (1 << i)
@@ -333,12 +334,14 @@ impl VkDevice {
             .map(|s| s.as_ptr())
             .collect::<Vec<_>>();
 
-        let instance_layers = entry.enumerate_instance_layer_properties().unwrap_or_else(|e| {
-            log::warn!("Failed to enumerate vulkan layers: {}", e);
-            #[cfg(debug_assertions)]
-            log::info!("Vulkan will be unable to load validation layers");
-            vec![]
-        });
+        let instance_layers = entry
+            .enumerate_instance_layer_properties()
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to enumerate vulkan layers: {}", e);
+                #[cfg(debug_assertions)]
+                log::info!("Vulkan will be unable to load validation layers");
+                vec![]
+            });
 
         // Layer Names, right now just a debug layer
         // We also need them as *const c_char
@@ -347,7 +350,8 @@ impl VkDevice {
 
         #[cfg(debug_assertions)]
         unsafe {
-            let validation = CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const c_char);
+            let validation =
+                CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const c_char);
             for layer in instance_layers {
                 if layer.layer_name.contains(&0) {
                     let name = CStr::from_ptr(layer.layer_name.as_ptr());
@@ -978,26 +982,36 @@ impl VkDevice {
         flags: ash::vk::MemoryPropertyFlags,
         no_pool: bool,
         usage_flags: gpu_alloc::UsageFlags,
-    ) -> (ash::vk::Buffer, gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+    ) -> (
+        ash::vk::Buffer,
+        gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
+    ) {
         let buffer = unsafe { self.device.create_buffer(&create_info, None) }.unwrap();
         let req = unsafe { self.device.get_buffer_memory_requirements(buffer) };
 
         let alignment = req.alignment - 1;
 
-        let block = unsafe { self.allocator.write().recover().alloc(
-            gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
-            gpu_alloc::Request {
-                size: req.size,
-                align_mask: alignment,
-                usage: usage_flags,
-                memory_types: req.memory_type_bits & self.valid_memory_types,
-            },
-        )}.unwrap_or_else(|e| {
+        let block = unsafe {
+            self.allocator.write().recover().alloc(
+                gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
+                gpu_alloc::Request {
+                    size: req.size,
+                    align_mask: alignment,
+                    usage: usage_flags,
+                    memory_types: req.memory_type_bits & self.valid_memory_types,
+                },
+            )
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to allocate memory, error: {e}");
             panic!()
         });
 
-        unsafe { self.device.bind_buffer_memory(buffer, *block.memory(), block.offset())}.unwrap_or_else(|e| {
+        unsafe {
+            self.device
+                .bind_buffer_memory(buffer, *block.memory(), block.offset())
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
             panic!();
         });
@@ -1005,30 +1019,41 @@ impl VkDevice {
         (buffer, block)
     }
 
-    pub(crate) fn deallocate_buffer(&self, buffer: ash::vk::Buffer, block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+    pub(crate) fn deallocate_buffer(
+        &self,
+        buffer: ash::vk::Buffer,
+        block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
+    ) {
         unsafe {
-            self.allocator.write().recover().dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
+            self.allocator
+                .write()
+                .recover()
+                .dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
             self.device.destroy_buffer(buffer, None);
         }
     }
 
-    pub(crate) fn begin_single_time_command(&self, pool: ash::vk::CommandPool) -> ash::vk::CommandBuffer {
+    pub(crate) fn begin_single_time_command(
+        &self,
+        pool: ash::vk::CommandPool,
+    ) -> ash::vk::CommandBuffer {
         let alloc_info = ash::vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool)
             .level(ash::vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1)
             .build();
 
-        let cmd = unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
-            log::error!("Failed to allocate command buffer, error: {e}");
-            panic!()
-        })[0];
+        let cmd =
+            unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
+                log::error!("Failed to allocate command buffer, error: {e}");
+                panic!()
+            })[0];
 
         let begin_info = ash::vk::CommandBufferBeginInfo::builder()
             .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
             .build();
 
-        unsafe { self.device.begin_command_buffer(cmd, &begin_info)}.unwrap_or_else(|e| {
+        unsafe { self.device.begin_command_buffer(cmd, &begin_info) }.unwrap_or_else(|e| {
             log::error!("Failed to begin recording command buffer, error: {e}");
             panic!();
         });
@@ -1036,7 +1061,12 @@ impl VkDevice {
         cmd
     }
 
-    pub(crate) fn end_single_time_command(&self, command_buffer: ash::vk::CommandBuffer, pool: ash::vk::CommandPool, queue: ash::vk::Queue ) {
+    pub(crate) fn end_single_time_command(
+        &self,
+        command_buffer: ash::vk::CommandBuffer,
+        pool: ash::vk::CommandPool,
+        queue: ash::vk::Queue,
+    ) {
         unsafe { self.device.end_command_buffer(command_buffer) }.unwrap_or_else(|e| {
             log::error!("Failed to end command buffer, error: {e}");
             panic!();
@@ -1051,7 +1081,7 @@ impl VkDevice {
             self.device
                 .queue_submit(queue, &submit_info, ash::vk::Fence::null())
         }
-            .expect("Failed to submit cmd buffer");
+        .expect("Failed to submit cmd buffer");
 
         // Wait for GPU
         unsafe { self.device.queue_wait_idle(queue) }.unwrap();

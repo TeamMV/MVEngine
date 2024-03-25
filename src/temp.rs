@@ -1,20 +1,25 @@
-use std::ops::Add;
-use std::time::{Duration, Instant, SystemTime};
+use crate::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
+use crate::render::backend::command_buffer::{
+    CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
+};
 use crate::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
+use crate::render::backend::framebuffer::ClearColor;
+use crate::render::backend::pipeline::{
+    AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
+    MVGraphicsPipelineCreateInfo, Pipeline, Topology,
+};
+use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
 use crate::render::backend::{Backend, Extent2D};
 use log::LevelFilter;
 use mvutils::version::Version;
 use shaderc::{EnvVersion, OptimizationLevel, ShaderKind, SpirvVersion, TargetEnv};
+use std::ops::Add;
+use std::time::{Duration, Instant, SystemTime};
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
-use crate::render::backend::buffer::{Buffer, BufferUsage, MemoryProperties, MVBufferCreateInfo};
-use crate::render::backend::command_buffer::{CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo};
-use crate::render::backend::framebuffer::ClearColor;
-use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
-use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 
 pub fn run() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -55,25 +60,25 @@ pub fn run() {
         },
     );
 
-    let cmd_buffers = [(); 3].map(|_| CommandBuffer::new(device.clone(), MVCommandBufferCreateInfo {
-        level: CommandBufferLevel::Primary,
-        pool: device.get_graphics_command_pool(),
-        label: Some("Graphics command buffer".to_string()),
-    }));
+    let cmd_buffers = [(); 3].map(|_| {
+        CommandBuffer::new(
+            device.clone(),
+            MVCommandBufferCreateInfo {
+                level: CommandBufferLevel::Primary,
+                pool: device.get_graphics_command_pool(),
+                label: Some("Graphics command buffer".to_string()),
+            },
+        )
+    });
 
     fn compile(str: &str, kind: ShaderKind) -> Vec<u32> {
         let compiler = shaderc::Compiler::new().expect("Failed to initialize shader compiler");
-        let mut options = shaderc::CompileOptions::new().expect("Failed to initialize shader compiler");
+        let mut options =
+            shaderc::CompileOptions::new().expect("Failed to initialize shader compiler");
         options.set_target_env(TargetEnv::Vulkan, ash::vk::API_VERSION_1_2);
         options.set_optimization_level(OptimizationLevel::Zero);
         let binary_result = compiler
-            .compile_into_spirv(
-                str,
-                kind,
-                "shader.vert",
-                "main",
-                Some(&options),
-            )
+            .compile_into_spirv(str, kind, "shader.vert", "main", Some(&options))
             .unwrap();
         binary_result.as_binary().to_vec()
     }
@@ -81,79 +86,94 @@ pub fn run() {
     let vertex_shader = include_str!("shader.vert");
     let v_bytes = compile(vertex_shader, ShaderKind::Vertex);
 
-    let vertex_shader = Shader::new(device.clone(), MVShaderCreateInfo {
-        stage: ShaderStage::Vertex,
-        code: v_bytes,
-        label: Some("Vertex shader".to_string()),
-    });
+    let vertex_shader = Shader::new(
+        device.clone(),
+        MVShaderCreateInfo {
+            stage: ShaderStage::Vertex,
+            code: v_bytes,
+            label: Some("Vertex shader".to_string()),
+        },
+    );
 
     let fragment_shader = include_str!("shader.frag");
     let f_bytes = compile(fragment_shader, ShaderKind::Fragment);
 
-    let fragment_shader = Shader::new(device.clone(), MVShaderCreateInfo {
-        stage: ShaderStage::Fragment,
-        code: f_bytes,
-        label: Some("Fragment shader".to_string()),
-    });
+    let fragment_shader = Shader::new(
+        device.clone(),
+        MVShaderCreateInfo {
+            stage: ShaderStage::Fragment,
+            code: f_bytes,
+            label: Some("Fragment shader".to_string()),
+        },
+    );
 
     let vertex_data = [
-        0.0f32, -0.5, 1.0, 0.0, 0.0,
-        0.5, 0.5, 0.0, 1.0, 0.0,
-        -0.5, 0.5, 0.0, 0.0, 1.0,
+        0.0f32, -0.5, 1.0, 0.0, 0.0, 0.5, 0.5, 0.0, 1.0, 0.0, -0.5, 0.5, 0.0, 0.0, 1.0,
     ];
 
-    let index_data = [
-        0u32, 1, 2
-    ];
+    let index_data = [0u32, 1, 2];
 
-    let mut vertex_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-        instance_size: (2 + 3) * 4,
-        instance_count: 3,
-        buffer_usage: BufferUsage::VERTEX_BUFFER,
-        memory_properties: MemoryProperties::DEVICE_LOCAL,
-        minimum_alignment: 1,
-        no_pool: false,
-        memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-        label: Some("Vertex buffer".to_string()),
-    });
+    let mut vertex_buffer = Buffer::new(
+        device.clone(),
+        MVBufferCreateInfo {
+            instance_size: (2 + 3) * 4,
+            instance_count: 3,
+            buffer_usage: BufferUsage::VERTEX_BUFFER,
+            memory_properties: MemoryProperties::DEVICE_LOCAL,
+            minimum_alignment: 1,
+            no_pool: false,
+            memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+            label: Some("Vertex buffer".to_string()),
+        },
+    );
 
-    let byte_data_vertex = unsafe { std::slice::from_raw_parts(vertex_data.as_ptr() as *const u8, vertex_data.len() * 4) };
+    let byte_data_vertex = unsafe {
+        std::slice::from_raw_parts(vertex_data.as_ptr() as *const u8, vertex_data.len() * 4)
+    };
 
     vertex_buffer.write(byte_data_vertex, 0, None);
 
-    let mut index_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-        instance_size: 4,
-        instance_count: 3,
-        buffer_usage: BufferUsage::INDEX_BUFFER,
-        memory_properties: MemoryProperties::DEVICE_LOCAL,
-        minimum_alignment: 1,
-        no_pool: false,
-        memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-        label: Some("Index buffer".to_string()),
-    });
+    let mut index_buffer = Buffer::new(
+        device.clone(),
+        MVBufferCreateInfo {
+            instance_size: 4,
+            instance_count: 3,
+            buffer_usage: BufferUsage::INDEX_BUFFER,
+            memory_properties: MemoryProperties::DEVICE_LOCAL,
+            minimum_alignment: 1,
+            no_pool: false,
+            memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+            label: Some("Index buffer".to_string()),
+        },
+    );
 
-    let byte_data_index = unsafe { std::slice::from_raw_parts(index_data.as_ptr() as *const u8, index_data.len() * 4) };
+    let byte_data_index = unsafe {
+        std::slice::from_raw_parts(index_data.as_ptr() as *const u8, index_data.len() * 4)
+    };
 
     index_buffer.write(byte_data_index, 0, None);
 
-    let pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
-        shaders: vec![vertex_shader, fragment_shader],
-        attributes: vec![
-            AttributeType::Float32x2,
-            AttributeType::Float32x3,
-        ],
-        extent: Extent2D { width: 800, height: 600 },
-        topology: Topology::Triangle,
-        cull_mode: CullMode::None,
-        enable_depth_test: true,
-        depth_clamp: true,
-        blending_enable: true,
-        descriptor_sets: vec![],
-        push_constants: vec![],
-        framebuffer: swapchain.get_current_framebuffer(),
-        color_attachments_count: 1,
-        label: Some("Debug pipeline".to_string()),
-    });
+    let pipeline = Pipeline::<Graphics>::new(
+        device.clone(),
+        MVGraphicsPipelineCreateInfo {
+            shaders: vec![vertex_shader, fragment_shader],
+            attributes: vec![AttributeType::Float32x2, AttributeType::Float32x3],
+            extent: Extent2D {
+                width: 800,
+                height: 600,
+            },
+            topology: Topology::Triangle,
+            cull_mode: CullMode::None,
+            enable_depth_test: true,
+            depth_clamp: true,
+            blending_enable: true,
+            descriptor_sets: vec![],
+            push_constants: vec![],
+            framebuffer: swapchain.get_current_framebuffer(),
+            color_attachments_count: 1,
+            label: Some("Debug pipeline".to_string()),
+        },
+    );
 
     // let mut index = 0;
     // loop {
@@ -187,9 +207,8 @@ pub fn run() {
                     WindowEvent::RedrawRequested => {
                         //do rendering in here
 
-                        let image_index = swapchain.acquire_next_image().unwrap_or_else(|_| {
-                            loop {}
-                        });
+                        let image_index =
+                            swapchain.acquire_next_image().unwrap_or_else(|_| loop {});
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
                         let framebuffer = swapchain.get_current_framebuffer();
@@ -198,10 +217,14 @@ pub fn run() {
 
                         pipeline.bind(cmd);
 
-                        framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])], Extent2D {
-                            width: 800,
-                            height: 600,
-                        });
+                        framebuffer.begin_render_pass(
+                            cmd,
+                            &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])],
+                            Extent2D {
+                                width: 800,
+                                height: 600,
+                            },
+                        );
 
                         cmd.bind_vertex_buffer(&vertex_buffer);
                         cmd.bind_index_buffer(&index_buffer);
@@ -212,14 +235,13 @@ pub fn run() {
 
                         cmd.end();
 
-                        swapchain.submit_command_buffer(cmd, image_index).unwrap_or_else(|_| {
-                            loop {}
-                        });
+                        swapchain
+                            .submit_command_buffer(cmd, image_index)
+                            .unwrap_or_else(|_| loop {});
                     }
                     _ => {}
                 }
-            }
-            else if let Event::AboutToWait = event {
+            } else if let Event::AboutToWait = event {
                 delta_f += now
                     .elapsed()
                     .unwrap_or_else(|e| {

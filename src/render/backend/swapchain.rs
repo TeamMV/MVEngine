@@ -1,9 +1,9 @@
-use mvcore_proc_macro::graphics_item;
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
+use crate::render::backend::framebuffer::Framebuffer;
 use crate::render::backend::vulkan::swapchain::VkSwapchain;
 use crate::render::backend::Extent2D;
-use crate::render::backend::framebuffer::Framebuffer;
+use mvcore_proc_macro::graphics_item;
 
 pub(crate) struct MVSwapchainCreateInfo {
     pub(crate) extent: Extent2D,
@@ -24,7 +24,9 @@ pub(crate) enum Swapchain {
 impl Swapchain {
     pub(crate) fn new(device: Device, create_info: MVSwapchainCreateInfo) -> Swapchain {
         match device {
-            Device::Vulkan(device) => Swapchain::Vulkan(VkSwapchain::new(device, create_info.into())),
+            Device::Vulkan(device) => {
+                Swapchain::Vulkan(VkSwapchain::new(device, create_info.into()))
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -44,7 +46,9 @@ impl Swapchain {
 
     pub(crate) fn get_current_framebuffer(&self) -> Framebuffer {
         match self {
-            Swapchain::Vulkan(swapchain) => Framebuffer::Vulkan(swapchain.get_current_framebuffer()),
+            Swapchain::Vulkan(swapchain) => {
+                Framebuffer::Vulkan(swapchain.get_current_framebuffer())
+            }
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

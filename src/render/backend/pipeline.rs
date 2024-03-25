@@ -1,14 +1,14 @@
-use std::marker::PhantomData;
-use mvcore_proc_macro::graphics_item;
-use mvutils::sealable;
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::descriptor_set::DescriptorSetLayout;
 use crate::render::backend::device::Device;
-use crate::render::backend::Extent2D;
 use crate::render::backend::framebuffer::Framebuffer;
 use crate::render::backend::shader::{Shader, ShaderStage};
 use crate::render::backend::vulkan::pipeline::VkPipeline;
 use crate::render::backend::vulkan::shader::VkShader;
+use crate::render::backend::Extent2D;
+use mvcore_proc_macro::graphics_item;
+use mvutils::sealable;
+use std::marker::PhantomData;
 
 pub(crate) trait PipelineType {}
 
@@ -99,7 +99,9 @@ pub(crate) enum Pipeline<Type: PipelineType = Graphics> {
 impl Pipeline {
     pub(crate) fn new(device: Device, create_info: MVGraphicsPipelineCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<Graphics>::new(device, create_info.into())),
+            Device::Vulkan(device) => {
+                Pipeline::Vulkan(VkPipeline::<Graphics>::new(device, create_info.into()))
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -121,7 +123,9 @@ impl Pipeline {
 impl Pipeline<Compute> {
     pub(crate) fn new(device: Device, create_info: MVComputePipelineCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<Compute>::new(device, create_info.into())),
+            Device::Vulkan(device) => {
+                Pipeline::Vulkan(VkPipeline::<Compute>::new(device, create_info.into()))
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -144,7 +148,9 @@ impl Pipeline<Compute> {
 impl Pipeline<RayTracing> {
     pub(crate) fn new(device: Device, create_info: MVRayTracingPipelineCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Pipeline::Vulkan(VkPipeline::<RayTracing>::new(device, create_info.into())),
+            Device::Vulkan(device) => {
+                Pipeline::Vulkan(VkPipeline::<RayTracing>::new(device, create_info.into()))
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
