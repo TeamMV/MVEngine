@@ -184,8 +184,7 @@ struct PipelineConfigInfo {
     color_blend_info: ash::vk::PipelineColorBlendStateCreateInfo,
     depth_stencil_info: ash::vk::PipelineDepthStencilStateCreateInfo,
     vertex_input_info: ash::vk::PipelineVertexInputStateCreateInfo,
-    viewport_info: ash::vk::PipelineViewportStateCreateInfo,
-    dynamic_state_info: ash::vk::PipelineDynamicStateCreateInfo
+    viewport_info: ash::vk::PipelineViewportStateCreateInfo
 }
 
 pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
@@ -220,6 +219,12 @@ impl VkPipeline {
             shader_stages.push(shader.create_stage_create_info());
         }
 
+        let dynamic_states = [ash::vk::DynamicState::SCISSOR, ash::vk::DynamicState::VIEWPORT];
+
+        let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
+            .dynamic_states(&dynamic_states)
+            .build();
+
         let graphics_create_info = [ash::vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stages)
             .vertex_input_state(&config_info.vertex_input_info)
@@ -228,7 +233,7 @@ impl VkPipeline {
             .rasterization_state(&config_info.rasterization_info)
             .multisample_state(&config_info.multisample_info)
             .color_blend_state(&config_info.color_blend_info)
-            .dynamic_state(&config_info.dynamic_state_info)
+            .dynamic_state(&dynamic_state_info)
             .depth_stencil_state(&config_info.depth_stencil_info)
             .layout(layout)
             .render_pass(create_info.render_pass)
@@ -336,12 +341,6 @@ impl VkPipeline {
             .scissors(&scissor_info)
             .build();
 
-        let dynamic_states = [ash::vk::DynamicState::SCISSOR, ash::vk::DynamicState::VIEWPORT];
-
-        let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&dynamic_states)
-            .build();
-
         PipelineConfigInfo {
             input_assembly_info,
             rasterization_info,
@@ -350,13 +349,20 @@ impl VkPipeline {
             color_blend_info,
             depth_stencil_info,
             vertex_input_info,
-            viewport_info: viewport_state_info,
-            dynamic_state_info
+            viewport_info: viewport_state_info
         }
     }
 
     pub(crate) fn bind(&self, command_buffer: ash::vk::CommandBuffer) {
         unsafe { self.device.get_device().cmd_bind_pipeline(command_buffer, ash::vk::PipelineBindPoint::GRAPHICS, self.handle) };
+    }
+
+    pub(crate) fn get_handle(&self) -> ash::vk::Pipeline {
+        self.handle
+    }
+
+    pub(crate) fn get_layout(&self) -> ash::vk::PipelineLayout {
+        self.layout
     }
 }
 

@@ -778,7 +778,8 @@ impl VkDevice {
         let mut features = ash::vk::PhysicalDeviceFeatures2::builder();
 
         // Telling vulkan to use BufferDeviceAddressFeature
-        let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::default(); // we need those structs
+        let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
+            .buffer_device_address(true);
         features = features.push_next(&mut device_address);
 
         let mut features = features.build();
@@ -1077,6 +1078,10 @@ impl VkDevice {
 
     pub(crate) fn get_present_queue(&self) -> ash::vk::Queue {
         self.queues.present_queue
+    }
+
+    pub(crate) fn wait_idle(&self) {
+        unsafe { self.device.device_wait_idle().unwrap() };
     }
 }
 

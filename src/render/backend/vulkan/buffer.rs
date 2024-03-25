@@ -56,9 +56,14 @@ impl VkBuffer {
         let alignment = Self::get_alignment(&create_info.instance_size, &create_info.minimum_alignment);
         let buffer_size = alignment * create_info.instance_count;
 
+        let mut usage_flags = create_info.usage_flags;
+        if create_info.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
+            usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
+        }
+
         let vk_create_info = ash::vk::BufferCreateInfo::builder()
             .size(buffer_size)
-            .usage(create_info.usage_flags)
+            .usage(usage_flags)
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .build();
 
@@ -66,11 +71,6 @@ impl VkBuffer {
 
         #[cfg(debug_assertions)]
         device.set_object_name(&ash::vk::ObjectType::BUFFER, buffer.as_raw(), create_info.debug_name.as_c_str());
-
-        let mut usage_flags = create_info.usage_flags;
-        if create_info.memory_properties.contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL) {
-            usage_flags |= ash::vk::BufferUsageFlags::TRANSFER_DST;
-        }
 
         Self {
             device,
@@ -81,7 +81,7 @@ impl VkBuffer {
             instance_size: alignment,
             instance_count: create_info.instance_count,
             alignment_size: alignment,
-            usage_flags: create_info.usage_flags,
+            usage_flags,
             memory_properties: create_info.memory_properties,
             no_pool: false, // always false for now
             memory_usage_flags: create_info.memory_usage_flags
@@ -143,7 +143,7 @@ impl VkBuffer {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd, false)
         } else {
-            (src_buffer.device.begin_single_time_command(src_buffer.device.get_compute_command_pool()), true)
+            (src_buffer.device.begin_single_time_command(src_buffer.device.get_graphics_command_pool()), true)
         };
 
         let copy_region = [ash::vk::BufferCopy::builder()
@@ -155,7 +155,7 @@ impl VkBuffer {
         unsafe { src_buffer.device.get_device().cmd_copy_buffer(cmd, src_buffer.get_buffer(), dst_buffer.get_buffer(), &copy_region) }
 
         if end {
-            src_buffer.device.end_single_time_command(cmd, src_buffer.device.get_compute_command_pool(), src_buffer.device.get_compute_queue());
+            src_buffer.device.end_single_time_command(cmd, src_buffer.device.get_graphics_command_pool(), src_buffer.device.get_graphics_queue());
         }
     }
 

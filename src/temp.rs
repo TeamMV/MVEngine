@@ -146,7 +146,7 @@ pub fn run() {
         topology: Topology::Triangle,
         cull_mode: CullMode::None,
         enable_depth_test: true,
-        depth_clamp: true,
+        depth_clamp: false, // feature only
         blending_enable: true,
         descriptor_sets: vec![],
         push_constants: vec![],
@@ -182,13 +182,15 @@ pub fn run() {
             if let Event::WindowEvent { event, .. } = event {
                 match event {
                     WindowEvent::CloseRequested => {
+                        todo!("call device_wait_idle in here");
                         target.exit();
                     }
                     WindowEvent::RedrawRequested => {
                         //do rendering in here
 
                         let image_index = swapchain.acquire_next_image().unwrap_or_else(|_| {
-                            loop {}
+                            log::error!("Can't resize swapchain!");
+                            panic!();
                         });
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
@@ -213,7 +215,8 @@ pub fn run() {
                         cmd.end();
 
                         swapchain.submit_command_buffer(cmd, image_index).unwrap_or_else(|_| {
-                            loop {}
+                            log::error!("Can't resize swapchain!");
+                            panic!();
                         });
                     }
                     _ => {}
