@@ -986,7 +986,7 @@ impl VkDevice {
         ash::vk::Buffer,
         gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
     ) {
-        let buffer = unsafe { self.device.create_buffer(&create_info, None) }.unwrap();
+        let buffer = unsafe { self.device.create_buffer(create_info, None) }.unwrap();
         let req = unsafe { self.device.get_buffer_memory_requirements(buffer) };
 
         let alignment = req.alignment - 1;

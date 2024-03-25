@@ -165,3 +165,6 @@ impl Drop for VkFramebuffer {
         };
     }
 }
+
+unsafe impl Send for VkFramebuffer {}
+unsafe impl Sync for VkFramebuffer {}
