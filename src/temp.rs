@@ -273,11 +273,16 @@ pub fn run() {
         label: Some("Effect descriptor set layout".to_string()),
     });
 
-    let mut effect_set = DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
+    let mut effect_set = vec![DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
         pool: descriptor_pool.clone(),
         layout: effect_set_layout.clone(),
         label: Some("Effect descriptor set".to_string()),
-    });
+    }),
+                              DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
+                                  pool: descriptor_pool.clone(),
+                                  layout: effect_set_layout.clone(),
+                                  label: Some("Effect descriptor set".to_string()),
+                              })];
 
     let sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
         address_mode: SamplerAddressMode::ClampToEdge,
@@ -287,9 +292,13 @@ pub fn run() {
         label: Some("Effect sampler".to_string()),
     });
 
-    effect_set.add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
-    effect_set.add_image(1, swapchain.get_current_framebuffer().get_image(0), &sampler, ImageLayout::General);
-    effect_set.build();
+    effect_set[0].add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
+    effect_set[0].add_image(1, swapchain.get_framebuffer(0).get_image(0), &sampler, ImageLayout::General);
+    effect_set[0].build();
+
+    effect_set[1].add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
+    effect_set[1].add_image(1, swapchain.get_framebuffer(1).get_image(0), &sampler, ImageLayout::General);
+    effect_set[1].build();
 
     let effect_pipeline = Pipeline::<Compute>::new(
         device.clone(),
@@ -325,8 +334,6 @@ pub fn run() {
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
                         let swapchain_framebuffer = swapchain.get_current_framebuffer();
-
-                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::General, None, ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
                         cmd.begin();
 
@@ -367,8 +374,9 @@ pub fn run() {
                         framebuffer.end_render_pass(cmd);
 
                         framebuffer.get_image(0).transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
-                        effect_set.bind(&cmd, &effect_pipeline, 0);
+                        effect_set[image_index as usize].bind(&cmd, &effect_pipeline, 0);
                         effect_pipeline.bind(cmd);
 
                         cmd.dispatch(Extent3D {

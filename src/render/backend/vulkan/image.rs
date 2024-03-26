@@ -298,8 +298,11 @@ impl VkImage {
                 dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
             }
             ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
-                src_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
+                dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
                 dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
+            }
+            ash::vk::ImageLayout::PRESENT_SRC_KHR => {
+                dst_stage |= ash::vk::PipelineStageFlags::TOP_OF_PIPE;
             }
             _ => {}
         }
