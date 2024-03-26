@@ -227,13 +227,13 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         );
 
         //TODO: separate thread old_render (manually called from init)
-        let pixelate = EffectShader::new_glsl(include_str!("shaders/pixelate.frag"), 1)
+        let pixelate = EffectShader::new_glsl(include_str!("../pixelate.frag"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let blur = EffectShader::new_glsl(include_str!("shaders/blur.frag"), 0)
+        let blur = EffectShader::new_glsl(include_str!("../blur.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let distort = EffectShader::new_glsl(include_str!("shaders/distortion.frag"), 0)
+        let distort = EffectShader::new_glsl(include_str!("../distortion.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
-        let wave = EffectShader::new_glsl(include_str!("shaders/wave.frag"), 0)
+        let wave = EffectShader::new_glsl(include_str!("../wave.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
 
         //TODO: separate thread old_render (manually called from init)

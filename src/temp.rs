@@ -3,14 +3,14 @@ use crate::render::backend::command_buffer::{
     CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
 };
 use crate::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
-use crate::render::backend::framebuffer::ClearColor;
+use crate::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
 use crate::render::backend::pipeline::{
     AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
 };
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
-use crate::render::backend::{Backend, Extent2D};
+use crate::render::backend::{Backend, Extent2D, Extent3D};
 use log::LevelFilter;
 use mvutils::version::Version;
 use shaderc::{EnvVersion, OptimizationLevel, ShaderKind, SpirvVersion, TargetEnv};
@@ -20,6 +20,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use crate::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo};
+use crate::render::backend::image::{ImageFormat, ImageLayout, ImageUsage};
+use crate::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 
 pub fn run() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -106,6 +108,15 @@ pub fn run() {
             label: Some("Fragment shader".to_string()),
         },
     );
+    
+    let effect_shader = include_str!("post_process.comp");
+    let e_bytes = compile(effect_shader, ShaderKind::Compute);
+    
+    let effect_shader = Shader::new(device.clone(), MVShaderCreateInfo {
+        stage: ShaderStage::Compute,
+        code: e_bytes,
+        label: Some("Pixelate shader".to_string()),
+    });
 
     let vertex_data = [
         0.0f32, -0.5,
@@ -189,7 +200,16 @@ pub fn run() {
         sizes: vec![DescriptorPoolSize {
             ty: DescriptorType::UniformBuffer,
             count: 1,
-        }],
+        },
+                    DescriptorPoolSize {
+                        ty: DescriptorType::CombinedImageSampler,
+                        count: 1,
+                    },
+                    DescriptorPoolSize {
+                        ty: DescriptorType::StorageImage,
+                        count: 1,
+                    }
+        ],
         max_sets: 1,
         flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
         label: Some("Descriptor pool".to_string()),
@@ -205,7 +225,15 @@ pub fn run() {
 
     descriptor_set.build();
 
-    let pipeline = Pipeline::<Graphics>::new(
+    let framebuffer = Framebuffer::new(device.clone(), MVFramebufferCreateInfo {
+        attachment_formats: vec![ImageFormat::R32B32G32A32],
+        extent: Extent2D { width: 800, height: 600 },
+        image_usage_flags: ImageUsage::SAMPLED,
+        render_pass_info: None,
+        label: Some("Effect framebuffer".to_string()),
+    });
+
+    let render_pipeline = Pipeline::<Graphics>::new(
         device.clone(),
         MVGraphicsPipelineCreateInfo {
             shaders: vec![vertex_shader, fragment_shader],
@@ -221,9 +249,55 @@ pub fn run() {
             blending_enable: true,
             descriptor_sets: vec![descriptor_set_layout],
             push_constants: vec![],
-            framebuffer: swapchain.get_current_framebuffer(),
+            framebuffer: framebuffer.clone(),
             color_attachments_count: 1,
-            label: Some("Debug pipeline".to_string()),
+            label: Some("render_pipeline".to_string()),
+        },
+    );
+
+    let effect_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
+        bindings: vec![
+            DescriptorSetLayoutBinding {
+                index: 0,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::CombinedImageSampler,
+                count: 1,
+            },
+            DescriptorSetLayoutBinding {
+                index: 1,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::StorageImage,
+                count: 1,
+            }
+        ],
+        label: Some("Effect descriptor set layout".to_string()),
+    });
+
+    let mut effect_set = DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
+        pool: descriptor_pool.clone(),
+        layout: effect_set_layout.clone(),
+        label: Some("Effect descriptor set".to_string()),
+    });
+
+    let sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
+        address_mode: SamplerAddressMode::ClampToEdge,
+        filter_mode: Filter::Linear,
+        mipmap_mode: MipmapMode::Linear,
+
+        label: Some("Effect sampler".to_string()),
+    });
+
+    effect_set.add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
+    effect_set.add_image(1, swapchain.get_current_framebuffer().get_image(0), &sampler, ImageLayout::General);
+    effect_set.build();
+
+    let effect_pipeline = Pipeline::<Compute>::new(
+        device.clone(),
+        MVComputePipelineCreateInfo {
+            shader: effect_shader,
+            descriptor_sets: vec![effect_set_layout],
+            push_constants: vec![],
+            label: Some("Effect descriptor set".to_string()),
         },
     );
 
@@ -250,16 +324,17 @@ pub fn run() {
                         });
 
                         let cmd = &cmd_buffers[swapchain.get_current_frame() as usize];
-                        let framebuffer = swapchain.get_current_framebuffer();
+                        let swapchain_framebuffer = swapchain.get_current_framebuffer();
+
+                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::General, None, ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
                         cmd.begin();
-
 
                         let r = time.sin();
                         let g = 1.0f32;
                         let b = time.cos();
 
-                        time += 0.02f;
+                        time += 0.02f32;
 
                         let color = [
                             r, g, b, 1.0,
@@ -271,9 +346,9 @@ pub fn run() {
 
                         uniform_buffer.write(bytes, 0, Some(cmd));
 
-                        descriptor_set.bind(&cmd, &pipeline, 0);
+                        descriptor_set.bind(&cmd, &render_pipeline, 0);
 
-                        pipeline.bind(cmd);
+                        render_pipeline.bind(cmd);
 
                         framebuffer.begin_render_pass(
                             cmd,
@@ -290,6 +365,19 @@ pub fn run() {
                         cmd.draw_indexed(3, 0);
 
                         framebuffer.end_render_pass(cmd);
+
+                        framebuffer.get_image(0).transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+
+                        effect_set.bind(&cmd, &effect_pipeline, 0);
+                        effect_pipeline.bind(cmd);
+
+                        cmd.dispatch(Extent3D {
+                            width: 800 / 8 + 1,
+                            height: 600 / 8 + 1,
+                            depth: 1
+                        });
+
+                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
                         cmd.end();
 

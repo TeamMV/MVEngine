@@ -3,9 +3,10 @@ use crate::render::backend::swapchain::{
 };
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
-use crate::render::backend::Extent2D;
+use crate::render::backend::{Extent2D, Extent3D};
 use std::ops::Not;
 use std::sync::Arc;
+use crate::render::backend::vulkan::image::VkImage;
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -23,6 +24,7 @@ pub(crate) struct VkSwapchain {
     presentable_framebuffers: Vec<Arc<VkFramebuffer>>,
     present_mode: ash::vk::PresentModeKHR,
     max_frames_in_flight: u32,
+    extent: ash::vk::Extent2D
 }
 
 pub(crate) struct CreateInfo {
@@ -46,6 +48,26 @@ impl From<ash::vk::Extent2D> for Extent2D {
         Extent2D {
             width: value.width,
             height: value.height,
+        }
+    }
+}
+
+impl From<Extent3D> for ash::vk::Extent3D {
+    fn from(value: Extent3D) -> Self {
+        ash::vk::Extent3D {
+            width: value.width,
+            height: value.height,
+            depth: value.depth,
+        }
+    }
+}
+
+impl From<ash::vk::Extent3D> for Extent3D {
+    fn from(value: ash::vk::Extent3D) -> Self {
+        Extent3D {
+            width: value.width,
+            height: value.height,
+            depth: value.depth,
         }
     }
 }
@@ -118,7 +140,7 @@ impl VkSwapchain {
             .image_extent(create_info.window_extent)
             .surface(device.get_surface())
             .image_array_layers(1)
-            .image_usage(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_usage(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::STORAGE)
             .pre_transform(swapchain_capabilities.capabilities.current_transform)
             .composite_alpha(ash::vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
@@ -195,10 +217,26 @@ impl VkSwapchain {
                     panic!()
                 });
 
+                let vk_image = VkImage {
+                    device: device.clone(),
+                    handle: image,
+                    image_views: vec![view],
+                    format: color_format.format,
+                    aspect: ash::vk::ImageAspectFlags::COLOR,
+                    tiling: ash::vk::ImageTiling::OPTIMAL,
+                    layer_count: 1,
+                    image_type: ash::vk::ImageType::TYPE_2D,
+                    size: create_info.window_extent,
+                    mip_level_count: 0,
+                    usage: ash::vk::ImageUsageFlags::SAMPLED,
+                    memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                    layout: ash::vk::ImageLayout::PRESENT_SRC_KHR.into(),
+                    memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                }.into();
+
                 Arc::new(VkFramebuffer::from(
                     device.clone(),
-                    image,
-                    view,
+                    vk_image,
                     render_pass,
                     create_info.window_extent,
                 ))
@@ -222,6 +260,7 @@ impl VkSwapchain {
             presentable_framebuffers: framebuffers,
             present_mode,
             max_frames_in_flight: create_info.max_frames_in_flight,
+            extent: create_info.window_extent
         }
     }
 

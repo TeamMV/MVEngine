@@ -5,7 +5,10 @@ use parking_lot::Mutex;
 use crate::render::backend::buffer::Buffer;
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
+use crate::render::backend::framebuffer::Framebuffer;
+use crate::render::backend::image::{Image, ImageLayout};
 use crate::render::backend::pipeline::{Pipeline, PipelineType};
+use crate::render::backend::sampler::Sampler;
 use crate::render::backend::shader::{Shader, ShaderStage};
 use crate::render::backend::vulkan::descriptor_set::VkDescriptorSet;
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
@@ -167,6 +170,24 @@ impl DescriptorSet {
             DescriptorSet::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn add_image(&mut self, binding: u32, image: Image, sampler: &Sampler, layout: ImageLayout) {
+        match self {
+            DescriptorSet::Vulkan(descriptor_set) => {
+                let image = image.as_vulkan();
+                descriptor_set.add_image(binding, ash::vk::DescriptorImageInfo {
+                    sampler: sampler.as_vulkan().get_handle(),
+                    image_view: image.get_view(0),
+                    image_layout: layout.into(),
+                })
+            },
+            #[cfg(target_os = "macos")]
+            DescriptorSet::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            DescriptorSet::DirectX => unimplemented!(),
+        }
+    }
+
 
     pub(crate) fn build(&mut self) {
         match self {

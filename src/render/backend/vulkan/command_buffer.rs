@@ -152,6 +152,10 @@ impl VkCommandBuffer {
         };
     }
 
+    pub(crate) fn dispatch(&self, extent: ash::vk::Extent3D) {
+        unsafe { self.device.get_device().cmd_dispatch(self.handle, extent.width, extent.height, extent.height) };
+    }
+
     pub(crate) fn get_handle(&self) -> ash::vk::CommandBuffer {
         self.handle
     }

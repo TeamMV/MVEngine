@@ -7,7 +7,7 @@ use crate::render::backend::vulkan::swapchain::VkSwapchain;
 use crate::render::backend::Extent2D;
 use mvcore_proc_macro::graphics_item;
 use std::sync::Arc;
-use crate::render::backend::image::{ImageFormat, ImageLayout, ImageUsage};
+use crate::render::backend::image::{Image, ImageFormat, ImageLayout, ImageUsage};
 
 pub(crate) enum LoadOp {
     Load,
@@ -55,9 +55,7 @@ pub(crate) enum Framebuffer {
 impl Framebuffer {
     pub(crate) fn new(device: Device, create_info: MVFramebufferCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => {
-                Framebuffer::Vulkan(VkFramebuffer::new(device, create_info.into()).into())
-            }
+            Device::Vulkan(device) => Framebuffer::Vulkan(VkFramebuffer::new(device, create_info.into()).into()),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -86,9 +84,17 @@ impl Framebuffer {
 
     pub(crate) fn end_render_pass(&self, command_buffer: &CommandBuffer) {
         match self {
-            Framebuffer::Vulkan(framebuffer) => {
-                framebuffer.end_render_pass(command_buffer.as_vulkan())
-            }
+            Framebuffer::Vulkan(framebuffer) => framebuffer.end_render_pass(command_buffer.as_vulkan()),
+            #[cfg(target_os = "macos")]
+            Framebuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Framebuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_image(&self, index: u32) -> Image {
+        match self {
+            Framebuffer::Vulkan(framebuffer) => Image::Vulkan(framebuffer.get_image(index)),
             #[cfg(target_os = "macos")]
             Framebuffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

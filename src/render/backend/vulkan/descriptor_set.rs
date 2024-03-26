@@ -366,6 +366,14 @@ impl VkDescriptorSet {
             );
         };
     }
+
+    pub(crate) fn get_handle(&self) -> ash::vk::DescriptorSet {
+        self.handle
+    }
+
+    pub(crate) fn get_layout(&self) -> ash::vk::DescriptorSetLayout {
+        self.layout.get_layout()
+    }
 }
 
 impl Drop for VkDescriptorSet {

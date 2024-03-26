@@ -4,6 +4,7 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use mvcore_proc_macro::graphics_item;
 use crate::render::backend::descriptor_set::DescriptorSet;
+use crate::render::backend::Extent3D;
 use crate::render::backend::pipeline::{Pipeline, PipelineType};
 
 pub(crate) enum CommandBufferLevel {
@@ -167,6 +168,16 @@ impl CommandBuffer {
     pub(crate) fn bind_index_buffer(&self, buffer: &Buffer) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.bind_index_buffer(buffer.as_vulkan()),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn dispatch(&self, extent: Extent3D) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.dispatch(extent.into()),
             #[cfg(target_os = "macos")]
             CommandBuffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

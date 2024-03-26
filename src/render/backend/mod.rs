@@ -32,6 +32,13 @@ pub struct Extent2D {
     pub height: u32,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+pub struct Extent3D {
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+}
+
 pub(crate) fn to_ascii_cstring(input: String) -> CString {
     let ascii = input.chars().filter(|c| c.is_ascii()).collect::<String>();
     CString::new(ascii.as_bytes()).expect("CString::new failed")

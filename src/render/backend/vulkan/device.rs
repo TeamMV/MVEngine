@@ -778,9 +778,13 @@ impl VkDevice {
 
         let mut features = ash::vk::PhysicalDeviceFeatures2::builder();
 
-        // Telling vulkan to use BufferDeviceAddressFeature
+        let mut synch2 = ash::vk::PhysicalDeviceSynchronization2Features::builder()
+            .synchronization2(true)
+            .build();
+
         let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
             .buffer_device_address(true);
+        device_address.p_next = &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
         features = features.push_next(&mut device_address);
 
         let create_info = ash::vk::DeviceCreateInfo::builder()
@@ -844,6 +848,7 @@ impl VkDevice {
             ash::vk::KhrSwapchainMutableFormatFn::name(),
             ash::vk::ExtRobustness2Fn::name(),
             ash::vk::KhrBufferDeviceAddressFn::name(),
+            ash::vk::KhrSynchronization2Fn::name(),
             #[cfg(target_os = "macos")]
             ash::vk::KhrPortabilitySubsetFn::name(),
         ];

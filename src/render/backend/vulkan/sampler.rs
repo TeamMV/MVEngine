@@ -1,5 +1,7 @@
 use std::ffi::CString;
 use std::sync::Arc;
+use crate::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, SamplerAddressMode};
+use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
 
 pub(crate) struct VkSampler {
@@ -14,6 +16,48 @@ pub(crate) struct CreateInfo {
 
     #[cfg(debug_assertions)]
     debug_name: CString
+}
+
+impl From<Filter> for ash::vk::Filter {
+    fn from(value: Filter) -> Self {
+        match value {
+            Filter::Nearest => ash::vk::Filter::NEAREST,
+            Filter::Linear => ash::vk::Filter::LINEAR,
+        }
+    }
+}
+
+impl From<MipmapMode> for ash::vk::SamplerMipmapMode {
+    fn from(value: MipmapMode) -> Self {
+        match value {
+            MipmapMode::Nearest => ash::vk::SamplerMipmapMode::NEAREST,
+            MipmapMode::Linear => ash::vk::SamplerMipmapMode::LINEAR,
+        }
+    }
+}
+
+impl From<SamplerAddressMode> for ash::vk::SamplerAddressMode {
+    fn from(value: SamplerAddressMode) -> Self {
+        match value {
+            SamplerAddressMode::Repeat => ash::vk::SamplerAddressMode::REPEAT,
+            SamplerAddressMode::MirroredRepeat => ash::vk::SamplerAddressMode::MIRRORED_REPEAT,
+            SamplerAddressMode::ClampToEdge => ash::vk::SamplerAddressMode::CLAMP_TO_EDGE,
+            SamplerAddressMode::ClampToBorder => ash::vk::SamplerAddressMode::CLAMP_TO_BORDER,
+        }
+    }
+}
+
+impl From<MVSamplerCreateInfo> for CreateInfo {
+    fn from(value: MVSamplerCreateInfo) -> Self {
+        CreateInfo {
+            address_mode: value.address_mode.into(),
+            filter_mode: value.filter_mode.into(),
+            mipmap_mode: value.mipmap_mode.into(),
+
+            #[cfg(debug_assertions)]
+            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+        }
+    }
 }
 
 impl VkSampler {
@@ -44,5 +88,9 @@ impl VkSampler {
             device,
             handle,
         }
+    }
+
+    pub(crate) fn get_handle(&self) -> ash::vk::Sampler  {
+        self.handle
     }
 }

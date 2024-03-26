@@ -2,6 +2,7 @@ use std::ffi::CString;
 use std::fmt::format;
 use std::sync::Arc;
 use ash::vk::Handle;
+use mvutils::unsafe_utils::DangerousCell;
 use crate::render::backend::image::{ImageFormat, ImageLayout, ImageTiling, ImageType, MVImageCreateInfo};
 use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::buffer;
@@ -10,38 +11,38 @@ use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 
 pub(crate) struct VkImage {
-    device: Arc<VkDevice>,
+    pub(crate) device: Arc<VkDevice>,
 
-    handle: ash::vk::Image,
-    image_views: Vec<ash::vk::ImageView>,
-    format: ash::vk::Format,
-    aspect: ash::vk::ImageAspectFlags,
-    tiling: ash::vk::ImageTiling,
-    layer_count: u32,
-    image_type: ash::vk::ImageType,
-    size: ash::vk::Extent2D,
-    mip_level_count: u32,
-    usage: ash::vk::ImageUsageFlags,
-    memory_properties: ash::vk::MemoryPropertyFlags,
-    layout: ash::vk::ImageLayout,
-    memory_usage_flags: gpu_alloc::UsageFlags
+    pub(crate) handle: ash::vk::Image,
+    pub(crate) image_views: Vec<ash::vk::ImageView>,
+    pub(crate) format: ash::vk::Format,
+    pub(crate) aspect: ash::vk::ImageAspectFlags,
+    pub(crate) tiling: ash::vk::ImageTiling,
+    pub(crate) layer_count: u32,
+    pub(crate) image_type: ash::vk::ImageType,
+    pub(crate) size: ash::vk::Extent2D,
+    pub(crate) mip_level_count: u32,
+    pub(crate) usage: ash::vk::ImageUsageFlags,
+    pub(crate) memory_properties: ash::vk::MemoryPropertyFlags,
+    pub(crate) layout: DangerousCell<ash::vk::ImageLayout>,
+    pub(crate) memory_usage_flags: gpu_alloc::UsageFlags
 }
 
 pub(crate) struct CreateInfo {
-    pub size: ash::vk::Extent2D,
-    pub format: ash::vk::Format,
-    pub usage: ash::vk::ImageUsageFlags,
-    pub memory_properties: ash::vk::MemoryPropertyFlags,
-    pub aspect: ash::vk::ImageAspectFlags,
-    pub tiling: ash::vk::ImageTiling,
-    pub layer_count: u32,
-    pub image_type: ImageType,
-    pub cubemap: bool,
-    pub memory_usage_flags: gpu_alloc::UsageFlags,
-    pub data: Option<Vec<u8>>,
+    pub(crate) size: ash::vk::Extent2D,
+    pub(crate) format: ash::vk::Format,
+    pub(crate) usage: ash::vk::ImageUsageFlags,
+    pub(crate) memory_properties: ash::vk::MemoryPropertyFlags,
+    pub(crate) aspect: ash::vk::ImageAspectFlags,
+    pub(crate) tiling: ash::vk::ImageTiling,
+    pub(crate) layer_count: u32,
+    pub(crate) image_type: ImageType,
+    pub(crate) cubemap: bool,
+    pub(crate) memory_usage_flags: gpu_alloc::UsageFlags,
+    pub(crate) data: Option<Vec<u8>>,
 
     #[cfg(debug_assertions)]
-    pub debug_name: CString
+    pub(crate) debug_name: CString
 }
 
 impl From<MVImageCreateInfo> for CreateInfo {
@@ -80,6 +81,7 @@ impl From<ImageLayout> for ash::vk::ImageLayout {
             ImageLayout::TransferSrcOptimal => ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
             ImageLayout::TransferDstOptimal => ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             ImageLayout::Preinitialized => ash::vk::ImageLayout::PREINITIALIZED,
+            ImageLayout::PresentSrc => ash::vk::ImageLayout::PRESENT_SRC_KHR,
         }
     }
 }
@@ -169,7 +171,7 @@ impl VkImage {
             mip_level_count: 1,
             usage: create_info.usage,
             memory_properties: create_info.memory_properties,
-            layout: ash::vk::ImageLayout::UNDEFINED,
+            layout: ash::vk::ImageLayout::UNDEFINED.into(),
             memory_usage_flags: create_info.memory_usage_flags,
         };
 
@@ -192,9 +194,9 @@ impl VkImage {
             buffer.write_to_buffer(&data, 0, None);
             buffer.unmap();
 
-            this.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, None);
+            this.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, None, ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
             this.copy_buffer_to_image(&buffer, None);
-            this.transition_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL, None);
+            this.transition_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL, None, ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
         }
 
         this
@@ -234,7 +236,7 @@ impl VkImage {
         }
     }
 
-    pub(crate) fn transition_layout(&self, new_layout: ash::vk::ImageLayout, provided_cmd: Option<&VkCommandBuffer>) {
+    pub(crate) fn transition_layout(&self, new_layout: ash::vk::ImageLayout, provided_cmd: Option<&VkCommandBuffer>, src_access: ash::vk::AccessFlags, dst_access: ash::vk::AccessFlags) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd.get_handle(), false)
         } else {
@@ -245,12 +247,12 @@ impl VkImage {
             )
         };
 
-        let mut src_access = ash::vk::AccessFlags::empty();
-        let mut dst_access = ash::vk::AccessFlags::empty();
+        let mut src_access = ash::vk::AccessFlags::empty() | src_access;
+        let mut dst_access = ash::vk::AccessFlags::empty() | dst_access;
         let mut src_stage = ash::vk::PipelineStageFlags::empty();
         let mut dst_stage = ash::vk::PipelineStageFlags::empty();
         
-        match self.layout {
+        match self.layout.get_val() {
             ash::vk::ImageLayout::GENERAL => {
                 src_access |= ash::vk::AccessFlags::SHADER_WRITE | ash::vk::AccessFlags::SHADER_READ;
                 src_stage |= ash::vk::PipelineStageFlags::COMPUTE_SHADER;
@@ -311,7 +313,7 @@ impl VkImage {
         };
 
         let barrier = ash::vk::ImageMemoryBarrier::builder()
-            .old_layout(self.layout)
+            .old_layout(self.layout.get_val())
             .new_layout(new_layout)
             .src_queue_family_index(ash::vk::QUEUE_FAMILY_EXTERNAL)
             .dst_queue_family_index(ash::vk::QUEUE_FAMILY_EXTERNAL)
@@ -322,7 +324,6 @@ impl VkImage {
 
         let barriers = [*barrier];
 
-
         unsafe { self.device.get_device().cmd_pipeline_barrier(
             cmd,
             src_stage,
@@ -332,6 +333,8 @@ impl VkImage {
             &[],
             &barriers)
         }
+
+        self.layout.replace(new_layout);
 
         if end {
             self.device.end_single_time_command(
@@ -369,7 +372,7 @@ impl VkImage {
             image_extent: ash::vk::Extent3D { width: self.size.width, height: self.size.height, depth: 1}
         };
 
-        unsafe { self.device.get_device().cmd_copy_buffer_to_image(cmd, buffer.get_buffer(), self.handle, self.layout, &[copy_region])};
+        unsafe { self.device.get_device().cmd_copy_buffer_to_image(cmd, buffer.get_buffer(), self.handle, self.layout.get_val(), &[copy_region])};
 
         if end {
             self.device.end_single_time_command(
@@ -380,12 +383,32 @@ impl VkImage {
         }
     }
 
-    pub(crate) fn get_view(&self) -> ash::vk::ImageView {
-        self.image_views[0]
+    pub(crate) fn get_view(&self, index: u32) -> ash::vk::ImageView {
+        self.image_views[index as usize]
+    }
+
+    pub(crate) fn get_format(&self, index: u32) -> ash::vk::Format {
+        self.format
+    }
+
+    pub(crate) fn get_views(&self) -> &[ash::vk::ImageView] {
+        &self.image_views
     }
 
     pub(crate) fn get_handle(&self) -> ash::vk::Image {
         self.handle
+    }
+
+    pub(crate) fn get_layout(&self) -> ash::vk::ImageLayout {
+        self.layout.get_val()
+    }
+
+    pub(crate) fn get_size(&self) -> ash::vk::Extent2D {
+        self.size
+    }
+
+    pub(crate) fn set_layout(&self, layout: ash::vk::ImageLayout) {
+        self.layout.replace(layout);
     }
 
 }

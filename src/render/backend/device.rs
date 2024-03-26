@@ -136,6 +136,7 @@ impl Device {
 }
 
 #[graphics_item(copy)]
+#[derive(Copy, Clone)]
 pub(crate) enum CommandPool {
     Vulkan(ash::vk::CommandPool),
     #[cfg(target_os = "macos")]
@@ -145,6 +146,7 @@ pub(crate) enum CommandPool {
 }
 
 #[graphics_item(copy)]
+#[derive(Copy, Clone)]
 pub(crate) enum Queue {
     Vulkan(ash::vk::Queue),
     #[cfg(target_os = "macos")]

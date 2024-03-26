@@ -23,15 +23,14 @@ impl From<ClearColor> for ash::vk::ClearValue {
 
 pub(crate) struct VkFramebuffer {
     device: Arc<VkDevice>,
-    images: Vec<ash::vk::Image>,
-    image_views: Vec<ash::vk::ImageView>,
+    images: Vec<Arc<VkImage>>,
     handle: ash::vk::Framebuffer,
     render_pass: ash::vk::RenderPass,
 
     extent: ash::vk::Extent2D,
     attachment_formats: Vec<ash::vk::Format>,
     drop_render_pass: bool,
-    final_layout: Vec<ash::vk::ImageLayout>
+    final_layouts: Vec<ash::vk::ImageLayout>
 }
 
 pub(crate) struct RenderPassCreateInfo {
@@ -130,7 +129,7 @@ impl VkFramebuffer {
 
                 ash::vk::Format::R8_UNORM => {
                     let image = Self::create_color_attachment(device.clone(), create_info.extent, *image_format, create_info.image_usage_flags);
-                    image_views.push(image.get_view());
+                    image_views.push(image.get_view(0));
                     images.push(image);
                 }
                 ash::vk::Format::D32_SFLOAT |
@@ -138,7 +137,7 @@ impl VkFramebuffer {
                 ash::vk::Format::D16_UNORM_S8_UINT |
                 ash::vk::Format::D24_UNORM_S8_UINT => {
                     let image = Self::create_depth_attachment(device.clone(), create_info.extent, *image_format, create_info.image_usage_flags);
-                    image_views.push(image.get_view());
+                    image_views.push(image.get_view(0));
                     images.push(image);
                 }
                 _ => {
@@ -173,28 +172,40 @@ impl VkFramebuffer {
         let final_layouts = if let Some(render_pass_info) = create_info.render_pass_info {
             render_pass_info.final_layouts
         } else {
-            Vec::new()
+            images.iter().enumerate().map(|(index, image)| {
+                let depth = Self::is_depth_format(image.get_format(index as u32));
+                if depth {
+                    ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                } else {
+                    ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+                }
+            }).collect()
         };
 
-        let images = images.iter().map(|vk_image| {
-            vk_image.get_handle()
+        let images = images.into_iter().map(|vk_image| {
+            vk_image.into()
         }).collect();
 
         Self {
             device,
             images,
-            image_views,
             handle,
             render_pass,
             extent: create_info.extent,
             attachment_formats: create_info.attachment_formats,
             drop_render_pass: false,
-            final_layout: final_layouts,
+            final_layouts: final_layouts,
         }
     }
 
     fn is_depth_format(format: ash::vk::Format) -> bool {
-        (ash::vk::Format::D32_SFLOAT.as_raw() | ash::vk::Format::D16_UNORM.as_raw() | ash::vk::Format::D16_UNORM_S8_UINT.as_raw() | ash::vk::Format::D24_UNORM_S8_UINT.as_raw()) & format.as_raw() != 0
+        match format {
+            ash::vk::Format::D32_SFLOAT => true,
+            ash::vk::Format::D16_UNORM => true,
+            ash::vk::Format::D16_UNORM_S8_UINT => true,
+            ash::vk::Format::D24_UNORM_S8_UINT => true,
+            _ => false
+        }
     }
 
     fn create_color_attachment(device: Arc<VkDevice>, extent: ash::vk::Extent2D, format: ash::vk::Format, image_usage_flag: ash::vk::ImageUsageFlags) -> VkImage {
@@ -210,7 +221,7 @@ impl VkFramebuffer {
             cubemap: false,
             memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             data: None,
-            debug_name: CString::new("FRAMEBUFFER DEPTH IMAGE").unwrap(), // TODO
+            debug_name: CString::new("FRAMEBUFFER COLOR IMAGE").unwrap(), // TODO
         };
 
         VkImage::new(device.clone(), image_create_info)
@@ -279,7 +290,7 @@ impl VkFramebuffer {
         let mut depth_attachment_count = 0;
         for (index, format) in attachment_formats.iter().enumerate() {
             let depth = Self::is_depth_format(*format);
-            if depth_attachment_count < 1 {
+            if depth_attachment_count > 1 {
                 log::error!("Can't have more than one depth attachment in framebuffer!");
                 panic!();
             }
@@ -302,7 +313,7 @@ impl VkFramebuffer {
                     depth_attachment_count += 1;
                     ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
             } else {
-                    ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+                    ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
             };
 
             // Description
@@ -335,10 +346,14 @@ impl VkFramebuffer {
             }
         }
 
-        let subpass = [*ash::vk::SubpassDescription::builder()
+        let mut subpass = *ash::vk::SubpassDescription::builder()
             .pipeline_bind_point(ash::vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&references)
-            .depth_stencil_attachment(&depth_reference)];
+            .color_attachments(&references);
+        if depth_attachment_count > 0 {
+            subpass.p_depth_stencil_attachment = &depth_reference;
+        }
+
+        let subpass = [subpass];
 
         let render_pass_create_info_vk = ash::vk::RenderPassCreateInfo::builder()
             .attachments(&descriptions)
@@ -353,12 +368,11 @@ impl VkFramebuffer {
 
     pub(crate) fn from(
         device: Arc<VkDevice>,
-        image: ash::vk::Image,
-        image_view: ash::vk::ImageView,
+        image: Arc<VkImage>,
         render_pass: ash::vk::RenderPass,
         extent: ash::vk::Extent2D,
     ) -> Self {
-        let image_views = [image_view];
+        let image_views = [image.get_view(0)];
         let create_info = ash::vk::FramebufferCreateInfo::builder()
             .render_pass(render_pass)
             .attachments(&image_views)
@@ -373,16 +387,17 @@ impl VkFramebuffer {
                 panic!();
             });
 
+        let final_layouts = vec![ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL];
+
         Self {
             images: vec![image],
-            image_views: vec![image_view],
             render_pass,
             extent,
             handle,
             device,
             attachment_formats: Vec::new(),
             drop_render_pass: false,
-            final_layout: vec![],
+            final_layouts,
         }
     }
 
@@ -439,6 +454,10 @@ impl VkFramebuffer {
                 ash::vk::SubpassContents::INLINE,
             )
         };
+
+        for (index, layout) in self.final_layouts.iter().enumerate() {
+            self.images[index].set_layout(*layout);
+        }
     }
 
     pub(crate) fn end_render_pass(&self, command_buffer: &VkCommandBuffer) {
@@ -447,6 +466,10 @@ impl VkFramebuffer {
                 .get_device()
                 .cmd_end_render_pass(command_buffer.get_handle())
         };
+    }
+
+    pub(crate) fn get_image(&self, index: u32) -> Arc<VkImage> {
+        self.images[index as usize].clone()
     }
 }
 
@@ -461,10 +484,12 @@ impl Drop for VkFramebuffer {
             self.device
                 .get_device()
                 .destroy_framebuffer(self.handle, None);
-            for image_view in &self.image_views {
-                self.device
-                    .get_device()
-                    .destroy_image_view(*image_view, None);
+            for image in &self.images {
+                for image_view in image.get_views() {
+                    self.device
+                        .get_device()
+                        .destroy_image_view(*image_view, None);
+                }
             }
         };
     }

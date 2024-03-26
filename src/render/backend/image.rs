@@ -40,6 +40,7 @@ pub(crate) enum ImageLayout {
     TransferSrcOptimal,
     TransferDstOptimal,
     Preinitialized,
+    PresentSrc,
 }
 
 bitflags! {
@@ -79,9 +80,10 @@ pub(crate) struct MVImageCreateInfo {
     pub(crate) label: Option<String>,
 }
 
-#[graphics_item(ref)]
+#[graphics_item(clone)]
+#[derive(Clone)]
 pub(crate) enum Image {
-    Vulkan(VkImage),
+    Vulkan(Arc<VkImage>),
     #[cfg(target_os = "macos")]
     Metal,
     #[cfg(target_os = "windows")]
@@ -91,7 +93,7 @@ pub(crate) enum Image {
 impl Image {
     pub(crate) fn new(device: Device, create_info: MVImageCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Image::Vulkan(VkImage::new(device, create_info.into())),
+            Device::Vulkan(device) => Image::Vulkan(VkImage::new(device, create_info.into()).into()),
             #[cfg(target_os = "macos")]
             Device::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
@@ -99,9 +101,9 @@ impl Image {
         }
     }
 
-    pub(crate) fn transition_layout(&self, new_layout: ImageLayout, command_buffer: Option<&CommandBuffer>) {
+    pub(crate) fn transition_layout(&self, new_layout: ImageLayout, command_buffer: Option<&CommandBuffer>, src: ash::vk::AccessFlags, dst: ash::vk::AccessFlags) {
         match self {
-            Image::Vulkan(image) => image.transition_layout(new_layout.into(), command_buffer.map(|cmd| cmd.as_vulkan())),
+            Image::Vulkan(image) => image.transition_layout(new_layout.into(), command_buffer.map(|cmd| cmd.as_vulkan()), src, dst),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
