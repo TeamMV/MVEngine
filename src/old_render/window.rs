@@ -227,7 +227,7 @@ impl<T: ApplicationLoopCallbacks + 'static> Window<T> {
         );
 
         //TODO: separate thread old_render (manually called from init)
-        let pixelate = EffectShader::new_glsl(include_str!("../pixelate.frag"), 1)
+        let pixelate = EffectShader::new_glsl(include_str!("../pixelate.comp"), 1)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);
         let blur = EffectShader::new_glsl(include_str!("../blur.frag"), 0)
             .setup_pipeline(&state, &[BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM]);

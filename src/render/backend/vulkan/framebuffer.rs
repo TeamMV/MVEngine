@@ -221,7 +221,9 @@ impl VkFramebuffer {
             cubemap: false,
             memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             data: None,
-            debug_name: CString::new("FRAMEBUFFER COLOR IMAGE").unwrap(), // TODO
+
+            #[cfg(debug_assertions)]
+            debug_name: CString::new("Framebuffer color image").unwrap(), // TODO
         };
 
         VkImage::new(device.clone(), image_create_info)
@@ -240,7 +242,9 @@ impl VkFramebuffer {
             cubemap: false,
             memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             data: None,
-            debug_name: CString::new("FRAMEBUFFER DEPTH IMAGE").unwrap(), // TODO
+
+            #[cfg(debug_assertions)]
+            debug_name: CString::new("Framebuffer depth image").unwrap(), // TODO
         };
 
         VkImage::new(device.clone(), image_create_info)

@@ -1,9 +1,11 @@
-#version 420
+#version 450
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform sampler2D uInput;
 layout(set = 0, binding = 1, rgba8) uniform image2D uOutput;
+
+float size = 10.0;
 
 void main() {
     if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(uOutput)))
@@ -13,10 +15,12 @@ void main() {
     vec2 textureSize = vec2(textureSize(uInput, 0));
     vec2 texCoord = pixelCoord / textureSize;
 
-    vec3 color = texture(uInput, texCoord).rgb;
+    vec2 roundedTexCoord = vec2(textureSize * texCoord);
+    vec2 pixelSize = vec2(4.0f);
+    vec2 roundedTexCoordInCell = vec2(mod(roundedTexCoord, pixelCoord));
+    vec2 sampledTexCoord = (vec2(roundedTexCoord) - vec2(roundedTexCoordInCell) / textureSize);
 
-    // Do something with color here
-    color = pow(color, vec3(1.0f / 2.2f));
+    vec4 color = vec4(1.0f);//texture(uInput, texCoord);
 
-    imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0f));
+    imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), color);
 }

@@ -109,7 +109,7 @@ pub fn run() {
         },
     );
     
-    let effect_shader = include_str!("post_process.comp");
+    let effect_shader = include_str!("pixelate.comp");
     let e_bytes = compile(effect_shader, ShaderKind::Compute);
     
     let effect_shader = Shader::new(device.clone(), MVShaderCreateInfo {
@@ -312,10 +312,12 @@ pub fn run() {
 
     let mut frames = 0;
     let mut delta_f = 0.0;
-    let time_f: f32 = 1000000000.0 / 144.0;
+    let time_f: f32 = 1000000000.0 / 10000.0;
     let mut now = SystemTime::now();
     let mut timer = SystemTime::now();
     let mut time: f32 = 0.0;
+
+    let mut ms_timer = SystemTime::now();
 
     event_loop
         .run(|event, target| {
@@ -326,6 +328,10 @@ pub fn run() {
                     }
                     WindowEvent::RedrawRequested => {
                         //do rendering in here
+
+                        println!("{}", ms_timer.elapsed().unwrap().as_millis_f32());
+                        ms_timer = SystemTime::now();
+
 
                         let image_index = swapchain.acquire_next_image().unwrap_or_else(|_| {
                             log::error!("Can't resize swapchain!");
@@ -432,7 +438,7 @@ pub fn run() {
                     .as_millis()
                     >= 1000
                 {
-                    println!("{}", frames);
+                    //println!("{}", frames);
                     frames = 0;
                     timer = SystemTime::now();
                 }
