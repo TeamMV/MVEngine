@@ -16,6 +16,7 @@ pub(crate) struct VkSwapchain {
     current_extent: ash::vk::Extent2D,
     handle: ash::vk::SwapchainKHR,
     current_frame: u32,
+    current_image_index: u32,
     in_flight_fences: Vec<ash::vk::Fence>,
     wait_semaphores: Vec<ash::vk::Semaphore>,
     signal_semaphores: Vec<ash::vk::Semaphore>,
@@ -105,6 +106,9 @@ impl VkSwapchain {
         let mut image_count = swapchain_capabilities.capabilities.min_image_count + 1;
         if image_count > create_info.max_frames_in_flight {
             image_count = create_info.max_frames_in_flight;
+        }
+        if image_count < swapchain_capabilities.capabilities.min_image_count {
+            image_count = swapchain_capabilities.capabilities.min_image_count;
         }
 
         let mut vk_create_info = ash::vk::SwapchainCreateInfoKHR::builder()
@@ -211,6 +215,7 @@ impl VkSwapchain {
             current_extent: create_info.window_extent,
             handle: swapchain,
             current_frame: 0,
+            current_image_index: 0,
             in_flight_fences,
             wait_semaphores,
             signal_semaphores,
@@ -396,7 +401,7 @@ impl VkSwapchain {
     }
 
     pub(crate) fn get_current_framebuffer(&self) -> Arc<VkFramebuffer> {
-        self.presentable_framebuffers[self.current_frame as usize].clone()
+        self.presentable_framebuffers[self.current_image_index as usize].clone()
     }
 
     pub(crate) fn get_extent(&self) -> ash::vk::Extent2D {
@@ -455,7 +460,7 @@ impl VkSwapchain {
             .ok_or(ash::vk::Result::SUBOPTIMAL_KHR)
     }
 
-    pub(crate) fn acquire_next_image(&self) -> Result<u32, ash::vk::Result> {
+    pub(crate) fn acquire_next_image(&mut self) -> Result<u32, ash::vk::Result> {
         let fences = [self.in_flight_fences[self.current_frame as usize]];
         unsafe {
             self.device
@@ -473,6 +478,8 @@ impl VkSwapchain {
                 ash::vk::Fence::null(),
             )
         }?;
+
+        self.current_image_index = image;
 
         suboptimal
             .not()

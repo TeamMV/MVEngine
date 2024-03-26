@@ -116,7 +116,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn acquire_next_image(&self) -> Result<u32, SwapchainError> {
+    pub(crate) fn acquire_next_image(&mut self) -> Result<u32, SwapchainError> {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.acquire_next_image().map_err(Into::into),
             #[cfg(target_os = "macos")]

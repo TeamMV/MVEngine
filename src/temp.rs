@@ -56,7 +56,7 @@ pub fn run() {
             },
             previous: None,
             vsync: false,
-            max_frames_in_flight: 2,
+            max_frames_in_flight: 1,
         },
     );
 
@@ -259,7 +259,7 @@ pub fn run() {
                         let g = 1.0f32;
                         let b = time.cos();
 
-                        time += delta_f * 15.0;
+                        time += 0.02f;
 
                         let color = [
                             r, g, b, 1.0,
