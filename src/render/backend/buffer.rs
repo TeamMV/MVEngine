@@ -56,6 +56,16 @@ impl Buffer {
         }
     }
 
+    pub(crate) fn get_size(&self, size: u64, offset: u64) -> u64 {
+        match self {
+            Buffer::Vulkan(buffer) => buffer.get_size(),
+            #[cfg(target_os = "macos")]
+            Buffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Buffer::DirectX => unimplemented!(),
+        }
+    }
+
     pub(crate) fn get_descriptor_info(&self, size: u64, offset: u64) -> DescriptorBufferInfo {
         match self {
             Buffer::Vulkan(buffer) => {

@@ -2,11 +2,20 @@ use crate::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, Me
 use crate::render::backend::command_buffer::{
     CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
 };
+use crate::render::backend::descriptor_set::{
+    DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout,
+    DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo,
+    MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo,
+};
 use crate::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use crate::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
+use crate::render::backend::image::{ImageFormat, ImageLayout, ImageUsage};
 use crate::render::backend::pipeline::{
     AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
+};
+use crate::render::backend::sampler::{
+    Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
 };
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
@@ -19,9 +28,6 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
-use crate::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo};
-use crate::render::backend::image::{ImageFormat, ImageLayout, ImageUsage};
-use crate::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 
 pub fn run() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -108,21 +114,20 @@ pub fn run() {
             label: Some("Fragment shader".to_string()),
         },
     );
-    
+
     let effect_shader = include_str!("pixelate.comp");
     let e_bytes = compile(effect_shader, ShaderKind::Compute);
-    
-    let effect_shader = Shader::new(device.clone(), MVShaderCreateInfo {
-        stage: ShaderStage::Compute,
-        code: e_bytes,
-        label: Some("Pixelate shader".to_string()),
-    });
 
-    let vertex_data = [
-        0.0f32, -0.5,
-        0.5, 0.5,
-        -0.5, 0.5
-    ];
+    let effect_shader = Shader::new(
+        device.clone(),
+        MVShaderCreateInfo {
+            stage: ShaderStage::Compute,
+            code: e_bytes,
+            label: Some("Pixelate shader".to_string()),
+        },
+    );
+
+    let vertex_data = [0.0f32, -0.5, 0.5, 0.5, -0.5, 0.5];
 
     let index_data = [0u32, 1, 2];
 
@@ -164,74 +169,89 @@ pub fn run() {
 
     index_buffer.write(byte_data_index, 0, None);
 
-    let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
-        bindings: vec![
-            DescriptorSetLayoutBinding {
+    let descriptor_set_layout = DescriptorSetLayout::new(
+        device.clone(),
+        MVDescriptorSetLayoutCreateInfo {
+            bindings: vec![DescriptorSetLayoutBinding {
                 index: 0,
                 stages: ShaderStage::Vertex,
                 ty: DescriptorType::UniformBuffer,
                 count: 1,
-            }
-        ],
-        label: Some("Color descriptor set layout".to_string()),
-    });
+            }],
+            label: Some("Color descriptor set layout".to_string()),
+        },
+    );
 
-    let mut uniform_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-        instance_size: 16 * 3,
-        instance_count: 1,
-        buffer_usage: BufferUsage::UNIFORM_BUFFER,
-        memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
-        minimum_alignment: 1,
-        memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
-        label: Some("Uniform Buffer".to_string()),
-    });
+    let mut uniform_buffer = Buffer::new(
+        device.clone(),
+        MVBufferCreateInfo {
+            instance_size: 16 * 3,
+            instance_count: 1,
+            buffer_usage: BufferUsage::UNIFORM_BUFFER,
+            memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
+            minimum_alignment: 1,
+            memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
+            label: Some("Uniform Buffer".to_string()),
+        },
+    );
 
     let color = [
-        1.0f32, 0.0, 0.0, 1.0,
-        0.0, 1.0, 0.0, 1.0,
-        0.0, 0.0, 1.0, 1.0
+        1.0f32, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
     ];
 
     let bytes = unsafe { std::slice::from_raw_parts(color.as_ptr() as *const u8, color.len() * 4) };
 
     uniform_buffer.write(bytes, 0, None);
 
-    let descriptor_pool = DescriptorPool::new(device.clone(), MVDescriptorPoolCreateInfo {
-        sizes: vec![DescriptorPoolSize {
-            ty: DescriptorType::UniformBuffer,
-            count: 1,
+    let descriptor_pool = DescriptorPool::new(
+        device.clone(),
+        MVDescriptorPoolCreateInfo {
+            sizes: vec![
+                DescriptorPoolSize {
+                    ty: DescriptorType::UniformBuffer,
+                    count: 1,
+                },
+                DescriptorPoolSize {
+                    ty: DescriptorType::CombinedImageSampler,
+                    count: 1,
+                },
+                DescriptorPoolSize {
+                    ty: DescriptorType::StorageImage,
+                    count: 1,
+                },
+            ],
+            max_sets: 1,
+            flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
+            label: Some("Descriptor pool".to_string()),
         },
-                    DescriptorPoolSize {
-                        ty: DescriptorType::CombinedImageSampler,
-                        count: 1,
-                    },
-                    DescriptorPoolSize {
-                        ty: DescriptorType::StorageImage,
-                        count: 1,
-                    }
-        ],
-        max_sets: 1,
-        flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
-        label: Some("Descriptor pool".to_string()),
-    });
+    );
 
-    let mut descriptor_set = DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
-        pool: descriptor_pool.clone(),
-        layout: descriptor_set_layout.clone(),
-        label: Some("Color descriptor set".to_string()),
-    });
+    let mut descriptor_set = DescriptorSet::from_layout(
+        device.clone(),
+        MVDescriptorSetFromLayoutCreateInfo {
+            pool: descriptor_pool.clone(),
+            layout: descriptor_set_layout.clone(),
+            label: Some("Color descriptor set".to_string()),
+        },
+    );
 
     descriptor_set.add_buffer(0, &uniform_buffer, 0, 16 * 3);
 
     descriptor_set.build();
 
-    let framebuffer = Framebuffer::new(device.clone(), MVFramebufferCreateInfo {
-        attachment_formats: vec![ImageFormat::R32B32G32A32],
-        extent: Extent2D { width: 800, height: 600 },
-        image_usage_flags: ImageUsage::SAMPLED,
-        render_pass_info: None,
-        label: Some("Effect framebuffer".to_string()),
-    });
+    let framebuffer = Framebuffer::new(
+        device.clone(),
+        MVFramebufferCreateInfo {
+            attachment_formats: vec![ImageFormat::R32B32G32A32],
+            extent: Extent2D {
+                width: 800,
+                height: 600,
+            },
+            image_usage_flags: ImageUsage::SAMPLED,
+            render_pass_info: None,
+            label: Some("Effect framebuffer".to_string()),
+        },
+    );
 
     let render_pipeline = Pipeline::<Graphics>::new(
         device.clone(),
@@ -255,49 +275,83 @@ pub fn run() {
         },
     );
 
-    let effect_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
-        bindings: vec![
-            DescriptorSetLayoutBinding {
-                index: 0,
-                stages: ShaderStage::Compute,
-                ty: DescriptorType::CombinedImageSampler,
-                count: 1,
+    let effect_set_layout = DescriptorSetLayout::new(
+        device.clone(),
+        MVDescriptorSetLayoutCreateInfo {
+            bindings: vec![
+                DescriptorSetLayoutBinding {
+                    index: 0,
+                    stages: ShaderStage::Compute,
+                    ty: DescriptorType::CombinedImageSampler,
+                    count: 1,
+                },
+                DescriptorSetLayoutBinding {
+                    index: 1,
+                    stages: ShaderStage::Compute,
+                    ty: DescriptorType::StorageImage,
+                    count: 1,
+                },
+            ],
+            label: Some("Effect descriptor set layout".to_string()),
+        },
+    );
+
+    let mut effect_set = vec![
+        DescriptorSet::from_layout(
+            device.clone(),
+            MVDescriptorSetFromLayoutCreateInfo {
+                pool: descriptor_pool.clone(),
+                layout: effect_set_layout.clone(),
+                label: Some("Effect descriptor set".to_string()),
             },
-            DescriptorSetLayoutBinding {
-                index: 1,
-                stages: ShaderStage::Compute,
-                ty: DescriptorType::StorageImage,
-                count: 1,
-            }
-        ],
-        label: Some("Effect descriptor set layout".to_string()),
-    });
+        ),
+        DescriptorSet::from_layout(
+            device.clone(),
+            MVDescriptorSetFromLayoutCreateInfo {
+                pool: descriptor_pool.clone(),
+                layout: effect_set_layout.clone(),
+                label: Some("Effect descriptor set".to_string()),
+            },
+        ),
+    ];
 
-    let mut effect_set = vec![DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
-        pool: descriptor_pool.clone(),
-        layout: effect_set_layout.clone(),
-        label: Some("Effect descriptor set".to_string()),
-    }),
-                              DescriptorSet::from_layout(device.clone(), MVDescriptorSetFromLayoutCreateInfo {
-                                  pool: descriptor_pool.clone(),
-                                  layout: effect_set_layout.clone(),
-                                  label: Some("Effect descriptor set".to_string()),
-                              })];
+    let sampler = Sampler::new(
+        device.clone(),
+        MVSamplerCreateInfo {
+            address_mode: SamplerAddressMode::ClampToEdge,
+            filter_mode: Filter::Linear,
+            mipmap_mode: MipmapMode::Linear,
 
-    let sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
-        address_mode: SamplerAddressMode::ClampToEdge,
-        filter_mode: Filter::Linear,
-        mipmap_mode: MipmapMode::Linear,
+            label: Some("Effect sampler".to_string()),
+        },
+    );
 
-        label: Some("Effect sampler".to_string()),
-    });
-
-    effect_set[0].add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
-    effect_set[0].add_image(1, swapchain.get_framebuffer(0).get_image(0), &sampler, ImageLayout::General);
+    effect_set[0].add_image(
+        0,
+        framebuffer.get_image(0),
+        &sampler,
+        ImageLayout::ShaderReadOnlyOptimal,
+    );
+    effect_set[0].add_image(
+        1,
+        swapchain.get_framebuffer(0).get_image(0),
+        &sampler,
+        ImageLayout::General,
+    );
     effect_set[0].build();
 
-    effect_set[1].add_image(0, framebuffer.get_image(0), &sampler, ImageLayout::ShaderReadOnlyOptimal);
-    effect_set[1].add_image(1, swapchain.get_framebuffer(1).get_image(0), &sampler, ImageLayout::General);
+    effect_set[1].add_image(
+        0,
+        framebuffer.get_image(0),
+        &sampler,
+        ImageLayout::ShaderReadOnlyOptimal,
+    );
+    effect_set[1].add_image(
+        1,
+        swapchain.get_framebuffer(1).get_image(0),
+        &sampler,
+        ImageLayout::General,
+    );
     effect_set[1].build();
 
     let effect_pipeline = Pipeline::<Compute>::new(
@@ -332,7 +386,6 @@ pub fn run() {
                         println!("{}", ms_timer.elapsed().unwrap().as_millis_f32());
                         ms_timer = SystemTime::now();
 
-
                         let image_index = swapchain.acquire_next_image().unwrap_or_else(|_| {
                             log::error!("Can't resize swapchain!");
                             panic!();
@@ -347,15 +400,13 @@ pub fn run() {
                         let g = 1.0f32;
                         let b = time.cos();
 
-                        time += 0.02f32;
+                        time += 0.0002f32;
 
-                        let color = [
-                            r, g, b, 1.0,
-                            g, b, r, 1.0,
-                            b, r, g, 1.0
-                        ];
+                        let color = [r, g, b, 1.0, g, b, r, 1.0, b, r, g, 1.0];
 
-                        let bytes = unsafe { std::slice::from_raw_parts(color.as_ptr() as *const u8, color.len() * 4) };
+                        let bytes = unsafe {
+                            std::slice::from_raw_parts(color.as_ptr() as *const u8, color.len() * 4)
+                        };
 
                         uniform_buffer.write(bytes, 0, Some(cmd));
 
@@ -379,8 +430,21 @@ pub fn run() {
 
                         framebuffer.end_render_pass(cmd);
 
-                        framebuffer.get_image(0).transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
-                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+                        framebuffer.get_image(0).transition_layout(
+                            ImageLayout::ShaderReadOnlyOptimal,
+                            Some(cmd),
+                            ash::vk::AccessFlags::empty(),
+                            ash::vk::AccessFlags::empty(),
+                        );
+                        swapchain
+                            .get_current_framebuffer()
+                            .get_image(0)
+                            .transition_layout(
+                                ImageLayout::General,
+                                Some(cmd),
+                                ash::vk::AccessFlags::empty(),
+                                ash::vk::AccessFlags::empty(),
+                            );
 
                         effect_set[image_index as usize].bind(&cmd, &effect_pipeline, 0);
                         effect_pipeline.bind(cmd);
@@ -388,10 +452,18 @@ pub fn run() {
                         cmd.dispatch(Extent3D {
                             width: 800 / 8 + 1,
                             height: 600 / 8 + 1,
-                            depth: 1
+                            depth: 1,
                         });
 
-                        swapchain.get_current_framebuffer().get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+                        swapchain
+                            .get_current_framebuffer()
+                            .get_image(0)
+                            .transition_layout(
+                                ImageLayout::PresentSrc,
+                                Some(cmd),
+                                ash::vk::AccessFlags::empty(),
+                                ash::vk::AccessFlags::empty(),
+                            );
 
                         cmd.end();
 

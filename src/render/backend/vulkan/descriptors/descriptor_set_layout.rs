@@ -1,10 +1,12 @@
+use crate::render::backend::descriptor_set::{
+    DescriptorSetLayoutBinding, DescriptorType, MVDescriptorSetLayoutCreateInfo,
+};
+use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::device::VkDevice;
 use ash::vk::Handle;
 use std::ffi::CString;
 use std::sync::Arc;
-use crate::render::backend::descriptor_set::{DescriptorSetLayoutBinding, DescriptorType, MVDescriptorSetLayoutCreateInfo};
-use crate::render::backend::to_ascii_cstring;
 
 pub(crate) struct VkDescriptorSetLayout {
     device: Arc<VkDevice>,
@@ -51,15 +53,17 @@ impl From<DescriptorType> for ash::vk::DescriptorType {
             DescriptorType::UniformBuffer => ash::vk::DescriptorType::UNIFORM_BUFFER,
             DescriptorType::StorageBuffer => ash::vk::DescriptorType::STORAGE_BUFFER,
             #[cfg(feature = "ray-tracing")]
-            DescriptorType::AccelerationStructure => ash::vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+            DescriptorType::AccelerationStructure => {
+                ash::vk::DescriptorType::ACCELERATION_STRUCTURE_KHR
+            }
         }
     }
 }
 
 impl VkDescriptorSetLayout {
     pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
-        let create_info_vk = ash::vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(&create_info.bindings);
+        let create_info_vk =
+            ash::vk::DescriptorSetLayoutCreateInfo::builder().bindings(&create_info.bindings);
 
         let handle = unsafe {
             device
@@ -105,7 +109,9 @@ impl VkDescriptorSetLayout {
 impl Drop for VkDescriptorSetLayout {
     fn drop(&mut self) {
         unsafe {
-            self.device.get_device().destroy_descriptor_set_layout(self.handle, None);
+            self.device
+                .get_device()
+                .destroy_descriptor_set_layout(self.handle, None);
         }
     }
 }

@@ -1,9 +1,9 @@
-use std::sync::Arc;
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 use crate::render::backend::vulkan::device::VkDevice;
 use mvutils::utils::Recover;
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 //
 // WE DO NOT NEED A WRAPPER FOR THIS CLASS
@@ -67,7 +67,12 @@ impl VkDescriptorWriter {
         self.writes.push(*write);
     }
 
-    pub(crate) fn build(&mut self, set: &mut ash::vk::DescriptorSet, pool_index: &mut usize, allocate_set: bool) {
+    pub(crate) fn build(
+        &mut self,
+        set: &mut ash::vk::DescriptorSet,
+        pool_index: &mut usize,
+        allocate_set: bool,
+    ) {
         if allocate_set {
             let (idx, desc_set) = self.pool.lock().allocate_descriptor_set(&self.layout);
             *set = desc_set;

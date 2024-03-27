@@ -38,8 +38,8 @@ pub(crate) struct VkShader {
 
 impl VkShader {
     pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
-        let vk_create_info = ash::vk::ShaderModuleCreateInfo::builder()
-            .code(&create_info.shader_code);
+        let vk_create_info =
+            ash::vk::ShaderModuleCreateInfo::builder().code(&create_info.shader_code);
 
         let module = unsafe {
             device
@@ -78,7 +78,9 @@ impl VkShader {
 impl Drop for VkShader {
     fn drop(&mut self) {
         unsafe {
-            self.device.get_device().destroy_shader_module(self.handle, None);
+            self.device
+                .get_device()
+                .destroy_shader_module(self.handle, None);
         }
     }
 }

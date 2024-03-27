@@ -8,12 +8,12 @@ use mvutils::hashers::U32IdentityHasher;
 use mvutils::once::CreateOnce;
 use mvutils::utils::Recover;
 use mvutils::version::Version;
+use parking_lot::Mutex;
 use shaderc::EnvVersion::Vulkan1_2;
 use std::error::Error;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt::Debug;
 use std::sync::Arc;
-use parking_lot::Mutex;
 use winit::raw_window_handle;
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
@@ -784,7 +784,8 @@ impl VkDevice {
 
         let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
             .buffer_device_address(true);
-        device_address.p_next = &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
+        device_address.p_next =
+            &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
         features = features.push_next(&mut device_address);
 
         let create_info = ash::vk::DeviceCreateInfo::builder()
@@ -1014,41 +1015,61 @@ impl VkDevice {
         (buffer, block)
     }
 
-    pub(crate) fn allocate_image(&self, create_info: &ash::vk::ImageCreateInfo, flags: ash::vk::MemoryPropertyFlags, usage_flags: gpu_alloc::UsageFlags)
-        ->
-        (ash::vk::Image,
-        gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>)
-    {
+    pub(crate) fn allocate_image(
+        &self,
+        create_info: &ash::vk::ImageCreateInfo,
+        flags: ash::vk::MemoryPropertyFlags,
+        usage_flags: gpu_alloc::UsageFlags,
+    ) -> ash::vk::Image {
         let image = unsafe { self.device.create_image(create_info, None) }.unwrap();
         let req = unsafe { self.device.get_image_memory_requirements(image) };
 
-        let alignment = req.alignment - 1;
+        let memory_alloc_info = ash::vk::MemoryAllocateInfo::builder()
+            .allocation_size(req.size)
+            .memory_type_index(self.find_memory_type(
+                req.memory_type_bits,
+                ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            ));
 
         let block = unsafe {
             self.allocator.lock().alloc(
                 gpu_alloc_ash::AshMemoryDevice::wrap(&self.device),
                 gpu_alloc::Request {
                     size: req.size,
-                    align_mask: alignment,
+                    align_mask: req.alignment,
                     usage: usage_flags,
                     memory_types: req.memory_type_bits & self.valid_memory_types,
                 },
             )
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to allocate memory, error: {e}");
-                panic!()
-            });
+        .unwrap_or_else(|e| {
+            log::error!("Failed to allocate memory, error: {e}");
+            panic!()
+        });
 
-        unsafe {
-            self.device
-                .bind_image_memory(image, *block.memory(), block.offset())
-        }.unwrap_or_else(|e| {
-                log::error!("Failed to bind buffer memory");
-                panic!();
-            });
+        unsafe { self.device.bind_image_memory(image, *block.memory(), 0) }.unwrap_or_else(|e| {
+            log::error!("Failed to bind buffer memory");
+            panic!();
+        });
 
-        (image, block)
+        image
+    }
+
+    fn find_memory_type(&self, type_filter: u32, flag: ash::vk::MemoryPropertyFlags) -> u32 {
+        let mem_properties = unsafe {
+            self.instance
+                .get_physical_device_memory_properties(self.physical_device)
+        };
+
+        for (index, memory_type) in mem_properties.memory_types.iter().enumerate() {
+            if (type_filter & (1 << index) != 0)
+                && ((memory_type.property_flags.as_raw() & flag.as_raw()) == flag.as_raw())
+            {
+                return index as u32;
+            }
+        }
+
+        panic!()
     }
 
     pub(crate) fn deallocate_buffer(
@@ -1064,7 +1085,11 @@ impl VkDevice {
         }
     }
 
-    pub(crate) fn deallocate_image(&self, image: ash::vk::Image, block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
+    pub(crate) fn deallocate_image(
+        &self,
+        image: ash::vk::Image,
+        block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
+    ) {
         unsafe {
             self.allocator
                 .lock()

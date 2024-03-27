@@ -1,6 +1,6 @@
-use bitflags::bitflags;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
+use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
 
 pub(crate) struct MVShaderCreateInfo {

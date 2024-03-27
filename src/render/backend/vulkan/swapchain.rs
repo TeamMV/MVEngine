@@ -3,10 +3,10 @@ use crate::render::backend::swapchain::{
 };
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
+use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::{Extent2D, Extent3D};
 use std::ops::Not;
 use std::sync::Arc;
-use crate::render::backend::vulkan::image::VkImage;
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -24,7 +24,7 @@ pub(crate) struct VkSwapchain {
     presentable_framebuffers: Vec<Arc<VkFramebuffer>>,
     present_mode: ash::vk::PresentModeKHR,
     max_frames_in_flight: u32,
-    extent: ash::vk::Extent2D
+    extent: ash::vk::Extent2D,
 }
 
 pub(crate) struct CreateInfo {
@@ -140,7 +140,9 @@ impl VkSwapchain {
             .image_extent(create_info.window_extent)
             .surface(device.get_surface())
             .image_array_layers(1)
-            .image_usage(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::STORAGE)
+            .image_usage(
+                ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::STORAGE,
+            )
             .pre_transform(swapchain_capabilities.capabilities.current_transform)
             .composite_alpha(ash::vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)
@@ -197,15 +199,13 @@ impl VkSwapchain {
                     .image(image)
                     .view_type(ash::vk::ImageViewType::TYPE_2D)
                     .format(color_format.format)
-                    .subresource_range(
-                        ash::vk::ImageSubresourceRange {
-                            aspect_mask: ash::vk::ImageAspectFlags::COLOR,
-                            base_mip_level: 0,
-                            level_count: 1,
-                            base_array_layer: 0,
-                            layer_count: 1,
-                        }
-                    );
+                    .subresource_range(ash::vk::ImageSubresourceRange {
+                        aspect_mask: ash::vk::ImageAspectFlags::COLOR,
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    });
 
                 let view = unsafe {
                     device
@@ -232,7 +232,8 @@ impl VkSwapchain {
                     memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
                     layout: ash::vk::ImageLayout::PRESENT_SRC_KHR.into(),
                     memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-                }.into();
+                }
+                .into();
 
                 Arc::new(VkFramebuffer::from(
                     device.clone(),
@@ -260,7 +261,7 @@ impl VkSwapchain {
             presentable_framebuffers: framebuffers,
             present_mode,
             max_frames_in_flight: create_info.max_frames_in_flight,
-            extent: create_info.window_extent
+            extent: create_info.window_extent,
         }
     }
 
@@ -358,7 +359,8 @@ impl VkSwapchain {
             src_subpass: ash::vk::SUBPASS_EXTERNAL,
             dst_subpass: 0,
             src_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | ash::vk::PipelineStageFlags::FRAGMENT_SHADER,
+            dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                | ash::vk::PipelineStageFlags::FRAGMENT_SHADER,
             src_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_READ,
             dependency_flags: ash::vk::DependencyFlags::empty(),
@@ -392,8 +394,8 @@ impl VkSwapchain {
     ) {
         let semaphore_create_info = ash::vk::SemaphoreCreateInfo::builder();
 
-        let fence_create_info = ash::vk::FenceCreateInfo::builder()
-            .flags(ash::vk::FenceCreateFlags::SIGNALED);
+        let fence_create_info =
+            ash::vk::FenceCreateInfo::builder().flags(ash::vk::FenceCreateFlags::SIGNALED);
 
         let mut wait_semaphores = Vec::new();
         let mut signal_semaphores = Vec::new();

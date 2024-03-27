@@ -1,12 +1,14 @@
-use std::ffi::CString;
-use crate::render::backend::framebuffer::{ClearColor, LoadOp, MVFramebufferCreateInfo, MVRenderPassCreateInfo, StoreOp};
-use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
-use crate::render::backend::vulkan::device::VkDevice;
-use std::sync::Arc;
-use ash::vk::Handle;
+use crate::render::backend::framebuffer::{
+    ClearColor, LoadOp, MVFramebufferCreateInfo, MVRenderPassCreateInfo, StoreOp,
+};
 use crate::render::backend::image::ImageType;
 use crate::render::backend::to_ascii_cstring;
+use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
+use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
+use ash::vk::Handle;
+use std::ffi::CString;
+use std::sync::Arc;
 
 impl From<ClearColor> for ash::vk::ClearValue {
     fn from(value: ClearColor) -> Self {
@@ -30,14 +32,14 @@ pub(crate) struct VkFramebuffer {
     extent: ash::vk::Extent2D,
     attachment_formats: Vec<ash::vk::Format>,
     drop_render_pass: bool,
-    final_layouts: Vec<ash::vk::ImageLayout>
+    final_layouts: Vec<ash::vk::ImageLayout>,
 }
 
 pub(crate) struct RenderPassCreateInfo {
     dependencies: Vec<ash::vk::SubpassDependency>,
     load_op: Vec<ash::vk::AttachmentLoadOp>,
     store_op: Vec<ash::vk::AttachmentStoreOp>,
-    final_layouts: Vec<ash::vk::ImageLayout>
+    final_layouts: Vec<ash::vk::ImageLayout>,
 }
 
 impl RenderPassCreateInfo {
@@ -58,7 +60,7 @@ pub(crate) struct CreateInfo {
     render_pass_info: Option<RenderPassCreateInfo>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString
+    debug_name: CString,
 }
 
 impl From<LoadOp> for ash::vk::AttachmentLoadOp {
@@ -94,9 +96,15 @@ impl From<MVRenderPassCreateInfo> for RenderPassCreateInfo {
 impl From<MVFramebufferCreateInfo> for CreateInfo {
     fn from(value: MVFramebufferCreateInfo) -> Self {
         CreateInfo {
-            attachment_formats: value.attachment_formats.into_iter().map(Into::into).collect(),
+            attachment_formats: value
+                .attachment_formats
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             extent: value.extent.into(),
-            image_usage_flags: ash::vk::ImageUsageFlags::from_raw(value.image_usage_flags.bits() as u32),
+            image_usage_flags: ash::vk::ImageUsageFlags::from_raw(
+                value.image_usage_flags.bits() as u32
+            ),
             render_pass_info: value.render_pass_info.map(Into::into),
 
             #[cfg(debug_assertions)]
@@ -115,28 +123,35 @@ impl VkFramebuffer {
                 //
                 // These are the formats that we'll ever gonna use btw
                 //
-                ash::vk::Format::R32G32B32A32_SFLOAT |
-                ash::vk::Format::R16G16B16A16_SFLOAT |
-                ash::vk::Format::R8G8B8A8_UNORM |
-
-                ash::vk::Format::R16G16B16_SFLOAT |
-                ash::vk::Format::R16G16B16_UNORM |
-                ash::vk::Format::R8G8B8_UNORM |
-
-                ash::vk::Format::R32G32_SFLOAT |
-                ash::vk::Format::R16G16_UNORM |
-                ash::vk::Format::R8G8_UNORM |
-
-                ash::vk::Format::R8_UNORM => {
-                    let image = Self::create_color_attachment(device.clone(), create_info.extent, *image_format, create_info.image_usage_flags);
+                ash::vk::Format::R32G32B32A32_SFLOAT
+                | ash::vk::Format::R16G16B16A16_SFLOAT
+                | ash::vk::Format::R8G8B8A8_UNORM
+                | ash::vk::Format::R16G16B16_SFLOAT
+                | ash::vk::Format::R16G16B16_UNORM
+                | ash::vk::Format::R8G8B8_UNORM
+                | ash::vk::Format::R32G32_SFLOAT
+                | ash::vk::Format::R16G16_UNORM
+                | ash::vk::Format::R8G8_UNORM
+                | ash::vk::Format::R8_UNORM => {
+                    let image = Self::create_color_attachment(
+                        device.clone(),
+                        create_info.extent,
+                        *image_format,
+                        create_info.image_usage_flags,
+                    );
                     image_views.push(image.get_view(0));
                     images.push(image);
                 }
-                ash::vk::Format::D32_SFLOAT |
-                ash::vk::Format::D16_UNORM |
-                ash::vk::Format::D16_UNORM_S8_UINT |
-                ash::vk::Format::D24_UNORM_S8_UINT => {
-                    let image = Self::create_depth_attachment(device.clone(), create_info.extent, *image_format, create_info.image_usage_flags);
+                ash::vk::Format::D32_SFLOAT
+                | ash::vk::Format::D16_UNORM
+                | ash::vk::Format::D16_UNORM_S8_UINT
+                | ash::vk::Format::D24_UNORM_S8_UINT => {
+                    let image = Self::create_depth_attachment(
+                        device.clone(),
+                        create_info.extent,
+                        *image_format,
+                        create_info.image_usage_flags,
+                    );
                     image_views.push(image.get_view(0));
                     images.push(image);
                 }
@@ -148,9 +163,19 @@ impl VkFramebuffer {
         }
 
         let render_pass = if let Some(render_pass_info) = &create_info.render_pass_info {
-             Self::create_render_pass(device.clone(), &create_info.attachment_formats, render_pass_info, images.len() as u32)
+            Self::create_render_pass(
+                device.clone(),
+                &create_info.attachment_formats,
+                render_pass_info,
+                images.len() as u32,
+            )
         } else {
-            Self::create_render_pass(device.clone(), &create_info.attachment_formats, &RenderPassCreateInfo::default(), images.len() as u32)
+            Self::create_render_pass(
+                device.clone(),
+                &create_info.attachment_formats,
+                &RenderPassCreateInfo::default(),
+                images.len() as u32,
+            )
         };
 
         let framebuffer_create_info = ash::vk::FramebufferCreateInfo::builder()
@@ -161,30 +186,41 @@ impl VkFramebuffer {
             .layers(1)
             .attachments(&image_views);
 
-        let handle = unsafe { device.get_device().create_framebuffer(&framebuffer_create_info, None)}.unwrap_or_else(|e| {
+        let handle = unsafe {
+            device
+                .get_device()
+                .create_framebuffer(&framebuffer_create_info, None)
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to create framebuffer, error: {e}");
             panic!();
         });
 
         #[cfg(debug_assertions)]
-        device.set_object_name(&ash::vk::ObjectType::FRAMEBUFFER, handle.as_raw(), create_info.debug_name.as_c_str());
+        device.set_object_name(
+            &ash::vk::ObjectType::FRAMEBUFFER,
+            handle.as_raw(),
+            create_info.debug_name.as_c_str(),
+        );
 
         let final_layouts = if let Some(render_pass_info) = create_info.render_pass_info {
             render_pass_info.final_layouts
         } else {
-            images.iter().enumerate().map(|(index, image)| {
-                let depth = Self::is_depth_format(image.get_format(index as u32));
-                if depth {
-                    ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-                } else {
-                    ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
-                }
-            }).collect()
+            images
+                .iter()
+                .enumerate()
+                .map(|(index, image)| {
+                    let depth = Self::is_depth_format(image.get_format(index as u32));
+                    if depth {
+                        ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                    } else {
+                        ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+                    }
+                })
+                .collect()
         };
 
-        let images = images.into_iter().map(|vk_image| {
-            vk_image.into()
-        }).collect();
+        let images = images.into_iter().map(|vk_image| vk_image.into()).collect();
 
         Self {
             device,
@@ -204,15 +240,22 @@ impl VkFramebuffer {
             ash::vk::Format::D16_UNORM => true,
             ash::vk::Format::D16_UNORM_S8_UINT => true,
             ash::vk::Format::D24_UNORM_S8_UINT => true,
-            _ => false
+            _ => false,
         }
     }
 
-    fn create_color_attachment(device: Arc<VkDevice>, extent: ash::vk::Extent2D, format: ash::vk::Format, image_usage_flag: ash::vk::ImageUsageFlags) -> VkImage {
+    fn create_color_attachment(
+        device: Arc<VkDevice>,
+        extent: ash::vk::Extent2D,
+        format: ash::vk::Format,
+        image_usage_flag: ash::vk::ImageUsageFlags,
+    ) -> VkImage {
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
-            usage: ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::SAMPLED | image_usage_flag,
+            usage: ash::vk::ImageUsageFlags::COLOR_ATTACHMENT
+                | ash::vk::ImageUsageFlags::SAMPLED
+                | image_usage_flag,
             memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
             aspect: ash::vk::ImageAspectFlags::COLOR,
             tiling: ash::vk::ImageTiling::OPTIMAL,
@@ -229,11 +272,18 @@ impl VkFramebuffer {
         VkImage::new(device.clone(), image_create_info)
     }
 
-    fn create_depth_attachment(device: Arc<VkDevice>, extent: ash::vk::Extent2D, format: ash::vk::Format, image_usage_flag: ash::vk::ImageUsageFlags) -> VkImage {
+    fn create_depth_attachment(
+        device: Arc<VkDevice>,
+        extent: ash::vk::Extent2D,
+        format: ash::vk::Format,
+        image_usage_flag: ash::vk::ImageUsageFlags,
+    ) -> VkImage {
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
-            usage: ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | ash::vk::ImageUsageFlags::SAMPLED | image_usage_flag,
+            usage: ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
+                | ash::vk::ImageUsageFlags::SAMPLED
+                | image_usage_flag,
             memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
             aspect: ash::vk::ImageAspectFlags::DEPTH,
             tiling: ash::vk::ImageTiling::OPTIMAL,
@@ -250,7 +300,12 @@ impl VkFramebuffer {
         VkImage::new(device.clone(), image_create_info)
     }
 
-    fn create_render_pass(device: Arc<VkDevice>, attachment_formats: &[ash::vk::Format], render_pass_create_info: &RenderPassCreateInfo, attachment_count: u32) -> ash::vk::RenderPass {
+    fn create_render_pass(
+        device: Arc<VkDevice>,
+        attachment_formats: &[ash::vk::Format],
+        render_pass_create_info: &RenderPassCreateInfo,
+        attachment_count: u32,
+    ) -> ash::vk::RenderPass {
         let use_final_layouts = if !render_pass_create_info.final_layouts.is_empty() {
             #[cfg(debug_assertions)]
             if (render_pass_create_info.final_layouts.len() as u32) < attachment_count {
@@ -314,10 +369,10 @@ impl VkFramebuffer {
             let final_layout = if use_final_layouts {
                 render_pass_create_info.final_layouts[index]
             } else if depth {
-                    depth_attachment_count += 1;
-                    ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                depth_attachment_count += 1;
+                ash::vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
             } else {
-                    ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+                ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
             };
 
             // Description
@@ -364,7 +419,12 @@ impl VkFramebuffer {
             .subpasses(&subpass)
             .dependencies(&render_pass_create_info.dependencies);
 
-        unsafe { device.get_device().create_render_pass(&render_pass_create_info_vk, None)}.unwrap_or_else(|e| {
+        unsafe {
+            device
+                .get_device()
+                .create_render_pass(&render_pass_create_info_vk, None)
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to create render pass, error: {e}");
             panic!();
         })
@@ -474,6 +534,22 @@ impl VkFramebuffer {
 
     pub(crate) fn get_image(&self, index: u32) -> Arc<VkImage> {
         self.images[index as usize].clone()
+    }
+
+    pub(crate) fn get_images(&self) -> &Vec<Arc<VkImage>> {
+        &self.images
+    }
+
+    pub(crate) fn get_image_view(&self, image_index: u32, view_index: u32) -> ash::vk::ImageView {
+        self.images[image_index as usize].image_views[view_index as usize]
+    }
+
+    pub(crate) fn get_image_views(&self, image_index: u32) -> &[ash::vk::ImageView] {
+        &self.images[image_index as usize].image_views
+    }
+
+    pub(crate) fn get_extent(&self) -> ash::vk::Extent2D {
+        self.extent
     }
 }
 

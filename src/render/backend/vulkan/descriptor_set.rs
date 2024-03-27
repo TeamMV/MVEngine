@@ -1,4 +1,10 @@
-use std::any::{Any, TypeId};
+use crate::render::backend::descriptor_set::{
+    MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo,
+};
+#[cfg(feature = "ray-tracing")]
+use crate::render::backend::pipeline::RayTracing;
+use crate::render::backend::pipeline::{Compute, Graphics, PipelineType};
+use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
@@ -6,16 +12,12 @@ use crate::render::backend::vulkan::descriptors::descriptor_writer::VkDescriptor
 use crate::render::backend::vulkan::descriptors::{descriptor_set_layout, descriptor_writer};
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::pipeline::VkPipeline;
+use ash::vk::Handle;
 use log::log;
+use parking_lot::Mutex;
+use std::any::{Any, TypeId};
 use std::ffi::CString;
 use std::sync::Arc;
-use ash::vk::Handle;
-use parking_lot::Mutex;
-use crate::render::backend::descriptor_set::{MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo};
-use crate::render::backend::pipeline::{Compute, Graphics, PipelineType};
-use crate::render::backend::to_ascii_cstring;
-#[cfg(feature = "ray-tracing")]
-use crate::render::backend::pipeline::RayTracing;
 
 pub(crate) struct VkDescriptorSet {
     device: Arc<VkDevice>,
@@ -42,7 +44,6 @@ pub(crate) struct FromLayoutCreateInfo {
     #[cfg(debug_assertions)]
     debug_name: CString,
 }
-
 
 impl From<MVDescriptorSetCreateInfo> for CreateInfo {
     fn from(value: MVDescriptorSetCreateInfo) -> Self {
@@ -90,13 +91,16 @@ impl VkDescriptorSet {
         };
         let layout = VkDescriptorSetLayout::new(device.clone(), layout_create_info).into();
 
-        Self::from_layout(device, FromLayoutCreateInfo {
-            pool: create_info.pool,
-            layout,
+        Self::from_layout(
+            device,
+            FromLayoutCreateInfo {
+                pool: create_info.pool,
+                layout,
 
-            #[cfg(debug_assertions)]
-            debug_name: create_info.debug_name,
-        })
+                #[cfg(debug_assertions)]
+                debug_name: create_info.debug_name,
+            },
+        )
     }
 
     pub(crate) fn from_layout(device: Arc<VkDevice>, create_info: FromLayoutCreateInfo) -> Self {
@@ -112,15 +116,13 @@ impl VkDescriptorSet {
 
                     // Push Empty structures
                     for i in 0..binding.descriptor_count {
-                        writes[writes_index]
-                            .binding_data
-                            .push(BindingData::Image(
-                                ash::vk::DescriptorImageInfo {
-                                    sampler: ash::vk::Sampler::null(),
-                                    image_view: ash::vk::ImageView::null(),
-                                    image_layout: ash::vk::ImageLayout::UNDEFINED,
-                                }
-                            ));
+                        writes[writes_index].binding_data.push(BindingData::Image(
+                            ash::vk::DescriptorImageInfo {
+                                sampler: ash::vk::Sampler::null(),
+                                image_view: ash::vk::ImageView::null(),
+                                image_layout: ash::vk::ImageLayout::UNDEFINED,
+                            },
+                        ));
                     }
                 }
                 ash::vk::DescriptorType::STORAGE_IMAGE => {
@@ -132,15 +134,13 @@ impl VkDescriptorSet {
 
                     // Push Empty structures
                     for i in 0..binding.descriptor_count {
-                        writes[writes_index]
-                            .binding_data
-                            .push(BindingData::Image(
-                                ash::vk::DescriptorImageInfo {
-                                    sampler: ash::vk::Sampler::null(),
-                                    image_view: ash::vk::ImageView::null(),
-                                    image_layout: ash::vk::ImageLayout::UNDEFINED,
-                                }
-                            ));
+                        writes[writes_index].binding_data.push(BindingData::Image(
+                            ash::vk::DescriptorImageInfo {
+                                sampler: ash::vk::Sampler::null(),
+                                image_view: ash::vk::ImageView::null(),
+                                image_layout: ash::vk::ImageLayout::UNDEFINED,
+                            },
+                        ));
                     }
                 }
                 ash::vk::DescriptorType::UNIFORM_BUFFER => {
@@ -152,15 +152,13 @@ impl VkDescriptorSet {
 
                     // Push Empty structures
                     for i in 0..binding.descriptor_count {
-                        writes[writes_index]
-                            .binding_data
-                            .push(BindingData::Buffer(
-                                ash::vk::DescriptorBufferInfo {
-                                    buffer: ash::vk::Buffer::null(),
-                                    offset: 0,
-                                    range: 0,
-                                }
-                            ));
+                        writes[writes_index].binding_data.push(BindingData::Buffer(
+                            ash::vk::DescriptorBufferInfo {
+                                buffer: ash::vk::Buffer::null(),
+                                offset: 0,
+                                range: 0,
+                            },
+                        ));
                     }
                 }
                 ash::vk::DescriptorType::STORAGE_BUFFER => {
@@ -172,15 +170,13 @@ impl VkDescriptorSet {
 
                     // Push Empty structures
                     for i in 0..binding.descriptor_count {
-                        writes[writes_index]
-                            .binding_data
-                            .push(BindingData::Buffer(
-                                ash::vk::DescriptorBufferInfo {
-                                    buffer: ash::vk::Buffer::null(),
-                                    offset: 0,
-                                    range: 0,
-                                }
-                            ));
+                        writes[writes_index].binding_data.push(BindingData::Buffer(
+                            ash::vk::DescriptorBufferInfo {
+                                buffer: ash::vk::Buffer::null(),
+                                offset: 0,
+                                range: 0,
+                            },
+                        ));
                     }
                 }
                 _ => {
@@ -217,7 +213,8 @@ impl VkDescriptorSet {
         // Check if the binding type matches TYPE_UNIFORM_BUFFER or STORAGE_BUFFER.
         #[cfg(debug_assertions)]
         if self.layout.get_binding(binding).descriptor_type.as_raw()
-            & (ash::vk::DescriptorType::UNIFORM_BUFFER.as_raw() | ash::vk::DescriptorType::STORAGE_BUFFER.as_raw())
+            & (ash::vk::DescriptorType::UNIFORM_BUFFER.as_raw()
+                | ash::vk::DescriptorType::STORAGE_BUFFER.as_raw())
             == 0
         {
             log::error!("Binding in the layout has different type, type in the layout: {}. type you want to add: {}", self.layout.get_binding(binding).descriptor_type.as_raw(), self.layout.get_binding(binding).descriptor_type.as_raw());
@@ -302,45 +299,63 @@ impl VkDescriptorSet {
 
         for (index, binding) in self.bindings_write_info.iter().enumerate() {
             match binding.descriptors_type {
-                ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER | ash::vk::DescriptorType::STORAGE_IMAGE => {
-                    let binding_data = binding.binding_data.iter().map(|data| {
-                        let BindingData::Image(image) = data else {
-                            log::error!("Invalid binding data for Image descriptor type");
-                            panic!()
-                        };
-                        *image
-                    }).collect::<Vec<_>>();
+                ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER
+                | ash::vk::DescriptorType::STORAGE_IMAGE => {
+                    let binding_data = binding
+                        .binding_data
+                        .iter()
+                        .map(|data| {
+                            let BindingData::Image(image) = data else {
+                                log::error!("Invalid binding data for Image descriptor type");
+                                panic!()
+                            };
+                            *image
+                        })
+                        .collect::<Vec<_>>();
                     binding_data_image.push(binding_data);
-                    writer.write_image(index as u32, &binding_data_image[binding_data_image.len() - 1]);
+                    writer.write_image(
+                        index as u32,
+                        &binding_data_image[binding_data_image.len() - 1],
+                    );
                 }
-                ash::vk::DescriptorType::STORAGE_BUFFER | ash::vk::DescriptorType::UNIFORM_BUFFER => {
-                    let binding_data = binding.binding_data.iter().map(|data| {
-                        let BindingData::Buffer(buffer) = data else {
-                            log::error!("Invalid binding data for Buffer descriptor type");
-                            panic!()
-                        };
-                        *buffer
-                    }).collect::<Vec<_>>();
+                ash::vk::DescriptorType::STORAGE_BUFFER
+                | ash::vk::DescriptorType::UNIFORM_BUFFER => {
+                    let binding_data = binding
+                        .binding_data
+                        .iter()
+                        .map(|data| {
+                            let BindingData::Buffer(buffer) = data else {
+                                log::error!("Invalid binding data for Buffer descriptor type");
+                                panic!()
+                            };
+                            *buffer
+                        })
+                        .collect::<Vec<_>>();
                     binding_data_buffer.push(binding_data);
                     log::info!("TEST: {index}");
-                    writer.write_buffer(index as u32, &binding_data_buffer[binding_data_buffer.len() - 1]);
+                    writer.write_buffer(
+                        index as u32,
+                        &binding_data_buffer[binding_data_buffer.len() - 1],
+                    );
                 }
-                _ => {
-
-                }
+                _ => {}
             }
         }
 
         writer.build(&mut self.handle, &mut self.pool_index, true);
     }
 
-    pub(crate) fn bind<Type: PipelineType + 'static>(&self, set_index: u32, pipeline: &VkPipeline<Type>, cmd: &VkCommandBuffer) {
+    pub(crate) fn bind<Type: PipelineType + 'static>(
+        &self,
+        set_index: u32,
+        pipeline: &VkPipeline<Type>,
+        cmd: &VkCommandBuffer,
+    ) {
         let bind_point = if TypeId::of::<Type>() == TypeId::of::<Graphics>() {
             ash::vk::PipelineBindPoint::GRAPHICS
         } else if TypeId::of::<Type>() == TypeId::of::<Compute>() {
             ash::vk::PipelineBindPoint::COMPUTE
-        }
-        else {
+        } else {
             #[cfg(feature = "ray-tracing")]
             if TypeId::of::<Type>() == TypeId::of::<RayTracing>() {
                 ash::vk::PipelineBindPoint::RAY_TRACING_KHR
@@ -379,7 +394,9 @@ impl VkDescriptorSet {
 impl Drop for VkDescriptorSet {
     fn drop(&mut self) {
         if self.handle.as_raw() != 0 {
-            self.pool.lock().free_descriptor_sets(self.pool_index, self.handle);
+            self.pool
+                .lock()
+                .free_descriptor_sets(self.pool_index, self.handle);
         }
     }
 }

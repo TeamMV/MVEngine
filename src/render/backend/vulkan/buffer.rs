@@ -272,6 +272,22 @@ impl VkBuffer {
     pub(crate) fn get_buffer(&self) -> ash::vk::Buffer {
         self.handle
     }
+
+    pub(crate) fn get_size(&self) -> ash::vk::DeviceSize {
+        self.buffer_size
+    }
+
+    pub(crate) fn get_usage_flags(&self) -> ash::vk::BufferUsageFlags {
+        self.usage_flags
+    }
+
+    pub(crate) fn get_memory_properties(&self) -> ash::vk::MemoryPropertyFlags {
+        self.memory_properties
+    }
+
+    pub(crate) fn is_mapped(&self) -> bool {
+        self.mapped != std::ptr::null_mut()
+    }
 }
 
 impl Drop for VkBuffer {

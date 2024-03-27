@@ -1,22 +1,22 @@
-use std::ffi::CString;
-use std::sync::Arc;
-use bitflags::bitflags;
-use mvcore_proc_macro::graphics_item;
 use crate::render::backend::buffer::{Buffer, MemoryProperties};
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
-use crate::render::backend::Extent2D;
 use crate::render::backend::vulkan::image::VkImage;
+use crate::render::backend::Extent2D;
+use bitflags::bitflags;
+use mvcore_proc_macro::graphics_item;
+use std::ffi::CString;
+use std::sync::Arc;
 
 pub(crate) enum ImageType {
     Image2D,
     Image2DArray,
-    Cubemap
+    Cubemap,
 }
 
 pub(crate) enum ImageTiling {
     Optimal,
-    Linear
+    Linear,
 }
 
 pub(crate) enum ImageFormat {
@@ -93,7 +93,9 @@ pub(crate) enum Image {
 impl Image {
     pub(crate) fn new(device: Device, create_info: MVImageCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Image::Vulkan(VkImage::new(device, create_info.into()).into()),
+            Device::Vulkan(device) => {
+                Image::Vulkan(VkImage::new(device, create_info.into()).into())
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
@@ -101,9 +103,20 @@ impl Image {
         }
     }
 
-    pub(crate) fn transition_layout(&self, new_layout: ImageLayout, command_buffer: Option<&CommandBuffer>, src: ash::vk::AccessFlags, dst: ash::vk::AccessFlags) {
+    pub(crate) fn transition_layout(
+        &self,
+        new_layout: ImageLayout,
+        command_buffer: Option<&CommandBuffer>,
+        src: ash::vk::AccessFlags,
+        dst: ash::vk::AccessFlags,
+    ) {
         match self {
-            Image::Vulkan(image) => image.transition_layout(new_layout.into(), command_buffer.map(|cmd| cmd.as_vulkan()), src, dst),
+            Image::Vulkan(image) => image.transition_layout(
+                new_layout.into(),
+                command_buffer.map(|cmd| cmd.as_vulkan()),
+                src,
+                dst,
+            ),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
@@ -111,9 +124,16 @@ impl Image {
         }
     }
 
-    pub(crate) fn copy_buffer_to_image(&self, buffer: &Buffer, command_buffer: Option<&CommandBuffer>) {
+    pub(crate) fn copy_buffer_to_image(
+        &self,
+        buffer: &Buffer,
+        command_buffer: Option<&CommandBuffer>,
+    ) {
         match self {
-            Image::Vulkan(image) => image.copy_buffer_to_image(buffer.as_vulkan(), command_buffer.map(|cmd| cmd.as_vulkan())),
+            Image::Vulkan(image) => image.copy_buffer_to_image(
+                buffer.as_vulkan(),
+                command_buffer.map(|cmd| cmd.as_vulkan()),
+            ),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]

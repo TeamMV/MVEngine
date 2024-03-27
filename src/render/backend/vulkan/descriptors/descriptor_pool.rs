@@ -1,11 +1,11 @@
+use crate::render::backend::descriptor_set::MVDescriptorPoolCreateInfo;
+use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 use crate::render::backend::vulkan::device::VkDevice;
 use ash::vk::Handle;
 use std::any::Any;
 use std::ffi::CString;
 use std::sync::Arc;
-use crate::render::backend::descriptor_set::MVDescriptorPoolCreateInfo;
-use crate::render::backend::to_ascii_cstring;
 
 pub(crate) struct VkDescriptorPool {
     device: Arc<VkDevice>,
@@ -33,12 +33,14 @@ pub(crate) struct CreateInfo {
 impl From<MVDescriptorPoolCreateInfo> for CreateInfo {
     fn from(value: MVDescriptorPoolCreateInfo) -> Self {
         CreateInfo {
-            pool_sizes: value.sizes.into_iter().map(|size|{
-                ash::vk::DescriptorPoolSize {
+            pool_sizes: value
+                .sizes
+                .into_iter()
+                .map(|size| ash::vk::DescriptorPoolSize {
                     ty: size.ty.into(),
                     descriptor_count: size.count,
-                }
-            }).collect(),
+                })
+                .collect(),
             max_sets: value.max_sets,
             pool_flags: ash::vk::DescriptorPoolCreateFlags::from_raw(value.flags.bits() as u32),
 
@@ -129,10 +131,13 @@ impl VkDescriptorPool {
     pub(crate) fn free_descriptor_sets(&mut self, pool_index: usize, set: ash::vk::DescriptorSet) {
         let sets = [set];
         unsafe {
-            self.device.get_device().free_descriptor_sets(self.handles[pool_index], &sets).unwrap_or_else(|e| {
-                log::error!("Failed to free descriptor set, error: {e}");
-                panic!();
-            });
+            self.device
+                .get_device()
+                .free_descriptor_sets(self.handles[pool_index], &sets)
+                .unwrap_or_else(|e| {
+                    log::error!("Failed to free descriptor set, error: {e}");
+                    panic!();
+                });
         }
     }
 
@@ -168,7 +173,9 @@ impl Drop for VkDescriptorPool {
     fn drop(&mut self) {
         unsafe {
             for handle in &self.handles {
-                self.device.get_device().destroy_descriptor_pool(*handle, None);
+                self.device
+                    .get_device()
+                    .destroy_descriptor_pool(*handle, None);
             }
         }
     }

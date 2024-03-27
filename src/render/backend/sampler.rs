@@ -1,6 +1,6 @@
-use mvcore_proc_macro::graphics_item;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::sampler::VkSampler;
+use mvcore_proc_macro::graphics_item;
 
 #[derive(Copy, Clone)]
 pub(crate) enum SamplerAddressMode {
@@ -13,7 +13,7 @@ pub(crate) enum SamplerAddressMode {
 #[derive(Copy, Clone)]
 pub(crate) enum Filter {
     Nearest,
-    Linear
+    Linear,
 }
 
 #[derive(Copy, Clone)]
@@ -42,12 +42,13 @@ pub(crate) enum Sampler {
 impl Sampler {
     pub(crate) fn new(device: Device, create_info: MVSamplerCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Sampler::Vulkan(VkSampler::new(device, create_info.into()).into()),
+            Device::Vulkan(device) => {
+                Sampler::Vulkan(VkSampler::new(device, create_info.into()).into())
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             Device::DirectX => unimplemented!(),
         }
     }
-
 }

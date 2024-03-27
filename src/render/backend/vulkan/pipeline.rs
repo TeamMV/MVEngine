@@ -11,10 +11,10 @@ use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::shader::{CreateInfo, VkShader};
 use ash::vk::Handle;
+use num_traits::AsPrimitive;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use num_traits::AsPrimitive;
 
 pub(crate) struct GraphicsCreateInfo {
     shaders: Vec<VkShader>,
@@ -270,29 +270,22 @@ impl VkPipeline {
             shader_stages.push(shader.create_stage_create_info());
         }
 
-        let viewports = [
-            ash::vk::Viewport {
-                x: 0.0,
-                y: 0.0,
-                width: create_info.extent.width as f32,
-                height: create_info.extent.height as f32,
-                min_depth: 0.0,
-                max_depth: 1.0,
-            }
-        ];
+        let viewports = [ash::vk::Viewport {
+            x: 0.0,
+            y: 0.0,
+            width: create_info.extent.width as f32,
+            height: create_info.extent.height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }];
 
-        let scissors = [
-            ash::vk::Rect2D {
-                offset: ash::vk::Offset2D {
-                    x: 0,
-                    y: 0,
-                },
-                extent: ash::vk::Extent2D {
-                    width: create_info.extent.width,
-                    height: create_info.extent.height,
-                },
-            }
-        ];
+        let scissors = [ash::vk::Rect2D {
+            offset: ash::vk::Offset2D { x: 0, y: 0 },
+            extent: ash::vk::Extent2D {
+                width: create_info.extent.width,
+                height: create_info.extent.height,
+            },
+        }];
 
         let viewport_state_info = ash::vk::PipelineViewportStateCreateInfo::builder()
             .viewport_count(1)
@@ -300,8 +293,8 @@ impl VkPipeline {
             .scissor_count(1)
             .scissors(&scissors);
 
-        let dynamic_state_info = ash::vk::PipelineDynamicStateCreateInfo::builder()
-            .dynamic_states(&[
+        let dynamic_state_info =
+            ash::vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&[
                 ash::vk::DynamicState::SCISSOR,
                 ash::vk::DynamicState::VIEWPORT,
             ]);
@@ -380,18 +373,16 @@ impl VkPipeline {
 
         let mut color_blend_attachments = Vec::new();
         for i in 0..create_info.color_attachments_count {
-            color_blend_attachments.push(
-                ash::vk::PipelineColorBlendAttachmentState {
-                    blend_enable: create_info.blending_enable as u32,
-                    src_color_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
-                    dst_color_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
-                    color_blend_op: ash::vk::BlendOp::ADD,
-                    src_alpha_blend_factor: ash::vk::BlendFactor::ONE,
-                    dst_alpha_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
-                    alpha_blend_op: ash::vk::BlendOp::ADD,
-                    color_write_mask: ash::vk::ColorComponentFlags::RGBA,
-                },
-            )
+            color_blend_attachments.push(ash::vk::PipelineColorBlendAttachmentState {
+                blend_enable: create_info.blending_enable as u32,
+                src_color_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
+                dst_color_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+                color_blend_op: ash::vk::BlendOp::ADD,
+                src_alpha_blend_factor: ash::vk::BlendFactor::ONE,
+                dst_alpha_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+                alpha_blend_op: ash::vk::BlendOp::ADD,
+                color_write_mask: ash::vk::ColorComponentFlags::RGBA,
+            })
         }
 
         let depth_stencil_info = ash::vk::PipelineDepthStencilStateCreateInfo::builder()

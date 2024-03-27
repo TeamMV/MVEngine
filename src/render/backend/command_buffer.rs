@@ -1,11 +1,11 @@
 use crate::render::backend::buffer::Buffer;
+use crate::render::backend::descriptor_set::DescriptorSet;
 use crate::render::backend::device::{CommandPool, Device};
+use crate::render::backend::pipeline::{Pipeline, PipelineType};
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
-use mvcore_proc_macro::graphics_item;
-use crate::render::backend::descriptor_set::DescriptorSet;
 use crate::render::backend::Extent3D;
-use crate::render::backend::pipeline::{Pipeline, PipelineType};
+use mvcore_proc_macro::graphics_item;
 
 pub(crate) enum CommandBufferLevel {
     Primary,
@@ -185,7 +185,12 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn bind_descriptor_set<Type: PipelineType>(&self, pipeline: &Pipeline, descriptor_set: &mut DescriptorSet, set_index: u32) {
+    pub(crate) fn bind_descriptor_set<Type: PipelineType>(
+        &self,
+        pipeline: &Pipeline,
+        descriptor_set: &mut DescriptorSet,
+        set_index: u32,
+    ) {
         descriptor_set.bind(self, pipeline, set_index);
     }
 }
