@@ -19,8 +19,8 @@ impl Camera2D {
             zoom: 1.0,
             projection: Mat4::default(),
             view: Mat4::default(),
-            z_near: 0.0,
-            z_far: 2000.0,
+            z_near: 0.01,
+            z_far: 100.0,
         }
             .setup(width, height)
     }
@@ -37,7 +37,7 @@ impl Camera2D {
         self.view = Mat4::from_scale_rotation_translation(
             Vec3::new(self.zoom, self.zoom, self.zoom),
             Quat::from_rotation_z(self.rotation),
-            Vec3::from((self.position, 0.0)),
+            Vec3::from((self.position, 1.0)),
         );
 
         *self.view.col_mut(1) *= -1.0f32; // this should invert the up direction?

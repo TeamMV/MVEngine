@@ -186,7 +186,7 @@ impl Render2d {
             bindings: vec![
                 DescriptorSetLayoutBinding {
                     index: 0,
-                    stages: ShaderStage::Vertex,
+                    stages: ShaderStage::Vertex | ShaderStage::Geometry,
                     ty: DescriptorType::UniformBuffer,
                     count: 1,
                 }
@@ -254,8 +254,8 @@ impl Render2d {
 
         let vertex_data =
             [
-                100.0f32, 100.0, 50.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,    // Left Square
-                0.5, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0      // Right Square
+                100.0f32, -100.0, 150.0, 150.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,    // Left Square
+                500.5, -100.0, 150.0, 150.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0      // Right Square
             ];
 
         let byte_data_vertex = unsafe {
@@ -291,7 +291,6 @@ impl Render2d {
         let swapchain = state.get_swapchain();
         let framebuffer = swapchain.get_current_framebuffer();
         let matrix_set = &mut self.matrix_sets[swapchain.get_current_frame() as usize];
-
 
         framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.1, 0.1, 0.1, 1.0])], swapchain.get_extent());
 

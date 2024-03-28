@@ -16,6 +16,11 @@ struct geometryOutStruct {
 layout(location = 0) in vertexOutStruct vertexOut[];
 layout(location = 0) out geometryOutStruct geometryOut;
 
+layout(set = 0, binding = 0) uniform Matrices {
+    mat4 view;
+    mat4 proj;
+} mat;
+
 layout (points) in;
 layout (triangle_strip, max_vertices = 4) out;
 
@@ -38,7 +43,7 @@ void main() {
     geometryOut.color = vertex.color;
 
     for (int i = 0; i < 4; i++) {
-        gl_Position = vertices[i];
+        gl_Position = mat.proj * vertices[i];
         geometryOut.texCoords = texCoord[i];
         EmitVertex();
     }

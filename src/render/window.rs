@@ -6,6 +6,7 @@ use winit::window::{Fullscreen, Theme, WindowBuilder};
 use crate::render::ApplicationLoopCallbacks;
 use crate::render::backend::image::ImageLayout;
 use crate::render::backend::swapchain::SwapchainError;
+use crate::render::camera2d::Camera2D;
 use crate::render::state::State;
 use crate::render::render2d::Render2d;
 
@@ -92,6 +93,7 @@ pub struct Window {
     event_loop: Option<EventLoop<()>>,
     state: State,
     render_2d: Render2d,
+    camera: Camera2D
 }
 
 impl Window {
@@ -115,12 +117,15 @@ impl Window {
 
         let render_2d = Render2d::new(&state, &info);
 
+        let camera = Camera2D::new(state.get_swapchain().get_extent().width, state.get_swapchain().get_extent().height);
+
         Window {
             info,
             handle: window,
             event_loop: Some(event_loop),
             state,
             render_2d,
+            camera
         }
     }
 
@@ -184,7 +189,13 @@ impl Window {
 
     pub(crate) fn render(&mut self) -> Result<(), SwapchainError> {
         let image_index = self.state.begin_frame()?;
+
         let cmd = self.state.get_current_command_buffer();
+
+        self.camera.update_view();
+        self.camera.update_projection(self.state.get_swapchain().get_extent().width, self.state.get_swapchain().get_extent().height);
+        self.render_2d.update_matrices(&self.state, cmd, self.camera.get_view(), self.camera.get_projection());
+
         let framebuffer = self.state.get_current_framebuffer();
 
         self.render_2d.draw(&self.state, cmd);

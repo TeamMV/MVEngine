@@ -21,7 +21,7 @@ layout(set = 0, binding = 0) uniform Matrices {
 } mat;
 
 void main() {
-    gl_Position = mat.proj * mat.view * vec4(pos, 0.0, 1.0);
+    gl_Position = mat.view * vec4(pos, 0.0, 1.0);
     vertexOut.size = size;
     vertexOut.color = color;
     vertexOut.texID = int(texID);
