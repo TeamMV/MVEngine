@@ -56,7 +56,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn get_size(&self, size: u64, offset: u64) -> u64 {
+    pub(crate) fn get_size(&self) -> u64 {
         match self {
             Buffer::Vulkan(buffer) => buffer.get_size(),
             #[cfg(target_os = "macos")]

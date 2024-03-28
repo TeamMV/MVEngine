@@ -160,7 +160,7 @@ impl DescriptorSet {
     ) -> Self {
         match device {
             Device::Vulkan(device) => {
-                DescriptorSet::Vulkan(VkDescriptorSet::from_layout(device, create_info.into()))
+                DescriptorSet::Vulkan(VkDescriptorSet::from_layout(device, create_info.into()).into())
             }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),

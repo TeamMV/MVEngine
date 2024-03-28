@@ -135,6 +135,37 @@ impl Swapchain {
             Swapchain::DirectX => unimplemented!(),
         }
     }
+
+    pub(crate) fn get_current_image_index(&self) -> u32 {
+        match self {
+            Swapchain::Vulkan(swapchain) => swapchain.get_current_image_index(),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
+
+
+    pub(crate) fn get_image_count(&self) -> u32 {
+        match self {
+            Swapchain::Vulkan(swapchain) => swapchain.get_image_count(),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn get_max_frames_in_flight(&self) -> u32 {
+        match self {
+            Swapchain::Vulkan(swapchain) => swapchain.get_max_frames_in_flight(),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

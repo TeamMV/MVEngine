@@ -18,6 +18,7 @@ pub(crate) struct VkSwapchain {
     handle: ash::vk::SwapchainKHR,
     current_frame: u32,
     current_image_index: u32,
+    image_count: u32,
     in_flight_fences: Vec<ash::vk::Fence>,
     wait_semaphores: Vec<ash::vk::Semaphore>,
     signal_semaphores: Vec<ash::vk::Semaphore>,
@@ -149,7 +150,7 @@ impl VkSwapchain {
             .clipped(true); // discards pixels that are obscured (for example behind other window);
 
         if create_info.prev_swapchain.is_some() {
-            vk_create_info.old_swapchain = create_info.prev_swapchain.unwrap().handle;
+            vk_create_info.old_swapchain = create_info.prev_swapchain.as_ref().unwrap().handle;
         }
 
         let indices = device.get_indices();
@@ -231,7 +232,7 @@ impl VkSwapchain {
                     mip_level_count: 0,
                     usage: ash::vk::ImageUsageFlags::SAMPLED,
                     memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
-                    layout: ash::vk::ImageLayout::PRESENT_SRC_KHR.into(),
+                    layout: ash::vk::ImageLayout::UNDEFINED.into(),
                     memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
                     drop: false,
                 }
@@ -264,6 +265,7 @@ impl VkSwapchain {
             present_mode,
             max_frames_in_flight: create_info.max_frames_in_flight,
             extent: create_info.window_extent,
+            image_count
         }
     }
 
@@ -532,6 +534,18 @@ impl VkSwapchain {
 
     pub(crate) fn get_current_frame(&self) -> u32 {
         self.current_frame
+    }
+
+    pub(crate) fn get_image_count(&self) -> u32 {
+        self.image_count
+    }
+
+    pub(crate) fn get_current_image_index(&self) -> u32 {
+        self.current_image_index
+    }
+
+    pub(crate) fn get_max_frames_in_flight(&self) -> u32 {
+        self.max_frames_in_flight
     }
 }
 

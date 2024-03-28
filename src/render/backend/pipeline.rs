@@ -31,6 +31,7 @@ pub(crate) enum AttributeType {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum Topology {
+    Point,
     Line,
     LineStrip,
     Triangle,

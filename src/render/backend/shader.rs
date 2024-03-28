@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
 use bitflags::bitflags;
@@ -33,9 +34,10 @@ bitflags! {
     }
 }
 
-#[graphics_item(ref)]
+#[graphics_item(clone)]
+#[derive(Clone)]
 pub(crate) enum Shader {
-    Vulkan(VkShader),
+    Vulkan(Arc<VkShader>),
     #[cfg(target_os = "macos")]
     Metal,
     #[cfg(target_os = "windows")]
@@ -45,7 +47,7 @@ pub(crate) enum Shader {
 impl Shader {
     pub(crate) fn new(device: Device, create_info: MVShaderCreateInfo) -> Shader {
         match device {
-            Device::Vulkan(device) => Shader::Vulkan(VkShader::new(device, create_info.into())),
+            Device::Vulkan(device) => Shader::Vulkan(VkShader::new(device, create_info.into()).into()),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

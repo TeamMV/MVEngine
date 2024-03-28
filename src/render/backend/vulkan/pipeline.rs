@@ -17,7 +17,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub(crate) struct GraphicsCreateInfo {
-    shaders: Vec<VkShader>,
+    shaders: Vec<Arc<VkShader>>,
     bindings_descriptions: Vec<ash::vk::VertexInputBindingDescription>,
     attribute_descriptions: Vec<ash::vk::VertexInputAttributeDescription>,
     extent: ash::vk::Extent2D,
@@ -36,7 +36,7 @@ pub(crate) struct GraphicsCreateInfo {
 }
 
 pub(crate) struct ComputeCreateInfo {
-    shader: VkShader,
+    shader: Arc<VkShader>,
     descriptor_set_layouts: Vec<ash::vk::DescriptorSetLayout>,
     push_constants: Vec<ash::vk::PushConstantRange>,
 
@@ -46,9 +46,9 @@ pub(crate) struct ComputeCreateInfo {
 
 #[cfg(feature = "ray-tracing")]
 pub(crate) struct RayTracingCreateInfo {
-    ray_gen_shaders: Vec<VkShader>,
-    closest_hit_shaders: Vec<VkShader>,
-    miss_shaders: Vec<VkShader>,
+    ray_gen_shaders: Vec<Arc<VkShader>>,
+    closest_hit_shaders: Vec<Arc<VkShader>>,
+    miss_shaders: Vec<Arc<VkShader>>,
     descriptor_set_layouts: Vec<ash::vk::DescriptorSetLayout>,
     push_constants: Vec<ash::vk::PushConstantRange>,
 
@@ -70,6 +70,7 @@ impl From<AttributeType> for ash::vk::Format {
 impl From<Topology> for ash::vk::PrimitiveTopology {
     fn from(value: Topology) -> Self {
         match value {
+            Topology::Point => ash::vk::PrimitiveTopology::POINT_LIST,
             Topology::Line => ash::vk::PrimitiveTopology::LINE_LIST,
             Topology::LineStrip => ash::vk::PrimitiveTopology::LINE_STRIP,
             Topology::Triangle => ash::vk::PrimitiveTopology::TRIANGLE_LIST,

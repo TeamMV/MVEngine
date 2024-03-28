@@ -777,6 +777,7 @@ impl VkDevice {
             .collect::<Vec<_>>();
 
         let mut features = ash::vk::PhysicalDeviceFeatures2::builder();
+        features.features.geometry_shader = true as ash::vk::Bool32;
 
         let mut synch2 = ash::vk::PhysicalDeviceSynchronization2Features::builder()
             .synchronization2(true)
