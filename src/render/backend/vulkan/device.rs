@@ -1020,7 +1020,7 @@ impl VkDevice {
         create_info: &ash::vk::ImageCreateInfo,
         flags: ash::vk::MemoryPropertyFlags,
         usage_flags: gpu_alloc::UsageFlags,
-    ) -> ash::vk::Image {
+    ) -> (ash::vk::Image, gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>) {
         let image = unsafe { self.device.create_image(create_info, None) }.unwrap();
         let req = unsafe { self.device.get_image_memory_requirements(image) };
 
@@ -1052,7 +1052,7 @@ impl VkDevice {
             panic!();
         });
 
-        image
+        (image, block)
     }
 
     fn find_memory_type(&self, type_filter: u32, flag: ash::vk::MemoryPropertyFlags) -> u32 {

@@ -100,3 +100,9 @@ impl VkSampler {
         self.handle
     }
 }
+
+impl Drop for VkSampler {
+    fn drop(&mut self) {
+        unsafe { self.device.get_device().destroy_sampler(self.handle, None) };
+    }
+}

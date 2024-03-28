@@ -221,6 +221,7 @@ impl VkSwapchain {
                     device: device.clone(),
                     handle: image,
                     image_views: vec![view],
+                    memory: None,
                     format: color_format.format,
                     aspect: ash::vk::ImageAspectFlags::COLOR,
                     tiling: ash::vk::ImageTiling::OPTIMAL,
@@ -232,6 +233,7 @@ impl VkSwapchain {
                     memory_properties: ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
                     layout: ash::vk::ImageLayout::PRESENT_SRC_KHR.into(),
                     memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                    drop: false,
                 }
                 .into();
 

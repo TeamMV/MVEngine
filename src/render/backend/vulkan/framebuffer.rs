@@ -229,8 +229,8 @@ impl VkFramebuffer {
             render_pass,
             extent: create_info.extent,
             attachment_formats: create_info.attachment_formats,
-            drop_render_pass: false,
-            final_layouts: final_layouts,
+            drop_render_pass: true,
+            final_layouts,
         }
     }
 
@@ -564,13 +564,6 @@ impl Drop for VkFramebuffer {
             self.device
                 .get_device()
                 .destroy_framebuffer(self.handle, None);
-            for image in &self.images {
-                for image_view in image.get_views() {
-                    self.device
-                        .get_device()
-                        .destroy_image_view(*image_view, None);
-                }
-            }
         };
     }
 }

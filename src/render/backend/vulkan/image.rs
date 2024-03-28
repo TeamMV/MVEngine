@@ -11,12 +11,14 @@ use mvutils::unsafe_utils::DangerousCell;
 use std::ffi::CString;
 use std::fmt::format;
 use std::sync::Arc;
+use bitflags::Flags;
 
 pub(crate) struct VkImage {
     pub(crate) device: Arc<VkDevice>,
 
     pub(crate) handle: ash::vk::Image,
     pub(crate) image_views: Vec<ash::vk::ImageView>,
+    pub(crate) memory: Option<gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>>,
     pub(crate) format: ash::vk::Format,
     pub(crate) aspect: ash::vk::ImageAspectFlags,
     pub(crate) tiling: ash::vk::ImageTiling,
@@ -28,6 +30,7 @@ pub(crate) struct VkImage {
     pub(crate) memory_properties: ash::vk::MemoryPropertyFlags,
     pub(crate) layout: DangerousCell<ash::vk::ImageLayout>,
     pub(crate) memory_usage_flags: gpu_alloc::UsageFlags,
+    pub(crate) drop: bool,
 }
 
 pub(crate) struct CreateInfo {
@@ -134,7 +137,7 @@ impl VkImage {
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .flags(flags);
 
-        let image = device.allocate_image(
+        let (image, block) = device.allocate_image(
             &create_info_vk,
             create_info.memory_properties,
             create_info.memory_usage_flags,
@@ -186,6 +189,7 @@ impl VkImage {
             device: device.clone(),
             handle: image,
             image_views: views,
+            memory: Some(block),
             format: create_info.format,
             aspect: create_info.aspect,
             tiling: create_info.tiling,
@@ -197,6 +201,7 @@ impl VkImage {
             memory_properties: create_info.memory_properties,
             layout: ash::vk::ImageLayout::UNDEFINED.into(),
             memory_usage_flags: create_info.memory_usage_flags,
+            drop: true,
         };
 
         if let Some(data) = create_info.data {
@@ -470,5 +475,17 @@ impl VkImage {
 
     pub(crate) fn set_layout(&self, layout: ash::vk::ImageLayout) {
         self.layout.replace(layout);
+    }
+}
+
+impl Drop for VkImage {
+    fn drop(&mut self) {
+        for view in &self.image_views {
+            unsafe { self.device.get_device().destroy_image_view(*view, None) };
+        }
+        if !self.drop { return; }
+        if let Some(memory) = self.memory.take() {
+            self.device.deallocate_image(self.handle, memory)
+        }
     }
 }
