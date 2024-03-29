@@ -25,9 +25,13 @@ pub(crate) enum ImageFormat {
     R8G8B8,
     R8G8B8A8,
     R32,
-    R32B32,
-    R32B32G32,
-    R32B32G32A32,
+    R32G32,
+    R32G32B32,
+    R32G32B32A32,
+    D16,
+    D16S8,
+    D24,
+    D32,
 }
 
 pub(crate) enum ImageLayout {
@@ -134,6 +138,16 @@ impl Image {
                 buffer.as_vulkan(),
                 command_buffer.map(|cmd| cmd.as_vulkan()),
             ),
+            #[cfg(target_os = "macos")]
+            Image::Metal => unreachable!(),
+            #[cfg(target_os = "windows")]
+            Image::DirectX => unreachable!(),
+        }
+    }
+
+    pub(crate) fn get_extent(&self) -> Extent2D {
+        match self {
+            Image::Vulkan(image) => image.get_extent().into(),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]

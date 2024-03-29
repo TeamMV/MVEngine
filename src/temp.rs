@@ -242,7 +242,7 @@ pub fn run() {
     let framebuffer = Framebuffer::new(
         device.clone(),
         MVFramebufferCreateInfo {
-            attachment_formats: vec![ImageFormat::R32B32G32A32],
+            attachment_formats: vec![ImageFormat::R32G32B32A32],
             extent: Extent2D {
                 width: 800,
                 height: 600,
@@ -328,13 +328,13 @@ pub fn run() {
 
     effect_set[0].add_image(
         0,
-        framebuffer.get_image(0),
+        &framebuffer.get_image(0),
         &sampler,
         ImageLayout::ShaderReadOnlyOptimal,
     );
     effect_set[0].add_image(
         1,
-        swapchain.get_framebuffer(0).get_image(0),
+        &swapchain.get_framebuffer(0).get_image(0),
         &sampler,
         ImageLayout::General,
     );
@@ -342,13 +342,13 @@ pub fn run() {
 
     effect_set[1].add_image(
         0,
-        framebuffer.get_image(0),
+        &framebuffer.get_image(0),
         &sampler,
         ImageLayout::ShaderReadOnlyOptimal,
     );
     effect_set[1].add_image(
         1,
-        swapchain.get_framebuffer(1).get_image(0),
+        &swapchain.get_framebuffer(1).get_image(0),
         &sampler,
         ImageLayout::General,
     );

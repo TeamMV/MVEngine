@@ -1,13 +1,17 @@
+use std::sync::Arc;
 use bitflags::Flags;
 use glam::Mat4;
+use gpu_alloc::UsageFlags;
 use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
 use crate::render::backend::buffer::{Buffer, BufferUsage, MemoryProperties, MVBufferCreateInfo};
 use crate::render::backend::command_buffer::CommandBuffer;
-use crate::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo};
+use crate::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo, MVDescriptorSetLayoutCreateInfo};
 use crate::render::backend::device::Device;
-use crate::render::backend::Extent2D;
-use crate::render::backend::framebuffer::ClearColor;
-use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
+use crate::render::backend::{Extent2D, Extent3D};
+use crate::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
+use crate::render::backend::image::{Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
+use crate::render::backend::pipeline::{AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
+use crate::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 use crate::render::state::State;
 use crate::render::window::WindowCreateInfo;
@@ -94,18 +98,167 @@ impl GraphicsPipeline2d {
 struct EffectPipeline2d {
     shader: Shader,
 
+    effect_set_layout: DescriptorSetLayout,
+    image_set: DescriptorSet,
+    input_image: Image,
+    output_image: Image,
+    textures: Arc<Vec<Image>>,
+
     pipeline: Pipeline<Compute>
+}
+
+impl EffectPipeline2d {
+    fn new(state: &State, info: &WindowCreateInfo, shader: Shader, pool: &DescriptorPool, effect_set_layout: DescriptorSetLayout, sampler: &Sampler, input_image: Image, output_image: Image, input_textures: Arc<Vec<Image>>) -> Self {
+        let mut bindings = Vec::new();
+        bindings.push(DescriptorSetLayoutBinding{
+            index: 0,
+            stages: ShaderStage::Compute,
+            ty: DescriptorType::CombinedImageSampler,
+            count: 1,
+        });
+        bindings.push(DescriptorSetLayoutBinding{
+            index: 1,
+            stages: ShaderStage::Compute,
+            ty: DescriptorType::StorageImage,
+            count: 1,
+        });
+
+        for index in 0..input_textures.len() {
+            bindings.push(DescriptorSetLayoutBinding{
+                index: (index + 2) as u32,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::CombinedImageSampler,
+                count: 1,
+            });
+        }
+
+        let image_set_layout = DescriptorSetLayout::new(state.get_device().clone(), MVDescriptorSetLayoutCreateInfo {
+            bindings,
+            label: Some("Effect Pipeline image set".to_string()),
+        });
+        let mut image_set = DescriptorSet::from_layout(state.get_device().clone(), MVDescriptorSetFromLayoutCreateInfo{
+            pool: pool.clone(),
+            layout: image_set_layout.clone(),
+            label: Some("Image Set".to_string()),
+        });
+
+        image_set.add_image(0, &input_image, sampler, ImageLayout::ShaderReadOnlyOptimal);
+        image_set.add_image(1, &output_image, sampler, ImageLayout::General);
+
+        for index in 0..input_textures.len() {
+            image_set.add_image((index + 2) as u32, &input_textures[index], sampler, ImageLayout::ShaderReadOnlyOptimal);
+        }
+
+        image_set.build();
+
+        let pipeline = Pipeline::<Compute>::new(state.get_device(), MVComputePipelineCreateInfo {
+            shader: shader.clone(),
+            descriptor_sets: vec![image_set_layout.clone(), effect_set_layout.clone()],
+            push_constants: vec![],
+            label: Some("Effect pipeline 2d".to_string()),
+        });
+
+        Self {
+            shader,
+            image_set,
+            effect_set_layout,
+            pipeline,
+            input_image,
+            output_image,
+            textures: input_textures
+        }
+    }
+
+    pub(crate) fn run(&self, state: &State, cmd: &CommandBuffer) {
+        self.input_image.transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+        self.output_image.transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+
+        cmd.dispatch(Extent3D{width: self.input_image.get_extent().width, height: self.input_image.get_extent().height, depth: 1});
+    }
+}
+
+struct ToneMap {
+    shader: Shader,
+    image_set: DescriptorSet,
+    input_image: Image,
+    output_image: Image,
+    pipeline: Pipeline<Compute>,
+}
+
+impl ToneMap {
+    fn new(state: &State, info: &WindowCreateInfo, sampler: &Sampler, pool: DescriptorPool, shader: Shader, input_image: Image, output_image: Image) -> Self {
+        let image_set_layout = DescriptorSetLayout::new(state.get_device().clone(), MVDescriptorSetLayoutCreateInfo {
+            bindings: vec![DescriptorSetLayoutBinding{
+                index: 0,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::CombinedImageSampler,
+                count: 1,
+            }, DescriptorSetLayoutBinding{
+                index: 1,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::StorageImage,
+                count: 1,
+            }],
+            label: Some("Effect Pipeline image set".to_string()),
+        });
+        
+        let mut image_set= DescriptorSet::from_layout(state.get_device(), MVDescriptorSetFromLayoutCreateInfo{
+            pool,
+            layout: image_set_layout.clone(),
+            label: Some("Tonemap Set".to_string()),
+        });
+
+        image_set.add_image(0, &input_image, sampler, ImageLayout::ShaderReadOnlyOptimal);
+        image_set.add_image(1, &output_image, sampler, ImageLayout::General);
+
+        image_set.build();
+        
+        let pipeline = Pipeline::<Compute>::new(state.get_device(), MVComputePipelineCreateInfo {
+            shader: shader.clone(),
+            descriptor_sets: vec![image_set_layout],
+            push_constants: vec![],
+            label: Some("Tone mapping pipeline 2d".to_string()),
+        });
+
+        Self {
+            shader,
+            image_set,
+            pipeline,
+            input_image,
+            output_image,
+        }
+    }
+
+    fn resize(&mut self, state: &State, sampler: &Sampler, width: u32, height: u32, input_image: &Image, output_image: &Image) {
+        self.image_set.update_image(0, input_image, sampler, ImageLayout::ShaderReadOnlyOptimal);
+        self.image_set.update_image(1, output_image, sampler, ImageLayout::General);
+    }
+
+    fn run(&self, state: &State, cmd: &CommandBuffer) {
+
+    }
+}
+
+struct Uniform {
+    layout: DescriptorSetLayout,
+    sets: Vec<DescriptorSet>,
+    buffers: Vec<Buffer>,
 }
 
 pub(crate) struct Render2d {
     descriptor_pool: DescriptorPool,
-    matrix_set_layout: DescriptorSetLayout,
-    matrix_sets: Vec<DescriptorSet>,
-    matrix_buffers: Vec<Buffer>,
+    matrix_uniform: Uniform,
     vertex_buffer: Buffer,
+    sampler: Sampler,
 
     square_pipeline: GraphicsPipeline2d,
     default_pipeline: GraphicsPipeline2d,
+
+    tone_maps: Vec<ToneMap>,
+
+    effects: Vec<EffectPipeline2d>,
+    effect_uniform: Uniform,
+    geometry_framebuffers: Vec<Framebuffer>,
 }
 
 impl Render2d {
@@ -134,28 +287,46 @@ impl Render2d {
         let fragment_shader = include_str!("shaders/2d/default.frag");
         let frag_compiled = compile(fragment_shader, "shaders/2d/default.frag", ShaderKind::Fragment);
 
+        let invert_shader = include_str!("shaders/2d/invert.comp");
+        let invert_compiled = compile(invert_shader, "shaders/2d/invert.comp", ShaderKind::Compute);
+
+        let tonemap_shader = include_str!("shaders/2d/tonemap.comp");
+        let tonemap_compiled = compile(tonemap_shader, "shaders/2d/tonemap.comp", ShaderKind::Compute);
+
         let square_vertex = Shader::new(state.get_device(), MVShaderCreateInfo {
             stage: ShaderStage::Vertex,
             code: square_vert_compiled,
-            label: Some("Square 2d vertex shader".to_string()),
+            label: Some("Square vertex shader 2d".to_string()),
         });
 
         let geometry = Shader::new(state.get_device(), MVShaderCreateInfo {
             stage: ShaderStage::Geometry,
             code: geom_compiled,
-            label: Some("Square geometry shader".to_string()),
+            label: Some("Square geometry shader 2d".to_string()),
         });
 
         let vertex = Shader::new(state.get_device(), MVShaderCreateInfo {
             stage: ShaderStage::Vertex,
             code: vert_compiled,
-            label: Some("Default 2d vertex shader".to_string()),
+            label: Some("Default vertex shader 2d".to_string()),
         });
 
         let fragment = Shader::new(state.get_device(), MVShaderCreateInfo {
             stage: ShaderStage::Fragment,
             code: frag_compiled,
-            label: Some("Default 2d fragment shader".to_string()),
+            label: Some("Default fragment shader 2d".to_string()),
+        });
+
+        let invert = Shader::new(state.get_device(), MVShaderCreateInfo {
+            stage: ShaderStage::Compute,
+            code: invert_compiled,
+            label: Some("Invert effect shader 2d".to_string()),
+        });
+
+        let tonemap = Shader::new(state.get_device(), MVShaderCreateInfo {
+            stage: ShaderStage::Compute,
+            code: tonemap_compiled,
+            label: Some("Tonemap effect shader 2d".to_string()),
         });
 
         let descriptor_pool = DescriptorPool::new(state.get_device(), MVDescriptorPoolCreateInfo {
@@ -180,6 +351,13 @@ impl Render2d {
             max_sets: 1000,
             flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
             label: Some("Descriptor pool 2d".to_string()),
+        });
+
+        let sampler = Sampler::new(state.get_device(), MVSamplerCreateInfo {
+            address_mode: SamplerAddressMode::ClampToEdge,
+            filter_mode: Filter::Linear,
+            mipmap_mode: MipmapMode::Linear,
+            label: Some("Sampler 2d".to_string()),
         });
 
         let matrix_set_layout = DescriptorSetLayout::new(state.get_device(), MVDescriptorSetLayoutCreateInfo {
@@ -212,7 +390,7 @@ impl Render2d {
             vertex,
             None,
             fragment,
-            vec![],
+            vec![AttributeType::Float32x2, AttributeType::Float32x2, AttributeType::Float32x4, AttributeType::Float32],
             "Default pipeline 2d"
         );
 
@@ -224,8 +402,20 @@ impl Render2d {
             memory_properties: MemoryProperties::DEVICE_LOCAL,
             minimum_alignment: 1,
             memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-            label: Some("Vertex buffer".to_string()),
+            label: Some("Vertex buffer 2d".to_string()),
         });
+
+        let mut geometry_framebuffers = Vec::new();
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            geometry_framebuffers.push(
+                Framebuffer::new(state.get_device().clone(), MVFramebufferCreateInfo {
+                    attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D16],
+                    extent: state.get_swapchain().get_extent(),
+                    image_usage_flags: ImageUsage::SAMPLED,
+                    render_pass_info: None,
+                    label: Some("Geometry HDR framebuffer".to_string()),
+                }));
+        }
 
         let mut matrix_buffers = Vec::new();
         let mut matrix_sets = Vec::new();
@@ -238,7 +428,7 @@ impl Render2d {
                 memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
                 minimum_alignment: 1,
                 memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
-                label: Some("Matrix buffer".to_string()),
+                label: Some("Matrix buffer 2d".to_string()),
             }));
         }
 
@@ -254,8 +444,8 @@ impl Render2d {
 
         let vertex_data =
             [
-                100.0f32, -100.0, 150.0, 150.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,    // Left Square
-                500.5, -100.0, 150.0, 150.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0      // Right Square
+                100.0f32, -100.0, 150.0, 150.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,    // Left Square
+                500.5, -100.0, 150.0, 150.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0      // Right Square
             ];
 
         let byte_data_vertex = unsafe {
@@ -264,14 +454,93 @@ impl Render2d {
 
         vertex_buffer.write(byte_data_vertex, 0, None);
 
+        let effect_set_layout = DescriptorSetLayout::new(state.get_device(), MVDescriptorSetLayoutCreateInfo {
+            bindings: vec![DescriptorSetLayoutBinding {
+                index: 0,
+                stages: ShaderStage::Compute,
+                ty: DescriptorType::UniformBuffer,
+                count: 1,
+            }],
+            label: Some("Effect set layout 2d".to_string()),
+        });
+
+        let mut effect_sets = Vec::new();
+        let mut effect_buffers = Vec::new();
+
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            effect_buffers.push(Buffer::new(state.get_device(), MVBufferCreateInfo {
+                instance_size: 4,
+                instance_count: 1,
+                buffer_usage: BufferUsage::UNIFORM_BUFFER,
+                memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
+                minimum_alignment: 1,
+                memory_usage: UsageFlags::HOST_ACCESS,
+                label: Some("Effect buffer 2d".to_string()),
+            }));
+        }
+
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            effect_sets.push(DescriptorSet::from_layout(state.get_device(), MVDescriptorSetFromLayoutCreateInfo {
+                pool: descriptor_pool.clone(),
+                layout: effect_set_layout.clone(),
+                label: Some("Effect descriptor set 2d".to_string()),
+            }));
+            effect_sets[index as usize].add_buffer(0,&effect_buffers[index as usize], 0, effect_buffers[index as usize].get_size());
+            effect_sets[index as usize].build();
+        }
+
+        let mut effects_images: Vec<Vec<Image>> = Vec::new();
+
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            let mut image_pair = Vec::new();
+
+            for index in 0..2 {
+                image_pair.push(Image::new(state.get_device().clone(), MVImageCreateInfo{
+                    size: state.get_swapchain().get_extent(),
+                    format: ImageFormat::R8G8B8A8,
+                    usage: ImageUsage::SAMPLED | ImageUsage::STORAGE,
+                    memory_properties: MemoryProperties::DEVICE_LOCAL,
+                    aspect: ImageAspect::COLOR,
+                    tiling: ImageTiling::Optimal,
+                    layer_count: 1,
+                    image_type: ImageType::Image2D,
+                    cubemap: false,
+                    memory_usage_flags: UsageFlags::FAST_DEVICE_ACCESS,
+                    data: None,
+                    label: Some("Effect image 2d".to_string()),
+                }));
+            }
+            effects_images.push(image_pair);
+        }
+
+        let mut effects = Vec::new();
+
+        let mut tone_maps = Vec::new();
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            effects.push(EffectPipeline2d::new(state, info, invert.clone(), &descriptor_pool, effect_set_layout.clone(), &sampler, effects_images[index as usize][0].clone(), state.get_swapchain().get_framebuffer(index as usize).get_image(0).clone(), Arc::new(Vec::new())));
+            tone_maps.push(ToneMap::new(state, info, &sampler, descriptor_pool.clone(), tonemap.clone(), geometry_framebuffers[index as usize].get_image(0).clone(), effects_images[index as usize][0].clone()));
+        }
+
+
         Render2d {
             descriptor_pool,
-            matrix_set_layout,
-            matrix_sets,
             square_pipeline,
             default_pipeline,
             vertex_buffer,
-            matrix_buffers,
+            matrix_uniform: Uniform {
+                layout: matrix_set_layout,
+                sets: matrix_sets,
+                buffers: matrix_buffers,
+            },
+            effects,
+            effect_uniform: Uniform {
+                layout: effect_set_layout,
+                sets: effect_sets,
+                buffers: effect_buffers,
+            },
+            sampler,
+            tone_maps,
+            geometry_framebuffers
         }
     }
 
@@ -281,7 +550,7 @@ impl Render2d {
     }
 
     pub(crate) fn update_matrices(&mut self, state: &State, cmd: &CommandBuffer, view: Mat4, proj: Mat4) {
-        let buffer = &mut self.matrix_buffers[state.get_current_frame_index() as usize];
+        let buffer = &mut self.matrix_uniform.buffers[state.get_current_frame_index() as usize];
         let matrices = [view, proj];
         let bytes = unsafe { std::slice::from_raw_parts(matrices.as_ptr() as *const u8, 128) };
         buffer.write(bytes, 0, Some(cmd));
@@ -289,10 +558,14 @@ impl Render2d {
 
     pub(crate) fn draw(&mut self, state: &State, cmd: &CommandBuffer) {
         let swapchain = state.get_swapchain();
-        let framebuffer = swapchain.get_current_framebuffer();
-        let matrix_set = &mut self.matrix_sets[swapchain.get_current_frame() as usize];
+        let swapchain_framebuffer = swapchain.get_current_framebuffer();
+        let matrix_set = &mut self.matrix_uniform.sets[swapchain.get_current_frame() as usize];
+        let current_frame = swapchain.get_current_frame();
+        let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
 
-        framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.1, 0.1, 0.1, 1.0])], swapchain.get_extent());
+        geometry_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+
+        geometry_framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])], swapchain.get_extent());
 
         self.square_pipeline.pipeline.bind(cmd);
 
@@ -302,6 +575,10 @@ impl Render2d {
 
         cmd.draw(2, 0);
 
-        framebuffer.end_render_pass(cmd);
+        geometry_framebuffer.end_render_pass(cmd);
+
+        self.tone_maps[current_frame as usize].run(state, cmd);
+
+        self.effects[current_frame as usize].run(state, cmd);
     }
 }

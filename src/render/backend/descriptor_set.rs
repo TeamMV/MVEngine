@@ -189,7 +189,7 @@ impl DescriptorSet {
     pub(crate) fn add_image(
         &mut self,
         binding: u32,
-        image: Image,
+        image: &Image,
         sampler: &Sampler,
         layout: ImageLayout,
     ) {
@@ -197,6 +197,49 @@ impl DescriptorSet {
             DescriptorSet::Vulkan(descriptor_set) => {
                 let image = image.as_vulkan();
                 descriptor_set.add_image(
+                    binding,
+                    ash::vk::DescriptorImageInfo {
+                        sampler: sampler.as_vulkan().get_handle(),
+                        image_view: image.get_view(0),
+                        image_layout: layout.into(),
+                    },
+                )
+            }
+            #[cfg(target_os = "macos")]
+            DescriptorSet::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            DescriptorSet::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn update_buffer(&mut self, binding: u32, buffer: &Buffer, offset: u64, size: u64) {
+        match self {
+            DescriptorSet::Vulkan(descriptor_set) => descriptor_set.update_buffer(
+                binding,
+                ash::vk::DescriptorBufferInfo {
+                    buffer: buffer.as_vulkan().get_buffer(),
+                    offset,
+                    range: size,
+                },
+            ),
+            #[cfg(target_os = "macos")]
+            DescriptorSet::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            DescriptorSet::DirectX => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn update_image(
+        &mut self,
+        binding: u32,
+        image: &Image,
+        sampler: &Sampler,
+        layout: ImageLayout,
+    ) {
+        match self {
+            DescriptorSet::Vulkan(descriptor_set) => {
+                let image = image.as_vulkan();
+                descriptor_set.update_image(
                     binding,
                     ash::vk::DescriptorImageInfo {
                         sampler: sampler.as_vulkan().get_handle(),

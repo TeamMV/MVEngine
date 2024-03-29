@@ -105,9 +105,13 @@ impl From<ImageFormat> for ash::vk::Format {
             ImageFormat::R8G8B8 => ash::vk::Format::R8G8B8_UNORM,
             ImageFormat::R8G8B8A8 => ash::vk::Format::R8G8B8A8_UNORM,
             ImageFormat::R32 => ash::vk::Format::R32_SFLOAT,
-            ImageFormat::R32B32 => ash::vk::Format::R32G32_SFLOAT,
-            ImageFormat::R32B32G32 => ash::vk::Format::R32G32B32_SFLOAT,
-            ImageFormat::R32B32G32A32 => ash::vk::Format::R32G32B32A32_SFLOAT,
+            ImageFormat::R32G32 => ash::vk::Format::R32G32_SFLOAT,
+            ImageFormat::R32G32B32 => ash::vk::Format::R32G32B32_SFLOAT,
+            ImageFormat::R32G32B32A32 => ash::vk::Format::R32G32B32A32_SFLOAT,
+            ImageFormat::D16 => ash::vk::Format::D16_UNORM,
+            ImageFormat::D16S8 => ash::vk::Format::D16_UNORM_S8_UINT,
+            ImageFormat::D24 => ash::vk::Format::D24_UNORM_S8_UINT,
+            ImageFormat::D32 => ash::vk::Format::D32_SFLOAT,
         }
     }
 }
@@ -469,7 +473,7 @@ impl VkImage {
         self.layout.get_val()
     }
 
-    pub(crate) fn get_size(&self) -> ash::vk::Extent2D {
+    pub(crate) fn get_extent(&self) -> ash::vk::Extent2D {
         self.size
     }
 

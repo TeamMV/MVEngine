@@ -39,12 +39,12 @@ void main() {
     texCoord[2] = vec2(vertex.texRegion[0], vertex.texRegion[3]);
     texCoord[3] = vec2(vertex.texRegion[2], vertex.texRegion[3]);
 
-    geometryOut.texID = vertex.texID;
-    geometryOut.color = vertex.color;
-
     for (int i = 0; i < 4; i++) {
         gl_Position = mat.proj * vertices[i];
         geometryOut.texCoords = texCoord[i];
+        geometryOut.texID = vertex.texID;
+        geometryOut.color = vertex.color;
+
         EmitVertex();
     }
 
