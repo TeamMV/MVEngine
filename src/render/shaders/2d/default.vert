@@ -21,6 +21,8 @@ layout(location = 0) out vertexOutStruct vertexOut;
 
 void main() {
     vertexOut.color = color;
+    vertexOut.texID = int(texID);
+    vertexOut.texCoords = texCoords;
 
     gl_Position = vec4(pos, 0.0f, 0.0f);
 }

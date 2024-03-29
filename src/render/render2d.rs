@@ -20,6 +20,7 @@ struct GraphicsPipeline2d {
     vertex: Shader,
     geometry: Option<Shader>,
     fragment: Shader,
+    framebuffer: Framebuffer,
 
     attributes: Vec<AttributeType>,
 
@@ -30,7 +31,7 @@ struct GraphicsPipeline2d {
 }
 
 impl GraphicsPipeline2d {
-    fn new(state: &State, info: &WindowCreateInfo, matrix_layout: DescriptorSetLayout, vertex: Shader, geometry: Option<Shader>, fragment: Shader, attributes: Vec<AttributeType>, #[cfg(debug_assertions)] label: &'static str) -> Self {
+    fn new(state: &State, info: &WindowCreateInfo, matrix_layout: DescriptorSetLayout, vertex: Shader, geometry: Option<Shader>, fragment: Shader, attributes: Vec<AttributeType>, framebuffer: Framebuffer, #[cfg(debug_assertions)] label: &'static str) -> Self {
         let label = label.to_string();
 
         let mut shaders = vec![vertex.clone(), fragment.clone()];
@@ -52,7 +53,7 @@ impl GraphicsPipeline2d {
             blending_enable: true,
             descriptor_sets: vec![matrix_layout.clone()],
             push_constants: vec![],
-            framebuffer: state.get_current_framebuffer(),
+            framebuffer: framebuffer.clone(),
             color_attachments_count: 1,
             label: Some(label.clone()),
         });
@@ -64,7 +65,8 @@ impl GraphicsPipeline2d {
             attributes,
             matrix_layout,
             pipeline,
-            label
+            label,
+            framebuffer: framebuffer.clone()
         }
     }
 
@@ -88,7 +90,7 @@ impl GraphicsPipeline2d {
             blending_enable: true,
             descriptor_sets: vec![self.matrix_layout.clone()],
             push_constants: vec![],
-            framebuffer: state.get_current_framebuffer(),
+            framebuffer: self.framebuffer.clone(),
             color_attachments_count: 1,
             label: Some(self.label.clone()),
         });
@@ -169,11 +171,28 @@ impl EffectPipeline2d {
         }
     }
 
-    pub(crate) fn run(&self, state: &State, cmd: &CommandBuffer) {
+    pub(crate) fn run(&mut self, cmd: &CommandBuffer, data_set: &mut DescriptorSet) {
         self.input_image.transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
         self.output_image.transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
+        self.pipeline.bind(cmd);
+
+        self.image_set.bind(cmd, &self.pipeline, 0);
+        data_set.bind(cmd, &self.pipeline, 1);
+
         cmd.dispatch(Extent3D{width: self.input_image.get_extent().width, height: self.input_image.get_extent().height, depth: 1});
+    }
+
+    pub(crate) fn update_images(&mut self, sampler: &Sampler, input_image: &Image, output_image: &Image, input_textures: Arc<Vec<Image>>) {
+        self.input_image = input_image.clone();
+        self.output_image = output_image.clone();
+
+        self.image_set.update_image(0, input_image, sampler, ImageLayout::ShaderReadOnlyOptimal);
+        self.image_set.update_image(1, output_image, sampler, ImageLayout::General);
+
+        for index in 0..input_textures.len() {
+            self.image_set.update_image((index + 2) as u32, &input_textures[index], sampler, ImageLayout::ShaderReadOnlyOptimal);
+        }
     }
 }
 
@@ -229,13 +248,23 @@ impl ToneMap {
         }
     }
 
-    fn resize(&mut self, state: &State, sampler: &Sampler, width: u32, height: u32, input_image: &Image, output_image: &Image) {
+    fn update_images(&mut self, sampler: &Sampler, input_image: &Image, output_image: &Image) {
         self.image_set.update_image(0, input_image, sampler, ImageLayout::ShaderReadOnlyOptimal);
         self.image_set.update_image(1, output_image, sampler, ImageLayout::General);
+
+        self.input_image = input_image.clone();
+        self.output_image = output_image.clone();
     }
 
-    fn run(&self, state: &State, cmd: &CommandBuffer) {
+    fn run(&mut self, cmd: &CommandBuffer) {
+        self.input_image.transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+        self.output_image.transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
 
+        self.pipeline.bind(cmd);
+
+        self.image_set.bind(cmd, &self.pipeline, 0);
+
+        cmd.dispatch(Extent3D{width: self.input_image.get_extent().width, height: self.input_image.get_extent().height, depth: 1});
     }
 }
 
@@ -256,6 +285,7 @@ pub(crate) struct Render2d {
 
     tone_maps: Vec<ToneMap>,
 
+    effect_images: Vec<Vec<Image>>,
     effects: Vec<EffectPipeline2d>,
     effect_uniform: Uniform,
     geometry_framebuffers: Vec<Framebuffer>,
@@ -371,6 +401,17 @@ impl Render2d {
             ],
             label: Some("Matrix descriptor set layout 2d".to_string()),
         });
+        let mut geometry_framebuffers = Vec::new();
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            geometry_framebuffers.push(
+                Framebuffer::new(state.get_device().clone(), MVFramebufferCreateInfo {
+                    attachment_formats: vec![ImageFormat::R32G32B32A32],
+                    extent: state.get_swapchain().get_extent(),
+                    image_usage_flags: ImageUsage::SAMPLED,
+                    render_pass_info: None,
+                    label: Some("Geometry HDR framebuffer".to_string()),
+                }));
+        }
 
         let square_pipeline = GraphicsPipeline2d::new(
             state,
@@ -380,6 +421,7 @@ impl Render2d {
             Some(geometry),
             fragment.clone(),
             vec![AttributeType::Float32x2, AttributeType::Float32x2, AttributeType::Float32x4, AttributeType::Float32, AttributeType::Float32x4],
+            geometry_framebuffers[0].clone(),
             "Square pipeline 2d"
         );
 
@@ -391,6 +433,7 @@ impl Render2d {
             None,
             fragment,
             vec![AttributeType::Float32x2, AttributeType::Float32x2, AttributeType::Float32x4, AttributeType::Float32],
+            geometry_framebuffers[0].clone(),
             "Default pipeline 2d"
         );
 
@@ -404,18 +447,6 @@ impl Render2d {
             memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
             label: Some("Vertex buffer 2d".to_string()),
         });
-
-        let mut geometry_framebuffers = Vec::new();
-        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
-            geometry_framebuffers.push(
-                Framebuffer::new(state.get_device().clone(), MVFramebufferCreateInfo {
-                    attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D16],
-                    extent: state.get_swapchain().get_extent(),
-                    image_usage_flags: ImageUsage::SAMPLED,
-                    render_pass_info: None,
-                    label: Some("Geometry HDR framebuffer".to_string()),
-                }));
-        }
 
         let mut matrix_buffers = Vec::new();
         let mut matrix_sets = Vec::new();
@@ -521,7 +552,6 @@ impl Render2d {
             tone_maps.push(ToneMap::new(state, info, &sampler, descriptor_pool.clone(), tonemap.clone(), geometry_framebuffers[index as usize].get_image(0).clone(), effects_images[index as usize][0].clone()));
         }
 
-
         Render2d {
             descriptor_pool,
             square_pipeline,
@@ -540,13 +570,32 @@ impl Render2d {
             },
             sampler,
             tone_maps,
-            geometry_framebuffers
+            geometry_framebuffers,
+            effect_images: effects_images
         }
     }
 
     pub(crate) fn resize(&mut self, state: &State, width: u32, height: u32) {
+        state.get_device().wait_idle();
+
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            self.geometry_framebuffers[index as usize] =
+                Framebuffer::new(state.get_device().clone(), MVFramebufferCreateInfo {
+                    attachment_formats: vec![ImageFormat::R32G32B32A32],
+                    extent: state.get_swapchain().get_extent(),
+                    image_usage_flags: ImageUsage::SAMPLED,
+                    render_pass_info: None,
+                    label: Some("Geometry HDR framebuffer".to_string()),
+                });
+        }
+
         self.square_pipeline.resize(state, width, height);
         self.default_pipeline.resize(state, width, height);
+
+        for index in 0..state.get_swapchain().get_max_frames_in_flight() {
+            self.effects[index as usize].update_images(&self.sampler, &self.effect_images[index as usize][0], &state.get_swapchain().get_framebuffer(index as usize).get_image(0), Arc::new(Vec::new()));
+            self.tone_maps[index as usize].update_images(&self.sampler, &self.geometry_framebuffers[index as usize].get_image(0).clone(), &self.effect_images[index as usize][0].clone());
+        }
     }
 
     pub(crate) fn update_matrices(&mut self, state: &State, cmd: &CommandBuffer, view: Mat4, proj: Mat4) {
@@ -563,8 +612,6 @@ impl Render2d {
         let current_frame = swapchain.get_current_frame();
         let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
 
-        geometry_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
-
         geometry_framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])], swapchain.get_extent());
 
         self.square_pipeline.pipeline.bind(cmd);
@@ -577,8 +624,10 @@ impl Render2d {
 
         geometry_framebuffer.end_render_pass(cmd);
 
-        self.tone_maps[current_frame as usize].run(state, cmd);
+        self.tone_maps[current_frame as usize].run(cmd);
 
-        self.effects[current_frame as usize].run(state, cmd);
+        self.effects[current_frame as usize].run(cmd, &mut self.effect_uniform.sets[current_frame as usize]);
+
+        swapchain_framebuffer.get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
     }
 }

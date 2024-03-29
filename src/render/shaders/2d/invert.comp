@@ -14,7 +14,7 @@ void main() {
     vec2 texCoord = pixelCoord / textureSize;
 
     vec4 color = texture(uInput, texCoord);
-    vec4 invertedColor = vec4(1.0 - color.r, 1.0 - color.g, 1.0 - color.b, 1.0);
+    vec4 invertedColor = vec4(vec3(1.0f) - color.rgb, 1.0);
 
     imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), invertedColor);
 }
