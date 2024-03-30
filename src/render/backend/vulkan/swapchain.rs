@@ -5,9 +5,9 @@ use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
 use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::{Extent2D, Extent3D};
+use ash::vk::{PresentScalingFlagsEXT, SwapchainPresentScalingCreateInfoEXT};
 use std::ops::Not;
 use std::sync::Arc;
-use ash::vk::{PresentScalingFlagsEXT, SwapchainPresentScalingCreateInfoEXT};
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -268,7 +268,7 @@ impl VkSwapchain {
             present_mode,
             max_frames_in_flight: create_info.max_frames_in_flight,
             extent: create_info.window_extent,
-            image_count
+            image_count,
         }
     }
 

@@ -1,6 +1,6 @@
 use log::LevelFilter;
-use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::render::window::{Window, WindowCreateInfo};
+use mvcore::render::ApplicationLoopCallbacks;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -25,19 +25,11 @@ fn main() {
 struct ApplicationLoop;
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
-    fn start(&mut self) {
+    fn start(&mut self) {}
 
-    }
+    fn draw(&mut self) {}
 
-    fn draw(&mut self) {
+    fn update(&mut self) {}
 
-    }
-
-    fn update(&mut self) {
-
-    }
-
-    fn end(&mut self) {
-
-    }
+    fn end(&mut self) {}
 }

@@ -22,7 +22,7 @@ impl Camera2D {
             z_near: 0.01,
             z_far: 100.0,
         }
-            .setup(width, height)
+        .setup(width, height)
     }
 
     pub(crate) fn get_view(&self) -> Mat4 {

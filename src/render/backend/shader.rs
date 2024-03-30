@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
 use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
+use std::sync::Arc;
 
 pub(crate) struct MVShaderCreateInfo {
     pub(crate) stage: ShaderStage,
@@ -47,7 +47,9 @@ pub(crate) enum Shader {
 impl Shader {
     pub(crate) fn new(device: Device, create_info: MVShaderCreateInfo) -> Shader {
         match device {
-            Device::Vulkan(device) => Shader::Vulkan(VkShader::new(device, create_info.into()).into()),
+            Device::Vulkan(device) => {
+                Shader::Vulkan(VkShader::new(device, create_info.into()).into())
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

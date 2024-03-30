@@ -1,14 +1,15 @@
+use std::time::SystemTime;
+use crate::render::backend::image::ImageLayout;
+use crate::render::backend::swapchain::SwapchainError;
+use crate::render::camera2d::Camera2D;
+use crate::render::render2d::Render2d;
+use crate::render::state::State;
+use crate::render::ApplicationLoopCallbacks;
 use ash::vk::AccessFlags;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Fullscreen, Theme, WindowBuilder};
-use crate::render::ApplicationLoopCallbacks;
-use crate::render::backend::image::ImageLayout;
-use crate::render::backend::swapchain::SwapchainError;
-use crate::render::camera2d::Camera2D;
-use crate::render::state::State;
-use crate::render::render2d::Render2d;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct WindowCreateInfo {
@@ -93,7 +94,7 @@ pub struct Window {
     event_loop: Option<EventLoop<()>>,
     state: State,
     render_2d: Render2d,
-    camera: Camera2D
+    camera: Camera2D,
 }
 
 impl Window {
@@ -115,11 +116,12 @@ impl Window {
 
         let state = State::new(&info, &window);
 
-        let mut render_2d = Render2d::new(&state, &info);
+        let render_2d = Render2d::new(&state, &info);
 
-        render_2d.enable_effect("invert");
-
-        let camera = Camera2D::new(state.get_swapchain().get_extent().width, state.get_swapchain().get_extent().height);
+        let camera = Camera2D::new(
+            state.get_swapchain().get_extent().width,
+            state.get_swapchain().get_extent().height,
+        );
 
         Window {
             info,
@@ -127,14 +129,18 @@ impl Window {
             event_loop: Some(event_loop),
             state,
             render_2d,
-            camera
+            camera,
         }
     }
 
     pub fn run(mut self, app_loop: impl ApplicationLoopCallbacks) {
+        let mut time = SystemTime::now();
+
         self.handle.set_visible(true);
-        self.event_loop.take().expect("Event loop should never be None").run(|event, target| {
-            match event {
+        self.event_loop
+            .take()
+            .expect("Event loop should never be None")
+            .run(|event, target| match event {
                 Event::AboutToWait => {
                     self.handle.request_redraw();
                 }
@@ -143,50 +149,53 @@ impl Window {
                 Event::LoopExiting => {
                     self.state.get_device().wait_idle();
                 }
-                Event::WindowEvent { window_id, event } => {
-                    match event {
-                        WindowEvent::ActivationTokenDone { .. } => {}
-                        WindowEvent::Resized(size) => {
-                            self.info.width = size.width;
-                            self.info.height = size.height;
-                            self.state.resize(self.info.width, self.info.height);
+                Event::WindowEvent { window_id, event } => match event {
+                    WindowEvent::ActivationTokenDone { .. } => {}
+                    WindowEvent::Resized(size) => {
+                        self.info.width = size.width;
+                        self.info.height = size.height;
+                        self.state.resize(self.info.width, self.info.height);
+                        self.render_2d.resize(&self.state);
+                    }
+                    WindowEvent::Moved(_) => {}
+                    WindowEvent::CloseRequested => target.exit(),
+                    WindowEvent::Destroyed => {}
+                    WindowEvent::DroppedFile(_) => {}
+                    WindowEvent::HoveredFile(_) => {}
+                    WindowEvent::HoveredFileCancelled => {}
+                    WindowEvent::Focused(_) => {}
+                    WindowEvent::KeyboardInput { .. } => {}
+                    WindowEvent::ModifiersChanged(_) => {}
+                    WindowEvent::Ime(_) => {}
+                    WindowEvent::CursorMoved { .. } => {}
+                    WindowEvent::CursorEntered { .. } => {}
+                    WindowEvent::CursorLeft { .. } => {}
+                    WindowEvent::MouseWheel { .. } => {}
+                    WindowEvent::MouseInput { .. } => {}
+                    WindowEvent::TouchpadMagnify { .. } => {}
+                    WindowEvent::SmartMagnify { .. } => {}
+                    WindowEvent::TouchpadRotate { .. } => {}
+                    WindowEvent::TouchpadPressure { .. } => {}
+                    WindowEvent::AxisMotion { .. } => {}
+                    WindowEvent::Touch(_) => {}
+                    WindowEvent::ScaleFactorChanged { .. } => {}
+                    WindowEvent::ThemeChanged(_) => {}
+                    WindowEvent::Occluded(_) => {}
+                    WindowEvent::RedrawRequested => {
+                        //println!("{}", time.elapsed().unwrap().as_micros() as f32 / 1000.0);
+                        time = SystemTime::now();
+                        if self.render().is_err() {
+                            self.state.resize(
+                                self.handle.inner_size().width,
+                                self.handle.inner_size().height,
+                            );
                             self.render_2d.resize(&self.state);
                         }
-                        WindowEvent::Moved(_) => {}
-                        WindowEvent::CloseRequested => target.exit(),
-                        WindowEvent::Destroyed => {}
-                        WindowEvent::DroppedFile(_) => {}
-                        WindowEvent::HoveredFile(_) => {}
-                        WindowEvent::HoveredFileCancelled => {}
-                        WindowEvent::Focused(_) => {}
-                        WindowEvent::KeyboardInput { .. } => {}
-                        WindowEvent::ModifiersChanged(_) => {}
-                        WindowEvent::Ime(_) => {}
-                        WindowEvent::CursorMoved { .. } => {}
-                        WindowEvent::CursorEntered { .. } => {}
-                        WindowEvent::CursorLeft { .. } => {}
-                        WindowEvent::MouseWheel { .. } => {}
-                        WindowEvent::MouseInput { .. } => {}
-                        WindowEvent::TouchpadMagnify { .. } => {}
-                        WindowEvent::SmartMagnify { .. } => {}
-                        WindowEvent::TouchpadRotate { .. } => {}
-                        WindowEvent::TouchpadPressure { .. } => {}
-                        WindowEvent::AxisMotion { .. } => {}
-                        WindowEvent::Touch(_) => {}
-                        WindowEvent::ScaleFactorChanged { .. } => {}
-                        WindowEvent::ThemeChanged(_) => {}
-                        WindowEvent::Occluded(_) => {}
-                        WindowEvent::RedrawRequested => {
-                            if self.render().is_err() {
-                                self.state.resize(self.handle.inner_size().width, self.handle.inner_size().height);
-                                self.render_2d.resize(&self.state);
-                            }
-                        }
                     }
-                }
+                },
                 _ => {}
-            }
-        }).unwrap()
+            })
+            .unwrap()
     }
 
     pub(crate) fn render(&mut self) -> Result<(), SwapchainError> {
@@ -195,8 +204,16 @@ impl Window {
         let cmd = self.state.get_current_command_buffer();
 
         self.camera.update_view();
-        self.camera.update_projection(self.state.get_swapchain().get_extent().width, self.state.get_swapchain().get_extent().height);
-        self.render_2d.update_matrices(&self.state, cmd, self.camera.get_view(), self.camera.get_projection());
+        self.camera.update_projection(
+            self.state.get_swapchain().get_extent().width,
+            self.state.get_swapchain().get_extent().height,
+        );
+        self.render_2d.update_matrices(
+            &self.state,
+            cmd,
+            self.camera.get_view(),
+            self.camera.get_projection(),
+        );
 
         let framebuffer = self.state.get_current_framebuffer();
 

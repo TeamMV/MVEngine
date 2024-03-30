@@ -15,7 +15,7 @@ void main() {
 
     vec4 color = texture(uInput, texCoord);
 
-    // Do post processing here
+    color = pow(color, vec4(vec3(1.0f / 2.2f), 1.0f));
 
     imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), color);
 }

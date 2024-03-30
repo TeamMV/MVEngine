@@ -7,11 +7,11 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use ash::vk::Handle;
+use bitflags::Flags;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ffi::CString;
 use std::fmt::format;
 use std::sync::Arc;
-use bitflags::Flags;
 
 pub(crate) struct VkImage {
     pub(crate) device: Arc<VkDevice>,
@@ -487,7 +487,9 @@ impl Drop for VkImage {
         for view in &self.image_views {
             unsafe { self.device.get_device().destroy_image_view(*view, None) };
         }
-        if !self.drop { return; }
+        if !self.drop {
+            return;
+        }
         if let Some(memory) = self.memory.take() {
             self.device.deallocate_image(self.handle, memory)
         }

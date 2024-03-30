@@ -346,21 +346,31 @@ impl VkDescriptorSet {
     }
 
     pub(crate) fn update_image(&mut self, binding: u32, image_info: ash::vk::DescriptorImageInfo) {
-        let mut writer = VkDescriptorWriter::new(self.device.clone(), descriptor_writer::CreateInfo{
-            layout: self.layout.clone(),
-            pool: self.pool.clone(),
-        });
+        let mut writer = VkDescriptorWriter::new(
+            self.device.clone(),
+            descriptor_writer::CreateInfo {
+                layout: self.layout.clone(),
+                pool: self.pool.clone(),
+            },
+        );
 
         writer.write_image(binding, &[image_info]);
 
         writer.build(&mut self.handle, &mut self.pool_index, false);
     }
 
-    pub(crate) fn update_buffer(&mut self, binding: u32, buffer_info: ash::vk::DescriptorBufferInfo) {
-        let mut writer = VkDescriptorWriter::new(self.device.clone(), descriptor_writer::CreateInfo{
-            layout: self.layout.clone(),
-            pool: self.pool.clone(),
-        });
+    pub(crate) fn update_buffer(
+        &mut self,
+        binding: u32,
+        buffer_info: ash::vk::DescriptorBufferInfo,
+    ) {
+        let mut writer = VkDescriptorWriter::new(
+            self.device.clone(),
+            descriptor_writer::CreateInfo {
+                layout: self.layout.clone(),
+                pool: self.pool.clone(),
+            },
+        );
 
         writer.write_buffer(binding, &[buffer_info]);
 

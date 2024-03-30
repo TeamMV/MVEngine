@@ -46,7 +46,11 @@ impl Swapchain {
 
     pub(crate) fn get_framebuffers(&self) -> Vec<Framebuffer> {
         match self {
-            Swapchain::Vulkan(swapchain) => swapchain.get_framebuffers().into_iter().map(|framebuffer| Framebuffer::Vulkan(framebuffer)).collect(),
+            Swapchain::Vulkan(swapchain) => swapchain
+                .get_framebuffers()
+                .into_iter()
+                .map(|framebuffer| Framebuffer::Vulkan(framebuffer))
+                .collect(),
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -155,7 +159,6 @@ impl Swapchain {
             Swapchain::DirectX => unimplemented!(),
         }
     }
-
 
     pub(crate) fn get_image_count(&self) -> u32 {
         match self {

@@ -1,7 +1,8 @@
 pub mod backend;
+pub mod render2d;
 pub mod window;
+
 mod state;
-mod render2d;
 mod camera2d;
 
 pub trait ApplicationLoopCallbacks {
