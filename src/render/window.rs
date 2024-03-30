@@ -115,7 +115,9 @@ impl Window {
 
         let state = State::new(&info, &window);
 
-        let render_2d = Render2d::new(&state, &info);
+        let mut render_2d = Render2d::new(&state, &info);
+
+        render_2d.enable_effect("invert");
 
         let camera = Camera2D::new(state.get_swapchain().get_extent().width, state.get_swapchain().get_extent().height);
 
@@ -148,7 +150,7 @@ impl Window {
                             self.info.width = size.width;
                             self.info.height = size.height;
                             self.state.resize(self.info.width, self.info.height);
-                            self.render_2d.resize(&self.state, self.info.width, self.info.height);
+                            self.render_2d.resize(&self.state);
                         }
                         WindowEvent::Moved(_) => {}
                         WindowEvent::CloseRequested => target.exit(),
@@ -176,8 +178,8 @@ impl Window {
                         WindowEvent::Occluded(_) => {}
                         WindowEvent::RedrawRequested => {
                             if self.render().is_err() {
-                                self.state.resize(self.info.width, self.info.height);
-                                self.render_2d.resize(&self.state, self.info.width, self.info.height);
+                                self.state.resize(self.handle.inner_size().width, self.handle.inner_size().height);
+                                self.render_2d.resize(&self.state);
                             }
                         }
                     }

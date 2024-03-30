@@ -44,6 +44,16 @@ impl Swapchain {
         }
     }
 
+    pub(crate) fn get_framebuffers(&self) -> Vec<Framebuffer> {
+        match self {
+            Swapchain::Vulkan(swapchain) => swapchain.get_framebuffers().into_iter().map(|framebuffer| Framebuffer::Vulkan(framebuffer)).collect(),
+            #[cfg(target_os = "macos")]
+            Swapchain::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            Swapchain::DirectX => unimplemented!(),
+        }
+    }
+
     pub(crate) fn get_current_framebuffer(&self) -> Framebuffer {
         match self {
             Swapchain::Vulkan(swapchain) => {

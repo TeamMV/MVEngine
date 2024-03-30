@@ -7,6 +7,7 @@ use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::{Extent2D, Extent3D};
 use std::ops::Not;
 use std::sync::Arc;
+use ash::vk::{PresentScalingFlagsEXT, SwapchainPresentScalingCreateInfoEXT};
 
 pub(crate) struct VkSwapchain {
     device: Arc<VkDevice>,
@@ -149,8 +150,10 @@ impl VkSwapchain {
             .present_mode(present_mode)
             .clipped(true); // discards pixels that are obscured (for example behind other window);
 
-        if create_info.prev_swapchain.is_some() {
-            vk_create_info.old_swapchain = create_info.prev_swapchain.as_ref().unwrap().handle;
+        let scaling = SwapchainPresentScalingCreateInfoEXT::builder();
+
+        if let Some(old) = create_info.prev_swapchain.as_ref() {
+            vk_create_info.old_swapchain = old.handle;
         }
 
         let indices = device.get_indices();
@@ -443,6 +446,10 @@ impl VkSwapchain {
 
     pub(crate) fn get_framebuffer(&self, index: usize) -> Arc<VkFramebuffer> {
         self.presentable_framebuffers[index].clone()
+    }
+
+    pub(crate) fn get_framebuffers(&self) -> Vec<Arc<VkFramebuffer>> {
+        self.presentable_framebuffers.clone()
     }
 
     pub(crate) fn get_current_framebuffer(&self) -> Arc<VkFramebuffer> {
