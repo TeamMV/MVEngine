@@ -4,15 +4,15 @@ use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
 use std::sync::Arc;
 
-pub(crate) struct MVShaderCreateInfo {
-    pub(crate) stage: ShaderStage,
-    pub(crate) code: Vec<u32>,
+pub struct MVShaderCreateInfo {
+    pub stage: ShaderStage,
+    pub code: Vec<u32>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 bitflags! {
-     pub(crate) struct ShaderStage: u32 {
+     pub struct ShaderStage: u32 {
         const Vertex = 1;
         const TesselationControl = 1 << 1;
         const TesselationEvaluation = 1 << 2;
@@ -36,7 +36,7 @@ bitflags! {
 
 #[graphics_item(clone)]
 #[derive(Clone)]
-pub(crate) enum Shader {
+pub enum Shader {
     Vulkan(Arc<VkShader>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -45,7 +45,7 @@ pub(crate) enum Shader {
 }
 
 impl Shader {
-    pub(crate) fn new(device: Device, create_info: MVShaderCreateInfo) -> Shader {
+    pub fn new(device: Device, create_info: MVShaderCreateInfo) -> Shader {
         match device {
             Device::Vulkan(device) => {
                 Shader::Vulkan(VkShader::new(device, create_info.into()).into())

@@ -1,20 +1,20 @@
 use std::ffi::CString;
 
-pub(crate) mod buffer;
-pub(crate) mod command_buffer;
-pub(crate) mod descriptor_set;
-pub(crate) mod device;
-pub(crate) mod framebuffer;
-pub(crate) mod image;
-pub(crate) mod pipeline;
-pub(crate) mod push_constant;
-pub(crate) mod sampler;
-pub(crate) mod shader;
-pub(crate) mod swapchain;
+pub mod buffer;
+pub mod command_buffer;
+pub mod descriptor_set;
+pub mod device;
+pub mod framebuffer;
+pub mod image;
+pub mod pipeline;
+pub mod push_constant;
+pub mod sampler;
+pub mod shader;
+pub mod swapchain;
 pub(crate) mod vulkan;
 
 #[cfg(feature = "ray-tracing")]
-pub(crate) mod sbt;
+pub mod sbt;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum Backend {

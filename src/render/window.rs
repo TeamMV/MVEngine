@@ -1,15 +1,15 @@
-use std::time::SystemTime;
 use crate::render::backend::image::ImageLayout;
 use crate::render::backend::swapchain::SwapchainError;
-use crate::render::camera2d::Camera2D;
-use crate::render::render2d::Render2d;
-use crate::render::state::State;
+use crate::render::backend::Extent2D;
 use crate::render::ApplicationLoopCallbacks;
 use ash::vk::AccessFlags;
+use std::time::SystemTime;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
-use winit::event_loop::EventLoop;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
+
+const NANOS_PER_SEC: u64 = 1_000_000_000;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct WindowCreateInfo {
@@ -58,14 +58,19 @@ pub struct WindowCreateInfo {
     /// Default is true.
     pub vsync: bool,
 
-    /// The maximum framerate of the window.
+    /// The maximum frames in flight of the rendering API.
+    ///
+    /// Default is 2.
+    pub max_frames_in_flight: u32,
+
+    /// The maximum frames per second of the window.
     ///
     /// Default is 60.
     pub fps: u32,
 
-    /// The maximum update rate of the window.
+    /// The maximum updates per second of the window.
     ///
-    /// Default is 30.
+    /// Default is 20.
     pub ups: u32,
 }
 
@@ -81,20 +86,31 @@ impl Default for WindowCreateInfo {
             transparent: false,
             theme: None,
             vsync: false,
+            max_frames_in_flight: 2,
             fps: 60,
-            ups: 30,
+            ups: 20,
         }
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum State {
+    Ready,
+    Running,
+    Exited,
+}
+
 pub struct Window {
-    info: WindowCreateInfo,
+    pub(crate) info: WindowCreateInfo,
 
     handle: winit::window::Window,
-    event_loop: Option<EventLoop<()>>,
     state: State,
-    render_2d: Render2d,
-    camera: Camera2D,
+    event_loop: Option<EventLoop<()>>,
+
+    frame_time_nanos: u64,
+    update_time_nanos: u64,
+    delta_t: f64,
+    delta_u: f64,
 }
 
 impl Window {
@@ -114,48 +130,59 @@ impl Window {
             .build(&event_loop)
             .unwrap();
 
-        let state = State::new(&info, &window);
-
-        let render_2d = Render2d::new(&state, &info);
-
-        let camera = Camera2D::new(
-            state.get_swapchain().get_extent().width,
-            state.get_swapchain().get_extent().height,
-        );
-
         Window {
+            frame_time_nanos: NANOS_PER_SEC / info.fps as u64,
+            update_time_nanos: NANOS_PER_SEC / info.ups as u64,
             info,
             handle: window,
+            state: State::Ready,
             event_loop: Some(event_loop),
-            state,
-            render_2d,
-            camera,
+            delta_t: 0.0,
+            delta_u: 0.0,
         }
     }
 
-    pub fn run(mut self, app_loop: impl ApplicationLoopCallbacks) {
-        let mut time = SystemTime::now();
+    pub fn run<T: ApplicationLoopCallbacks>(mut self) {
+        let mut app_loop = T::new(&mut self);
+
+        let mut time_f = SystemTime::now();
+        let mut time_u = SystemTime::now();
 
         self.handle.set_visible(true);
+        self.state = State::Running;
         self.event_loop
             .take()
             .expect("Event loop should never be None")
             .run(|event, target| match event {
                 Event::AboutToWait => {
-                    self.handle.request_redraw();
+                    let elapsed = time_u.elapsed().expect("SystemTime error").as_nanos();
+                    if elapsed > self.update_time_nanos as u128 {
+                        time_u = SystemTime::now();
+                        self.delta_u = elapsed as f64 / NANOS_PER_SEC as f64;
+                        let delta_u = self.delta_u;
+                        app_loop.update(&mut self, delta_u);
+                    }
+
+                    let elapsed = time_f.elapsed().expect("SystemTime error").as_nanos();
+                    if elapsed > self.frame_time_nanos as u128 {
+                        time_f = SystemTime::now();
+                        self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
+                        self.handle.request_redraw();
+                    }
+                    target.set_control_flow(ControlFlow::Poll);
                 }
                 Event::Suspended => {}
                 Event::Resumed => {}
                 Event::LoopExiting => {
-                    self.state.get_device().wait_idle();
+                    self.state = State::Exited;
+                    app_loop.exiting(&mut self);
                 }
                 Event::WindowEvent { window_id, event } => match event {
                     WindowEvent::ActivationTokenDone { .. } => {}
                     WindowEvent::Resized(size) => {
                         self.info.width = size.width;
                         self.info.height = size.height;
-                        self.state.resize(self.info.width, self.info.height);
-                        self.render_2d.resize(&self.state);
+                        app_loop.resize(&mut self, size.width, size.height);
                     }
                     WindowEvent::Moved(_) => {}
                     WindowEvent::CloseRequested => target.exit(),
@@ -182,15 +209,8 @@ impl Window {
                     WindowEvent::ThemeChanged(_) => {}
                     WindowEvent::Occluded(_) => {}
                     WindowEvent::RedrawRequested => {
-                        //println!("{}", time.elapsed().unwrap().as_micros() as f32 / 1000.0);
-                        time = SystemTime::now();
-                        if self.render().is_err() {
-                            self.state.resize(
-                                self.handle.inner_size().width,
-                                self.handle.inner_size().height,
-                            );
-                            self.render_2d.resize(&self.state);
-                        }
+                        let delta_t = self.delta_t;
+                        app_loop.draw(&mut self, delta_t);
                     }
                 },
                 _ => {}
@@ -198,29 +218,36 @@ impl Window {
             .unwrap()
     }
 
-    pub(crate) fn render(&mut self) -> Result<(), SwapchainError> {
-        let image_index = self.state.begin_frame()?;
+    pub fn get_extent(&self) -> Extent2D {
+        Extent2D {
+            width: self.handle.inner_size().width,
+            height: self.handle.inner_size().height,
+        }
+    }
 
-        let cmd = self.state.get_current_command_buffer();
+    pub fn get_state(&self) -> State {
+        self.state
+    }
 
-        self.camera.update_view();
-        self.camera.update_projection(
-            self.state.get_swapchain().get_extent().width,
-            self.state.get_swapchain().get_extent().height,
-        );
-        self.render_2d.update_matrices(
-            &self.state,
-            cmd,
-            self.camera.get_view(),
-            self.camera.get_projection(),
-        );
+    pub fn get_handle(&self) -> &winit::window::Window {
+        &self.handle
+    }
 
-        let framebuffer = self.state.get_current_framebuffer();
+    pub fn get_delta_t(&self) -> f64 {
+        self.delta_t
+    }
 
-        self.render_2d.draw(&self.state, cmd);
+    pub fn get_delta_u(&self) -> f64 {
+        self.delta_u
+    }
 
-        //framebuffer.get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), AccessFlags::empty(), AccessFlags::empty());
+    pub fn set_fps(&mut self, fps: u32) {
+        self.info.fps = fps;
+        self.frame_time_nanos = NANOS_PER_SEC / fps as u64;
+    }
 
-        self.state.end_frame()
+    pub fn set_ups(&mut self, ups: u32) {
+        self.info.ups = ups;
+        self.update_time_nanos = NANOS_PER_SEC / ups as u64;
     }
 }

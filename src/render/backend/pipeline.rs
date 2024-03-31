@@ -10,19 +10,19 @@ use mvcore_proc_macro::graphics_item;
 use mvutils::sealable;
 use std::marker::PhantomData;
 
-pub(crate) trait PipelineType {}
+pub trait PipelineType {}
 
-pub(crate) struct Graphics;
+pub struct Graphics;
 impl PipelineType for Graphics {}
-pub(crate) struct Compute;
+pub struct Compute;
 impl PipelineType for Compute {}
 #[cfg(feature = "ray-tracing")]
-pub(crate) struct RayTracing;
+pub struct RayTracing;
 #[cfg(feature = "ray-tracing")]
 impl PipelineType for RayTracing {}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum AttributeType {
+pub enum AttributeType {
     Float32,
     Float32x2,
     Float32x3,
@@ -30,7 +30,7 @@ pub(crate) enum AttributeType {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum Topology {
+pub enum Topology {
     Point,
     Line,
     LineStrip,
@@ -39,57 +39,57 @@ pub(crate) enum Topology {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum CullMode {
+pub enum CullMode {
     None,
     Front,
     Back,
     Both,
 }
 
-pub(crate) struct PushConstant {
-    pub(crate) size: u32,
-    pub(crate) offset: u32,
-    pub(crate) shader: ShaderStage,
+pub struct PushConstant {
+    pub size: u32,
+    pub offset: u32,
+    pub shader: ShaderStage,
 }
 
-pub(crate) struct MVGraphicsPipelineCreateInfo {
-    pub(crate) shaders: Vec<Shader>,
-    pub(crate) attributes: Vec<AttributeType>,
-    pub(crate) extent: Extent2D,
-    pub(crate) topology: Topology,
-    pub(crate) cull_mode: CullMode,
-    pub(crate) enable_depth_test: bool,
-    pub(crate) depth_clamp: bool,
-    pub(crate) blending_enable: bool,
-    pub(crate) descriptor_sets: Vec<DescriptorSetLayout>,
-    pub(crate) push_constants: Vec<PushConstant>,
-    pub(crate) framebuffer: Framebuffer,
-    pub(crate) color_attachments_count: u32,
+pub struct MVGraphicsPipelineCreateInfo {
+    pub shaders: Vec<Shader>,
+    pub attributes: Vec<AttributeType>,
+    pub extent: Extent2D,
+    pub topology: Topology,
+    pub cull_mode: CullMode,
+    pub enable_depth_test: bool,
+    pub depth_clamp: bool,
+    pub blending_enable: bool,
+    pub descriptor_sets: Vec<DescriptorSetLayout>,
+    pub push_constants: Vec<PushConstant>,
+    pub framebuffer: Framebuffer,
+    pub color_attachments_count: u32,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
-pub(crate) struct MVComputePipelineCreateInfo {
-    pub(crate) shader: Shader,
-    pub(crate) descriptor_sets: Vec<DescriptorSetLayout>,
-    pub(crate) push_constants: Vec<PushConstant>,
+pub struct MVComputePipelineCreateInfo {
+    pub shader: Shader,
+    pub descriptor_sets: Vec<DescriptorSetLayout>,
+    pub push_constants: Vec<PushConstant>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[cfg(feature = "ray-tracing")]
-pub(crate) struct MVRayTracingPipelineCreateInfo {
-    pub(crate) ray_gen_shaders: Vec<Shader>,
-    pub(crate) closest_hit_shaders: Vec<Shader>,
-    pub(crate) miss_shaders: Vec<Shader>,
-    pub(crate) descriptor_sets: Vec<DescriptorSetLayout>,
-    pub(crate) push_constants: Vec<PushConstant>,
+pub struct MVRayTracingPipelineCreateInfo {
+    pub ray_gen_shaders: Vec<Shader>,
+    pub closest_hit_shaders: Vec<Shader>,
+    pub miss_shaders: Vec<Shader>,
+    pub descriptor_sets: Vec<DescriptorSetLayout>,
+    pub push_constants: Vec<PushConstant>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum Pipeline<Type: PipelineType = Graphics> {
+pub enum Pipeline<Type: PipelineType = Graphics> {
     Vulkan(VkPipeline<Type>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -98,7 +98,7 @@ pub(crate) enum Pipeline<Type: PipelineType = Graphics> {
 }
 
 impl Pipeline {
-    pub(crate) fn new(device: Device, create_info: MVGraphicsPipelineCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVGraphicsPipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 Pipeline::Vulkan(VkPipeline::<Graphics>::new(device, create_info.into()))
@@ -110,7 +110,7 @@ impl Pipeline {
         }
     }
 
-    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+    pub fn bind(&self, command_buffer: &CommandBuffer) {
         match self {
             Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
             #[cfg(target_os = "macos")]
@@ -122,7 +122,7 @@ impl Pipeline {
 }
 
 impl Pipeline<Compute> {
-    pub(crate) fn new(device: Device, create_info: MVComputePipelineCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVComputePipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 Pipeline::Vulkan(VkPipeline::<Compute>::new(device, create_info.into()))
@@ -134,7 +134,7 @@ impl Pipeline<Compute> {
         }
     }
 
-    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+    pub fn bind(&self, command_buffer: &CommandBuffer) {
         match self {
             Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
             #[cfg(target_os = "macos")]
@@ -147,7 +147,7 @@ impl Pipeline<Compute> {
 
 #[cfg(feature = "ray-tracing")]
 impl Pipeline<RayTracing> {
-    pub(crate) fn new(device: Device, create_info: MVRayTracingPipelineCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVRayTracingPipelineCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 Pipeline::Vulkan(VkPipeline::<RayTracing>::new(device, create_info.into()))
@@ -159,7 +159,7 @@ impl Pipeline<RayTracing> {
         }
     }
 
-    pub(crate) fn bind(&self, command_buffer: &CommandBuffer) {
+    pub fn bind(&self, command_buffer: &CommandBuffer) {
         match self {
             Pipeline::Vulkan(pipeline) => pipeline.bind(command_buffer.as_vulkan().get_handle()),
             #[cfg(target_os = "macos")]

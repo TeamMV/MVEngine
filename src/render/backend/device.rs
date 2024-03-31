@@ -8,18 +8,18 @@ use std::sync::Arc;
 
 use crate::render::backend::vulkan::device::VkDevice;
 
-pub(crate) struct MVDeviceCreateInfo {
-    pub(crate) app_name: String,
-    pub(crate) app_version: Version,
-    pub(crate) engine_name: String,
-    pub(crate) engine_version: Version,
+pub struct MVDeviceCreateInfo {
+    pub app_name: String,
+    pub app_version: Version,
+    pub engine_name: String,
+    pub engine_version: Version,
 
-    pub(crate) device_extensions: Extensions,
+    pub device_extensions: Extensions,
 }
 
 #[graphics_item(clone)]
 #[derive(Clone)]
-pub(crate) enum Device {
+pub enum Device {
     Vulkan(Arc<VkDevice>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -28,7 +28,7 @@ pub(crate) enum Device {
 }
 
 impl Device {
-    pub(crate) fn new(
+    pub fn new(
         backend: Backend,
         create_info: MVDeviceCreateInfo,
         window: &winit::window::Window,
@@ -42,7 +42,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {
+    pub fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {
         match self {
             Device::Vulkan(device) => CommandBuffer::Vulkan(VkCommandBuffer::from(
                 device.clone(),
@@ -55,12 +55,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn end_single_time_command(
-        &self,
-        buffer: CommandBuffer,
-        pool: CommandPool,
-        queue: Queue,
-    ) {
+    pub fn end_single_time_command(&self, buffer: CommandBuffer, pool: CommandPool, queue: Queue) {
         match self {
             Device::Vulkan(device) => device.end_single_time_command(
                 buffer.as_vulkan().get_handle(),
@@ -74,7 +69,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn get_graphics_command_pool(&self) -> CommandPool {
+    pub fn get_graphics_command_pool(&self) -> CommandPool {
         match self {
             Device::Vulkan(device) => CommandPool::Vulkan(device.get_graphics_command_pool()),
             #[cfg(target_os = "macos")]
@@ -84,7 +79,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn get_compute_command_pool(&self) -> CommandPool {
+    pub fn get_compute_command_pool(&self) -> CommandPool {
         match self {
             Device::Vulkan(device) => CommandPool::Vulkan(device.get_compute_command_pool()),
             #[cfg(target_os = "macos")]
@@ -94,7 +89,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn get_graphics_queue(&self) -> Queue {
+    pub fn get_graphics_queue(&self) -> Queue {
         match self {
             Device::Vulkan(device) => Queue::Vulkan(device.get_graphics_queue()),
             #[cfg(target_os = "macos")]
@@ -104,7 +99,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn get_compute_queue(&self) -> Queue {
+    pub fn get_compute_queue(&self) -> Queue {
         match self {
             Device::Vulkan(device) => Queue::Vulkan(device.get_compute_queue()),
             #[cfg(target_os = "macos")]
@@ -114,7 +109,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn get_present_queue(&self) -> Queue {
+    pub fn get_present_queue(&self) -> Queue {
         match self {
             Device::Vulkan(device) => Queue::Vulkan(device.get_present_queue()),
             #[cfg(target_os = "macos")]
@@ -124,7 +119,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn wait_idle(&self) {
+    pub fn wait_idle(&self) {
         match self {
             Device::Vulkan(device) => device.wait_idle(),
             #[cfg(target_os = "macos")]
@@ -137,7 +132,7 @@ impl Device {
 
 #[graphics_item(copy)]
 #[derive(Copy, Clone)]
-pub(crate) enum CommandPool {
+pub enum CommandPool {
     Vulkan(ash::vk::CommandPool),
     #[cfg(target_os = "macos")]
     Metal,
@@ -147,7 +142,7 @@ pub(crate) enum CommandPool {
 
 #[graphics_item(copy)]
 #[derive(Copy, Clone)]
-pub(crate) enum Queue {
+pub enum Queue {
     Vulkan(ash::vk::Queue),
     #[cfg(target_os = "macos")]
     Metal,

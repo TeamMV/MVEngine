@@ -3,7 +3,7 @@ use crate::render::backend::vulkan::sampler::VkSampler;
 use mvcore_proc_macro::graphics_item;
 
 #[derive(Copy, Clone)]
-pub(crate) enum SamplerAddressMode {
+pub enum SamplerAddressMode {
     Repeat,
     MirroredRepeat,
     ClampToEdge,
@@ -11,27 +11,27 @@ pub(crate) enum SamplerAddressMode {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) enum Filter {
+pub enum Filter {
     Nearest,
     Linear,
 }
 
 #[derive(Copy, Clone)]
-pub(crate) enum MipmapMode {
+pub enum MipmapMode {
     Nearest,
     Linear,
 }
 
-pub(crate) struct MVSamplerCreateInfo {
-    pub(crate) address_mode: SamplerAddressMode,
-    pub(crate) filter_mode: Filter,
-    pub(crate) mipmap_mode: MipmapMode,
+pub struct MVSamplerCreateInfo {
+    pub address_mode: SamplerAddressMode,
+    pub filter_mode: Filter,
+    pub mipmap_mode: MipmapMode,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum Sampler {
+pub enum Sampler {
     Vulkan(VkSampler),
     #[cfg(target_os = "macos")]
     Metal,
@@ -40,7 +40,7 @@ pub(crate) enum Sampler {
 }
 
 impl Sampler {
-    pub(crate) fn new(device: Device, create_info: MVSamplerCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVSamplerCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 Sampler::Vulkan(VkSampler::new(device, create_info.into()).into())

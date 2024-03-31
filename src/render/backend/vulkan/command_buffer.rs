@@ -3,6 +3,7 @@ use crate::render::backend::command_buffer::{CommandBufferLevel, MVCommandBuffer
 use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
+use crate::render::backend::vulkan::image::VkImage;
 use ash::vk::Handle;
 use std::ffi::CString;
 use std::sync::Arc;
@@ -150,6 +151,51 @@ impl VkCommandBuffer {
                 ash::vk::IndexType::UINT32,
             )
         };
+    }
+
+    pub(crate) fn blit_image(&self, src_image: Arc<VkImage>, dst_image: Arc<VkImage>) {
+        let blit = ash::vk::ImageBlit {
+            src_subresource: ash::vk::ImageSubresourceLayers {
+                aspect_mask: src_image.aspect,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: src_image.layer_count,
+            },
+            src_offsets: [
+                ash::vk::Offset3D { x: 0, y: 0, z: 0 },
+                ash::vk::Offset3D {
+                    x: src_image.get_extent().width as i32,
+                    y: src_image.get_extent().height as i32,
+                    z: 1,
+                },
+            ],
+            dst_subresource: ash::vk::ImageSubresourceLayers {
+                aspect_mask: dst_image.aspect,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: dst_image.layer_count,
+            },
+            dst_offsets: [
+                ash::vk::Offset3D { x: 0, y: 0, z: 0 },
+                ash::vk::Offset3D {
+                    x: dst_image.get_extent().width as i32,
+                    y: dst_image.get_extent().height as i32,
+                    z: 1,
+                },
+            ],
+        };
+
+        unsafe {
+            self.device.get_device().cmd_blit_image(
+                self.handle,
+                src_image.handle,
+                src_image.layout.get_val(),
+                dst_image.handle,
+                dst_image.layout.get_val(),
+                &[blit],
+                ash::vk::Filter::LINEAR,
+            );
+        }
     }
 
     pub(crate) fn dispatch(&self, extent: ash::vk::Extent3D) {

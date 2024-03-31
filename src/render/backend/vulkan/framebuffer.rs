@@ -1,5 +1,5 @@
 use crate::render::backend::framebuffer::{
-    ClearColor, LoadOp, MVFramebufferCreateInfo, MVRenderPassCreateInfo, StoreOp,
+    ClearColor, LoadOp, MVFramebufferCreateInfo, MVRenderPassCreateInfo, StoreOp, SubpassDependency,
 };
 use crate::render::backend::image::ImageType;
 use crate::render::backend::to_ascii_cstring;
@@ -82,10 +82,26 @@ impl From<StoreOp> for ash::vk::AttachmentStoreOp {
     }
 }
 
+impl From<SubpassDependency> for ash::vk::SubpassDependency {
+    fn from(value: SubpassDependency) -> Self {
+        ash::vk::SubpassDependency {
+            src_subpass: value.src_subpass,
+            dst_subpass: value.dst_subpass,
+            src_stage_mask: ash::vk::PipelineStageFlags::from_raw(value.src_stage_mask.bits()),
+            dst_stage_mask: ash::vk::PipelineStageFlags::from_raw(value.dst_stage_mask.bits()),
+            src_access_mask: ash::vk::AccessFlags::from_raw(value.src_access_mask.bits()),
+            dst_access_mask: ash::vk::AccessFlags::from_raw(value.dst_access_mask.bits()),
+            dependency_flags: ash::vk::DependencyFlags::from_raw(
+                value.dependency_flags.bits() as u32
+            ),
+        }
+    }
+}
+
 impl From<MVRenderPassCreateInfo> for RenderPassCreateInfo {
     fn from(value: MVRenderPassCreateInfo) -> Self {
         RenderPassCreateInfo {
-            dependencies: value.dependencies,
+            dependencies: value.dependencies.into_iter().map(Into::into).collect(),
             load_op: value.load_op.into_iter().map(Into::into).collect(),
             store_op: value.store_op.into_iter().map(Into::into).collect(),
             final_layouts: value.final_layouts.into_iter().map(Into::into).collect(),

@@ -8,18 +8,18 @@ use mvcore_proc_macro::graphics_item;
 use std::ffi::CString;
 use std::sync::Arc;
 
-pub(crate) enum ImageType {
+pub enum ImageType {
     Image2D,
     Image2DArray,
     Cubemap,
 }
 
-pub(crate) enum ImageTiling {
+pub enum ImageTiling {
     Optimal,
     Linear,
 }
 
-pub(crate) enum ImageFormat {
+pub enum ImageFormat {
     R8,
     R8G8,
     R8G8B8,
@@ -34,7 +34,7 @@ pub(crate) enum ImageFormat {
     D32,
 }
 
-pub(crate) enum ImageLayout {
+pub enum ImageLayout {
     Undefined,
     General,
     ColorAttachmentOptimal,
@@ -48,7 +48,7 @@ pub(crate) enum ImageLayout {
 }
 
 bitflags! {
-    pub(crate) struct ImageUsage: u8 {
+    pub struct ImageUsage: u8 {
         const TRANSFER_SRC = 1 << 0;
         const TRANSFER_DST = 1 << 1;
         const SAMPLED = 1 << 2;
@@ -60,7 +60,7 @@ bitflags! {
     }
 }
 bitflags! {
-    pub(crate) struct ImageAspect: u8 {
+    pub struct ImageAspect: u8 {
         const COLOR = 1 << 0;
         const DEPTH = 1 << 1;
         const STECIL = 1 << 2;
@@ -68,25 +68,25 @@ bitflags! {
     }
 }
 
-pub(crate) struct MVImageCreateInfo {
-    pub(crate) size: Extent2D,
-    pub(crate) format: ImageFormat,
-    pub(crate) usage: ImageUsage,
-    pub(crate) memory_properties: MemoryProperties,
-    pub(crate) aspect: ImageAspect,
-    pub(crate) tiling: ImageTiling,
-    pub(crate) layer_count: u32,
-    pub(crate) image_type: ImageType,
-    pub(crate) cubemap: bool,
-    pub(crate) memory_usage_flags: gpu_alloc::UsageFlags,
-    pub(crate) data: Option<Vec<u8>>,
+pub struct MVImageCreateInfo {
+    pub size: Extent2D,
+    pub format: ImageFormat,
+    pub usage: ImageUsage,
+    pub memory_properties: MemoryProperties,
+    pub aspect: ImageAspect,
+    pub tiling: ImageTiling,
+    pub layer_count: u32,
+    pub image_type: ImageType,
+    pub cubemap: bool,
+    pub memory_usage_flags: gpu_alloc::UsageFlags,
+    pub data: Option<Vec<u8>>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(clone)]
 #[derive(Clone)]
-pub(crate) enum Image {
+pub enum Image {
     Vulkan(Arc<VkImage>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -95,7 +95,7 @@ pub(crate) enum Image {
 }
 
 impl Image {
-    pub(crate) fn new(device: Device, create_info: MVImageCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVImageCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 Image::Vulkan(VkImage::new(device, create_info.into()).into())
@@ -107,19 +107,19 @@ impl Image {
         }
     }
 
-    pub(crate) fn transition_layout(
+    pub fn transition_layout(
         &self,
         new_layout: ImageLayout,
         command_buffer: Option<&CommandBuffer>,
-        src: ash::vk::AccessFlags,
-        dst: ash::vk::AccessFlags,
+        src: AccessFlags,
+        dst: AccessFlags,
     ) {
         match self {
             Image::Vulkan(image) => image.transition_layout(
                 new_layout.into(),
                 command_buffer.map(|cmd| cmd.as_vulkan()),
-                src,
-                dst,
+                ash::vk::AccessFlags::from_raw(src.bits()),
+                ash::vk::AccessFlags::from_raw(dst.bits()),
             ),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
@@ -128,11 +128,7 @@ impl Image {
         }
     }
 
-    pub(crate) fn copy_buffer_to_image(
-        &self,
-        buffer: &Buffer,
-        command_buffer: Option<&CommandBuffer>,
-    ) {
+    pub fn copy_buffer_to_image(&self, buffer: &Buffer, command_buffer: Option<&CommandBuffer>) {
         match self {
             Image::Vulkan(image) => image.copy_buffer_to_image(
                 buffer.as_vulkan(),
@@ -145,7 +141,7 @@ impl Image {
         }
     }
 
-    pub(crate) fn get_extent(&self) -> Extent2D {
+    pub fn get_extent(&self) -> Extent2D {
         match self {
             Image::Vulkan(image) => image.get_extent().into(),
             #[cfg(target_os = "macos")]
@@ -153,5 +149,30 @@ impl Image {
             #[cfg(target_os = "windows")]
             Image::DirectX => unreachable!(),
         }
+    }
+}
+
+bitflags! {
+    pub struct AccessFlags: u32 {
+        const INDIRECT_COMMAND_READ = 1 << 0;
+        const INDEX_READ = 1 << 1;
+        const VERTEX_ATTRIBUTE_READ = 1 << 2;
+        const UNIFORM_READ = 1 << 3;
+        const INPUT_ATTACHMENT_READ = 1 << 4;
+        const SHADER_WRITE = 1 << 6;
+        const COLOR_ATTACHMENT_READ = 1 << 7;
+        const COLOR_ATTACHMENT_WRITE = 1 << 8;
+        const DEPTH_STENCIL_ATTACHMENT_READ = 1 << 9;
+        const DEPTH_STENCIL_ATTACHMENT_WRITE = 1 << 10;
+        const TRANSFER_READ = 1 << 11;
+        const TRANSFER_WRITE = 1 << 12;
+        const HOST_READ = 1 << 13;
+        const HOST_WRITE = 1 << 14;
+        const MEMORY_READ = 1 << 15;
+        const MEMORY_WRITE = 1 << 16;
+        #[cfg(feature = "ray-tracing")]
+        const ACCELERATION_STRUCTURE_READ_KHR = 1 << 21;
+        #[cfg(feature = "ray-tracing")]
+        const ACCELERATION_STRUCTURE_WRITE_KHR = 1 << 22;
     }
 }

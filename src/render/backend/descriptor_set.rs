@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 #[derive(Copy, Clone)]
-pub(crate) enum DescriptorType {
+pub enum DescriptorType {
     CombinedImageSampler,
     StorageImage,
     UniformBuffer,
@@ -25,22 +25,22 @@ pub(crate) enum DescriptorType {
     AccelerationStructure,
 }
 
-pub(crate) struct DescriptorSetLayoutBinding {
-    pub(crate) index: u32,
-    pub(crate) stages: ShaderStage,
-    pub(crate) ty: DescriptorType,
-    pub(crate) count: u32,
+pub struct DescriptorSetLayoutBinding {
+    pub index: u32,
+    pub stages: ShaderStage,
+    pub ty: DescriptorType,
+    pub count: u32,
 }
 
-pub(crate) struct MVDescriptorSetLayoutCreateInfo {
-    pub(crate) bindings: Vec<DescriptorSetLayoutBinding>,
+pub struct MVDescriptorSetLayoutCreateInfo {
+    pub bindings: Vec<DescriptorSetLayoutBinding>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(clone)]
 #[derive(Clone)]
-pub(crate) enum DescriptorSetLayout {
+pub enum DescriptorSetLayout {
     Vulkan(Arc<VkDescriptorSetLayout>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -49,7 +49,7 @@ pub(crate) enum DescriptorSetLayout {
 }
 
 impl DescriptorSetLayout {
-    pub(crate) fn new(device: Device, create_info: MVDescriptorSetLayoutCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVDescriptorSetLayoutCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => DescriptorSetLayout::Vulkan(
                 VkDescriptorSetLayout::new(device, create_info.into()).into(),
@@ -61,7 +61,7 @@ impl DescriptorSetLayout {
         }
     }
 
-    pub(crate) fn get_binding_count(&self) -> u32 {
+    pub fn get_binding_count(&self) -> u32 {
         match self {
             DescriptorSetLayout::Vulkan(descriptor_set_layout) => {
                 descriptor_set_layout.get_bindings_count()
@@ -74,29 +74,29 @@ impl DescriptorSetLayout {
     }
 }
 
-pub(crate) struct DescriptorPoolSize {
-    pub(crate) ty: DescriptorType,
-    pub(crate) count: u32,
+pub struct DescriptorPoolSize {
+    pub ty: DescriptorType,
+    pub count: u32,
 }
 
 bitflags! {
-    pub(crate) struct DescriptorPoolFlags: u8 {
+    pub struct DescriptorPoolFlags: u8 {
         const FREE_DESCRIPTOR = 1;
         const UPDATE_AFTER_BIND = 1 << 1;
     }
 }
 
-pub(crate) struct MVDescriptorPoolCreateInfo {
-    pub(crate) sizes: Vec<DescriptorPoolSize>,
-    pub(crate) max_sets: u32,
-    pub(crate) flags: DescriptorPoolFlags,
+pub struct MVDescriptorPoolCreateInfo {
+    pub sizes: Vec<DescriptorPoolSize>,
+    pub max_sets: u32,
+    pub flags: DescriptorPoolFlags,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(clone)]
 #[derive(Clone)]
-pub(crate) enum DescriptorPool {
+pub enum DescriptorPool {
     Vulkan(Arc<Mutex<VkDescriptorPool>>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -105,7 +105,7 @@ pub(crate) enum DescriptorPool {
 }
 
 impl DescriptorPool {
-    pub(crate) fn new(device: Device, create_info: MVDescriptorPoolCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVDescriptorPoolCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => DescriptorPool::Vulkan(
                 Mutex::new(VkDescriptorPool::new(device, create_info.into())).into(),
@@ -118,22 +118,22 @@ impl DescriptorPool {
     }
 }
 
-pub(crate) struct MVDescriptorSetCreateInfo {
-    pub(crate) pool: DescriptorPool,
-    pub(crate) bindings: Vec<DescriptorSetLayoutBinding>,
+pub struct MVDescriptorSetCreateInfo {
+    pub pool: DescriptorPool,
+    pub bindings: Vec<DescriptorSetLayoutBinding>,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
-pub(crate) struct MVDescriptorSetFromLayoutCreateInfo {
-    pub(crate) pool: DescriptorPool,
-    pub(crate) layout: DescriptorSetLayout,
+pub struct MVDescriptorSetFromLayoutCreateInfo {
+    pub pool: DescriptorPool,
+    pub layout: DescriptorSetLayout,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum DescriptorSet {
+pub enum DescriptorSet {
     Vulkan(VkDescriptorSet),
     #[cfg(target_os = "macos")]
     Metal,
@@ -142,7 +142,7 @@ pub(crate) enum DescriptorSet {
 }
 
 impl DescriptorSet {
-    pub(crate) fn new(device: Device, create_info: MVDescriptorSetCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVDescriptorSetCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 DescriptorSet::Vulkan(VkDescriptorSet::new(device, create_info.into()))
@@ -154,10 +154,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn from_layout(
-        device: Device,
-        create_info: MVDescriptorSetFromLayoutCreateInfo,
-    ) -> Self {
+    pub fn from_layout(device: Device, create_info: MVDescriptorSetFromLayoutCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => DescriptorSet::Vulkan(
                 VkDescriptorSet::from_layout(device, create_info.into()).into(),
@@ -169,7 +166,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn add_buffer(&mut self, binding: u32, buffer: &Buffer, offset: u64, size: u64) {
+    pub fn add_buffer(&mut self, binding: u32, buffer: &Buffer, offset: u64, size: u64) {
         match self {
             DescriptorSet::Vulkan(descriptor_set) => descriptor_set.add_buffer(
                 binding,
@@ -186,7 +183,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn add_image(
+    pub fn add_image(
         &mut self,
         binding: u32,
         image: &Image,
@@ -212,7 +209,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn update_buffer(&mut self, binding: u32, buffer: &Buffer, offset: u64, size: u64) {
+    pub fn update_buffer(&mut self, binding: u32, buffer: &Buffer, offset: u64, size: u64) {
         match self {
             DescriptorSet::Vulkan(descriptor_set) => descriptor_set.update_buffer(
                 binding,
@@ -229,7 +226,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn update_image(
+    pub fn update_image(
         &mut self,
         binding: u32,
         image: &Image,
@@ -255,7 +252,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn build(&mut self) {
+    pub fn build(&mut self) {
         match self {
             DescriptorSet::Vulkan(descriptor_set) => descriptor_set.build(),
             #[cfg(target_os = "macos")]
@@ -265,7 +262,7 @@ impl DescriptorSet {
         }
     }
 
-    pub(crate) fn bind<Type: PipelineType + 'static>(
+    pub fn bind<Type: PipelineType + 'static>(
         &mut self,
         command_buffer: &CommandBuffer,
         pipeline: &Pipeline<Type>,

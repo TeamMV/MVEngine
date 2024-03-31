@@ -1,13 +1,14 @@
-pub mod backend;
-pub mod render2d;
-pub mod window;
+use crate::render::window::Window;
 
-mod state;
-mod camera2d;
+pub mod backend;
+pub mod renderer;
+pub mod window;
+pub mod mesh2d;
 
 pub trait ApplicationLoopCallbacks {
-    fn start(&mut self);
-    fn draw(&mut self);
-    fn update(&mut self);
-    fn end(&mut self);
+    fn new(window: &mut Window) -> Self;
+    fn update(&mut self, window: &mut Window, delta_t: f64);
+    fn draw(&mut self, window: &mut Window, delta_t: f64);
+    fn exiting(&mut self, window: &mut Window);
+    fn resize(&mut self, window: &mut Window, width: u32, height: u32);
 }

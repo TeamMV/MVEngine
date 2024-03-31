@@ -1,26 +1,27 @@
 use crate::render::backend::buffer::Buffer;
 use crate::render::backend::descriptor_set::DescriptorSet;
 use crate::render::backend::device::{CommandPool, Device};
+use crate::render::backend::image::Image;
 use crate::render::backend::pipeline::{Pipeline, PipelineType};
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::Extent3D;
 use mvcore_proc_macro::graphics_item;
 
-pub(crate) enum CommandBufferLevel {
+pub enum CommandBufferLevel {
     Primary,
     Secondary,
 }
 
-pub(crate) struct MVCommandBufferCreateInfo {
-    pub(crate) level: CommandBufferLevel,
-    pub(crate) pool: CommandPool,
+pub struct MVCommandBufferCreateInfo {
+    pub level: CommandBufferLevel,
+    pub pool: CommandPool,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum CommandBuffer {
+pub enum CommandBuffer {
     Vulkan(VkCommandBuffer),
     #[cfg(target_os = "macos")]
     Metal,
@@ -29,7 +30,7 @@ pub(crate) enum CommandBuffer {
 }
 
 impl CommandBuffer {
-    pub(crate) fn new(device: Device, create_info: MVCommandBufferCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVCommandBufferCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
                 CommandBuffer::Vulkan(VkCommandBuffer::new(device, create_info.into()))
@@ -41,7 +42,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn begin(&self) {
+    pub fn begin(&self) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.begin(),
             #[cfg(target_os = "macos")]
@@ -51,7 +52,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn end(&self) {
+    pub fn end(&self) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.end(),
             #[cfg(target_os = "macos")]
@@ -61,7 +62,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn write_buffer(&self, buffer: &mut Buffer, data: &[u8], offset: u64) {
+    pub fn write_buffer(&self, buffer: &mut Buffer, data: &[u8], offset: u64) {
         match self {
             CommandBuffer::Vulkan(cmd) => {
                 buffer
@@ -75,7 +76,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn copy_buffers(
+    pub fn copy_buffers(
         &self,
         src: &Buffer,
         dst: &mut Buffer,
@@ -99,7 +100,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn draw(&self, vertex_count: u32, first_vertex: u32) {
+    pub fn draw(&self, vertex_count: u32, first_vertex: u32) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.draw(vertex_count, 1, first_vertex, 0),
             #[cfg(target_os = "macos")]
@@ -109,7 +110,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn draw_instanced(
+    pub fn draw_instanced(
         &self,
         vertex_count: u32,
         instance_count: u32,
@@ -127,7 +128,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn draw_indexed(&self, index_count: u32, first_index: u32) {
+    pub fn draw_indexed(&self, index_count: u32, first_index: u32) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.draw_indexed(index_count, 1, first_index, 0),
             #[cfg(target_os = "macos")]
@@ -137,7 +138,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn draw_indexed_instanced(
+    pub fn draw_indexed_instanced(
         &self,
         index_count: u32,
         instance_count: u32,
@@ -155,7 +156,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn bind_vertex_buffer(&self, buffer: &Buffer) {
+    pub fn bind_vertex_buffer(&self, buffer: &Buffer) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.bind_vertex_buffer(buffer.as_vulkan()),
             #[cfg(target_os = "macos")]
@@ -165,7 +166,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn bind_index_buffer(&self, buffer: &Buffer) {
+    pub fn bind_index_buffer(&self, buffer: &Buffer) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.bind_index_buffer(buffer.as_vulkan()),
             #[cfg(target_os = "macos")]
@@ -175,7 +176,7 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn dispatch(&self, extent: Extent3D) {
+    pub fn dispatch(&self, extent: Extent3D) {
         match self {
             CommandBuffer::Vulkan(cmd) => cmd.dispatch(extent.into()),
             #[cfg(target_os = "macos")]
@@ -185,7 +186,17 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn bind_descriptor_set<Type: PipelineType>(
+    pub fn blit_image(&self, src_image: Image, dst_image: Image) {
+        match self {
+            CommandBuffer::Vulkan(cmd) => cmd.blit_image(src_image.into_vulkan(), dst_image.into_vulkan()),
+            #[cfg(target_os = "macos")]
+            CommandBuffer::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            CommandBuffer::DirectX => unimplemented!(),
+        }
+    }
+
+    pub fn bind_descriptor_set<Type: PipelineType>(
         &self,
         pipeline: &Pipeline,
         descriptor_set: &mut DescriptorSet,

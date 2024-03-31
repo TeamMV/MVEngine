@@ -9,7 +9,7 @@ use crate::render::backend::descriptor_set::{
 };
 use crate::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use crate::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
-use crate::render::backend::image::{ImageFormat, ImageLayout, ImageUsage};
+use crate::render::backend::image::{AccessFlags, ImageFormat, ImageLayout, ImageUsage};
 use crate::render::backend::pipeline::{
     AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
@@ -47,9 +47,9 @@ pub fn run() {
         Backend::Vulkan,
         MVDeviceCreateInfo {
             app_name: "Test app".to_string(),
-            app_version: Version::new(0, 1, 0),
+            app_version: Version::new(0, 0, 1, 0),
             engine_name: "MVEngine".to_string(),
-            engine_version: Version::new(0, 1, 0),
+            engine_version: Version::new(0, 0, 1, 0),
             device_extensions: Extensions::empty(),
         },
         &window,
@@ -433,8 +433,8 @@ pub fn run() {
                         framebuffer.get_image(0).transition_layout(
                             ImageLayout::ShaderReadOnlyOptimal,
                             Some(cmd),
-                            ash::vk::AccessFlags::empty(),
-                            ash::vk::AccessFlags::empty(),
+                            AccessFlags::empty(),
+                            AccessFlags::empty(),
                         );
                         swapchain
                             .get_current_framebuffer()
@@ -442,8 +442,8 @@ pub fn run() {
                             .transition_layout(
                                 ImageLayout::General,
                                 Some(cmd),
-                                ash::vk::AccessFlags::empty(),
-                                ash::vk::AccessFlags::empty(),
+                                AccessFlags::empty(),
+                                AccessFlags::empty(),
                             );
 
                         effect_set[image_index as usize].bind(&cmd, &effect_pipeline, 0);
@@ -461,8 +461,8 @@ pub fn run() {
                             .transition_layout(
                                 ImageLayout::PresentSrc,
                                 Some(cmd),
-                                ash::vk::AccessFlags::empty(),
-                                ash::vk::AccessFlags::empty(),
+                                AccessFlags::empty(),
+                                AccessFlags::empty(),
                             );
 
                         cmd.end();

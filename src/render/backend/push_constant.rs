@@ -4,7 +4,7 @@ use crate::render::backend::pipeline::{Pipeline, PipelineType};
 use crate::render::backend::shader::ShaderStage;
 use crate::render::backend::vulkan::push_constant::VkPushConstant;
 
-pub(crate) enum PushConstant<T: Sized> {
+pub enum PushConstant<T: Sized> {
     Vulkan(VkPushConstant<T>),
     #[cfg(target_os = "macos")]
     Metal,
@@ -12,13 +12,13 @@ pub(crate) enum PushConstant<T: Sized> {
     DirectX,
 }
 
-pub(crate) struct MVPushConstantCreateInfo<T: Sized> {
-    pub(crate) stage: ShaderStage,
-    pub(crate) value: T,
+pub struct MVPushConstantCreateInfo<T: Sized> {
+    pub stage: ShaderStage,
+    pub value: T,
 }
 
 impl<T: Sized> PushConstant<T> {
-    pub(crate) fn new(device: Device, create_info: MVPushConstantCreateInfo<T>) -> Self {
+    pub fn new(device: Device, create_info: MVPushConstantCreateInfo<T>) -> Self {
         match device {
             Device::Vulkan(device) => {
                 PushConstant::Vulkan(VkPushConstant::new(device, create_info.into()).into())
@@ -30,7 +30,7 @@ impl<T: Sized> PushConstant<T> {
         }
     }
 
-    pub(crate) fn push<Type: PipelineType>(&self, cmd: &CommandBuffer, pipeline: Pipeline<Type>) {
+    pub fn push<Type: PipelineType>(&self, cmd: &CommandBuffer, pipeline: Pipeline<Type>) {
         match self {
             PushConstant::Vulkan(push_constant) => {
                 push_constant.push(cmd.as_vulkan(), pipeline.as_vulkan())
@@ -42,7 +42,7 @@ impl<T: Sized> PushConstant<T> {
         }
     }
 
-    pub(crate) fn data(&self) -> &T {
+    pub fn data(&self) -> &T {
         match self {
             PushConstant::Vulkan(push_constant) => push_constant.data(),
             #[cfg(target_os = "macos")]
@@ -52,7 +52,7 @@ impl<T: Sized> PushConstant<T> {
         }
     }
 
-    pub(crate) fn data_mut(&mut self) -> &mut T {
+    pub fn data_mut(&mut self) -> &mut T {
         match self {
             PushConstant::Vulkan(push_constant) => push_constant.data_mut(),
             #[cfg(target_os = "macos")]
@@ -62,7 +62,7 @@ impl<T: Sized> PushConstant<T> {
         }
     }
 
-    pub(crate) fn replace(&mut self, new_data: T) {
+    pub fn replace(&mut self, new_data: T) {
         match self {
             PushConstant::Vulkan(push_constant) => push_constant.replace(new_data),
             #[cfg(target_os = "macos")]

@@ -6,19 +6,19 @@ use mvcore_proc_macro::graphics_item;
 use std::ffi::CString;
 use std::sync::Arc;
 
-pub(crate) struct MVBufferCreateInfo {
-    pub(crate) instance_size: u64,
-    pub(crate) instance_count: u32,
-    pub(crate) buffer_usage: BufferUsage,
-    pub(crate) memory_properties: MemoryProperties,
-    pub(crate) minimum_alignment: u64,
-    pub(crate) memory_usage: gpu_alloc::UsageFlags,
+pub struct MVBufferCreateInfo {
+    pub instance_size: u64,
+    pub instance_count: u32,
+    pub buffer_usage: BufferUsage,
+    pub memory_properties: MemoryProperties,
+    pub minimum_alignment: u64,
+    pub memory_usage: gpu_alloc::UsageFlags,
 
-    pub(crate) label: Option<String>,
+    pub label: Option<String>,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum Buffer {
+pub enum Buffer {
     Vulkan(VkBuffer),
     #[cfg(target_os = "macos")]
     Metal,
@@ -27,7 +27,7 @@ pub(crate) enum Buffer {
 }
 
 impl Buffer {
-    pub(crate) fn new(device: Device, create_info: MVBufferCreateInfo) -> Self {
+    pub fn new(device: Device, create_info: MVBufferCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => Buffer::Vulkan(VkBuffer::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
@@ -37,12 +37,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn write(
-        &mut self,
-        data: &[u8],
-        offset: u64,
-        command_buffer: Option<&CommandBuffer>,
-    ) {
+    pub fn write(&mut self, data: &[u8], offset: u64, command_buffer: Option<&CommandBuffer>) {
         match self {
             Buffer::Vulkan(buffer) => buffer.write_to_buffer(
                 data,
@@ -56,7 +51,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn get_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         match self {
             Buffer::Vulkan(buffer) => buffer.get_size(),
             #[cfg(target_os = "macos")]
@@ -66,7 +61,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn get_descriptor_info(&self, size: u64, offset: u64) -> DescriptorBufferInfo {
+    pub fn get_descriptor_info(&self, size: u64, offset: u64) -> DescriptorBufferInfo {
         match self {
             Buffer::Vulkan(buffer) => {
                 DescriptorBufferInfo::Vulkan(buffer.get_descriptor_info(size, offset))
@@ -78,7 +73,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn copy_buffer(
+    pub fn copy_buffer(
         src: &mut Buffer,
         dst: &mut Buffer,
         size: u64,
@@ -104,7 +99,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn map(&mut self) {
+    pub fn map(&mut self) {
         match self {
             Buffer::Vulkan(buffer) => buffer.map(),
             #[cfg(target_os = "macos")]
@@ -114,7 +109,7 @@ impl Buffer {
         }
     }
 
-    pub(crate) fn unmap(&mut self) {
+    pub fn unmap(&mut self) {
         match self {
             Buffer::Vulkan(buffer) => buffer.unmap(),
             #[cfg(target_os = "macos")]
@@ -125,7 +120,7 @@ impl Buffer {
     }
 }
 
-pub(crate) enum DescriptorBufferInfo {
+pub enum DescriptorBufferInfo {
     Vulkan(ash::vk::DescriptorBufferInfo),
     #[cfg(target_os = "macos")]
     Metal,

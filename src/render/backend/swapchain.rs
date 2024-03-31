@@ -5,15 +5,15 @@ use crate::render::backend::vulkan::swapchain::VkSwapchain;
 use crate::render::backend::Extent2D;
 use mvcore_proc_macro::graphics_item;
 
-pub(crate) struct MVSwapchainCreateInfo {
-    pub(crate) extent: Extent2D,
-    pub(crate) previous: Option<Swapchain>,
-    pub(crate) vsync: bool,
-    pub(crate) max_frames_in_flight: u32,
+pub struct MVSwapchainCreateInfo {
+    pub extent: Extent2D,
+    pub previous: Option<Swapchain>,
+    pub vsync: bool,
+    pub max_frames_in_flight: u32,
 }
 
 #[graphics_item(ref)]
-pub(crate) enum Swapchain {
+pub enum Swapchain {
     Vulkan(VkSwapchain),
     #[cfg(target_os = "macos")]
     Metal,
@@ -22,7 +22,7 @@ pub(crate) enum Swapchain {
 }
 
 impl Swapchain {
-    pub(crate) fn new(device: Device, create_info: MVSwapchainCreateInfo) -> Swapchain {
+    pub fn new(device: Device, create_info: MVSwapchainCreateInfo) -> Swapchain {
         match device {
             Device::Vulkan(device) => {
                 Swapchain::Vulkan(VkSwapchain::new(device, create_info.into()))
@@ -34,7 +34,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_framebuffer(&self, index: usize) -> Framebuffer {
+    pub fn get_framebuffer(&self, index: usize) -> Framebuffer {
         match self {
             Swapchain::Vulkan(swapchain) => Framebuffer::Vulkan(swapchain.get_framebuffer(index)),
             #[cfg(target_os = "macos")]
@@ -44,7 +44,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_framebuffers(&self) -> Vec<Framebuffer> {
+    pub fn get_framebuffers(&self) -> Vec<Framebuffer> {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain
                 .get_framebuffers()
@@ -58,7 +58,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_current_framebuffer(&self) -> Framebuffer {
+    pub fn get_current_framebuffer(&self) -> Framebuffer {
         match self {
             Swapchain::Vulkan(swapchain) => {
                 Framebuffer::Vulkan(swapchain.get_current_framebuffer())
@@ -70,7 +70,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_extent(&self) -> Extent2D {
+    pub fn get_extent(&self) -> Extent2D {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_extent().into(),
             #[cfg(target_os = "macos")]
@@ -80,7 +80,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_aspect_ratio(&self) -> f32 {
+    pub fn get_aspect_ratio(&self) -> f32 {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_aspect_ratio(),
             #[cfg(target_os = "macos")]
@@ -90,7 +90,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_current_preset_mode(&self) -> PresentMode {
+    pub fn get_current_preset_mode(&self) -> PresentMode {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_current_present_mode().into(),
             #[cfg(target_os = "macos")]
@@ -100,7 +100,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn submit_command_buffer(
+    pub fn submit_command_buffer(
         &mut self,
         buffer: &CommandBuffer,
         image_index: u32,
@@ -108,7 +108,7 @@ impl Swapchain {
         self.submit_command_buffers(&[buffer], image_index)
     }
 
-    pub(crate) fn submit_command_buffers(
+    pub fn submit_command_buffers(
         &mut self,
         buffer: &[&CommandBuffer],
         image_index: u32,
@@ -130,7 +130,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn acquire_next_image(&mut self) -> Result<u32, SwapchainError> {
+    pub fn acquire_next_image(&mut self) -> Result<u32, SwapchainError> {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.acquire_next_image().map_err(Into::into),
             #[cfg(target_os = "macos")]
@@ -140,7 +140,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_current_frame(&self) -> u32 {
+    pub fn get_current_frame(&self) -> u32 {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_current_frame(),
             #[cfg(target_os = "macos")]
@@ -150,7 +150,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_current_image_index(&self) -> u32 {
+    pub fn get_current_image_index(&self) -> u32 {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_current_image_index(),
             #[cfg(target_os = "macos")]
@@ -160,7 +160,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_image_count(&self) -> u32 {
+    pub fn get_image_count(&self) -> u32 {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_image_count(),
             #[cfg(target_os = "macos")]
@@ -170,7 +170,7 @@ impl Swapchain {
         }
     }
 
-    pub(crate) fn get_max_frames_in_flight(&self) -> u32 {
+    pub fn get_max_frames_in_flight(&self) -> u32 {
         match self {
             Swapchain::Vulkan(swapchain) => swapchain.get_max_frames_in_flight(),
             #[cfg(target_os = "macos")]
@@ -182,7 +182,7 @@ impl Swapchain {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum PresentMode {
+pub enum PresentMode {
     Immediate,
     Mailbox,
     Fifo,
@@ -190,7 +190,7 @@ pub(crate) enum PresentMode {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum SwapchainError {
+pub enum SwapchainError {
     OutOfDate,
     Suboptimal,
 }
