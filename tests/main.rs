@@ -94,8 +94,8 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             blending_enable: false,
             descriptor_sets: vec![],
             push_constants: vec![],
-            framebuffer: renderer.get_current_framebuffer(),
-            color_attachments_count: 0,
+            framebuffer: renderer.get_swapchain().get_framebuffer(0),
+            color_attachments_count: 1,
             label: None,
         });
 
