@@ -262,6 +262,17 @@ impl DescriptorSet {
         }
     }
 
+    // TODO:
+    // pub fn get_layout(&self) -> DescriptorSetLayout {
+    //     match self {
+    //         DescriptorSet::Vulkan(descriptor_set) => descriptor_set.get_layout().into(),
+    //         #[cfg(target_os = "macos")]
+    //         DescriptorSet::Metal => unimplemented!(),
+    //         #[cfg(target_os = "windows")]
+    //         DescriptorSet::DirectX => unimplemented!(),
+    //     }
+    // }
+
     pub fn bind<Type: PipelineType + 'static>(
         &mut self,
         command_buffer: &CommandBuffer,

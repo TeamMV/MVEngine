@@ -1,6 +1,4 @@
-use crate::render::backend::descriptor_set::{
-    MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo,
-};
+use crate::render::backend::descriptor_set::{DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo};
 #[cfg(feature = "ray-tracing")]
 use crate::render::backend::pipeline::RayTracing;
 use crate::render::backend::pipeline::{Compute, Graphics, PipelineType};
@@ -418,8 +416,8 @@ impl VkDescriptorSet {
         self.handle
     }
 
-    pub(crate) fn get_layout(&self) -> ash::vk::DescriptorSetLayout {
-        self.layout.get_layout()
+    pub(crate) fn get_layout(&self) -> Arc<VkDescriptorSetLayout> {
+        self.layout.clone()
     }
 }
 

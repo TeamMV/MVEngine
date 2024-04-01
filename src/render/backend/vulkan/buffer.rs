@@ -128,7 +128,7 @@ impl VkBuffer {
             // Device Local
             let buffer_create_info = CreateInfo {
                 instance_size: size as ash::vk::DeviceSize,
-                instance_count: self.instance_count,
+                instance_count: 1,
                 usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
                 memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE,
                 minimum_alignment: 1,
@@ -153,7 +153,7 @@ impl VkBuffer {
                 self,
                 size as ash::vk::DeviceSize,
                 0,
-                0,
+                offset,
                 provided_cmd,
             );
         }

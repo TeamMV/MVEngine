@@ -1,6 +1,5 @@
 use std::f32::consts::PI;
-use std::mem;
-use glam::{Mat4, Vec3};
+use glam::Mat4;
 use log::LevelFilter;
 use mvutils::once::CreateOnce;
 use shaderc::ShaderKind;
@@ -31,7 +30,7 @@ fn main() {
         theme: None,
         vsync: false,
         max_frames_in_flight: 2,
-        fps: 9999,
+        fps: 9990,
         ups: 20,
     });
 
@@ -46,9 +45,7 @@ struct ApplicationLoop {
     camera_set: DescriptorSet,
     pool: DescriptorPool,
     camera_buffer: Buffer,
-    transforms: Vec<Transform>,
-    transforms_buffer: Buffer,
-    transforms_set: DescriptorSet,
+    vertices: Vec<Vertex>,
     quad_rotation: f32
 }
 
@@ -56,13 +53,6 @@ struct ApplicationLoop {
 struct Vertex {
     position: glam::Vec3,
     tex_coord: glam::Vec2
-}
-
-#[repr(C)]
-struct Transform {
-    position: glam::Vec4,
-    rotation: glam::Vec4,
-    scale: glam::Vec4
 }
 
 impl Vertex {
@@ -168,47 +158,11 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         camera_set.add_buffer(0, &camera_buffer, 0, 128);
         camera_set.build();
 
-        let mut transforms_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-            instance_size: 100 * 100 * (mem::size_of::<Transform>() as u64),
-            instance_count: 1,
-            buffer_usage: BufferUsage::STORAGE_BUFFER,
-            memory_properties: MemoryProperties::DEVICE_LOCAL,
-            minimum_alignment: 1,
-            memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-            label: Some("Matrix Storage Buffer".to_string()),
-        });
-
-        let transforms_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
-            bindings: vec![DescriptorSetLayoutBinding{
-                index: 0,
-                stages: ShaderStage::Vertex,
-                ty: DescriptorType::StorageBuffer,
-                count: 1,
-            }],
-            label: None,
-        });
-
-        let mut transforms_set = DescriptorSet::new(device.clone(), MVDescriptorSetCreateInfo {
-            pool: descriptor_pool.clone(),
-            bindings: vec![
-                DescriptorSetLayoutBinding{
-                    index: 0,
-                    stages: ShaderStage::Vertex,
-                    ty: DescriptorType::StorageBuffer,
-                    count: 1,
-                }
-            ],
-            label: Some("Camera Set".to_string()),
-        });
-
-        transforms_set.add_buffer(0, &transforms_buffer, 0, transforms_buffer.get_size());
-        transforms_set.build();
-
-        let vertices = create_quad_vertices(glam::Vec3::new(0.0, 0.0, 0.0), 0.0, 1.0);
+        let vertices = create_quad_vertices(glam::Vec3::new(100.0, -100.0, 0.0), 45.0, 10.0);
 
         let mesh = Mesh::new(device.clone(), Vertex::to_bytes(&vertices), None, Some("Test mesh".to_string()));
 
-        let vertex_shader = renderer.compile_shader(include_str!("../src/render/shaders/2d/instancing.vert"), ShaderStage::Vertex, ShaderKind::Vertex);
+        let vertex_shader = renderer.compile_shader(include_str!("../src/render/shaders/2d/default.vert"), ShaderStage::Vertex, ShaderKind::Vertex);
         let fragment_shader = renderer.compile_shader(include_str!("../src/render/shaders/2d/default.frag"), ShaderStage::Fragment, ShaderKind::Fragment);
 
         let test_pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
@@ -220,7 +174,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             enable_depth_test: false,
             depth_clamp: false,
             blending_enable: false,
-            descriptor_sets: vec![camera_set_layout.clone(), transforms_set_layout.clone()], // TODO: fix this shit, it doesn't work if you forget to do .clone()
+            descriptor_sets: vec![camera_set_layout.clone()],
             push_constants: vec![],
             framebuffer: renderer.get_swapchain().get_framebuffer(0),
             color_attachments_count: 1,
@@ -234,39 +188,31 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             renderer,
             camera_set,
             pool: descriptor_pool,
-            transforms: Vec::new(),
-            transforms_buffer,
-            transforms_set,
+            vertices: Vec::new(),
             camera_buffer,
             quad_rotation: 0.0
         }
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {
-
     }
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         println!("ms: {}, fps: {}", delta_t * 1000.0, 1.0 / delta_t);
 
-        self.quad_rotation += delta_t as f32 * 50.0;
+        self.vertices.clear();
 
-        self.transforms.clear();
+        self.quad_rotation += delta_t as f32 * 50.0;
 
         for x in 0..100 {
             for y in 0..100 {
-
-                self.transforms.push(Transform{
-                    position: glam::Vec4::new(x as f32 * 20.0 + 20.0, -y as f32 * 20.0 - 20.0, 0.0, 0.0),
-                    rotation: glam::Vec4::new(0.0, 0.0, self.quad_rotation * PI / 180.0, 0.0),
-                    scale: glam::Vec4::splat(7.5),
-                });
+                self.vertices.extend(create_quad_vertices(glam::Vec3::new(x as f32 * 20.0 + 20.0, -y as f32 * 20.0 - 20.0, 0.0), self.quad_rotation, 7.5));
             }
         }
 
-        let bytes = unsafe {std::slice::from_raw_parts(self.transforms.as_ptr() as *const u8, self.transforms.len() * mem::size_of::<Transform>())};
+        let bytes = Vertex::to_bytes(&self.vertices);
 
-        self.transforms_buffer.write(bytes, 0, None);
+        self.mesh.update_vertex_buffer(bytes);
 
         let image_index = self.renderer.begin_frame().unwrap();
 
@@ -280,8 +226,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         self.pipeline.bind(cmd);
 
         self.camera_set.bind(cmd, &self.pipeline, 0);
-        self.transforms_set.bind(cmd, &self.pipeline, 1);
-        self.mesh.draw_instanced(cmd, 0, self.transforms.len() as u32);
+        self.mesh.draw(cmd);
 
         framebuffer.end_render_pass(cmd);
 

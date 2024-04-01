@@ -12,7 +12,7 @@ pub struct Camera2D {
 }
 
 impl Camera2D {
-    pub(crate) fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Camera2D {
             position: Vec2::new(0.0, 0.0),
             rotation: 0.0,
@@ -25,15 +25,15 @@ impl Camera2D {
         .setup(width, height)
     }
 
-    pub(crate) fn get_view(&self) -> Mat4 {
+    pub fn get_view(&self) -> Mat4 {
         self.view
     }
 
-    pub(crate) fn get_projection(&self) -> Mat4 {
+    pub fn get_projection(&self) -> Mat4 {
         self.projection
     }
 
-    pub(crate) fn update_view(&mut self) {
+    pub fn update_view(&mut self) {
         self.view = Mat4::from_scale_rotation_translation(
             Vec3::new(self.zoom, self.zoom, self.zoom),
             Quat::from_rotation_z(self.rotation),
@@ -43,7 +43,7 @@ impl Camera2D {
         *self.view.col_mut(1) *= -1.0f32; // this should invert the up direction?
     }
 
-    pub(crate) fn update_projection(&mut self, width: u32, height: u32) {
+    pub fn update_projection(&mut self, width: u32, height: u32) {
         self.projection = Mat4::orthographic_lh(
             0.0,
             width as f32,
