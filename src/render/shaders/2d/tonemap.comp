@@ -1,0 +1,21 @@
+#version 450
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform sampler2D uInput;
+layout(set = 0, binding = 1, rgba8) uniform image2D uOutput;
+
+void main() {
+    if (gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, ivec2(0), imageSize(uOutput)))
+        return;
+
+    vec2 pixelCoord = vec2(gl_GlobalInvocationID.xy) + vec2(0.5f);
+    vec2 textureSize = vec2(textureSize(uInput, 0));
+    vec2 texCoord = pixelCoord / textureSize;
+
+    vec4 color = texture(uInput, texCoord);
+
+    color = pow(color, vec4(vec3(1.0f / 2.2f), 1.0f));
+
+    imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), color);
+}

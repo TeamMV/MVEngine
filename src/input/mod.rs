@@ -9,7 +9,7 @@ pub use raw::State;
 mod consts;
 pub mod raw;
 
-pub(crate) struct InputCollector {
+pub struct InputCollector {
     default_processor: InputProcessorImpl,
     gui_processor: GuiInputProcessor,
     custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
@@ -38,7 +38,7 @@ impl InputCollector {
         self.custom_processor = custom_processor;
     }
 
-    pub fn collect(&mut self, action: InputAction) {
+    pub(crate) fn collect(&mut self, action: InputAction) {
         if let Keyboard(ka) = action {
             if self.default_processor.is_enabled() {
                 self.default_processor.keyboard_change(ka);
