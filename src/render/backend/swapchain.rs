@@ -49,7 +49,7 @@ impl Swapchain {
             Swapchain::Vulkan(swapchain) => swapchain
                 .get_framebuffers()
                 .into_iter()
-                .map(|framebuffer| Framebuffer::Vulkan(framebuffer))
+                .map(Framebuffer::Vulkan)
                 .collect(),
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),

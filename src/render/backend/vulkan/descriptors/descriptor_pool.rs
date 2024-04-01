@@ -1,13 +1,9 @@
 use crate::render::backend::descriptor_set::MVDescriptorPoolCreateInfo;
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 use crate::render::backend::vulkan::device::VkDevice;
-use ash::vk::Handle;
-use std::any::Any;
-use std::ffi::CString;
 use std::sync::Arc;
 
-pub(crate) struct VkDescriptorPool {
+pub struct VkDescriptorPool {
     device: Arc<VkDevice>,
 
     handles: Vec<ash::vk::DescriptorPool>,
@@ -18,7 +14,7 @@ pub(crate) struct VkDescriptorPool {
     current_pool_index: u32,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 pub(crate) struct CreateInfo {
@@ -27,7 +23,7 @@ pub(crate) struct CreateInfo {
     pool_flags: ash::vk::DescriptorPoolCreateFlags,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<MVDescriptorPoolCreateInfo> for CreateInfo {
@@ -45,7 +41,7 @@ impl From<MVDescriptorPoolCreateInfo> for CreateInfo {
             pool_flags: ash::vk::DescriptorPoolCreateFlags::from_raw(value.flags.bits() as u32),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -70,7 +66,7 @@ impl VkDescriptorPool {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::DESCRIPTOR_POOL,
-            handle.as_raw(),
+            ash::vk::Handle::as_raw(handle),
             create_info.debug_name.as_c_str(),
         );
 
@@ -160,7 +156,7 @@ impl VkDescriptorPool {
         #[cfg(debug_assertions)]
         self.device.set_object_name(
             &ash::vk::ObjectType::DESCRIPTOR_POOL,
-            handle.as_raw(),
+            ash::vk::Handle::as_raw(handle),
             self.debug_name.as_c_str(),
         );
 

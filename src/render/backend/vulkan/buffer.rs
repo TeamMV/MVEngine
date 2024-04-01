@@ -1,8 +1,5 @@
 use crate::render::backend::buffer::MVBufferCreateInfo;
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
-use ash::vk::Handle;
-use std::ffi::CString;
 use std::sync::Arc;
 
 pub(crate) struct CreateInfo {
@@ -14,7 +11,7 @@ pub(crate) struct CreateInfo {
     pub memory_usage_flags: gpu_alloc::UsageFlags,
 
     #[cfg(debug_assertions)]
-    pub debug_name: CString,
+    pub debug_name: std::ffi::CString,
 }
 
 impl From<MVBufferCreateInfo> for CreateInfo {
@@ -30,12 +27,12 @@ impl From<MVBufferCreateInfo> for CreateInfo {
             memory_usage_flags: value.memory_usage,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
 
-pub(crate) struct VkBuffer {
+pub struct VkBuffer {
     device: Arc<VkDevice>,
 
     handle: ash::vk::Buffer,
@@ -47,7 +44,6 @@ pub(crate) struct VkBuffer {
     alignment_size: ash::vk::DeviceSize,
     usage_flags: ash::vk::BufferUsageFlags,
     memory_properties: ash::vk::MemoryPropertyFlags,
-    no_pool: bool,
     memory_usage_flags: gpu_alloc::UsageFlags,
 }
 
@@ -79,7 +75,7 @@ impl VkBuffer {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::BUFFER,
-            buffer.as_raw(),
+            ash::vk::Handle::as_raw(buffer),
             create_info.debug_name.as_c_str(),
         );
 
@@ -94,12 +90,10 @@ impl VkBuffer {
             alignment_size: alignment,
             usage_flags,
             memory_properties: create_info.memory_properties,
-            no_pool: false, // always false for now
             memory_usage_flags: create_info.memory_usage_flags,
         }
     }
 
-    // We'll need wrapper for these
     pub(crate) fn write_to_buffer(
         &mut self,
         data: &[u8],
@@ -137,7 +131,7 @@ impl VkBuffer {
                     | gpu_alloc::UsageFlags::UPLOAD,
 
                 #[cfg(debug_assertions)]
-                debug_name: CString::new("Staging Buffer").unwrap(),
+                debug_name: std::ffi::CString::new("Staging Buffer").unwrap(),
             };
 
             let mut staging_buffer = Self::new(self.device.clone(), buffer_create_info);
@@ -286,7 +280,7 @@ impl VkBuffer {
     }
 
     pub(crate) fn is_mapped(&self) -> bool {
-        self.mapped != std::ptr::null_mut()
+        !self.mapped.is_null()
     }
 }
 

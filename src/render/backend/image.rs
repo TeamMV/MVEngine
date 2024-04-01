@@ -5,7 +5,6 @@ use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::Extent2D;
 use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
-use std::ffi::CString;
 use std::sync::Arc;
 
 pub enum ImageType {

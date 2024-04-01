@@ -1,19 +1,19 @@
-use crate::render::backend::buffer::Buffer;
-use crate::render::backend::command_buffer::CommandBuffer;
-use crate::render::backend::device::Device;
-use crate::render::backend::framebuffer::Framebuffer;
-use crate::render::backend::image::{Image, ImageLayout};
-use crate::render::backend::pipeline::{Pipeline, PipelineType};
-use crate::render::backend::sampler::Sampler;
-use crate::render::backend::shader::{Shader, ShaderStage};
-use crate::render::backend::vulkan::descriptor_set::VkDescriptorSet;
-use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
-use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
-use crate::render::backend::vulkan::shader::VkShader;
+use std::sync::Arc;
+
 use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
 use parking_lot::Mutex;
-use std::sync::Arc;
+
+use crate::render::backend::buffer::Buffer;
+use crate::render::backend::command_buffer::CommandBuffer;
+use crate::render::backend::device::Device;
+use crate::render::backend::image::{Image, ImageLayout};
+use crate::render::backend::pipeline::{Pipeline, PipelineType};
+use crate::render::backend::sampler::Sampler;
+use crate::render::backend::shader::ShaderStage;
+use crate::render::backend::vulkan::descriptor_set::VkDescriptorSet;
+use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
+use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 
 #[derive(Copy, Clone)]
 pub enum DescriptorType {
@@ -156,9 +156,7 @@ impl DescriptorSet {
 
     pub fn from_layout(device: Device, create_info: MVDescriptorSetFromLayoutCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => DescriptorSet::Vulkan(
-                VkDescriptorSet::from_layout(device, create_info.into()).into(),
-            ),
+            Device::Vulkan(device) => DescriptorSet::Vulkan(VkDescriptorSet::from_layout(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -262,16 +260,17 @@ impl DescriptorSet {
         }
     }
 
-    // TODO:
-    // pub fn get_layout(&self) -> DescriptorSetLayout {
-    //     match self {
-    //         DescriptorSet::Vulkan(descriptor_set) => descriptor_set.get_layout().into(),
-    //         #[cfg(target_os = "macos")]
-    //         DescriptorSet::Metal => unimplemented!(),
-    //         #[cfg(target_os = "windows")]
-    //         DescriptorSet::DirectX => unimplemented!(),
-    //     }
-    // }
+    pub fn get_layout(&self) -> DescriptorSetLayout {
+        match self {
+            DescriptorSet::Vulkan(descriptor_set) => {
+                DescriptorSetLayout::Vulkan(descriptor_set.get_layout())
+            }
+            #[cfg(target_os = "macos")]
+            DescriptorSet::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            DescriptorSet::DirectX => unimplemented!(),
+        }
+    }
 
     pub fn bind<Type: PipelineType + 'static>(
         &mut self,

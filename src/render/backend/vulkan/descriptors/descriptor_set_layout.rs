@@ -1,14 +1,10 @@
 use crate::render::backend::descriptor_set::{
     DescriptorSetLayoutBinding, DescriptorType, MVDescriptorSetLayoutCreateInfo,
 };
-use crate::render::backend::to_ascii_cstring;
-use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::device::VkDevice;
-use ash::vk::Handle;
-use std::ffi::CString;
 use std::sync::Arc;
 
-pub(crate) struct VkDescriptorSetLayout {
+pub struct VkDescriptorSetLayout {
     device: Arc<VkDevice>,
 
     handle: ash::vk::DescriptorSetLayout,
@@ -19,7 +15,7 @@ pub(crate) struct CreateInfo {
     pub bindings: Vec<ash::vk::DescriptorSetLayoutBinding>,
 
     #[cfg(debug_assertions)]
-    pub debug_name: CString,
+    pub debug_name: std::ffi::CString,
 }
 
 impl From<MVDescriptorSetLayoutCreateInfo> for CreateInfo {
@@ -28,7 +24,7 @@ impl From<MVDescriptorSetLayoutCreateInfo> for CreateInfo {
             bindings: value.bindings.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -78,7 +74,7 @@ impl VkDescriptorSetLayout {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::DESCRIPTOR_SET_LAYOUT,
-            handle.as_raw(),
+            ash::vk::Handle::as_raw(handle),
             create_info.debug_name.as_c_str(),
         );
 

@@ -1,19 +1,16 @@
-use std::fs::OpenOptions;
-use std::io::Read;
+use mvutils::remake::Remake;
+use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
+
 use crate::render::backend::command_buffer::{
     CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
 };
-use crate::render::backend::device::{Device, MVDeviceCreateInfo};
+use crate::render::backend::device::Device;
+use crate::render::backend::Extent2D;
 use crate::render::backend::framebuffer::Framebuffer;
 use crate::render::backend::image::{AccessFlags, Image, ImageLayout};
+use crate::render::backend::shader::{MVShaderCreateInfo, Shader};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
-use crate::render::backend::{Backend, Extent2D};
 use crate::render::window::Window;
-use mvutils::remake::Remake;
-use std::mem::swap;
-use std::sync::Arc;
-use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
-use crate::render::backend::shader::{MVShaderCreateInfo, Shader, ShaderStage};
 
 pub struct Renderer {
     device: Device,
@@ -115,11 +112,11 @@ impl Renderer {
     }
 
     pub fn get_current_frame_index(&self) -> u32 {
-        self.swapchain.get_current_frame().clone()
+        self.swapchain.get_current_frame()
     }
 
     pub fn get_current_image_index(&self) -> u32 {
-        self.swapchain.get_current_image_index().clone()
+        self.swapchain.get_current_image_index()
     }
 
     pub fn get_current_command_buffer(&self) -> &CommandBuffer {
@@ -215,28 +212,30 @@ impl Renderer {
         self.max_frames_in_flight
     }
 
-    pub fn compile_shader(&self, data: &str, stage: ShaderStage, kind: ShaderKind) -> Shader { // TODO: stage_to_kind func
-        // let mut data = String::new();
-        //
-        // let mut file = OpenOptions::new().read(true).open(path.clone()).unwrap();
-        // file.read_to_string(&mut data).unwrap();
-
+    pub fn compile_shader(&self, data: &str, kind: ShaderKind, name: Option<String>) -> Shader {
         let compiler = shaderc::Compiler::new().unwrap();
         let mut options = shaderc::CompileOptions::new().unwrap();
         options.set_optimization_level(OptimizationLevel::Performance);
         options.set_target_env(TargetEnv::Vulkan, ash::vk::API_VERSION_1_2);
-        let code = compiler.compile_into_spirv(data, kind, "shader.glsl", "main", Some(&options)).unwrap().as_binary().to_vec();
+        let code = compiler
+            .compile_into_spirv(
+                data,
+                kind,
+                name.as_ref().unwrap_or(&"".to_string()),
+                "main",
+                Some(&options),
+            )
+            .unwrap()
+            .as_binary()
+            .to_vec();
 
-        Shader::new(self.device.clone(), MVShaderCreateInfo {
-            stage,
-            code,
-            label: None, // TODO: name
-        })
-    }
-
-    fn stage_to_kind(stage: ShaderStage) -> ShaderKind {
-        match stage {
-            _ => { todo!() }
-        }
+        Shader::new(
+            self.device.clone(),
+            MVShaderCreateInfo {
+                stage: kind.into(),
+                code,
+                label: name,
+            },
+        )
     }
 }

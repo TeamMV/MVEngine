@@ -5,14 +5,13 @@ use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::framebuffer::VkFramebuffer;
 use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::{Extent2D, Extent3D};
-use ash::vk::{PresentScalingFlagsEXT, SwapchainPresentScalingCreateInfoEXT};
+use ash::vk::SwapchainPresentScalingCreateInfoEXT;
 use std::ops::Not;
 use std::sync::Arc;
 
-pub(crate) struct VkSwapchain {
+pub struct VkSwapchain {
     device: Arc<VkDevice>,
 
-    // Swapchain Info
     color_image_format: ash::vk::Format,
     depth_image_format: ash::vk::Format,
     current_extent: ash::vk::Extent2D,

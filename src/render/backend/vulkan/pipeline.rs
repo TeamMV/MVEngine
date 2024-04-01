@@ -1,5 +1,3 @@
-use crate::err::panic;
-use crate::render::backend::descriptor_set::DescriptorSetLayout;
 use crate::render::backend::pipeline::{
     AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
     MVGraphicsPipelineCreateInfo, PipelineType, PushConstant, Topology,
@@ -7,12 +5,9 @@ use crate::render::backend::pipeline::{
 #[cfg(feature = "ray-tracing")]
 use crate::render::backend::pipeline::{MVRayTracingPipelineCreateInfo, RayTracing};
 use crate::render::backend::shader::Shader;
-use crate::render::backend::to_ascii_cstring;
+use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 use crate::render::backend::vulkan::device::VkDevice;
-use crate::render::backend::vulkan::shader::{CreateInfo, VkShader};
-use ash::vk::Handle;
-use num_traits::AsPrimitive;
-use std::ffi::CString;
+use crate::render::backend::vulkan::shader::VkShader;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -26,22 +21,22 @@ pub(crate) struct GraphicsCreateInfo {
     enable_depth_test: bool,
     depth_clamp: bool,
     blending_enable: bool,
-    descriptor_set_layouts: Vec<ash::vk::DescriptorSetLayout>,
+    descriptor_set_layouts: Vec<Arc<VkDescriptorSetLayout>>,
     push_constants: Vec<ash::vk::PushConstantRange>,
     render_pass: ash::vk::RenderPass,
     color_attachments_count: u32,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 pub(crate) struct ComputeCreateInfo {
     shader: Arc<VkShader>,
-    descriptor_set_layouts: Vec<ash::vk::DescriptorSetLayout>,
+    descriptor_set_layouts: Vec<Arc<VkDescriptorSetLayout>>,
     push_constants: Vec<ash::vk::PushConstantRange>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 #[cfg(feature = "ray-tracing")]
@@ -49,11 +44,11 @@ pub(crate) struct RayTracingCreateInfo {
     ray_gen_shaders: Vec<Arc<VkShader>>,
     closest_hit_shaders: Vec<Arc<VkShader>>,
     miss_shaders: Vec<Arc<VkShader>>,
-    descriptor_set_layouts: Vec<ash::vk::DescriptorSetLayout>,
+    descriptor_set_layouts: Vec<Arc<VkDescriptorSetLayout>>,
     push_constants: Vec<ash::vk::PushConstantRange>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<AttributeType> for ash::vk::Format {
@@ -149,14 +144,14 @@ impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(|layout| layout.into_vulkan().get_layout())
+                .map(|layout| layout.into_vulkan())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
             render_pass: value.framebuffer.as_vulkan().get_render_pass(),
             color_attachments_count: value.color_attachments_count,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -168,12 +163,12 @@ impl From<MVComputePipelineCreateInfo> for ComputeCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(|layout| layout.into_vulkan().get_layout())
+                .map(|layout| layout.into_vulkan())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -200,7 +195,7 @@ impl From<MVRayTracingPipelineCreateInfo> for RayTracingCreateInfo {
             descriptor_set_layouts: value
                 .descriptor_sets
                 .into_iter()
-                .map(|layout| layout.into_vulkan().get_layout())
+                .map(|layout| layout.into_vulkan())
                 .collect(),
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
@@ -219,7 +214,7 @@ struct PipelineConfigInfo<'a> {
     vertex_input_info: ash::vk::PipelineVertexInputStateCreateInfoBuilder<'a>,
 }
 
-pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
+pub struct VkPipeline<Type: PipelineType = Graphics> {
     device: Arc<VkDevice>,
     handle: ash::vk::Pipeline,
     layout: ash::vk::PipelineLayout,
@@ -229,11 +224,15 @@ pub(crate) struct VkPipeline<Type: PipelineType = Graphics> {
 impl<Type: PipelineType> VkPipeline<Type> {
     fn create_pipeline_layout(
         device: &Arc<VkDevice>,
-        descriptor_set_layouts: &[ash::vk::DescriptorSetLayout],
+        descriptor_set_layouts: &[Arc<VkDescriptorSetLayout>],
         push_constants: &[ash::vk::PushConstantRange],
     ) -> ash::vk::PipelineLayout {
+        let layouts = descriptor_set_layouts
+            .iter()
+            .map(|layout| layout.get_layout())
+            .collect::<Vec<_>>();
         let layout_info = ash::vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(descriptor_set_layouts)
+            .set_layouts(&layouts)
             .push_constant_ranges(push_constants);
 
         unsafe {
@@ -257,7 +256,7 @@ impl<Type: PipelineType> VkPipeline<Type> {
 }
 
 impl VkPipeline {
-    pub fn new(device: Arc<VkDevice>, create_info: GraphicsCreateInfo) -> Self {
+    pub(crate) fn new(device: Arc<VkDevice>, create_info: GraphicsCreateInfo) -> Self {
         let layout = Self::create_pipeline_layout(
             &device,
             &create_info.descriptor_set_layouts,
@@ -336,7 +335,7 @@ impl VkPipeline {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::PIPELINE,
-            pipeline.as_raw(),
+            ash::vk::Handle::as_raw(pipeline),
             create_info.debug_name.as_c_str(),
         );
 
@@ -421,7 +420,7 @@ impl VkPipeline {
 }
 
 impl VkPipeline<Compute> {
-    pub fn new(device: Arc<VkDevice>, create_info: ComputeCreateInfo) -> Self {
+    pub(crate) fn new(device: Arc<VkDevice>, create_info: ComputeCreateInfo) -> Self {
         let layout = Self::create_pipeline_layout(
             &device,
             &create_info.descriptor_set_layouts,
@@ -444,6 +443,14 @@ impl VkPipeline<Compute> {
             log::error!("Failed to create pipeline! error: {}", e.1);
             panic!()
         })[0];
+
+
+        #[cfg(debug_assertions)]
+        device.set_object_name(
+            &ash::vk::ObjectType::PIPELINE,
+            ash::vk::Handle::as_raw(pipeline),
+            create_info.debug_name.as_c_str(),
+        );
 
         Self {
             device,

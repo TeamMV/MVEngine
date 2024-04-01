@@ -1,13 +1,12 @@
-use crate::render::backend::image::ImageLayout;
-use crate::render::backend::swapchain::SwapchainError;
-use crate::render::backend::Extent2D;
-use crate::render::ApplicationLoopCallbacks;
-use ash::vk::AccessFlags;
 use std::time::SystemTime;
+
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
+
+use crate::render::ApplicationLoopCallbacks;
+use crate::render::backend::Extent2D;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 

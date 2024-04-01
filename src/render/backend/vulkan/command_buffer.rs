@@ -1,11 +1,7 @@
-use crate::err::panic;
 use crate::render::backend::command_buffer::{CommandBufferLevel, MVCommandBufferCreateInfo};
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
-use ash::vk::Handle;
-use std::ffi::CString;
 use std::sync::Arc;
 
 pub(crate) struct CreateInfo {
@@ -13,7 +9,7 @@ pub(crate) struct CreateInfo {
     pool: ash::vk::CommandPool,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<MVCommandBufferCreateInfo> for CreateInfo {
@@ -26,12 +22,12 @@ impl From<MVCommandBufferCreateInfo> for CreateInfo {
             pool: value.pool.into_vulkan(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
 
-pub(crate) struct VkCommandBuffer {
+pub struct VkCommandBuffer {
     device: Arc<VkDevice>,
     handle: ash::vk::CommandBuffer,
 }
@@ -56,7 +52,7 @@ impl VkCommandBuffer {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::COMMAND_BUFFER,
-            buffer.as_raw(),
+            ash::vk::Handle::as_raw(buffer),
             create_info.debug_name.as_c_str(),
         );
 

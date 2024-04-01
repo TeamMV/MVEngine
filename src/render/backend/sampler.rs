@@ -26,6 +26,7 @@ pub struct MVSamplerCreateInfo {
     pub address_mode: SamplerAddressMode,
     pub filter_mode: Filter,
     pub mipmap_mode: MipmapMode,
+    pub anisotropy: bool,
 
     pub label: Option<String>,
 }
@@ -42,9 +43,7 @@ pub enum Sampler {
 impl Sampler {
     pub fn new(device: Device, create_info: MVSamplerCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => {
-                Sampler::Vulkan(VkSampler::new(device, create_info.into()).into())
-            }
+            Device::Vulkan(device) => Sampler::Vulkan(VkSampler::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

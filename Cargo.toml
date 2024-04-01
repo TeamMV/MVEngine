@@ -1,6 +1,6 @@
 [package]
 name = "mvcore"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "The MV core library. Rendering, assets and GUI."
 authors = [
@@ -38,7 +38,6 @@ codegen-units = 1
 panic = "unwind"
 
 [features]
-ui = []
 ray-tracing = []
 # vr = ["dep:openxr", "3d"]
 

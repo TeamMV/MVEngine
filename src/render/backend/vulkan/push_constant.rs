@@ -3,10 +3,9 @@ use crate::render::backend::push_constant::MVPushConstantCreateInfo;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::pipeline::VkPipeline;
-use bytebuffer::ByteBuffer;
 use std::sync::Arc;
 
-pub(crate) struct VkPushConstant<T: Sized> {
+pub struct VkPushConstant<T: Sized> {
     device: Arc<VkDevice>,
     value: T,
 

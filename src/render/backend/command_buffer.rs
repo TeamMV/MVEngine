@@ -188,7 +188,9 @@ impl CommandBuffer {
 
     pub fn blit_image(&self, src_image: Image, dst_image: Image) {
         match self {
-            CommandBuffer::Vulkan(cmd) => cmd.blit_image(src_image.into_vulkan(), dst_image.into_vulkan()),
+            CommandBuffer::Vulkan(cmd) => {
+                cmd.blit_image(src_image.into_vulkan(), dst_image.into_vulkan())
+            }
             #[cfg(target_os = "macos")]
             CommandBuffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

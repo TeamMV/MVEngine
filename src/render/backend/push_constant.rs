@@ -20,9 +20,7 @@ pub struct MVPushConstantCreateInfo<T: Sized> {
 impl<T: Sized> PushConstant<T> {
     pub fn new(device: Device, create_info: MVPushConstantCreateInfo<T>) -> Self {
         match device {
-            Device::Vulkan(device) => {
-                PushConstant::Vulkan(VkPushConstant::new(device, create_info.into()).into())
-            }
+            Device::Vulkan(device) => PushConstant::Vulkan(VkPushConstant::new(device, create_info.into())),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

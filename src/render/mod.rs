@@ -1,11 +1,11 @@
 use crate::render::window::Window;
 
 pub mod backend;
+pub mod mesh;
 pub mod renderer;
 pub mod window;
-pub mod mesh;
 
-pub mod camera2d;
+pub mod camera;
 
 pub trait ApplicationLoopCallbacks {
     fn new(window: &mut Window) -> Self;

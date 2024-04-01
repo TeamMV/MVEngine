@@ -1,19 +1,14 @@
 use crate::render::backend::image::{
     ImageFormat, ImageLayout, ImageTiling, ImageType, MVImageCreateInfo,
 };
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::buffer;
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
-use ash::vk::Handle;
-use bitflags::Flags;
 use mvutils::unsafe_utils::DangerousCell;
-use std::ffi::CString;
-use std::fmt::format;
 use std::sync::Arc;
 
-pub(crate) struct VkImage {
+pub struct VkImage {
     pub(crate) device: Arc<VkDevice>,
 
     pub(crate) handle: ash::vk::Image,
@@ -47,7 +42,7 @@ pub(crate) struct CreateInfo {
     pub(crate) data: Option<Vec<u8>>,
 
     #[cfg(debug_assertions)]
-    pub(crate) debug_name: CString,
+    pub(crate) debug_name: std::ffi::CString,
 }
 
 impl From<MVImageCreateInfo> for CreateInfo {
@@ -71,7 +66,7 @@ impl From<MVImageCreateInfo> for CreateInfo {
             data: value.data,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -150,7 +145,7 @@ impl VkImage {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::IMAGE,
-            image.as_raw(),
+            ash::vk::Handle::as_raw(image),
             create_info.debug_name.as_c_str(),
         );
 
@@ -184,7 +179,7 @@ impl VkImage {
             #[cfg(debug_assertions)]
             device.set_object_name(
                 &ash::vk::ObjectType::IMAGE_VIEW,
-                view.as_raw(),
+                ash::vk::Handle::as_raw(view),
                 create_info.debug_name.as_c_str(),
             );
         }
@@ -223,7 +218,7 @@ impl VkImage {
                     | gpu_alloc::UsageFlags::HOST_ACCESS,
 
                 #[cfg(debug_assertions)]
-                debug_name: CString::new("Image staging buffer").unwrap(),
+                debug_name: std::ffi::CString::new("Image staging buffer").unwrap(),
             };
 
             let mut buffer = VkBuffer::new(device.clone(), buffer_create_info);

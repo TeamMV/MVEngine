@@ -1,12 +1,10 @@
 use crate::render::backend::sampler::{
     Filter, MVSamplerCreateInfo, MipmapMode, SamplerAddressMode,
 };
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::device::VkDevice;
-use std::ffi::CString;
 use std::sync::Arc;
 
-pub(crate) struct VkSampler {
+pub struct VkSampler {
     device: Arc<VkDevice>,
     handle: ash::vk::Sampler,
 }
@@ -15,9 +13,10 @@ pub(crate) struct CreateInfo {
     address_mode: ash::vk::SamplerAddressMode,
     filter_mode: ash::vk::Filter,
     mipmap_mode: ash::vk::SamplerMipmapMode,
+    anisotropy: bool,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<Filter> for ash::vk::Filter {
@@ -55,9 +54,10 @@ impl From<MVSamplerCreateInfo> for CreateInfo {
             address_mode: value.address_mode.into(),
             filter_mode: value.filter_mode.into(),
             mipmap_mode: value.mipmap_mode.into(),
+            anisotropy: value.anisotropy,
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -83,7 +83,7 @@ impl VkSampler {
                     .limits
                     .max_sampler_anisotropy,
             )
-            .anisotropy_enable(false) // TODO
+            .anisotropy_enable(create_info.anisotropy)
             .unnormalized_coordinates(false)
             .compare_enable(false);
 

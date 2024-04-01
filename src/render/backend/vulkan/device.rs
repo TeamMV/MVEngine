@@ -1,23 +1,14 @@
-use crate::err::panic;
 use crate::render::backend::device::{Extensions, MVDeviceCreateInfo};
 use crate::render::backend::to_ascii_cstring;
 use gpu_alloc::Config;
-use hashbrown::hash_map::Entry;
-use hashbrown::{HashMap, HashSet};
-use mvutils::hashers::U32IdentityHasher;
-use mvutils::once::CreateOnce;
-use mvutils::utils::Recover;
+use hashbrown::HashSet;
 use mvutils::version::Version;
 use parking_lot::Mutex;
-use shaderc::EnvVersion::Vulkan1_2;
-use std::error::Error;
-use std::ffi::{c_char, c_void, CStr, CString};
-use std::fmt::Debug;
-use std::sync::Arc;
-use winit::raw_window_handle;
+use std::ffi::{c_void, CStr, CString};
 use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
-pub(crate) struct VkDevice {
+pub struct VkDevice {
+    #[allow(unused)]
     entry: ash::Entry,
     instance: ash::Instance,
     physical_device: ash::vk::PhysicalDevice,
@@ -36,7 +27,6 @@ pub(crate) struct VkDevice {
 
     allocator: Mutex<gpu_alloc::GpuAllocator<ash::vk::DeviceMemory>>,
     valid_memory_types: u32,
-    //memory_pools: RwLock<HashMap<u32, vk_mem::AllocatorPool, U32IdentityHasher>>,
     #[cfg(debug_assertions)]
     debug_messenger: ash::vk::DebugUtilsMessengerEXT,
     #[cfg(debug_assertions)]
@@ -191,7 +181,6 @@ impl VkDevice {
             vsync_present_mode,
             no_vsync_present_mode,
             available_present_modes,
-            //memory_pools: HashMap::with_hasher(U32IdentityHasher::default()).into(),
             allocator: allocator.into(),
             valid_memory_types,
         }
@@ -349,7 +338,7 @@ impl VkDevice {
         #[cfg(debug_assertions)]
         unsafe {
             let validation =
-                CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const c_char);
+                CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const std::ffi::c_char);
             for layer in instance_layers {
                 if layer.layer_name.contains(&0) {
                     let name = CStr::from_ptr(layer.layer_name.as_ptr());
@@ -936,7 +925,7 @@ impl VkDevice {
         self.no_vsync_present_mode
     }
 
-    pub fn get_indices(&self) -> QueueIndices {
+    pub(crate) fn get_indices(&self) -> QueueIndices {
         Self::get_queue_indices(
             &self.surface_extension,
             &self.surface,

@@ -1,7 +1,5 @@
-use crate::render::backend::shader::{MVShaderCreateInfo, ShaderStage};
-use crate::render::backend::to_ascii_cstring;
+use crate::render::backend::shader::MVShaderCreateInfo;
 use crate::render::backend::vulkan::device::VkDevice;
-use ash::vk::Handle;
 use mvutils::lazy;
 use std::ffi::CString;
 use std::sync::Arc;
@@ -24,12 +22,12 @@ impl From<MVShaderCreateInfo> for CreateInfo {
             stage: ash::vk::ShaderStageFlags::from_raw(value.stage.bits()),
             shader_code: value.code,
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
 
-pub(crate) struct VkShader {
+pub struct VkShader {
     device: Arc<VkDevice>,
 
     stage: ash::vk::ShaderStageFlags,
@@ -54,7 +52,7 @@ impl VkShader {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::SHADER_MODULE,
-            module.as_raw(),
+            ash::vk::Handle::as_raw(module),
             create_info.debug_name.as_c_str(),
         );
 

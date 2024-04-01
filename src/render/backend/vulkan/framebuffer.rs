@@ -2,12 +2,9 @@ use crate::render::backend::framebuffer::{
     ClearColor, LoadOp, MVFramebufferCreateInfo, MVRenderPassCreateInfo, StoreOp, SubpassDependency,
 };
 use crate::render::backend::image::ImageType;
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
-use ash::vk::Handle;
-use std::ffi::CString;
 use std::sync::Arc;
 
 impl From<ClearColor> for ash::vk::ClearValue {
@@ -23,7 +20,7 @@ impl From<ClearColor> for ash::vk::ClearValue {
     }
 }
 
-pub(crate) struct VkFramebuffer {
+pub struct VkFramebuffer {
     device: Arc<VkDevice>,
     images: Vec<Arc<VkImage>>,
     handle: ash::vk::Framebuffer,
@@ -60,7 +57,7 @@ pub(crate) struct CreateInfo {
     render_pass_info: Option<RenderPassCreateInfo>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<LoadOp> for ash::vk::AttachmentLoadOp {
@@ -124,7 +121,7 @@ impl From<MVFramebufferCreateInfo> for CreateInfo {
             render_pass_info: value.render_pass_info.map(Into::into),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -154,6 +151,8 @@ impl VkFramebuffer {
                         create_info.extent,
                         *image_format,
                         create_info.image_usage_flags,
+                        #[cfg(debug_assertions)]
+                        create_info.debug_name.clone(),
                     );
                     image_views.push(image.get_view(0));
                     images.push(image);
@@ -167,6 +166,8 @@ impl VkFramebuffer {
                         create_info.extent,
                         *image_format,
                         create_info.image_usage_flags,
+                        #[cfg(debug_assertions)]
+                        create_info.debug_name.clone(),
                     );
                     image_views.push(image.get_view(0));
                     images.push(image);
@@ -215,7 +216,7 @@ impl VkFramebuffer {
         #[cfg(debug_assertions)]
         device.set_object_name(
             &ash::vk::ObjectType::FRAMEBUFFER,
-            handle.as_raw(),
+            ash::vk::Handle::as_raw(handle),
             create_info.debug_name.as_c_str(),
         );
 
@@ -251,13 +252,7 @@ impl VkFramebuffer {
     }
 
     fn is_depth_format(format: ash::vk::Format) -> bool {
-        match format {
-            ash::vk::Format::D32_SFLOAT => true,
-            ash::vk::Format::D16_UNORM => true,
-            ash::vk::Format::D16_UNORM_S8_UINT => true,
-            ash::vk::Format::D24_UNORM_S8_UINT => true,
-            _ => false,
-        }
+        matches!(format, ash::vk::Format::D32_SFLOAT | ash::vk::Format::D16_UNORM | ash::vk::Format::D16_UNORM_S8_UINT | ash::vk::Format::D24_UNORM_S8_UINT)
     }
 
     fn create_color_attachment(
@@ -265,7 +260,10 @@ impl VkFramebuffer {
         extent: ash::vk::Extent2D,
         format: ash::vk::Format,
         image_usage_flag: ash::vk::ImageUsageFlags,
+        #[cfg(debug_assertions)] name: std::ffi::CString,
     ) -> VkImage {
+        #[cfg(debug_assertions)]
+        let debug_name = name.to_string_lossy() + " color image";
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
@@ -282,7 +280,7 @@ impl VkFramebuffer {
             data: None,
 
             #[cfg(debug_assertions)]
-            debug_name: CString::new("Framebuffer color image").unwrap(), // TODO
+            debug_name: std::ffi::CString::new(debug_name.as_bytes()).unwrap(),
         };
 
         VkImage::new(device.clone(), image_create_info)
@@ -293,7 +291,10 @@ impl VkFramebuffer {
         extent: ash::vk::Extent2D,
         format: ash::vk::Format,
         image_usage_flag: ash::vk::ImageUsageFlags,
+        #[cfg(debug_assertions)] name: std::ffi::CString,
     ) -> VkImage {
+        #[cfg(debug_assertions)]
+        let debug_name = name.to_string_lossy() + " depth image";
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
@@ -310,7 +311,7 @@ impl VkFramebuffer {
             data: None,
 
             #[cfg(debug_assertions)]
-            debug_name: CString::new("Framebuffer depth image").unwrap(), // TODO
+            debug_name: std::ffi::CString::new(debug_name.as_bytes()).unwrap(),
         };
 
         VkImage::new(device.clone(), image_create_info)
@@ -323,7 +324,6 @@ impl VkFramebuffer {
         attachment_count: u32,
     ) -> ash::vk::RenderPass {
         let use_final_layouts = if !render_pass_create_info.final_layouts.is_empty() {
-            #[cfg(debug_assertions)]
             if (render_pass_create_info.final_layouts.len() as u32) < attachment_count {
                 log::error!("You have to specify final layout for all attachments!");
                 panic!();
@@ -335,7 +335,6 @@ impl VkFramebuffer {
         };
 
         let use_loads_op = if !render_pass_create_info.load_op.is_empty() {
-            #[cfg(debug_assertions)]
             if (render_pass_create_info.load_op.len() as u32) < attachment_count {
                 log::error!("You have to specify load op for all attachments!");
                 panic!();
@@ -347,7 +346,6 @@ impl VkFramebuffer {
         };
 
         let use_store_op = if !render_pass_create_info.store_op.is_empty() {
-            #[cfg(debug_assertions)]
             if (render_pass_create_info.store_op.len() as u32) < attachment_count {
                 log::error!("You have to specify final layout for all attachments!");
                 panic!();

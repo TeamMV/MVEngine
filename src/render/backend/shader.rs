@@ -2,6 +2,7 @@ use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::shader::VkShader;
 use bitflags::bitflags;
 use mvcore_proc_macro::graphics_item;
+use shaderc::ShaderKind;
 use std::sync::Arc;
 
 pub struct MVShaderCreateInfo {
@@ -31,6 +32,38 @@ bitflags! {
         const Intersection = 1 << 12;
         #[cfg(feature = "ray-tracing")]
         const Callable = 1 << 13;
+    }
+}
+
+impl From<ShaderKind> for ShaderStage {
+    fn from(value: ShaderKind) -> Self {
+        match value {
+            ShaderKind::Vertex => ShaderStage::Vertex,
+            ShaderKind::Fragment => ShaderStage::Fragment,
+            ShaderKind::Compute => ShaderStage::Compute,
+            ShaderKind::Geometry => ShaderStage::Geometry,
+            ShaderKind::TessControl => ShaderStage::TesselationControl,
+            ShaderKind::TessEvaluation => ShaderStage::TesselationEvaluation,
+            ShaderKind::DefaultVertex => ShaderStage::Vertex,
+            ShaderKind::DefaultFragment => ShaderStage::Fragment,
+            ShaderKind::DefaultCompute => ShaderStage::Compute,
+            ShaderKind::DefaultGeometry => ShaderStage::Geometry,
+            ShaderKind::DefaultTessControl => ShaderStage::TesselationControl,
+            ShaderKind::DefaultTessEvaluation => ShaderStage::TesselationEvaluation,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::RayGeneration => ShaderStage::RayGen,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::AnyHit => ShaderStage::AnyHit,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::ClosestHit => ShaderStage::ClosestHit,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::Miss => ShaderStage::Miss,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::Intersection => ShaderStage::Intersection,
+            #[cfg(feature = "ray-tracing")]
+            ShaderKind::Callable => ShaderStage::Callable,
+            _ => unimplemented!(),
+        }
     }
 }
 

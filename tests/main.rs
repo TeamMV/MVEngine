@@ -1,21 +1,27 @@
-use std::f32::consts::PI;
-use std::mem;
 use glam::{Mat4, Vec3};
 use log::LevelFilter;
-use mvutils::once::CreateOnce;
-use shaderc::ShaderKind;
-use mvcore::render::window::{Window, WindowCreateInfo};
-use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::render::backend::{Backend, Extent2D};
-use mvcore::render::backend::buffer::{Buffer, BufferUsage, MemoryProperties, MVBufferCreateInfo};
-use mvcore::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetCreateInfo, MVDescriptorSetLayoutCreateInfo};
+use mvcore::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
+use mvcore::render::backend::descriptor_set::{
+    DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayout,
+    DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo,
+    MVDescriptorSetCreateInfo, MVDescriptorSetLayoutCreateInfo,
+};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::framebuffer::ClearColor;
-use mvcore::render::backend::pipeline::{AttributeType, CullMode, Graphics, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
+use mvcore::render::backend::pipeline::{
+    AttributeType, CullMode, Graphics, MVGraphicsPipelineCreateInfo, Pipeline, Topology,
+};
 use mvcore::render::backend::shader::ShaderStage;
-use mvcore::render::camera2d::Camera2D;
+use mvcore::render::backend::{Backend, Extent2D};
+use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::mesh::Mesh;
 use mvcore::render::renderer::Renderer;
+use mvcore::render::window::{Window, WindowCreateInfo};
+use mvcore::render::ApplicationLoopCallbacks;
+use mvutils::once::CreateOnce;
+use shaderc::ShaderKind;
+use std::f32::consts::PI;
+use std::mem;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -49,25 +55,30 @@ struct ApplicationLoop {
     transforms: Vec<Transform>,
     transforms_buffer: Buffer,
     transforms_set: DescriptorSet,
-    quad_rotation: f32
+    quad_rotation: f32,
 }
 
 #[repr(C)]
 struct Vertex {
     position: glam::Vec3,
-    tex_coord: glam::Vec2
+    tex_coord: glam::Vec2,
 }
 
 #[repr(C)]
 struct Transform {
     position: glam::Vec4,
     rotation: glam::Vec4,
-    scale: glam::Vec4
+    scale: glam::Vec4,
 }
 
 impl Vertex {
     pub fn to_bytes(vertices: &[Vertex]) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(vertices.as_ptr() as *const u8, vertices.len() * std::mem::size_of::<Vertex>()) }
+        unsafe {
+            std::slice::from_raw_parts(
+                vertices.as_ptr() as *const u8,
+                vertices.len() * std::mem::size_of::<Vertex>(),
+            )
+        }
     }
 
     pub fn get_attribute_description() -> Vec<AttributeType> {
@@ -88,144 +99,234 @@ pub fn create_quad_vertices(position: glam::Vec3, rotation: f32, size: f32) -> V
     let model_matrix = translation * rotation * scale;
 
     vec![
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x: -1.0f32, y:  1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 0
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x: -1.0f32, y: -1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 1
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x:  1.0f32, y: -1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 2
-
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x: -1.0f32, y:  1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 0
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x:  1.0f32, y: -1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 2
-        Vertex{position: model_matrix.transform_point3(glam::Vec3{x:  1.0f32, y:  1.0, z: 0.0}), tex_coord: glam::Vec2{x: 0.0f32, y: 0.0}}, // 3
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: -1.0f32,
+                y: 1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 0
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: -1.0f32,
+                y: -1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 1
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: 1.0f32,
+                y: -1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 2
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: -1.0f32,
+                y: 1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 0
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: 1.0f32,
+                y: -1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 2
+        Vertex {
+            position: model_matrix.transform_point3(glam::Vec3 {
+                x: 1.0f32,
+                y: 1.0,
+                z: 0.0,
+            }),
+            tex_coord: glam::Vec2 { x: 0.0f32, y: 0.0 },
+        }, // 3
     ]
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
     fn new(window: &mut Window) -> Self {
         let device = Device::new(
-            Backend::Vulkan, MVDeviceCreateInfo {
+            Backend::Vulkan,
+            MVDeviceCreateInfo {
                 app_name: "".to_string(),
                 app_version: Default::default(),
                 engine_name: "".to_string(),
                 engine_version: Default::default(),
                 device_extensions: Extensions::empty(),
             },
-            window.get_handle()
+            window.get_handle(),
         );
 
         let renderer = Renderer::new(window, device.clone());
 
-        let descriptor_pool = DescriptorPool::new(device.clone(), MVDescriptorPoolCreateInfo {
-            sizes: vec![
-                DescriptorPoolSize{ ty: DescriptorType::CombinedImageSampler, count: 1000 },
-                DescriptorPoolSize{ ty: DescriptorType::StorageImage, count: 1000 },
-                DescriptorPoolSize{ ty: DescriptorType::UniformBuffer, count: 1000 },
-                DescriptorPoolSize{ ty: DescriptorType::StorageBuffer, count: 1000 },
-            ],
-            max_sets: 1000,
-            flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
-            label: Some("Main Descriptor Set".to_string()),
-        });
+        let descriptor_pool = DescriptorPool::new(
+            device.clone(),
+            MVDescriptorPoolCreateInfo {
+                sizes: vec![
+                    DescriptorPoolSize {
+                        ty: DescriptorType::CombinedImageSampler,
+                        count: 1000,
+                    },
+                    DescriptorPoolSize {
+                        ty: DescriptorType::StorageImage,
+                        count: 1000,
+                    },
+                    DescriptorPoolSize {
+                        ty: DescriptorType::UniformBuffer,
+                        count: 1000,
+                    },
+                    DescriptorPoolSize {
+                        ty: DescriptorType::StorageBuffer,
+                        count: 1000,
+                    },
+                ],
+                max_sets: 1000,
+                flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
+                label: Some("Main Descriptor Set".to_string()),
+            },
+        );
 
-        let camera = Camera2D::new(renderer.get_swapchain().get_extent().width, renderer.get_swapchain().get_extent().height);
+        let camera = OrthographicCamera::new(
+            renderer.get_swapchain().get_extent().width,
+            renderer.get_swapchain().get_extent().height,
+        );
 
-        let mut camera_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-            instance_size: 128,
-            instance_count: 1,
-            buffer_usage: BufferUsage::UNIFORM_BUFFER,
-            memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
-            minimum_alignment: 1,
-            memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
-            label: Some("Camera Uniform Buffer".to_string()),
-        });
+        let mut camera_buffer = Buffer::new(
+            device.clone(),
+            MVBufferCreateInfo {
+                instance_size: 128,
+                instance_count: 1,
+                buffer_usage: BufferUsage::UNIFORM_BUFFER,
+                memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
+                minimum_alignment: 1,
+                memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
+                label: Some("Camera Uniform Buffer".to_string()),
+            },
+        );
 
         let matrices = [camera.get_view(), camera.get_projection()];
-        let bytes = unsafe { std::slice::from_raw_parts(matrices.as_ptr() as *const u8, 128)};
+        let bytes = unsafe { std::slice::from_raw_parts(matrices.as_ptr() as *const u8, 128) };
 
         camera_buffer.write(bytes, 0, None);
 
-        let camera_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
-            bindings: vec![DescriptorSetLayoutBinding{
-                index: 0,
-                stages: ShaderStage::Vertex,
-                ty: DescriptorType::UniformBuffer,
-                count: 1,
-            }],
-            label: None,
-        });
-
-        let mut camera_set = DescriptorSet::new(device.clone(), MVDescriptorSetCreateInfo {
-            pool: descriptor_pool.clone(),
-            bindings: vec![
-                DescriptorSetLayoutBinding{
+        let camera_set_layout = DescriptorSetLayout::new(
+            device.clone(),
+            MVDescriptorSetLayoutCreateInfo {
+                bindings: vec![DescriptorSetLayoutBinding {
                     index: 0,
                     stages: ShaderStage::Vertex,
                     ty: DescriptorType::UniformBuffer,
                     count: 1,
-                }
-            ],
-            label: Some("Camera Set".to_string()),
-        });
+                }],
+                label: None,
+            },
+        );
+
+        let mut camera_set = DescriptorSet::new(
+            device.clone(),
+            MVDescriptorSetCreateInfo {
+                pool: descriptor_pool.clone(),
+                bindings: vec![DescriptorSetLayoutBinding {
+                    index: 0,
+                    stages: ShaderStage::Vertex,
+                    ty: DescriptorType::UniformBuffer,
+                    count: 1,
+                }],
+                label: Some("Camera Set".to_string()),
+            },
+        );
 
         camera_set.add_buffer(0, &camera_buffer, 0, 128);
         camera_set.build();
 
-        let mut transforms_buffer = Buffer::new(device.clone(), MVBufferCreateInfo {
-            instance_size: 100 * 100 * (mem::size_of::<Transform>() as u64),
-            instance_count: 1,
-            buffer_usage: BufferUsage::STORAGE_BUFFER,
-            memory_properties: MemoryProperties::DEVICE_LOCAL,
-            minimum_alignment: 1,
-            memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-            label: Some("Matrix Storage Buffer".to_string()),
-        });
+        let mut transforms_buffer = Buffer::new(
+            device.clone(),
+            MVBufferCreateInfo {
+                instance_size: 100 * 100 * (mem::size_of::<Transform>() as u64),
+                instance_count: 1,
+                buffer_usage: BufferUsage::STORAGE_BUFFER,
+                memory_properties: MemoryProperties::DEVICE_LOCAL,
+                minimum_alignment: 1,
+                memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                label: Some("Matrix Storage Buffer".to_string()),
+            },
+        );
 
-        let transforms_set_layout = DescriptorSetLayout::new(device.clone(), MVDescriptorSetLayoutCreateInfo {
-            bindings: vec![DescriptorSetLayoutBinding{
-                index: 0,
-                stages: ShaderStage::Vertex,
-                ty: DescriptorType::StorageBuffer,
-                count: 1,
-            }],
-            label: None,
-        });
-
-        let mut transforms_set = DescriptorSet::new(device.clone(), MVDescriptorSetCreateInfo {
-            pool: descriptor_pool.clone(),
-            bindings: vec![
-                DescriptorSetLayoutBinding{
+        let transforms_set_layout = DescriptorSetLayout::new(
+            device.clone(),
+            MVDescriptorSetLayoutCreateInfo {
+                bindings: vec![DescriptorSetLayoutBinding {
                     index: 0,
                     stages: ShaderStage::Vertex,
                     ty: DescriptorType::StorageBuffer,
                     count: 1,
-                }
-            ],
-            label: Some("Camera Set".to_string()),
-        });
+                }],
+                label: None,
+            },
+        );
+
+        let mut transforms_set = DescriptorSet::new(
+            device.clone(),
+            MVDescriptorSetCreateInfo {
+                pool: descriptor_pool.clone(),
+                bindings: vec![DescriptorSetLayoutBinding {
+                    index: 0,
+                    stages: ShaderStage::Vertex,
+                    ty: DescriptorType::StorageBuffer,
+                    count: 1,
+                }],
+                label: Some("Camera Set".to_string()),
+            },
+        );
 
         transforms_set.add_buffer(0, &transforms_buffer, 0, transforms_buffer.get_size());
         transforms_set.build();
 
         let vertices = create_quad_vertices(glam::Vec3::new(0.0, 0.0, 0.0), 0.0, 1.0);
 
-        let mesh = Mesh::new(device.clone(), Vertex::to_bytes(&vertices), None, Some("Test mesh".to_string()));
+        let mesh = Mesh::new(
+            device.clone(),
+            Vertex::to_bytes(&vertices),
+            None,
+            Some("Test mesh".to_string()),
+        );
 
-        let vertex_shader = renderer.compile_shader(include_str!("../src/render/shaders/2d/instancing.vert"), ShaderStage::Vertex, ShaderKind::Vertex);
-        let fragment_shader = renderer.compile_shader(include_str!("../src/render/shaders/2d/default.frag"), ShaderStage::Fragment, ShaderKind::Fragment);
+        let vertex_shader = renderer.compile_shader(
+            include_str!("../src/render/shaders/2d/instancing.vert"),
+            ShaderKind::Vertex,
+            Some("Vertex Shader".to_string()),
+        );
+        let fragment_shader = renderer.compile_shader(
+            include_str!("../src/render/shaders/2d/default.frag"),
+            ShaderKind::Fragment,
+            Some("Fragment Shader".to_string()),
+        );
 
-        let test_pipeline = Pipeline::<Graphics>::new(device.clone(), MVGraphicsPipelineCreateInfo {
-            shaders: vec![vertex_shader, fragment_shader],
-            attributes: Vertex::get_attribute_description(),
-            extent: renderer.get_swapchain().get_extent(),
-            topology: Topology::Triangle,
-            cull_mode: CullMode::None,
-            enable_depth_test: false,
-            depth_clamp: false,
-            blending_enable: false,
-            descriptor_sets: vec![camera_set_layout.clone(), transforms_set_layout.clone()], // TODO: fix this shit, it doesn't work if you forget to do .clone()
-            push_constants: vec![],
-            framebuffer: renderer.get_swapchain().get_framebuffer(0),
-            color_attachments_count: 1,
-            label: None,
-        });
+        let test_pipeline = Pipeline::<Graphics>::new(
+            device.clone(),
+            MVGraphicsPipelineCreateInfo {
+                shaders: vec![vertex_shader, fragment_shader],
+                attributes: Vertex::get_attribute_description(),
+                extent: renderer.get_swapchain().get_extent(),
+                topology: Topology::Triangle,
+                cull_mode: CullMode::None,
+                enable_depth_test: false,
+                depth_clamp: false,
+                blending_enable: false,
+                descriptor_sets: vec![camera_set_layout, transforms_set_layout],
+                push_constants: vec![],
+                framebuffer: renderer.get_swapchain().get_framebuffer(0),
+                color_attachments_count: 1,
+                label: None,
+            },
+        );
 
         ApplicationLoop {
             mesh,
@@ -238,13 +339,11 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
             transforms_buffer,
             transforms_set,
             camera_buffer,
-            quad_rotation: 0.0
+            quad_rotation: 0.0,
         }
     }
 
-    fn update(&mut self, window: &mut Window, delta_t: f64) {
-
-    }
+    fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         println!("ms: {}, fps: {}", delta_t * 1000.0, 1.0 / delta_t);
@@ -255,16 +354,25 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
 
         for x in 0..100 {
             for y in 0..100 {
-
-                self.transforms.push(Transform{
-                    position: glam::Vec4::new(x as f32 * 20.0 + 20.0, -y as f32 * 20.0 - 20.0, 0.0, 0.0),
+                self.transforms.push(Transform {
+                    position: glam::Vec4::new(
+                        x as f32 * 20.0 + 20.0,
+                        -y as f32 * 20.0 - 20.0,
+                        0.0,
+                        0.0,
+                    ),
                     rotation: glam::Vec4::new(0.0, 0.0, self.quad_rotation * PI / 180.0, 0.0),
                     scale: glam::Vec4::splat(7.5),
                 });
             }
         }
 
-        let bytes = unsafe {std::slice::from_raw_parts(self.transforms.as_ptr() as *const u8, self.transforms.len() * mem::size_of::<Transform>())};
+        let bytes = unsafe {
+            std::slice::from_raw_parts(
+                self.transforms.as_ptr() as *const u8,
+                self.transforms.len() * mem::size_of::<Transform>(),
+            )
+        };
 
         self.transforms_buffer.write(bytes, 0, None);
 
@@ -281,7 +389,8 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
 
         self.camera_set.bind(cmd, &self.pipeline, 0);
         self.transforms_set.bind(cmd, &self.pipeline, 1);
-        self.mesh.draw_instanced(cmd, 0, self.transforms.len() as u32);
+        self.mesh
+            .draw_instanced(cmd, 0, self.transforms.len() as u32);
 
         framebuffer.end_render_pass(cmd);
 
@@ -290,6 +399,7 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
 
     fn exiting(&mut self, window: &mut Window) {
         println!("exit");
+        self.device.wait_idle();
     }
 
     fn resize(&mut self, window: &mut Window, width: u32, height: u32) {

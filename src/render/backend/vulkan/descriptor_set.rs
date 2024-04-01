@@ -1,8 +1,7 @@
-use crate::render::backend::descriptor_set::{DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding, MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo};
+use crate::render::backend::descriptor_set::{MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo};
 #[cfg(feature = "ray-tracing")]
 use crate::render::backend::pipeline::RayTracing;
 use crate::render::backend::pipeline::{Compute, Graphics, PipelineType};
-use crate::render::backend::to_ascii_cstring;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
@@ -11,13 +10,11 @@ use crate::render::backend::vulkan::descriptors::{descriptor_set_layout, descrip
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::pipeline::VkPipeline;
 use ash::vk::Handle;
-use log::log;
 use parking_lot::Mutex;
-use std::any::{Any, TypeId};
-use std::ffi::CString;
+use std::any::TypeId;
 use std::sync::Arc;
 
-pub(crate) struct VkDescriptorSet {
+pub struct VkDescriptorSet {
     device: Arc<VkDevice>,
 
     handle: ash::vk::DescriptorSet,
@@ -25,6 +22,9 @@ pub(crate) struct VkDescriptorSet {
     pool_index: usize,
     layout: Arc<VkDescriptorSetLayout>,
     bindings_write_info: Vec<Binding>,
+
+    #[cfg(debug_assertions)]
+    debug_name: std::ffi::CString
 }
 
 pub(crate) struct CreateInfo {
@@ -32,7 +32,7 @@ pub(crate) struct CreateInfo {
     bindings: Vec<ash::vk::DescriptorSetLayoutBinding>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 pub(crate) struct FromLayoutCreateInfo {
@@ -40,7 +40,7 @@ pub(crate) struct FromLayoutCreateInfo {
     layout: Arc<VkDescriptorSetLayout>,
 
     #[cfg(debug_assertions)]
-    debug_name: CString,
+    debug_name: std::ffi::CString,
 }
 
 impl From<MVDescriptorSetCreateInfo> for CreateInfo {
@@ -50,7 +50,7 @@ impl From<MVDescriptorSetCreateInfo> for CreateInfo {
             bindings: value.bindings.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -62,7 +62,7 @@ impl From<MVDescriptorSetFromLayoutCreateInfo> for FromLayoutCreateInfo {
             layout: value.layout.into_vulkan(),
 
             #[cfg(debug_assertions)]
-            debug_name: to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::render::backend::to_ascii_cstring(value.label.unwrap_or_default()),
         }
     }
 }
@@ -76,6 +76,7 @@ struct Binding {
 enum BindingData {
     Image(ash::vk::DescriptorImageInfo),
     Buffer(ash::vk::DescriptorBufferInfo),
+    #[cfg(feature = "ray-tracing")]
     ASInfo(ash::vk::AccelerationStructureKHR),
 }
 
@@ -112,7 +113,6 @@ impl VkDescriptorSet {
                         descriptors_type: binding.descriptor_type,
                     });
 
-                    // Push Empty structures
                     for i in 0..binding.descriptor_count {
                         writes[writes_index].binding_data.push(BindingData::Image(
                             ash::vk::DescriptorImageInfo {
@@ -130,7 +130,6 @@ impl VkDescriptorSet {
                         descriptors_type: binding.descriptor_type,
                     });
 
-                    // Push Empty structures
                     for i in 0..binding.descriptor_count {
                         writes[writes_index].binding_data.push(BindingData::Image(
                             ash::vk::DescriptorImageInfo {
@@ -194,6 +193,9 @@ impl VkDescriptorSet {
             pool_index: 0,
             layout: create_info.layout,
             bindings_write_info: writes,
+
+            #[cfg(debug_assertions)]
+            debug_name: create_info.debug_name
         }
     }
 
@@ -341,6 +343,9 @@ impl VkDescriptorSet {
         }
 
         writer.build(&mut self.handle, &mut self.pool_index, true);
+
+        #[cfg(debug_assertions)]
+        self.device.set_object_name(&ash::vk::ObjectType::DESCRIPTOR_SET, self.handle.as_raw(), self.debug_name.as_c_str());
     }
 
     pub(crate) fn update_image(&mut self, binding: u32, image_info: ash::vk::DescriptorImageInfo) {

@@ -1,13 +1,9 @@
 use crate::render::backend::vulkan::descriptors::descriptor_pool::VkDescriptorPool;
 use crate::render::backend::vulkan::descriptors::descriptor_set_layout::VkDescriptorSetLayout;
 use crate::render::backend::vulkan::device::VkDevice;
-use mvutils::utils::Recover;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-//
-// WE DO NOT NEED A WRAPPER FOR THIS CLASS
-//
 pub(crate) struct VkDescriptorWriter {
     device: Arc<VkDevice>,
 
