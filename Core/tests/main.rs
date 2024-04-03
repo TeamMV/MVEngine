@@ -299,12 +299,12 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         );
 
         let vertex_shader = renderer.compile_shader(
-            include_str!("../src/render/shaders/2d/instancing.vert"),
+            include_str!("render/shaders/2d/instancing.vert"),
             ShaderKind::Vertex,
             Some("Vertex Shader".to_string()),
         );
         let fragment_shader = renderer.compile_shader(
-            include_str!("../src/render/shaders/2d/default.frag"),
+            include_str!("render/shaders/2d/default.frag"),
             ShaderKind::Fragment,
             Some("Fragment Shader".to_string()),
         );
