@@ -4,3 +4,4 @@
 pub mod input;
 pub mod render;
 pub mod err;
+mod asset;

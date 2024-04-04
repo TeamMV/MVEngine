@@ -31,6 +31,7 @@ num-traits = "0.2.17"
 hashbrown = "0.14.3"
 bitflags = "2.5.0"
 parking_lot = "0.12.1"
+crossbeam-channel = "0.5.12"
 
 ## MVCore ##
 
@@ -39,6 +40,19 @@ include_dir = "0.7.3"
 shaderc = "0.8.3"
 openal = "0.2.2"
 image = "0.25.0"
+gltf = { version = "1.4.0", features = [
+    "KHR_lights_punctual",
+    "KHR_materials_emissive_strength",
+    "KHR_materials_ior",
+    "KHR_materials_pbrSpecularGlossiness",
+    "KHR_materials_specular",
+    "KHR_materials_transmission",
+    "KHR_materials_unlit",
+    "KHR_materials_variants",
+    "KHR_materials_volume",
+    "KHR_texture_transform",
+    "extensions",
+]}
 
 # to be replaced with custom math lib
 glam = { version = "0.27.0", features = ["core-simd"] }
@@ -47,7 +61,7 @@ glam = { version = "0.27.0", features = ["core-simd"] }
 winit = "0.29.15"
 
 # vulkan dependencies
-ash = "0.38.0"
+ash = "0.37.3"
 gpu-alloc = "0.6.0"
 gpu-alloc-ash = "0.6.0"
 

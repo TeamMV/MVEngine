@@ -89,7 +89,7 @@ impl Mesh {
     }
 
     pub fn update_index_buffer(&mut self, indices: &[u32]) {
-        if indices.len() > self.index_count as usize {
+        if indices.len() <= self.index_count as usize {
             if let Some(buffer) = self.index_buffer.as_mut() {
                 let data = unsafe {
                     std::slice::from_raw_parts(indices.as_ptr() as *const u8, indices.len() * 4)
