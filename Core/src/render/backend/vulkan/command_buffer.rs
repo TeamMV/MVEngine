@@ -198,7 +198,7 @@ impl VkCommandBuffer {
         unsafe {
             self.device
                 .get_device()
-                .cmd_dispatch(self.handle, extent.width, extent.height, 1)
+                .cmd_dispatch(self.handle, extent.width, extent.height, extent.depth)
         };
     }
 

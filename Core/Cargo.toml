@@ -56,7 +56,6 @@ include_dir.workspace = true
 shaderc.workspace = true
 openal.workspace = true
 image.workspace = true
-glam.workspace = true
 gltf.workspace = true
 
 # rendering dependencies

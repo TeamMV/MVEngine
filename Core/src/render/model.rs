@@ -1,10 +1,12 @@
+use crate::math::vec::Vec4;
+
 pub struct Model {
 
 }
 
 pub struct Material {
-    color: glam::Vec4,
-    emissive: glam::Vec4,
+    color: Vec4,
+    emissive: Vec4,
     metallic: f32,
     roughness: f32,
 }

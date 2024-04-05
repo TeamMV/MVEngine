@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "Core",
-    "Engine/Mods",
+    "Engine/Mods", "Engine/Render2D",
 ]
 resolver = "2"
 
@@ -53,9 +53,6 @@ gltf = { version = "1.4.0", features = [
     "KHR_texture_transform",
     "extensions",
 ]}
-
-# to be replaced with custom math lib
-glam = { version = "0.27.0", features = ["core-simd"] }
 
 # rendering dependencies
 winit = "0.29.15"

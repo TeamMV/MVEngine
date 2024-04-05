@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use gltf::{Gltf, Semantic};
 use gltf::buffer::Source;
 use crate::render::mesh::Mesh;
@@ -27,15 +26,15 @@ impl AssetImporter {
         todo!();
     }
 
-    fn process_node(gltf: Gltf, node: gltf::Node, parent_transform: glam::Mat4) -> (Vec<Mesh>, Vec<String>, Vec<Texture>, Vec<Material>) {
+    fn process_node(gltf: Gltf, node: gltf::Node) -> (Vec<Mesh>, Vec<String>, Vec<Texture>, Vec<Material>) {
 
-        let transform = node.transform(); // TODO: as glam::mat4
+        let transform = node.transform();
         for mesh in node.mesh() {
             for primitive in mesh.primitives() {
                 let pos = primitive.get(&Semantic::Positions).unwrap().view().unwrap();
                 let data = match pos.buffer().source() {
-                    Source::Bin => gltf.blob.as_ref().unwrap()[pos.offset()..pos.offset() + pos.length()],
-                    Source::Uri(file) => std::fs::read(file).unwrap()[pos.offset()..pos.offset() + pos.length()],
+                    Source::Bin => &gltf.blob.as_ref().unwrap()[pos.offset()..pos.offset() + pos.length()],
+                    Source::Uri(file) => panic!(),
                 };
             }
         }
