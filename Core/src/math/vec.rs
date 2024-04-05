@@ -4,7 +4,7 @@ use std::simd::{f32x2, f32x4};
 use mvutils::unsafe_utils::Unsafe;
 
 #[derive(Default, Debug, Copy, Clone)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct Vec2(f32x2);
 
 impl Vec2 {
@@ -38,6 +38,7 @@ impl DerefMut for Vec2 {
 }
 
 #[derive(Default, Debug, Copy, Clone)]
+#[repr(C)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,

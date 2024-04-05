@@ -15,9 +15,11 @@ impl Mesh {
     pub fn new(
         device: Device,
         vertices: &[u8],
+        vertex_count: u32,
         indices: Option<&[u32]>,
         name: Option<String>,
     ) -> Mesh {
+        log::error!("{}", vertices.len());
         let vertex_buffer = Self::create_vertex_buffer(device.clone(), vertices, name.clone());
         let len = indices
             .as_ref()
@@ -29,7 +31,7 @@ impl Mesh {
         Self {
             device,
             vertex_buffer,
-            vertex_count: vertices.len() as u32,
+            vertex_count,
             index_count: len as u32,
             index_buffer,
             name,

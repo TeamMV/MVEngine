@@ -20,7 +20,7 @@ fn main() {
         transparent: false,
         theme: None,
         vsync: false,
-        max_frames_in_flight: 2,
+        max_frames_in_flight: 1,
         fps: 60,
         ups: 20,
     });
@@ -59,7 +59,7 @@ impl ApplicationLoopCallbacks for AppLoop {
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         self.renderer.add_quad(Transform{
-            position: Vec4::splat(0.0),
+            position: Vec4::new(100.0, 100.0, 10.0, 0.0),
             rotation: Vec4::splat(0.0),
             scale: Vec4::splat(100.0),
         });

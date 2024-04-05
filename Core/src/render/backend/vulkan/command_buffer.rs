@@ -3,6 +3,7 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
 use std::sync::Arc;
+use ash::vk::{AccessFlags, ImageLayout};
 
 pub(crate) struct CreateInfo {
     level: ash::vk::CommandBufferLevel,
@@ -150,6 +151,9 @@ impl VkCommandBuffer {
     }
 
     pub(crate) fn blit_image(&self, src_image: Arc<VkImage>, dst_image: Arc<VkImage>) {
+        src_image.transition_layout(ImageLayout::TRANSFER_SRC_OPTIMAL, Some(self), AccessFlags::empty(), AccessFlags::empty());
+        dst_image.transition_layout(ImageLayout::TRANSFER_DST_OPTIMAL, Some(self), AccessFlags::empty(), AccessFlags::empty());
+
         let blit = ash::vk::ImageBlit {
             src_subresource: ash::vk::ImageSubresourceLayers {
                 aspect_mask: src_image.aspect,

@@ -1,7 +1,8 @@
 #version 420
 
 layout (location = 0) out vec4 outColor;
+layout(location = 1) in vec4 inTexCoords;
 
 void main() {
-    outColor = vec4(1.0f, 0.2, 0.3, 1.0);
+    outColor = vec4(1.0f);
 }

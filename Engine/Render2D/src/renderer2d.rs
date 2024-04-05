@@ -20,13 +20,13 @@ use mvcore::render::window::Window;
 
 #[repr(C)]
 struct Vertex {
-    position: Vec3,
-    tex_coord: Vec2,
+    position: Vec4,
+    tex_coord: Vec4,
 }
 
 impl Vertex {
     pub fn get_attribute_description() -> Vec<AttributeType> {
-        vec![AttributeType::Float32x3, AttributeType::Float32x2]
+        vec![AttributeType::Float32x4, AttributeType::Float32x4]
     }
 }
 
@@ -53,6 +53,7 @@ pub struct Renderer2D {
     tonemap_pipeline: Pipeline::<Compute>,
     tonemap_sets: Vec<DescriptorSet>,
     geometry_framebuffers: Vec<Framebuffer>,
+    present_framebuffers: Vec<Framebuffer>,
     default_sampler: Sampler,
 }
 
@@ -157,10 +158,10 @@ impl Renderer2D {
         //
 
         let vertices = vec![
-            Vertex { position: Vec3::new(-1.0, 1.0, 0.0), tex_coord: Vec2::default() }, // 0
-            Vertex { position: Vec3::new(-1.0, -1.0, 0.0), tex_coord: Vec2::default() }, // 1
-            Vertex { position: Vec3::new(1.0, -1.0, 0.0), tex_coord: Vec2::default() }, // 2
-            Vertex { position: Vec3::new(1.0, 1.0, 0.0), tex_coord: Vec2::default() }, // 3
+            Vertex { position: Vec4::new(-1.0, 1.0, 0.0, 0.0), tex_coord: Vec4::default() }, // 0
+            Vertex { position: Vec4::new(-1.0, -1.0, 0.0, 0.0), tex_coord: Vec4::default() }, // 1
+            Vertex { position: Vec4::new(1.0, -1.0, 0.0, 0.0), tex_coord: Vec4::default() }, // 2
+            Vertex { position: Vec4::new(1.0, 1.0, 0.0, 0.0), tex_coord: Vec4::default() }, // 3
         ];
 
         let vertices_bytes = unsafe { std::slice::from_raw_parts(vertices.as_ptr() as *const u8, vertices.len() * std::mem::size_of::<Vertex>()) };
@@ -169,7 +170,7 @@ impl Renderer2D {
             0, 2, 3
         ];
 
-        let quad_mesh = Mesh::new(device.clone(), vertices_bytes, Some(&indices), Some("Main Quad Vertex Buffer".to_string()));
+        let quad_mesh = Mesh::new(device.clone(), vertices_bytes, 4, Some(&indices), Some("Main Quad Vertex Buffer".to_string()));
 
         //
         // Framebuffer
@@ -177,7 +178,7 @@ impl Renderer2D {
         let mut geometry_framebuffers = Vec::new();
         for _ in 0..renderer.get_max_frames_in_flight() {
             let framebuffer = Framebuffer::new(device.clone(), MVFramebufferCreateInfo{
-                attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D16], // TODO: 16 bits
+                attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D32], // TODO: 16 bits
                 extent: renderer.get_swapchain().get_extent(),
                 image_usage_flags: ImageUsage::empty(),
                 render_pass_info: None,
@@ -185,6 +186,19 @@ impl Renderer2D {
             });
 
             geometry_framebuffers.push(framebuffer);
+        }
+
+        let mut present_framebuffers = Vec::new();
+        for _ in 0..renderer.get_max_frames_in_flight() {
+            let framebuffer = Framebuffer::new(device.clone(), MVFramebufferCreateInfo{
+                attachment_formats: vec![ImageFormat::R8G8B8A8],
+                extent: renderer.get_swapchain().get_extent(),
+                image_usage_flags: ImageUsage::STORAGE | ImageUsage::TRANSFER_SRC,
+                render_pass_info: None,
+                label: Some("Present Framebuffer".to_string()),
+            });
+
+            present_framebuffers.push(framebuffer);
         }
 
         //
@@ -203,7 +217,7 @@ impl Renderer2D {
             cull_mode: CullMode::Back,
             enable_depth_test: true,
             depth_clamp: false,
-            blending_enable: true,
+            blending_enable: false,
             descriptor_sets: vec![camera_sets[0].get_layout(), transforms_sets[0].get_layout()],
             push_constants: vec![],
             framebuffer: geometry_framebuffers[0].clone(),
@@ -248,7 +262,7 @@ impl Renderer2D {
             });
 
             set.add_image(0, &geometry_framebuffers[index as usize].get_image(0), &default_sampler, ImageLayout::ShaderReadOnlyOptimal);
-            set.add_image(1, &renderer.get_swapchain().get_framebuffer(index as usize).get_image(0), &default_sampler, ImageLayout::General);
+            set.add_image(1, &present_framebuffers[index as usize].get_image(0), &default_sampler, ImageLayout::General);
             set.build();
 
             tonemap_sets.push(set);
@@ -274,6 +288,7 @@ impl Renderer2D {
             main_pipeline: default_pipeline,
             tonemap_sets,
             geometry_framebuffers,
+            present_framebuffers,
             default_sampler,
             tonemap_pipeline
         }
@@ -288,6 +303,7 @@ impl Renderer2D {
         let extent = swapchain.get_extent();
         let swapchain_framebuffer = &swapchain.get_current_framebuffer();
         let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
+        let present_framebuffer = &self.present_framebuffers[current_frame as usize];
 
         // Push data to the storage buffer
         let bytes = unsafe { std::slice::from_raw_parts(self.transforms.as_ptr() as *const u8, self.transforms.len() * mem::size_of::<Transform>()) };
@@ -307,7 +323,7 @@ impl Renderer2D {
 
         // TONEMAP PASS
         geometry_framebuffer.get_image(0).transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
-        swapchain_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
+        present_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
 
         self.tonemap_pipeline.bind(cmd);
         self.tonemap_sets[current_frame as usize].bind(cmd, &self.tonemap_pipeline, 0);
@@ -316,6 +332,8 @@ impl Renderer2D {
             height: geometry_framebuffer.get_image(0).get_extent().height / 8 + 1,
             depth: 1,
         });
+
+        cmd.blit_image(present_framebuffer.get_image(0), swapchain_framebuffer.get_image(0));
 
         swapchain_framebuffer.get_image(0).transition_layout(ImageLayout::PresentSrc, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
         self.core_renderer.end_frame().unwrap();

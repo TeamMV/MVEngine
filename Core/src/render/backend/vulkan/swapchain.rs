@@ -142,7 +142,7 @@ impl VkSwapchain {
             .surface(device.get_surface())
             .image_array_layers(1)
             .image_usage(
-                ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::STORAGE,
+                ash::vk::ImageUsageFlags::COLOR_ATTACHMENT | ash::vk::ImageUsageFlags::TRANSFER_DST,
             )
             .pre_transform(swapchain_capabilities.capabilities.current_transform)
             .composite_alpha(ash::vk::CompositeAlphaFlagsKHR::OPAQUE)
