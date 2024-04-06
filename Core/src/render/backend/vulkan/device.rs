@@ -1040,7 +1040,7 @@ impl VkDevice {
             panic!()
         });
 
-        unsafe { self.device.bind_image_memory(image, *block.memory(), 0) }.unwrap_or_else(|e| {
+        unsafe { self.device.bind_image_memory(image, *block.memory(), block.offset()) }.unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
             panic!();
         });
