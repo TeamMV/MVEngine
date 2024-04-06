@@ -70,7 +70,10 @@ impl ApplicationLoopCallbacks for AppLoop {
         self.renderer.draw();
     }
 
-    fn exiting(&mut self, window: &mut Window) {}
+    fn exiting(&mut self, window: &mut Window)
+    {
+        self.device.wait_idle();
+    }
 
     fn resize(&mut self, window: &mut Window, width: u32, height: u32) {}
 }

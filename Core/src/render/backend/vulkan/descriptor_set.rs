@@ -332,7 +332,6 @@ impl VkDescriptorSet {
                         })
                         .collect::<Vec<_>>();
                     binding_data_buffer.push(binding_data);
-                    log::info!("TEST: {index}");
                     writer.write_buffer(
                         index as u32,
                         &binding_data_buffer[binding_data_buffer.len() - 1],

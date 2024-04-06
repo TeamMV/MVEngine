@@ -19,7 +19,6 @@ impl Mesh {
         indices: Option<&[u32]>,
         name: Option<String>,
     ) -> Mesh {
-        log::error!("{}", vertices.len());
         let vertex_buffer = Self::create_vertex_buffer(device.clone(), vertices, name.clone());
         let len = indices
             .as_ref()

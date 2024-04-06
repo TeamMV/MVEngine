@@ -250,7 +250,6 @@ impl VkDevice {
         }
 
         extensions.push(ash::vk::ExtSwapchainColorspaceFn::name());
-        extensions.push(ash::vk::KhrGetPhysicalDeviceProperties2Fn::name());
 
         #[cfg(debug_assertions)]
         extensions.push(ash::extensions::ext::DebugUtils::name());
@@ -834,11 +833,12 @@ impl VkDevice {
 
     fn get_required_extensions(requested: &Extensions) -> Vec<&'static CStr> {
         let mut extensions = vec![
+            ash::vk::ExtMemoryPriorityFn::name(),
             ash::vk::ExtImageRobustnessFn::name(),
+            ash::vk::ExtPageableDeviceLocalMemoryFn::name(),
             ash::vk::KhrSwapchainFn::name(),
             ash::vk::KhrSwapchainMutableFormatFn::name(),
             ash::vk::ExtRobustness2Fn::name(),
-            ash::vk::KhrBufferDeviceAddressFn::name(),
             ash::vk::KhrSynchronization2Fn::name(),
             #[cfg(target_os = "macos")]
             ash::vk::KhrPortabilitySubsetFn::name(),
@@ -1193,6 +1193,12 @@ impl Drop for VkDevice {
     }
 }
 
+static IGNORED_MESSAGES_IDS: [i32; 3] = [
+    1413273847, // Memory Priority
+    -1687544056, // Sparse Index Buffer ( MALI BEST PRACTICES )
+    -2027362524, // Command Pool Reset?
+];
+
 #[cfg(debug_assertions)]
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
@@ -1208,6 +1214,10 @@ unsafe extern "system" fn vulkan_debug_callback(
     } else {
         CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
     };
+
+    if IGNORED_MESSAGES_IDS.contains(&message_id_number) {
+        return ash::vk::FALSE;
+    }
 
     let message = if callback_data.p_message.is_null() {
         std::borrow::Cow::from("")

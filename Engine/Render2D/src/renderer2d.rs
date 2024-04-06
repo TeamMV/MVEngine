@@ -12,7 +12,7 @@ use mvcore::render::backend::descriptor_set::{
 };
 use mvcore::render::backend::device::Device;
 use mvcore::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
-use mvcore::render::backend::image::{AccessFlags, ImageFormat, ImageLayout, ImageUsage};
+use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
 use mvcore::render::backend::pipeline::{
     AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
@@ -62,7 +62,7 @@ pub struct Renderer2D {
     tonemap_pipeline: Pipeline<Compute>,
     tonemap_sets: Vec<DescriptorSet>,
     geometry_framebuffers: Vec<Framebuffer>,
-    present_framebuffers: Vec<Framebuffer>,
+    present_images: Vec<Image>,
     default_sampler: Sampler,
 }
 
@@ -240,7 +240,7 @@ impl Renderer2D {
             let framebuffer = Framebuffer::new(
                 device.clone(),
                 MVFramebufferCreateInfo {
-                    attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D32], // TODO: 16 bits
+                    attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D16], // TODO: 16 bits
                     extent: renderer.get_swapchain().get_extent(),
                     image_usage_flags: ImageUsage::empty(),
                     render_pass_info: None,
@@ -251,20 +251,27 @@ impl Renderer2D {
             geometry_framebuffers.push(framebuffer);
         }
 
-        let mut present_framebuffers = Vec::new();
+        let mut present_images = Vec::new();
         for _ in 0..renderer.get_max_frames_in_flight() {
-            let framebuffer = Framebuffer::new(
+            let image = Image::new(
                 device.clone(),
-                MVFramebufferCreateInfo {
-                    attachment_formats: vec![ImageFormat::R8G8B8A8],
-                    extent: renderer.get_swapchain().get_extent(),
-                    image_usage_flags: ImageUsage::STORAGE | ImageUsage::TRANSFER_SRC,
-                    render_pass_info: None,
-                    label: Some("Present Framebuffer".to_string()),
-                },
+                MVImageCreateInfo {
+                    size: renderer.get_swapchain().get_extent(),
+                    format: ImageFormat::R8G8B8A8,
+                    usage: ImageUsage::TRANSFER_SRC | ImageUsage::STORAGE,
+                    memory_properties: MemoryProperties::DEVICE_LOCAL,
+                    aspect: ImageAspect::COLOR,
+                    tiling: ImageTiling::Optimal,
+                    layer_count: 1,
+                    image_type: ImageType::Image2D,
+                    cubemap: false,
+                    memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                    data: None,
+                    label: Some("Presentation image".to_string()),
+                }
             );
 
-            present_framebuffers.push(framebuffer);
+            present_images.push(image);
         }
 
         //
@@ -361,7 +368,7 @@ impl Renderer2D {
             );
             set.add_image(
                 1,
-                &present_framebuffers[index as usize].get_image(0),
+                &present_images[index as usize],
                 &default_sampler,
                 ImageLayout::General,
             );
@@ -393,7 +400,7 @@ impl Renderer2D {
             main_pipeline: default_pipeline,
             tonemap_sets,
             geometry_framebuffers,
-            present_framebuffers,
+            present_images,
             default_sampler,
             tonemap_pipeline,
         }
@@ -408,7 +415,7 @@ impl Renderer2D {
         let extent = swapchain.get_extent();
         let swapchain_framebuffer = &swapchain.get_current_framebuffer();
         let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
-        let present_framebuffer = &self.present_framebuffers[current_frame as usize];
+        let present_image = self.present_images[current_frame as usize].clone();
 
         // Push data to the storage buffer
         let bytes = unsafe {
@@ -449,7 +456,7 @@ impl Renderer2D {
             AccessFlags::empty(),
             AccessFlags::empty(),
         );
-        present_framebuffer.get_image(0).transition_layout(
+        present_image.transition_layout(
             ImageLayout::General,
             Some(&cmd),
             AccessFlags::empty(),
@@ -465,7 +472,7 @@ impl Renderer2D {
         });
 
         cmd.blit_image(
-            present_framebuffer.get_image(0),
+            present_image,
             swapchain_framebuffer.get_image(0),
         );
 

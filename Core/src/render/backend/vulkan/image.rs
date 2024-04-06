@@ -279,12 +279,22 @@ impl VkImage {
             )
         };
 
-        let mut src_access = ash::vk::AccessFlags::empty() | src_access;
-        let mut dst_access = ash::vk::AccessFlags::empty() | dst_access;
+        let mut src_access = src_access;
+        let mut dst_access = dst_access;
         let mut src_stage = ash::vk::PipelineStageFlags::empty();
         let mut dst_stage = ash::vk::PipelineStageFlags::empty();
 
+        if self.layout.get_val() != new_layout {
+
+            // dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
+            // dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
+        }
+
         match self.layout.get_val() {
+            ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                src_access |= ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE;
+                src_stage |= ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
+            }
             ash::vk::ImageLayout::GENERAL => {
                 src_access |=
                     ash::vk::AccessFlags::SHADER_WRITE | ash::vk::AccessFlags::SHADER_READ;
@@ -344,6 +354,8 @@ impl VkImage {
             ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
                 dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
                 dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
+
+                src_stage |= ash::vk::PipelineStageFlags::TRANSFER;
             }
             ash::vk::ImageLayout::PRESENT_SRC_KHR => {
                 dst_stage |= ash::vk::PipelineStageFlags::TOP_OF_PIPE;
