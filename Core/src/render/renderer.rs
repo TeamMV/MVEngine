@@ -212,10 +212,14 @@ impl Renderer {
         self.max_frames_in_flight
     }
 
-    pub fn compile_shader(&self, data: &str, kind: ShaderKind, name: Option<String>) -> Shader {
+    pub fn compile_shader(&self, data: &str, kind: ShaderKind, name: Option<String>, defines: &[String]) -> Shader {
         let compiler = shaderc::Compiler::new().unwrap();
         let mut options = shaderc::CompileOptions::new().unwrap();
         options.set_optimization_level(OptimizationLevel::Performance);
+
+        for define in defines {
+            options.add_macro_definition(define.as_str(), None);
+        }
         options.set_target_env(TargetEnv::Vulkan, ash::vk::API_VERSION_1_2);
         let code = compiler
             .compile_into_spirv(

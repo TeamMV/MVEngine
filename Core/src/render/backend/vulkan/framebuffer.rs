@@ -6,6 +6,7 @@ use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
 use std::sync::Arc;
+use ash::vk::DependencyFlags;
 
 impl From<ClearColor> for ash::vk::ClearValue {
     fn from(value: ClearColor) -> Self {
@@ -361,8 +362,14 @@ impl VkFramebuffer {
         let mut depth_reference = ash::vk::AttachmentReference::default();
 
         let mut depth_attachment_count = 0;
+        let mut has_depth = false;
         for (index, format) in attachment_formats.iter().enumerate() {
             let depth = Self::is_depth_format(*format);
+
+            if depth {
+                has_depth = true;
+            }
+
             if depth_attachment_count > 1 {
                 log::error!("Can't have more than one depth attachment in framebuffer!");
                 panic!();
@@ -377,7 +384,11 @@ impl VkFramebuffer {
             let store_op = if use_store_op {
                 render_pass_create_info.store_op[index]
             } else {
-                ash::vk::AttachmentStoreOp::STORE
+                if depth {
+                    ash::vk::AttachmentStoreOp::DONT_CARE
+                } else {
+                    ash::vk::AttachmentStoreOp::STORE
+                }
             };
 
             let final_layout = if use_final_layouts {
@@ -428,10 +439,26 @@ impl VkFramebuffer {
 
         let subpass = [subpass];
 
+        let mut dependencies = Vec::new();
+        dependencies.extend(&render_pass_create_info.dependencies);
+
+        if has_depth {
+            dependencies.push(ash::vk::SubpassDependency{
+                src_subpass: ash::vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+                dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                src_access_mask: ash::vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dependency_flags: DependencyFlags::empty(),
+            });
+        }
+
+        log::error!("{}", dependencies.len());
         let render_pass_create_info_vk = ash::vk::RenderPassCreateInfo::builder()
             .attachments(&descriptions)
             .subpasses(&subpass)
-            .dependencies(&render_pass_create_info.dependencies);
+            .dependencies(&dependencies);
 
         unsafe {
             device

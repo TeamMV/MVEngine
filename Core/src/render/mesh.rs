@@ -15,9 +15,11 @@ impl Mesh {
     pub fn new(
         device: Device,
         vertices: &[u8],
+        vertex_count: u32,
         indices: Option<&[u32]>,
         name: Option<String>,
     ) -> Mesh {
+        log::error!("{}", vertices.len());
         let vertex_buffer = Self::create_vertex_buffer(device.clone(), vertices, name.clone());
         let len = indices
             .as_ref()
@@ -29,7 +31,7 @@ impl Mesh {
         Self {
             device,
             vertex_buffer,
-            vertex_count: vertices.len() as u32,
+            vertex_count,
             index_count: len as u32,
             index_buffer,
             name,
@@ -89,7 +91,7 @@ impl Mesh {
     }
 
     pub fn update_index_buffer(&mut self, indices: &[u32]) {
-        if indices.len() > self.index_count as usize {
+        if indices.len() <= self.index_count as usize {
             if let Some(buffer) = self.index_buffer.as_mut() {
                 let data = unsafe {
                     std::slice::from_raw_parts(indices.as_ptr() as *const u8, indices.len() * 4)

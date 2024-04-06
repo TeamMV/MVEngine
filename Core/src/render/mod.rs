@@ -6,6 +6,8 @@ pub mod renderer;
 pub mod window;
 
 pub mod camera;
+pub mod model;
+pub mod texture;
 
 pub trait ApplicationLoopCallbacks {
     fn new(window: &mut Window) -> Self;
