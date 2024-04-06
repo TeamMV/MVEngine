@@ -146,7 +146,7 @@ impl VkDevice {
             panic!()
         });
 
-        let vsync_present_mode = [ash::vk::PresentModeKHR::MAILBOX]
+        let vsync_present_mode = [ash::vk::PresentModeKHR::FIFO]
             .into_iter()
             .find(|mode| available_present_modes.contains(mode))
             .unwrap_or(ash::vk::PresentModeKHR::FIFO);
@@ -767,14 +767,19 @@ impl VkDevice {
         let mut features = ash::vk::PhysicalDeviceFeatures2::builder();
         features.features.geometry_shader = true as ash::vk::Bool32;
 
-        let mut synch2 = ash::vk::PhysicalDeviceSynchronization2Features::builder()
-            .synchronization2(true)
-            .build();
-
         let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
             .buffer_device_address(true);
+
+        let mut synch2 = *ash::vk::PhysicalDeviceSynchronization2Features::builder()
+            .synchronization2(true);
+
+        let mut scalar_block = *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder()
+            .scalar_block_layout(true);
+
         device_address.p_next =
             &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
+        synch2.p_next =
+            &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures as *mut c_void;
         features = features.push_next(&mut device_address);
 
         let create_info = ash::vk::DeviceCreateInfo::builder()

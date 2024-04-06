@@ -1,5 +1,5 @@
 use log::LevelFilter;
-use mvcore::math::vec::Vec4;
+use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::Backend;
 use mvcore::render::window::{Window, WindowCreateInfo};
@@ -11,17 +11,17 @@ fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
 
     let window = Window::new(WindowCreateInfo {
-        width: 800,
+        width: 600,
         height: 600,
-        title: "TEST".to_string(),
+        title: "Demo".to_string(),
         fullscreen: false,
         decorated: true,
         resizable: false,
         transparent: false,
         theme: None,
         vsync: false,
-        max_frames_in_flight: 1,
-        fps: 60,
+        max_frames_in_flight: 2,
+        fps: 9999,
         ups: 20,
     });
 
@@ -31,6 +31,10 @@ fn main() {
 struct AppLoop {
     device: Device,
     renderer: Renderer2D,
+
+    quad_rotation: f32,
+    quad_position: Vec2,
+    timer: f32
 }
 
 impl ApplicationLoopCallbacks for AppLoop {
@@ -49,22 +53,42 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         let renderer = Renderer2D::new(device.clone(), &window);
 
-        Self { device, renderer }
+        Self { device, renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0 }
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
+        log::info!("ms: {}. FPS {}", delta_t * 1000.0, 1.0 / delta_t);
+
+        self.timer += delta_t as f32;
+        self.quad_rotation += delta_t as f32 * 2.0;
+
+        self.quad_position.x = self.timer.sin() * 100.0;
+        self.quad_position.y = self.timer.cos() * 100.0;
+
         self.renderer.add_quad(Transform {
-            position: Vec4::new(100.0, 100.0, 90.0, 0.0),
-            rotation: Vec4::splat(0.0),
-            scale: Vec4::splat(100.0),
+            position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 400.0, 1.0),
+            rotation: self.quad_rotation,
+            scale: Vec2::splat(50.0),
         });
 
         self.renderer.add_quad(Transform {
-            position: Vec4::new(150.0, 150.0, 1.0, 0.0),
-            rotation: Vec4::splat(0.0),
-            scale: Vec4::splat(100.0),
+            position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 200.0, 1.0),
+            rotation: -self.quad_rotation,
+            scale: Vec2::splat(50.0),
+        });
+
+        self.renderer.add_quad(Transform {
+            position: Vec3::new(self.quad_position.x + 200.0, -self.quad_position.y + 300.0, 1.0),
+            rotation: self.quad_rotation,
+            scale: Vec2::splat(50.0),
+        });
+
+        self.renderer.add_quad(Transform {
+            position: Vec3::new(self.quad_position.x + 400.0, -self.quad_position.y + 300.0, 1.0),
+            rotation: -self.quad_rotation,
+            scale: Vec2::splat(50.0),
         });
 
         self.renderer.draw();

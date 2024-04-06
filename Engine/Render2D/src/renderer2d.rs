@@ -41,9 +41,9 @@ impl Vertex {
 
 #[repr(C)]
 pub struct Transform {
-    pub position: Vec4,
-    pub rotation: Vec4,
-    pub scale: Vec4,
+    pub position: Vec3,
+    pub rotation: f32,
+    pub scale: Vec2,
 }
 
 static MAX_BATCH_SIZE: u32 = 10000;
@@ -430,7 +430,7 @@ impl Renderer2D {
         geometry_framebuffer.begin_render_pass(
             cmd,
             &[
-                ClearColor::Color([0.0, 0.0, 0.0, 1.0]),
+                ClearColor::Color([0.1, 0.1, 0.1, 1.0]),
                 ClearColor::Depth {
                     depth: 1.0,
                     stencil: 0,
@@ -488,11 +488,12 @@ impl Renderer2D {
         self.transforms.clear();
     }
 
-    pub fn add_quad(&mut self, transform: Transform) {
+    pub fn add_quad(&mut self, mut transform: Transform) {
         if self.transforms.len() as u32 > MAX_BATCH_SIZE {
             log::error!("Todo: multiple batches");
             panic!();
         }
+
         self.transforms.push(transform);
     }
 
