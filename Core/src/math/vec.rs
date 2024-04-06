@@ -1,28 +1,39 @@
 use std::ops::{Deref, DerefMut, Mul, MulAssign};
-use std::simd::f32x4;
+use std::simd::{f32x2, f32x4};
 
 use mvutils::unsafe_utils::Unsafe;
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(C)]
-pub struct Vec2 {
+pub struct Vec2(f32x2);
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self([x, y].into())
+    }
+
+    pub fn splat(val: f32) -> Self {
+        Self([val; 2].into())
+    }
+}
+
+#[repr(C)]
+pub struct _DerefVec2 {
     pub x: f32,
     pub y: f32,
 }
 
-impl Vec2 {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self {
-            x,
-            y,
-        }
-    }
+impl Deref for Vec2 {
+    type Target = _DerefVec2;
 
-    pub fn splat(val: f32) -> Self {
-        Self {
-            x: val,
-            y: val,
-        }
+    fn deref(&self) -> &Self::Target {
+        unsafe { Unsafe::cast_ref(self) }
+    }
+}
+
+impl DerefMut for Vec2 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { Unsafe::cast_mut(self) }
     }
 }
 
@@ -81,7 +92,7 @@ impl MulAssign<f32> for Vec4 {
 }
 
 #[repr(C)]
-pub struct DerefVec4 {
+pub struct _DerefVec4 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
@@ -89,7 +100,7 @@ pub struct DerefVec4 {
 }
 
 impl Deref for Vec4 {
-    type Target = DerefVec4;
+    type Target = _DerefVec4;
 
     fn deref(&self) -> &Self::Target {
         unsafe { Unsafe::cast_ref(self) }

@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut, Mul};
 use std::simd::{f32x4, simd_swizzle};
 use mvutils::unsafe_utils::Unsafe;
-use crate::math::vec::{DerefVec4, Vec4};
+use crate::math::vec::{_DerefVec4, Vec4};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(transparent)]
@@ -92,7 +92,7 @@ impl Mul for Quat {
 }
 
 impl Deref for Quat {
-    type Target = DerefVec4;
+    type Target = _DerefVec4;
 
     fn deref(&self) -> &Self::Target {
         unsafe { Unsafe::cast_ref(self) }

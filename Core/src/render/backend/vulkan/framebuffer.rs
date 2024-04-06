@@ -153,7 +153,7 @@ impl VkFramebuffer {
                         *image_format,
                         create_info.image_usage_flags,
                         #[cfg(debug_assertions)]
-                            create_info.debug_name.clone(),
+                        create_info.debug_name.clone(),
                     );
                     image_views.push(image.get_view(0));
                     images.push(image);
@@ -168,7 +168,7 @@ impl VkFramebuffer {
                         *image_format,
                         create_info.image_usage_flags,
                         #[cfg(debug_assertions)]
-                            create_info.debug_name.clone(),
+                        create_info.debug_name.clone(),
                     );
                     image_views.push(image.get_view(0));
                     images.push(image);
@@ -209,10 +209,10 @@ impl VkFramebuffer {
                 .get_device()
                 .create_framebuffer(&framebuffer_create_info, None)
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to create framebuffer, error: {e}");
-                panic!();
-            });
+        .unwrap_or_else(|e| {
+            log::error!("Failed to create framebuffer, error: {e}");
+            panic!();
+        });
 
         #[cfg(debug_assertions)]
         device.set_object_name(
@@ -264,7 +264,7 @@ impl VkFramebuffer {
         #[cfg(debug_assertions)] name: std::ffi::CString,
     ) -> VkImage {
         #[cfg(debug_assertions)]
-            let debug_name = name.to_string_lossy() + " color image";
+        let debug_name = name.to_string_lossy() + " color image";
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
@@ -295,7 +295,7 @@ impl VkFramebuffer {
         #[cfg(debug_assertions)] name: std::ffi::CString,
     ) -> VkImage {
         #[cfg(debug_assertions)]
-            let debug_name = name.to_string_lossy() + " depth image";
+        let debug_name = name.to_string_lossy() + " depth image";
         let image_create_info = crate::render::backend::vulkan::image::CreateInfo {
             size: extent,
             format,
@@ -385,7 +385,7 @@ impl VkFramebuffer {
                 render_pass_create_info.store_op[index]
             } else {
                 if depth {
-                    ash::vk::AttachmentStoreOp::STORE
+                    ash::vk::AttachmentStoreOp::DONT_CARE
                 } else {
                     ash::vk::AttachmentStoreOp::STORE
                 }
@@ -430,50 +430,34 @@ impl VkFramebuffer {
             }
         }
 
-        let mut subpass = if has_depth {
-            ash::vk::SubpassDescription::builder()
-                .pipeline_bind_point(ash::vk::PipelineBindPoint::GRAPHICS)
-                .color_attachments(&references)
-                .depth_stencil_attachment(&depth_reference)
-        } else {
-            ash::vk::SubpassDescription::builder()
-                .pipeline_bind_point(ash::vk::PipelineBindPoint::GRAPHICS)
-                .color_attachments(&references)
-        };
+        let mut subpass = *ash::vk::SubpassDescription::builder()
+            .pipeline_bind_point(ash::vk::PipelineBindPoint::GRAPHICS)
+            .color_attachments(&references);
+        if depth_attachment_count > 0 {
+            subpass.p_depth_stencil_attachment = &depth_reference;
+        }
 
-        let subpass_arr = [*subpass];
+        let subpass = [subpass];
 
         let mut dependencies = Vec::new();
         dependencies.extend(&render_pass_create_info.dependencies);
 
         if has_depth {
-
+            dependencies.push(ash::vk::SubpassDependency{
+                src_subpass: ash::vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+                dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                src_access_mask: ash::vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dependency_flags: DependencyFlags::empty(),
+            });
         }
-
-        dependencies.push(ash::vk::SubpassDependency {
-            src_subpass: ash::vk::SUBPASS_EXTERNAL,
-            dst_subpass: 0,
-            src_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | ash::vk::PipelineStageFlags::TOP_OF_PIPE,
-            dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            src_access_mask: ash::vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-            dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            dependency_flags: DependencyFlags::empty(),
-        });
-
-        dependencies.push(ash::vk::SubpassDependency {
-            src_subpass: 0,
-            dst_subpass: ash::vk::SUBPASS_EXTERNAL,
-            src_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | ash::vk::PipelineStageFlags::FRAGMENT_SHADER | ash::vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-            dst_stage_mask: ash::vk::PipelineStageFlags::FRAGMENT_SHADER | ash::vk::PipelineStageFlags::COMPUTE_SHADER,
-            src_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE | ash::vk::AccessFlags::SHADER_WRITE,
-            dst_access_mask: ash::vk::AccessFlags::SHADER_READ,
-            dependency_flags: DependencyFlags::empty(),
-        });
 
         log::error!("{}", dependencies.len());
         let render_pass_create_info_vk = ash::vk::RenderPassCreateInfo::builder()
             .attachments(&descriptions)
-            .subpasses(&subpass_arr)
+            .subpasses(&subpass)
             .dependencies(&dependencies);
 
         unsafe {
@@ -481,10 +465,10 @@ impl VkFramebuffer {
                 .get_device()
                 .create_render_pass(&render_pass_create_info_vk, None)
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to create render pass, error: {e}");
-                panic!();
-            })
+        .unwrap_or_else(|e| {
+            log::error!("Failed to create render pass, error: {e}");
+            panic!();
+        })
     }
 
     pub(crate) fn from(

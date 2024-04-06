@@ -279,23 +279,12 @@ impl VkImage {
             )
         };
 
-        let mut src_access = src_access;
-        let mut dst_access = dst_access;
+        let mut src_access = ash::vk::AccessFlags::empty() | src_access;
+        let mut dst_access = ash::vk::AccessFlags::empty() | dst_access;
         let mut src_stage = ash::vk::PipelineStageFlags::empty();
         let mut dst_stage = ash::vk::PipelineStageFlags::empty();
 
-        if self.layout.get_val() != new_layout {
-            src_stage |= ash::vk::PipelineStageFlags::TRANSFER;
-            dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
-            src_access |= ash::vk::AccessFlags::TRANSFER_READ | ash::vk::AccessFlags::TRANSFER_WRITE;
-            dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
-        }
-
         match self.layout.get_val() {
-            ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
-                src_access |= ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE | ash::vk::AccessFlags::COLOR_ATTACHMENT_READ;
-                src_stage |= ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
-            },
             ash::vk::ImageLayout::GENERAL => {
                 src_access |=
                     ash::vk::AccessFlags::SHADER_WRITE | ash::vk::AccessFlags::SHADER_READ;
@@ -307,7 +296,7 @@ impl VkImage {
                 }
             }
             ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => {
-                src_access |= ash::vk::AccessFlags::SHADER_READ | ash::vk::AccessFlags::COLOR_ATTACHMENT_READ;
+                src_access |= ash::vk::AccessFlags::SHADER_READ;
                 src_stage |= ash::vk::PipelineStageFlags::FRAGMENT_SHADER
                     | ash::vk::PipelineStageFlags::COMPUTE_SHADER;
 
@@ -328,10 +317,6 @@ impl VkImage {
         }
 
         match new_layout {
-            ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
-                dst_access |= ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE;
-                dst_stage |= ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
-            },
             ash::vk::ImageLayout::GENERAL => {
                 dst_access |=
                     ash::vk::AccessFlags::SHADER_WRITE | ash::vk::AccessFlags::SHADER_READ;
@@ -343,7 +328,7 @@ impl VkImage {
                 }
             }
             ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => {
-                dst_access |= ash::vk::AccessFlags::SHADER_READ | ash::vk::AccessFlags::COLOR_ATTACHMENT_READ;
+                dst_access |= ash::vk::AccessFlags::SHADER_READ;
                 dst_stage |= ash::vk::PipelineStageFlags::FRAGMENT_SHADER
                     | ash::vk::PipelineStageFlags::COMPUTE_SHADER;
 
@@ -399,66 +384,6 @@ impl VkImage {
         }
 
         self.layout.replace(new_layout);
-
-        //
-        //
-        // TODO: TO BE DELETED
-        //
-        //
-
-        src_access |=
-            ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-            | ash::vk::AccessFlags::TRANSFER_WRITE
-            | ash::vk::AccessFlags::UNIFORM_READ
-            | ash::vk::AccessFlags::MEMORY_READ
-            | ash::vk::AccessFlags::TRANSFER_READ
-            | ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-            | ash::vk::AccessFlags::COLOR_ATTACHMENT_READ
-            | ash::vk::AccessFlags::SHADER_READ
-            | ash::vk::AccessFlags::SHADER_WRITE
-            | ash::vk::AccessFlags::TRANSFER_WRITE
-            | ash::vk::AccessFlags::HOST_READ
-            | ash::vk::AccessFlags::HOST_WRITE
-            | ash::vk::AccessFlags::MEMORY_WRITE;
-
-        dst_access |=
-            ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-            | ash::vk::AccessFlags::TRANSFER_WRITE
-            | ash::vk::AccessFlags::UNIFORM_READ
-            | ash::vk::AccessFlags::MEMORY_READ
-            | ash::vk::AccessFlags::TRANSFER_READ
-            | ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-            | ash::vk::AccessFlags::COLOR_ATTACHMENT_READ
-            | ash::vk::AccessFlags::SHADER_READ
-            | ash::vk::AccessFlags::SHADER_WRITE
-            | ash::vk::AccessFlags::TRANSFER_WRITE
-            | ash::vk::AccessFlags::HOST_READ
-            | ash::vk::AccessFlags::HOST_WRITE
-            | ash::vk::AccessFlags::MEMORY_WRITE;
-
-
-        let memory_barrier = [*ash::vk::MemoryBarrier::builder()
-            .src_access_mask(src_access)
-            .dst_access_mask(dst_access)];
-
-        unsafe {
-            self.device.get_device().cmd_pipeline_barrier(
-                cmd,
-                ash::vk::PipelineStageFlags::ALL_COMMANDS | ash::vk::PipelineStageFlags::ALL_GRAPHICS,
-                ash::vk::PipelineStageFlags::ALL_COMMANDS | ash::vk::PipelineStageFlags::ALL_GRAPHICS,
-                ash::vk::DependencyFlags::empty(),
-                &memory_barrier,
-                &[],
-                &[],
-            )
-        }
-
-
-        //
-        //
-        //
-        //
-        //
 
         if end {
             self.device.end_single_time_command(

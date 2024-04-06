@@ -178,9 +178,9 @@ impl Renderer2D {
         let mut geometry_framebuffers = Vec::new();
         for _ in 0..renderer.get_max_frames_in_flight() {
             let framebuffer = Framebuffer::new(device.clone(), MVFramebufferCreateInfo{
-                attachment_formats: vec![ImageFormat::R32G32B32A32], // TODO: 16 bits
+                attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D32], // TODO: 16 bits
                 extent: renderer.get_swapchain().get_extent(),
-                image_usage_flags: ImageUsage::TRANSFER_SRC | ImageUsage::STORAGE,
+                image_usage_flags: ImageUsage::empty(),
                 render_pass_info: None,
                 label: Some("Geometry Framebuffer".to_string()),
             });
@@ -215,7 +215,7 @@ impl Renderer2D {
             extent: renderer.get_swapchain().get_extent(),
             topology: Topology::Triangle,
             cull_mode: CullMode::Back,
-            enable_depth_test: false,
+            enable_depth_test: true,
             depth_clamp: false,
             blending_enable: false,
             descriptor_sets: vec![camera_sets[0].get_layout(), transforms_sets[0].get_layout()],
@@ -246,24 +246,22 @@ impl Renderer2D {
         for index in 0..renderer.get_max_frames_in_flight() {
             let mut set = DescriptorSet::new(device.clone(), MVDescriptorSetCreateInfo {
                 pool: descriptor_pool.clone(),
-                bindings: vec![
-                    DescriptorSetLayoutBinding {
-                        index: 0,
-                        stages: ShaderStage::Compute,
-                        ty: DescriptorType::StorageImage,
-                        count: 1,
-                    },
-                    DescriptorSetLayoutBinding {
-                        index: 1,
-                        stages: ShaderStage::Compute,
-                        ty: DescriptorType::StorageImage,
-                        count: 1,
-                    }
-                ],
+                bindings: vec![DescriptorSetLayoutBinding {
+                    index: 0,
+                    stages: ShaderStage::Compute,
+                    ty: DescriptorType::CombinedImageSampler,
+                    count: 1,
+                },
+                DescriptorSetLayoutBinding {
+                    index: 1,
+                    stages: ShaderStage::Compute,
+                    ty: DescriptorType::StorageImage,
+                    count: 1,
+                }],
                 label: Some("Tonemap set".to_string())
             });
 
-            set.add_image(0, &geometry_framebuffers[index as usize].get_image(0), &default_sampler, ImageLayout::General);
+            set.add_image(0, &geometry_framebuffers[index as usize].get_image(0), &default_sampler, ImageLayout::ShaderReadOnlyOptimal);
             set.add_image(1, &present_framebuffers[index as usize].get_image(0), &default_sampler, ImageLayout::General);
             set.build();
 
@@ -303,16 +301,16 @@ impl Renderer2D {
 
         let swapchain = self.core_renderer.get_swapchain_mut();
         let extent = swapchain.get_extent();
-        let swapchain_framebuffer = swapchain.get_current_framebuffer().clone();
-        let geometry_framebuffer = self.geometry_framebuffers[current_frame as usize].clone();
-        let present_framebuffer = self.present_framebuffers[current_frame as usize].clone();
+        let swapchain_framebuffer = &swapchain.get_current_framebuffer();
+        let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
+        let present_framebuffer = &self.present_framebuffers[current_frame as usize];
 
         // Push data to the storage buffer
         let bytes = unsafe { std::slice::from_raw_parts(self.transforms.as_ptr() as *const u8, self.transforms.len() * mem::size_of::<Transform>()) };
         self.transforms_buffers[current_frame as usize].write(bytes, 0, None);
 
         // GEOMETRY PASS
-        geometry_framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0])], swapchain.get_extent());
+        geometry_framebuffer.begin_render_pass(cmd, &[ClearColor::Color([0.0, 0.0, 0.0, 1.0]), ClearColor::Depth { depth: 1.0, stencil: 0 }], swapchain.get_extent());
 
         self.main_pipeline.bind(cmd);
 
@@ -324,18 +322,18 @@ impl Renderer2D {
         geometry_framebuffer.end_render_pass(cmd);
 
         // TONEMAP PASS
-        geometry_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
+        geometry_framebuffer.get_image(0).transition_layout(ImageLayout::ShaderReadOnlyOptimal, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
         present_framebuffer.get_image(0).transition_layout(ImageLayout::General, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
 
         self.tonemap_pipeline.bind(cmd);
         self.tonemap_sets[current_frame as usize].bind(cmd, &self.tonemap_pipeline, 0);
-        cmd.dispatch(Extent3D {
+        cmd.dispatch(Extent3D{
             width: geometry_framebuffer.get_image(0).get_extent().width / 8 + 1,
             height: geometry_framebuffer.get_image(0).get_extent().height / 8 + 1,
             depth: 1,
         });
 
-        cmd.blit_image(geometry_framebuffer.get_image(0), swapchain_framebuffer.get_image(0));
+        cmd.blit_image(present_framebuffer.get_image(0), swapchain_framebuffer.get_image(0));
 
         swapchain_framebuffer.get_image(0).transition_layout(ImageLayout::PresentSrc, Some(&cmd), AccessFlags::empty(), AccessFlags::empty());
         self.core_renderer.end_frame().unwrap();
