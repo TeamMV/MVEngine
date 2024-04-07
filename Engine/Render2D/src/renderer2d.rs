@@ -1,6 +1,7 @@
 use std::mem;
+use std::sync::Arc;
 
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use shaderc::ShaderKind;
 
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
@@ -21,7 +22,7 @@ use mvcore::render::backend::sampler::{
     Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
 };
 use mvcore::render::backend::shader::ShaderStage;
-use mvcore::render::backend::Extent3D;
+use mvcore::render::backend::{Extent2D, Extent3D};
 use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::mesh::Mesh;
 use mvcore::render::renderer::Renderer;
@@ -50,7 +51,7 @@ static MAX_BATCH_SIZE: u32 = 10000;
 
 pub struct Renderer2D {
     device: Device,
-    core_renderer: Renderer,
+    core_renderer: Arc<DangerousCell<Renderer>>,
     quad_mesh: Mesh,
     camera_sets: Vec<DescriptorSet>,
     camera_buffers: Vec<Buffer>,
@@ -59,16 +60,17 @@ pub struct Renderer2D {
     transforms_buffers: Vec<Buffer>,
     transforms_sets: Vec<DescriptorSet>,
     main_pipeline: Pipeline<Graphics>,
-    tonemap_pipeline: Pipeline<Compute>,
-    tonemap_sets: Vec<DescriptorSet>,
     geometry_framebuffers: Vec<Framebuffer>,
-    present_images: Vec<Image>,
-    default_sampler: Sampler,
+    extent: Extent2D,
 }
 
 impl Renderer2D {
-    pub fn new(device: Device, window: &Window) -> Self {
-        let renderer = Renderer::new(window, device.clone());
+
+    pub fn get_geometry_image(&self, frame_index: usize) -> Image {
+        self.geometry_framebuffers[frame_index].get_image(0).clone()
+    }
+
+    pub fn new(device: Device, renderer: Arc<DangerousCell<Renderer>>, extent: Extent2D) -> Self {
 
         //
         // Pool
@@ -106,13 +108,13 @@ impl Renderer2D {
 
         // Dummy Camera, we'll use ECS later on
         let camera = OrthographicCamera::new(
-            renderer.get_swapchain().get_extent().width,
-            renderer.get_swapchain().get_extent().height,
+            extent.width,
+            extent.height,
         );
 
         let mut camera_buffers = Vec::new();
 
-        for _ in 0..renderer.get_max_frames_in_flight() {
+        for _ in 0..renderer.get().get_max_frames_in_flight() {
             let mut buffer = Buffer::new(
                 device.clone(),
                 MVBufferCreateInfo {
@@ -136,7 +138,7 @@ impl Renderer2D {
 
         let mut camera_sets = Vec::new();
 
-        for index in 0..renderer.get_max_frames_in_flight() {
+        for index in 0..renderer.get().get_max_frames_in_flight() {
             let mut camera_set = DescriptorSet::new(
                 device.clone(),
                 MVDescriptorSetCreateInfo {
@@ -162,12 +164,12 @@ impl Renderer2D {
         //
 
         let mut transforms_buffers = Vec::new();
-        for _ in 0..renderer.get_max_frames_in_flight() {
+        for _ in 0..renderer.get().get_max_frames_in_flight() {
             transforms_buffers.push(Self::create_transform_buffer(device.clone()));
         }
 
         let mut transforms_sets = Vec::new();
-        for index in 0..renderer.get_max_frames_in_flight() {
+        for index in 0..renderer.get().get_max_frames_in_flight() {
             let mut set = DescriptorSet::new(
                 device.clone(),
                 MVDescriptorSetCreateInfo {
@@ -200,19 +202,19 @@ impl Renderer2D {
         let vertices = vec![
             Vertex {
                 position: Vec3::new(-1.0, 1.0, 0.0),
-                tex_coord: Vec2::default(),
+                tex_coord: Vec2::new(0.0, 0.0),
             }, // 0
             Vertex {
                 position: Vec3::new(-1.0, -1.0, 0.0),
-                tex_coord: Vec2::default(),
+                tex_coord: Vec2::new(0.0, 1.0),
             }, // 1
             Vertex {
                 position: Vec3::new(1.0, -1.0, 0.0),
-                tex_coord: Vec2::default(),
+                tex_coord: Vec2::new(1.0, 1.0),
             }, // 2
             Vertex {
                 position: Vec3::new(1.0, 1.0, 0.0),
-                tex_coord: Vec2::default(),
+                tex_coord: Vec2::new(1.0, 0.0),
             }, // 3
         ];
 
@@ -236,13 +238,13 @@ impl Renderer2D {
         // Framebuffer
         //
         let mut geometry_framebuffers = Vec::new();
-        for _ in 0..renderer.get_max_frames_in_flight() {
+        for _ in 0..renderer.get().get_max_frames_in_flight() {
             let framebuffer = Framebuffer::new(
                 device.clone(),
                 MVFramebufferCreateInfo {
-                    attachment_formats: vec![ImageFormat::R32G32B32A32, ImageFormat::D16], // TODO: 16 bits
-                    extent: renderer.get_swapchain().get_extent(),
-                    image_usage_flags: ImageUsage::empty(),
+                    attachment_formats: vec![ImageFormat::R16G16B16A16, ImageFormat::D16],
+                    extent,
+                    image_usage_flags: ImageUsage::TRANSFER_SRC,
                     render_pass_info: None,
                     label: Some("Geometry Framebuffer".to_string()),
                 },
@@ -251,41 +253,18 @@ impl Renderer2D {
             geometry_framebuffers.push(framebuffer);
         }
 
-        let mut present_images = Vec::new();
-        for _ in 0..renderer.get_max_frames_in_flight() {
-            let image = Image::new(
-                device.clone(),
-                MVImageCreateInfo {
-                    size: renderer.get_swapchain().get_extent(),
-                    format: ImageFormat::R8G8B8A8,
-                    usage: ImageUsage::TRANSFER_SRC | ImageUsage::STORAGE,
-                    memory_properties: MemoryProperties::DEVICE_LOCAL,
-                    aspect: ImageAspect::COLOR,
-                    tiling: ImageTiling::Optimal,
-                    layer_count: 1,
-                    image_type: ImageType::Image2D,
-                    cubemap: false,
-                    memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-                    data: None,
-                    label: Some("Presentation image".to_string()),
-                }
-            );
-
-            present_images.push(image);
-        }
-
         //
         // Pipeline
         //
 
         // Shaders
-        let vertex_shader = renderer.compile_shader(
+        let vertex_shader = renderer.get().compile_shader(
             include_str!("shaders/default.vert"),
             ShaderKind::Vertex,
             Some("Default Quad Vertex Shader".to_string()),
             &[],
         );
-        let fragment_shader = renderer.compile_shader(
+        let fragment_shader = renderer.get().compile_shader(
             include_str!("shaders/default.frag"),
             ShaderKind::Fragment,
             Some("Default Quad Fragment Shader".to_string()),
@@ -297,7 +276,7 @@ impl Renderer2D {
             MVGraphicsPipelineCreateInfo {
                 shaders: vec![vertex_shader, fragment_shader],
                 attributes: Vertex::get_attribute_description(),
-                extent: renderer.get_swapchain().get_extent(),
+                extent,
                 topology: Topology::Triangle,
                 cull_mode: CullMode::Back,
                 enable_depth_test: true,
@@ -311,83 +290,8 @@ impl Renderer2D {
             },
         );
 
-        //
-        // Default sampler
-        //
-
-        let default_sampler = Sampler::new(
-            device.clone(),
-            MVSamplerCreateInfo {
-                address_mode: SamplerAddressMode::ClampToEdge,
-                filter_mode: Filter::Nearest,
-                mipmap_mode: MipmapMode::Nearest,
-                anisotropy: false,
-                label: Some("Main Nearest Sampler".to_string()),
-            },
-        );
-
-        //
-        // Tonemapping
-        //
-        let tonemap_shader = renderer.compile_shader(
-            include_str!("shaders/tonemap.comp"),
-            ShaderKind::Compute,
-            Some("Tonemap Shader".to_string()),
-            &[],
-        );
-
-        let mut tonemap_sets = Vec::new();
-        for index in 0..renderer.get_max_frames_in_flight() {
-            let mut set = DescriptorSet::new(
-                device.clone(),
-                MVDescriptorSetCreateInfo {
-                    pool: descriptor_pool.clone(),
-                    bindings: vec![
-                        DescriptorSetLayoutBinding {
-                            index: 0,
-                            stages: ShaderStage::Compute,
-                            ty: DescriptorType::CombinedImageSampler,
-                            count: 1,
-                        },
-                        DescriptorSetLayoutBinding {
-                            index: 1,
-                            stages: ShaderStage::Compute,
-                            ty: DescriptorType::StorageImage,
-                            count: 1,
-                        },
-                    ],
-                    label: Some("Tonemap set".to_string()),
-                },
-            );
-
-            set.add_image(
-                0,
-                &geometry_framebuffers[index as usize].get_image(0),
-                &default_sampler,
-                ImageLayout::ShaderReadOnlyOptimal,
-            );
-            set.add_image(
-                1,
-                &present_images[index as usize],
-                &default_sampler,
-                ImageLayout::General,
-            );
-            set.build();
-
-            tonemap_sets.push(set);
-        }
-
-        let tonemap_pipeline = Pipeline::<Compute>::new(
-            device.clone(),
-            MVComputePipelineCreateInfo {
-                shader: tonemap_shader,
-                descriptor_sets: vec![tonemap_sets[0].get_layout()],
-                push_constants: vec![],
-                label: Some("Tonemap Pipeline".to_string()),
-            },
-        );
-
         Self {
+            extent,
             device,
             core_renderer: renderer,
             quad_mesh,
@@ -398,24 +302,16 @@ impl Renderer2D {
             transforms_buffers,
             transforms_sets,
             main_pipeline: default_pipeline,
-            tonemap_sets,
             geometry_framebuffers,
-            present_images,
-            default_sampler,
-            tonemap_pipeline,
         }
     }
 
     pub fn draw(&mut self) {
-        let image_index = self.core_renderer.begin_frame().unwrap();
-        let current_frame = self.core_renderer.get_current_frame_index();
-        let cmd = unsafe { Unsafe::cast_static(self.core_renderer.get_current_command_buffer()) };
+        let current_frame = self.core_renderer.get_mut().get_current_frame_index();
+        let cmd = unsafe { Unsafe::cast_static(self.core_renderer.get_mut().get_current_command_buffer()) };
 
-        let swapchain = self.core_renderer.get_swapchain_mut();
-        let extent = swapchain.get_extent();
-        let swapchain_framebuffer = &swapchain.get_current_framebuffer();
+        let swapchain = self.core_renderer.get_mut().get_swapchain_mut();
         let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
-        let present_image = self.present_images[current_frame as usize].clone();
 
         // Push data to the storage buffer
         let bytes = unsafe {
@@ -436,7 +332,7 @@ impl Renderer2D {
                     stencil: 0,
                 },
             ],
-            swapchain.get_extent(),
+            self.extent,
         );
 
         self.main_pipeline.bind(cmd);
@@ -448,41 +344,6 @@ impl Renderer2D {
             .draw_instanced(cmd, 0, self.transforms.len() as u32);
 
         geometry_framebuffer.end_render_pass(cmd);
-
-        // TONEMAP PASS
-        geometry_framebuffer.get_image(0).transition_layout(
-            ImageLayout::ShaderReadOnlyOptimal,
-            Some(&cmd),
-            AccessFlags::empty(),
-            AccessFlags::empty(),
-        );
-        present_image.transition_layout(
-            ImageLayout::General,
-            Some(&cmd),
-            AccessFlags::empty(),
-            AccessFlags::empty(),
-        );
-
-        self.tonemap_pipeline.bind(cmd);
-        self.tonemap_sets[current_frame as usize].bind(cmd, &self.tonemap_pipeline, 0);
-        cmd.dispatch(Extent3D {
-            width: geometry_framebuffer.get_image(0).get_extent().width / 8 + 1,
-            height: geometry_framebuffer.get_image(0).get_extent().height / 8 + 1,
-            depth: 1,
-        });
-
-        cmd.blit_image(
-            present_image,
-            swapchain_framebuffer.get_image(0),
-        );
-
-        swapchain_framebuffer.get_image(0).transition_layout(
-            ImageLayout::PresentSrc,
-            Some(&cmd),
-            AccessFlags::empty(),
-            AccessFlags::empty(),
-        );
-        self.core_renderer.end_frame().unwrap();
 
         // Clear all data
         self.transforms.clear();
@@ -510,5 +371,57 @@ impl Renderer2D {
                 label: Some("Matrix Storage Buffer".to_string()),
             },
         )
+    }
+
+    pub fn resize(&mut self, extent: Extent2D) {
+        self.extent = extent;
+        self.geometry_framebuffers.clear();
+
+        for _ in 0..self.core_renderer.get().get_max_frames_in_flight() {
+            let framebuffer = Framebuffer::new(
+                self.device.clone(),
+                MVFramebufferCreateInfo {
+                    attachment_formats: vec![ImageFormat::R16G16B16A16, ImageFormat::D16],
+                    extent,
+                    image_usage_flags: ImageUsage::TRANSFER_SRC,
+                    render_pass_info: None,
+                    label: Some("Geometry Framebuffer".to_string()),
+                },
+            );
+
+            self.geometry_framebuffers.push(framebuffer);
+        }
+
+        let vertex_shader = self.core_renderer.get().compile_shader(
+            include_str!("shaders/default.vert"),
+            ShaderKind::Vertex,
+            Some("Default Quad Vertex Shader".to_string()),
+            &[],
+        );
+        let fragment_shader = self.core_renderer.get().compile_shader(
+            include_str!("shaders/default.frag"),
+            ShaderKind::Fragment,
+            Some("Default Quad Fragment Shader".to_string()),
+            &[],
+        );
+
+        self.main_pipeline = Pipeline::<Graphics>::new(
+            self.device.clone(),
+            MVGraphicsPipelineCreateInfo {
+                shaders: vec![vertex_shader, fragment_shader],
+                attributes: Vertex::get_attribute_description(),
+                extent,
+                topology: Topology::Triangle,
+                cull_mode: CullMode::Back,
+                enable_depth_test: true,
+                depth_clamp: false,
+                blending_enable: false,
+                descriptor_sets: vec![self.camera_sets[0].get_layout(), self.transforms_sets[0].get_layout()],
+                push_constants: vec![],
+                framebuffer: self.geometry_framebuffers[0].clone(),
+                color_attachments_count: 1,
+                label: Some("Default Quad Pipeline".to_string()),
+            },
+        );
     }
 }
