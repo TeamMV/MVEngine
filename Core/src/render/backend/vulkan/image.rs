@@ -112,10 +112,6 @@ impl From<ImageFormat> for ash::vk::Format {
             ImageFormat::D16S8 => ash::vk::Format::D16_UNORM_S8_UINT,
             ImageFormat::D24 => ash::vk::Format::D24_UNORM_S8_UINT,
             ImageFormat::D32 => ash::vk::Format::D32_SFLOAT,
-            ImageFormat::R16 => ash::vk::Format::R16_SFLOAT,
-            ImageFormat::R16G16 => ash::vk::Format::R16G16_SFLOAT,
-            ImageFormat::R16G16B16 => ash::vk::Format::R16G16B16_SFLOAT,
-            ImageFormat::R16G16B16A16 => ash::vk::Format::R16G16B16A16_SFLOAT,
         }
     }
 }
