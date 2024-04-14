@@ -1,11 +1,15 @@
+use std::sync::Arc;
+
+use bitflags::bitflags;
+use image::ColorType;
+
+use mvcore_proc_macro::graphics_item;
+
 use crate::render::backend::buffer::{Buffer, MemoryProperties};
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
-use crate::render::backend::vulkan::image::VkImage;
 use crate::render::backend::Extent2D;
-use bitflags::bitflags;
-use mvcore_proc_macro::graphics_item;
-use std::sync::Arc;
+use crate::render::backend::vulkan::image::VkImage;
 
 pub enum ImageType {
     Image2D,
@@ -23,6 +27,10 @@ pub enum ImageFormat {
     R8G8,
     R8G8B8,
     R8G8B8A8,
+    R16,
+    R16G16,
+    R16G16B16,
+    R16G16B16A16,
     R32,
     R32G32,
     R32G32B32,
@@ -31,6 +39,24 @@ pub enum ImageFormat {
     D16S8,
     D24,
     D32,
+}
+
+impl From<ColorType> for ImageFormat {
+    fn from(value: ColorType) -> Self {
+        match value {
+            ColorType::L8 => ImageFormat::R8,
+            ColorType::La8 => ImageFormat::R8G8,
+            ColorType::Rgb8 => ImageFormat::R8G8B8,
+            ColorType::Rgba8 => ImageFormat::R8G8B8A8,
+            ColorType::L16 => ImageFormat::R16,
+            ColorType::La16 => ImageFormat::R16G16,
+            ColorType::Rgb16 => ImageFormat::R16G16B16,
+            ColorType::Rgba16 => ImageFormat::R16G16B16A16,
+            ColorType::Rgb32F => ImageFormat::R32G32B32,
+            ColorType::Rgba32F => ImageFormat::R32G32B32A32,
+            _ => unimplemented!()
+        }
+    }
 }
 
 pub enum ImageLayout {
