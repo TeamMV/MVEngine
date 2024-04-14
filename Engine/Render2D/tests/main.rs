@@ -8,8 +8,11 @@ use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
 use mvengine_render2d::renderer2d::{Renderer2D, Transform};
 use mvutils::version::Version;
+use mvcore::asset::asset::AssetType;
+use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::render::backend::buffer::MemoryProperties;
 use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
+use mvcore::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 use mvcore::render::renderer::Renderer;
 
 fn main() {
@@ -40,7 +43,12 @@ struct AppLoop {
 
     quad_rotation: f32,
     quad_position: Vec2,
-    timer: f32
+    timer: f32,
+
+    manager: Arc<AssetManager>,
+    handle: AssetHandle,
+    loaded: bool,
+    sampler: Sampler
 }
 
 impl ApplicationLoopCallbacks for AppLoop {
@@ -60,10 +68,38 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         let renderer2d = Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent());
 
-        Self { device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0 }
+        let manager = AssetManager::new(device.clone(), 1);
+
+        let handle = manager.create_asset("texture.png", AssetType::Texture);
+
+        handle.load();
+
+        let sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
+            address_mode: SamplerAddressMode::ClampToEdge,
+            filter_mode: Filter::Nearest,
+            mipmap_mode: MipmapMode::Nearest,
+            anisotropy: false,
+            label: None,
+        });
+
+        Self { sampler, device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0, manager, handle, loaded: false }
     }
 
-    fn update(&mut self, window: &mut Window, delta_t: f64) {}
+    fn update(&mut self, window: &mut Window, delta_t: f64) {
+        let asset = self.handle.get();
+        if asset.failed() {
+            println!("Failed!");
+        } else if asset.is_loaded() && !self.loaded {
+            self.loaded = true;
+            // we can swap the image here
+            let Some(texture) = asset.as_texture() else { unreachable!() };
+
+            self.device.wait_idle();
+            for set in self.renderer2d.get_atlas_sets() {
+                set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
+            }
+        }
+    }
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         self.timer += delta_t as f32;

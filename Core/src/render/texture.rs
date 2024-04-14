@@ -17,6 +17,10 @@ impl Texture {
     pub fn as_region(&self, x: u32, y: u32, width: u32, height: u32) -> TextureRegion {
         TextureRegion::new(self.clone(), x, y, width, height)
     }
+
+    pub fn image(&self) -> Image {
+        self.image.clone()
+    }
 }
 
 impl PartialEq for Texture {

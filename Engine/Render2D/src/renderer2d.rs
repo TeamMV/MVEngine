@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use shaderc::ShaderKind;
+use mvcore::asset::asset::AssetType;
+use mvcore::asset::manager::{AssetHandle, AssetManager};
 
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
@@ -62,6 +64,11 @@ pub struct Renderer2D {
     main_pipeline: Pipeline<Graphics>,
     geometry_framebuffers: Vec<Framebuffer>,
     extent: Extent2D,
+    manager: Arc<AssetManager>,
+    handle: AssetHandle,
+    default_sampler: Sampler,
+    atlas_sets: Vec<DescriptorSet>,
+    default_image: Image
 }
 
 impl Renderer2D {
@@ -195,6 +202,58 @@ impl Renderer2D {
             transforms_sets.push(set);
         }
 
+        let default_sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
+            address_mode: SamplerAddressMode::ClampToEdge,
+            filter_mode: Filter::Nearest,
+            mipmap_mode: MipmapMode::Nearest,
+            anisotropy: false,
+            label: None,
+        });
+
+        let default_image = Image::new(device.clone(), MVImageCreateInfo {
+            size: Extent2D { width: 2, height: 2 },
+            format: ImageFormat::R8G8B8A8,
+            usage: ImageUsage::SAMPLED | ImageUsage::STORAGE,
+            memory_properties: MemoryProperties::DEVICE_LOCAL,
+            aspect: ImageAspect::COLOR,
+            tiling: ImageTiling::Optimal,
+            layer_count: 1,
+            image_type: ImageType::Image2D,
+            cubemap: false,
+            memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+            data: Some(vec![255u8, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255u8, 0, 255, 255]),
+            label: Some("Default image".to_string()),
+        });
+        default_image.transition_layout(ImageLayout::ShaderReadOnlyOptimal, None, AccessFlags::empty(), AccessFlags::empty());
+
+        let mut atlas_sets = Vec::new();
+        for index in 0..renderer.get().get_max_frames_in_flight() {
+            let mut set = DescriptorSet::new(
+                device.clone(),
+                MVDescriptorSetCreateInfo {
+                    pool: descriptor_pool.clone(),
+                    bindings: vec![DescriptorSetLayoutBinding {
+                        index: 0,
+                        stages: ShaderStage::Fragment,
+                        ty: DescriptorType::CombinedImageSampler,
+                        count: 1,
+                    }],
+                    label: Some("Atlas set".to_string()),
+                },
+            );
+
+            set.add_image(
+                0,
+                &default_image,
+                &default_sampler,
+                ImageLayout::ShaderReadOnlyOptimal
+            );
+            set.build();
+
+            atlas_sets.push(set);
+        }
+
+
         //
         // Mesh
         //
@@ -282,13 +341,20 @@ impl Renderer2D {
                 enable_depth_test: true,
                 depth_clamp: false,
                 blending_enable: false,
-                descriptor_sets: vec![camera_sets[0].get_layout(), transforms_sets[0].get_layout()],
+                descriptor_sets: vec![camera_sets[0].get_layout(), transforms_sets[0].get_layout(), atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
                 color_attachments_count: 1,
                 label: Some("Default Quad Pipeline".to_string()),
             },
         );
+
+        let manager = AssetManager::new(device.clone(), 1);
+
+        // TODO: delete this
+        let handle = manager.create_asset("texture.png", AssetType::Texture);
+
+        handle.load();
 
         Self {
             extent,
@@ -303,7 +369,22 @@ impl Renderer2D {
             transforms_sets,
             main_pipeline: default_pipeline,
             geometry_framebuffers,
+            manager,
+            handle,
+            atlas_sets,
+            default_sampler,
+            default_image,
         }
+    }
+
+    pub fn get_atlas_sets(&mut self) -> &mut Vec<DescriptorSet>
+    {
+        &mut self.atlas_sets
+    }
+
+    pub fn get_sampler(&self) -> &Sampler
+    {
+        &self.default_sampler
     }
 
     pub fn draw(&mut self) {
@@ -339,6 +420,7 @@ impl Renderer2D {
 
         self.camera_sets[current_frame as usize].bind(cmd, &self.main_pipeline, 0);
         self.transforms_sets[current_frame as usize].bind(cmd, &self.main_pipeline, 1);
+        self.atlas_sets[current_frame as usize].bind(cmd, &self.main_pipeline, 2);
 
         self.quad_mesh
             .draw_instanced(cmd, 0, self.transforms.len() as u32);
@@ -416,7 +498,7 @@ impl Renderer2D {
                 enable_depth_test: true,
                 depth_clamp: false,
                 blending_enable: false,
-                descriptor_sets: vec![self.camera_sets[0].get_layout(), self.transforms_sets[0].get_layout()],
+                descriptor_sets: vec![self.camera_sets[0].get_layout(), self.transforms_sets[0].get_layout(), self.atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: self.geometry_framebuffers[0].clone(),
                 color_attachments_count: 1,

@@ -65,10 +65,10 @@ mat4 createModelMatrix(vec3 translation, float rotation, vec2 scale) {
     return translateMatrix * rotateMatrix * scaleMatrix;
 }
 
-layout(location = 0) in vec4 pos;
-layout(location = 1) in vec4 inTexCoords;
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec2 inTexCoords;
 
-layout(location = 0) out vec4 outTexCoord;
+layout(location = 0) out vec2 outTexCoord;
 
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
@@ -90,5 +90,5 @@ void main() {
     Transform t = transforms.transform[gl_InstanceIndex];
     mat4 model = createModelMatrix(t.position.xyz, t.rotation, t.scale.xy);
     gl_Position = mat.proj * mat.view * model * vec4(pos.xyz, 1.0f);
-    outTexCoord = inTexCoords;
+    outTexCoord = inTexCoords.xy;
 }

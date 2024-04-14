@@ -265,7 +265,7 @@ impl VkImage {
 
         let mut buffer = VkBuffer::new(self.device.clone(), buffer_info);
         buffer.map();
-        buffer.write_to_buffer(pixels, image_byte_size, Some(cmd));
+        buffer.write_to_buffer(pixels, 0, Some(cmd));
         buffer.unmap();
 
         self.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());

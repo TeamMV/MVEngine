@@ -1,5 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::Read;
+use image::{ColorType, DynamicImage};
 
 use crate::render::backend::buffer::MemoryProperties;
 use crate::render::backend::device::Device;
@@ -58,6 +59,23 @@ impl AssetLoader {
             file.read_to_end(&mut buffer).map_err(|_| "Failed to read texture file")?;
             image::load_from_memory(&buffer).map_err(|_| "Invalid texture format")?
         };
+
+        let image = match image.color() {
+            ColorType::L8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::La8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::Rgb8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::Rgba8 => image,
+            ColorType::L16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::La16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::Rgb16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::Rgba16 => image,
+            ColorType::Rgb32F => DynamicImage::ImageRgba32F(image.to_rgba32f()),
+            ColorType::Rgba32F => image,
+            _ => image,
+        };
+
+        // TODO: check if this was an issue in the shader, remove this if it was
+        let image = image.fliph();
 
         let width = image.width();
         let height = image.height();
