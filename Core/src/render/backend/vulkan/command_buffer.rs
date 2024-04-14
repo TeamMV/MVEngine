@@ -29,8 +29,8 @@ impl From<MVCommandBufferCreateInfo> for CreateInfo {
 }
 
 pub struct VkCommandBuffer {
-    device: Arc<VkDevice>,
-    handle: ash::vk::CommandBuffer,
+    pub(crate) device: Arc<VkDevice>,
+    pub(crate) handle: ash::vk::CommandBuffer,
 }
 
 impl VkCommandBuffer {

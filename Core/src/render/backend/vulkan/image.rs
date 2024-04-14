@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use crate::render::backend::image::{
     ImageFormat, ImageLayout, ImageTiling, ImageType, MVImageCreateInfo,
 };
@@ -111,6 +112,10 @@ impl From<ImageFormat> for ash::vk::Format {
             ImageFormat::D16S8 => ash::vk::Format::D16_UNORM_S8_UINT,
             ImageFormat::D24 => ash::vk::Format::D24_UNORM_S8_UINT,
             ImageFormat::D32 => ash::vk::Format::D32_SFLOAT,
+            ImageFormat::R16 => ash::vk::Format::R16_SFLOAT,
+            ImageFormat::R16G16 => ash::vk::Format::R16G16_SFLOAT,
+            ImageFormat::R16G16B16 => ash::vk::Format::R16G16B16_SFLOAT,
+            ImageFormat::R16G16B16A16 => ash::vk::Format::R16G16B16A16_SFLOAT,
         }
     }
 }
@@ -188,7 +193,7 @@ impl VkImage {
             );
         }
 
-        let this = Self {
+        let mut this = Self {
             device: device.clone(),
             handle: image,
             image_views: views,
@@ -208,41 +213,7 @@ impl VkImage {
         };
 
         if let Some(data) = create_info.data {
-            let size = (Self::format_to_size(create_info.format)
-                * create_info.size.height
-                * create_info.size.width) as ash::vk::DeviceSize;
-            let buffer_create_info = buffer::CreateInfo {
-                instance_size: size,
-                instance_count: 1,
-                minimum_alignment: 1,
-                usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
-                memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE
-                    | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
-                memory_usage_flags: gpu_alloc::UsageFlags::TRANSIENT
-                    | gpu_alloc::UsageFlags::HOST_ACCESS,
-
-                #[cfg(debug_assertions)]
-                debug_name: std::ffi::CString::new("Image staging buffer").unwrap(),
-            };
-
-            let mut buffer = VkBuffer::new(device.clone(), buffer_create_info);
-            buffer.map();
-            buffer.write_to_buffer(&data, 0, None);
-            buffer.unmap();
-
-            this.transition_layout(
-                ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                None,
-                ash::vk::AccessFlags::empty(),
-                ash::vk::AccessFlags::empty(),
-            );
-            this.copy_buffer_to_image(&buffer, None);
-            this.transition_layout(
-                ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                None,
-                ash::vk::AccessFlags::empty(),
-                ash::vk::AccessFlags::empty(),
-            );
+            this.write_pixels(&data, None);
         }
 
         this
@@ -263,6 +234,54 @@ impl VkImage {
                 log::error!("Format unsupported!");
                 panic!();
             }
+        }
+    }
+
+    pub fn write_pixels(&mut self, pixels: &[u8], provided_cmd: Option<&VkCommandBuffer>)
+    {
+        let (cmd, end) = if let Some(cmd) = provided_cmd {
+            (cmd.get_handle(), false)
+        } else {
+            (
+                self.device
+                    .begin_single_time_command(self.device.get_graphics_command_pool()),
+                true,
+            )
+        };
+
+        let vk_cmd = VkCommandBuffer {
+            device: self.device.clone(),
+            handle: cmd
+        };
+
+        let pixel_size = Self::format_to_size(self.format);
+        let image_byte_size: ash::vk::DeviceSize = (self.size.width * self.size.height * pixel_size) as ash::vk::DeviceSize;
+
+        let buffer_info = buffer::CreateInfo{
+            instance_size: image_byte_size,
+            instance_count: 1,
+            usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
+            memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
+            minimum_alignment: 1,
+            memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS,
+            debug_name: CString::new("Texture staging buffer").unwrap(),
+        };
+
+        let mut buffer = VkBuffer::new(self.device.clone(), buffer_info);
+        buffer.map();
+        buffer.write_to_buffer(pixels, image_byte_size, Some(cmd));
+        buffer.unmap();
+
+        self.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+        self.copy_buffer_to_image(&buffer, Some(&vk_cmd));
+        self.transition_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+
+        if end {
+            self.device.end_single_time_command(
+                cmd,
+                self.device.get_graphics_command_pool(),
+                self.device.get_graphics_queue(),
+            );
         }
     }
 
