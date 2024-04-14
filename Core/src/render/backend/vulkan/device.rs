@@ -1089,10 +1089,10 @@ impl VkDevice {
         block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
     ) {
         unsafe {
+            self.device.destroy_image(image, None);
             self.allocator
                 .lock()
                 .dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
-            self.device.destroy_image(image, None);
         }
     }
 
