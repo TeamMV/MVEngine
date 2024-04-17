@@ -452,9 +452,18 @@ impl VkFramebuffer {
                 dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
                 dependency_flags: DependencyFlags::empty(),
             });
+
+            dependencies.push(ash::vk::SubpassDependency{
+                src_subpass: ash::vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+                dst_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                src_access_mask: ash::vk::AccessFlags::empty(),
+                dst_access_mask: ash::vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                dependency_flags: DependencyFlags::empty(),
+            });
         }
 
-        log::error!("{}", dependencies.len());
         let render_pass_create_info_vk = ash::vk::RenderPassCreateInfo::builder()
             .attachments(&descriptions)
             .subpasses(&subpass)
