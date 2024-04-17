@@ -100,6 +100,10 @@ impl From<ImageFormat> for ash::vk::Format {
             ImageFormat::R8G8 => ash::vk::Format::R8G8_UNORM,
             ImageFormat::R8G8B8 => ash::vk::Format::R8G8B8_UNORM,
             ImageFormat::R8G8B8A8 => ash::vk::Format::R8G8B8A8_UNORM,
+            ImageFormat::R16 => ash::vk::Format::R16_SFLOAT,
+            ImageFormat::R16G16 => ash::vk::Format::R16G16_SFLOAT,
+            ImageFormat::R16G16B16 => ash::vk::Format::R16G16B16_SFLOAT,
+            ImageFormat::R16G16B16A16 => ash::vk::Format::R16G16B16A16_SFLOAT,
             ImageFormat::R32 => ash::vk::Format::R32_SFLOAT,
             ImageFormat::R32G32 => ash::vk::Format::R32G32_SFLOAT,
             ImageFormat::R32G32B32 => ash::vk::Format::R32G32B32_SFLOAT,
@@ -108,10 +112,6 @@ impl From<ImageFormat> for ash::vk::Format {
             ImageFormat::D16S8 => ash::vk::Format::D16_UNORM_S8_UINT,
             ImageFormat::D24 => ash::vk::Format::D24_UNORM_S8_UINT,
             ImageFormat::D32 => ash::vk::Format::D32_SFLOAT,
-            ImageFormat::R16 => ash::vk::Format::R16_SFLOAT,
-            ImageFormat::R16G16 => ash::vk::Format::R16G16_SFLOAT,
-            ImageFormat::R16G16B16 => ash::vk::Format::R16G16B16_SFLOAT,
-            ImageFormat::R16G16B16A16 => ash::vk::Format::R16G16B16A16_SFLOAT,
         }
     }
 }
@@ -123,6 +123,11 @@ impl VkImage {
         } else {
             ash::vk::ImageCreateFlags::empty()
         };
+
+        let mut usage = create_info.usage;
+        if let Some(_) = create_info.data {
+            usage |= ash::vk::ImageUsageFlags::TRANSFER_DST;
+        }
 
         let create_info_vk = ash::vk::ImageCreateInfo::builder()
             .image_type(ash::vk::ImageType::TYPE_2D)
@@ -136,7 +141,7 @@ impl VkImage {
             .format(create_info.format)
             .tiling(create_info.tiling)
             .initial_layout(ash::vk::ImageLayout::UNDEFINED)
-            .usage(create_info.usage)
+            .usage(usage)
             .samples(ash::vk::SampleCountFlags::TYPE_1)
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .flags(flags);
@@ -265,7 +270,7 @@ impl VkImage {
 
         let mut buffer = VkBuffer::new(self.device.clone(), buffer_info);
         buffer.map();
-        buffer.write_to_buffer(pixels, image_byte_size, Some(cmd));
+        buffer.write_to_buffer(pixels, 0, Some(cmd));
         buffer.unmap();
 
         self.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
@@ -298,12 +303,22 @@ impl VkImage {
             )
         };
 
-        let mut src_access = ash::vk::AccessFlags::empty() | src_access;
-        let mut dst_access = ash::vk::AccessFlags::empty() | dst_access;
+        let mut src_access = src_access;
+        let mut dst_access = dst_access;
         let mut src_stage = ash::vk::PipelineStageFlags::empty();
         let mut dst_stage = ash::vk::PipelineStageFlags::empty();
 
+        if self.layout.get_val() != new_layout {
+
+            // dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
+            // dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
+        }
+
         match self.layout.get_val() {
+            ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                src_access |= ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE;
+                src_stage |= ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
+            }
             ash::vk::ImageLayout::GENERAL => {
                 src_access |=
                     ash::vk::AccessFlags::SHADER_WRITE | ash::vk::AccessFlags::SHADER_READ;
@@ -363,6 +378,8 @@ impl VkImage {
             ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
                 dst_access |= ash::vk::AccessFlags::TRANSFER_WRITE;
                 dst_stage |= ash::vk::PipelineStageFlags::TRANSFER;
+
+                src_stage |= ash::vk::PipelineStageFlags::TRANSFER;
             }
             ash::vk::ImageLayout::PRESENT_SRC_KHR => {
                 dst_stage |= ash::vk::PipelineStageFlags::TOP_OF_PIPE;

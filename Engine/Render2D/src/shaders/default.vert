@@ -1,5 +1,7 @@
 #version 460
 
+#extension GL_EXT_scalar_block_layout : enable
+
 mat4 translate(vec3 translation) {
     return mat4(
         vec4(1.0, 0.0, 0.0, 0.0),
@@ -25,7 +27,7 @@ mat4 rotate2d(float a)
 	            0, 0, 0, 1.0);
 }
 
-mat4 createModelMatrix(vec3 translation, vec3 rotation, vec3 scale) {
+mat4 createModelMatrix(vec3 translation, vec3 rotation, vec2 scale) {
     // Translation matrix
     mat4 translateMatrix = translate(translation);
 
@@ -49,13 +51,12 @@ mat4 createModelMatrix(vec3 translation, vec3 rotation, vec3 scale) {
         0.0, 0.0, 0.0, 1.0
     );
     mat4 rotateMatrix = rotateX * rotateY * rotateZ;
-    //mat4 rotateMatrix = rotate2d(rotation.z);
 
     // Scale matrix
     mat4 scaleMatrix = mat4(
         scale.x, 0.0, 0.0, 0.0,
         0.0, scale.y, 0.0, 0.0,
-        0.0, 0.0, scale.z, 0.0,
+        0.0, 0.0, 1.0f, 0.0,
         0.0, 0.0, 0.0, 1.0
     );
 
@@ -63,10 +64,10 @@ mat4 createModelMatrix(vec3 translation, vec3 rotation, vec3 scale) {
     return translateMatrix * rotateMatrix * scaleMatrix;
 }
 
-layout(location = 0) in vec4 pos;
-layout(location = 1) in vec4 inTexCoords;
+layout(location = 0) in vec3 pos;
 
-layout(location = 0) out vec4 outTexCoord;
+layout(location = 0) out vec2 outTexCoord;
+layout(location = 1) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
@@ -74,19 +75,40 @@ layout(set = 0, binding = 0) uniform Matrices {
 } mat;
 
 struct Transform {
-    vec4 position;
-    vec4 rotation;
-    vec4 scale;
+    vec3 position;
+    vec3 rotation;
+    vec2 scale;
+    vec4 texCoords; // x, y, width, height,
+    vec4 color;
 };
 
-layout(set = 1, binding = 0) readonly buffer ObjectUbo
+vec2 GetTextureCoords(int vertexIndex, vec4 inTexCoords)
+{
+    vec2 texCoords;
+    switch (vertexIndex)
+    {
+        case 0: texCoords = vec2(inTexCoords.x, inTexCoords.y + inTexCoords.w);
+            break;
+        case 1: texCoords = vec2(inTexCoords.x, inTexCoords.y);
+            break;
+        case 2: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y);
+            break;
+        case 3: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y + inTexCoords.w);
+            break;
+    }
+
+    return texCoords;
+}
+
+layout(set = 1, binding = 0, scalar) readonly buffer ObjectUbo
 {
     Transform transform[];
 } transforms;
 
 void main() {
     Transform t = transforms.transform[gl_InstanceIndex];
-    mat4 model = createModelMatrix(t.position.xyz, t.rotation.xyz, t.scale.xyz);
+    mat4 model = createModelMatrix(t.position.xyz, t.rotation, t.scale.xy);
     gl_Position = mat.proj * mat.view * model * vec4(pos.xyz, 1.0f);
-    outTexCoord = inTexCoords;
+    outTexCoord = GetTextureCoords(gl_VertexIndex, t.texCoords);
+    outColor = t.color;
 }

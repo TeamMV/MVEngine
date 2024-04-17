@@ -146,7 +146,7 @@ impl VkDevice {
             panic!()
         });
 
-        let vsync_present_mode = [ash::vk::PresentModeKHR::MAILBOX]
+        let vsync_present_mode = [ash::vk::PresentModeKHR::FIFO]
             .into_iter()
             .find(|mode| available_present_modes.contains(mode))
             .unwrap_or(ash::vk::PresentModeKHR::FIFO);
@@ -250,7 +250,6 @@ impl VkDevice {
         }
 
         extensions.push(ash::vk::ExtSwapchainColorspaceFn::name());
-        extensions.push(ash::vk::KhrGetPhysicalDeviceProperties2Fn::name());
 
         #[cfg(debug_assertions)]
         extensions.push(ash::extensions::ext::DebugUtils::name());
@@ -768,14 +767,19 @@ impl VkDevice {
         let mut features = ash::vk::PhysicalDeviceFeatures2::builder();
         features.features.geometry_shader = true as ash::vk::Bool32;
 
-        let mut synch2 = ash::vk::PhysicalDeviceSynchronization2Features::builder()
-            .synchronization2(true)
-            .build();
-
         let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
             .buffer_device_address(true);
+
+        let mut synch2 = *ash::vk::PhysicalDeviceSynchronization2Features::builder()
+            .synchronization2(true);
+
+        let mut scalar_block = *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder()
+            .scalar_block_layout(true);
+
         device_address.p_next =
             &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
+        synch2.p_next =
+            &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures as *mut c_void;
         features = features.push_next(&mut device_address);
 
         let create_info = ash::vk::DeviceCreateInfo::builder()
@@ -834,11 +838,12 @@ impl VkDevice {
 
     fn get_required_extensions(requested: &Extensions) -> Vec<&'static CStr> {
         let mut extensions = vec![
+            ash::vk::ExtMemoryPriorityFn::name(),
             ash::vk::ExtImageRobustnessFn::name(),
+            ash::vk::ExtPageableDeviceLocalMemoryFn::name(),
             ash::vk::KhrSwapchainFn::name(),
             ash::vk::KhrSwapchainMutableFormatFn::name(),
             ash::vk::ExtRobustness2Fn::name(),
-            ash::vk::KhrBufferDeviceAddressFn::name(),
             ash::vk::KhrSynchronization2Fn::name(),
             #[cfg(target_os = "macos")]
             ash::vk::KhrPortabilitySubsetFn::name(),
@@ -1084,10 +1089,10 @@ impl VkDevice {
         block: gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
     ) {
         unsafe {
+            self.device.destroy_image(image, None);
             self.allocator
                 .lock()
                 .dealloc(gpu_alloc_ash::AshMemoryDevice::wrap(&self.device), block);
-            self.device.destroy_image(image, None);
         }
     }
 
@@ -1193,6 +1198,12 @@ impl Drop for VkDevice {
     }
 }
 
+static IGNORED_MESSAGES_IDS: [i32; 3] = [
+    1413273847, // Memory Priority
+    -1687544056, // Sparse Index Buffer ( MALI BEST PRACTICES )
+    -2027362524, // Command Pool Reset?
+];
+
 #[cfg(debug_assertions)]
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
@@ -1208,6 +1219,10 @@ unsafe extern "system" fn vulkan_debug_callback(
     } else {
         CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
     };
+
+    if IGNORED_MESSAGES_IDS.contains(&message_id_number) {
+        return ash::vk::FALSE;
+    }
 
     let message = if callback_data.p_message.is_null() {
         std::borrow::Cow::from("")

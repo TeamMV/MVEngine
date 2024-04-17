@@ -113,11 +113,11 @@ impl VkBuffer {
                 self.map();
             }
 
-            //unsafe { self.mapped = self.mapped.offset(offset as isize) };
+            unsafe { self.mapped = self.mapped.offset(offset as isize) };
 
             unsafe { std::ptr::copy_nonoverlapping(ptr, self.mapped, self.buffer_size as usize) };
 
-            //unsafe { self.mapped = self.mapped.offset(-(offset as isize)) };
+            unsafe { self.mapped = self.mapped.offset(-(offset as isize)) };
 
             if need_to_map_buffer {
                 self.unmap()
@@ -142,7 +142,7 @@ impl VkBuffer {
 
             staging_buffer.map();
 
-            staging_buffer.write_to_buffer(data, size as ash::vk::DeviceSize, None);
+            staging_buffer.write_to_buffer(data, 0, None);
 
             staging_buffer.unmap();
 

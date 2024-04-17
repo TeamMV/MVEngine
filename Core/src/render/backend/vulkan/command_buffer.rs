@@ -3,7 +3,7 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
 use std::sync::Arc;
-use ash::vk::{AccessFlags, ImageLayout};
+use ash::vk::{AccessFlags, CommandBufferUsageFlags, ImageLayout};
 
 pub(crate) struct CreateInfo {
     level: ash::vk::CommandBufferLevel,
@@ -71,7 +71,8 @@ impl VkCommandBuffer {
     }
 
     pub(crate) fn begin(&self) {
-        let begin_info = ash::vk::CommandBufferBeginInfo::builder();
+        let begin_info = ash::vk::CommandBufferBeginInfo::builder()
+            .flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
         unsafe {
             self.device
