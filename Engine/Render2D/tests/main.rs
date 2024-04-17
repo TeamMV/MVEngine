@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use log::LevelFilter;
+use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
@@ -14,6 +15,7 @@ use mvcore::render::backend::buffer::MemoryProperties;
 use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
 use mvcore::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 use mvcore::render::renderer::Renderer;
+use mvcore::render::texture::TextureRegion;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -48,7 +50,7 @@ struct AppLoop {
     manager: Arc<AssetManager>,
     handle: AssetHandle,
     loaded: bool,
-    sampler: Sampler
+    sampler: Sampler,
 }
 
 impl ApplicationLoopCallbacks for AppLoop {
@@ -110,26 +112,34 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         self.renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 400.0, 1.0),
-            rotation: self.quad_rotation,
+            rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
+            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            color: Vec4::new(1.0, 0.0, 0.0, 0.5),
         });
 
         self.renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 200.0, 1.0),
-            rotation: -self.quad_rotation,
+            rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
+            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            color: Vec4::splat(0.0),
         });
 
         self.renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 200.0, -self.quad_position.y + 300.0, 1.0),
-            rotation: self.quad_rotation,
+            rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
+            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            color: Vec4::splat(0.0),
         });
 
         self.renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 400.0, -self.quad_position.y + 300.0, 1.0),
-            rotation: -self.quad_rotation,
+            rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
+            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+            color: Vec4::splat(0.0),
         });
 
         let image_index = self.core_renderer.get_mut().begin_frame().unwrap();

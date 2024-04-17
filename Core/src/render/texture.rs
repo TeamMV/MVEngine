@@ -1,3 +1,4 @@
+use crate::math::vec::Vec4;
 use crate::render::backend::image::Image;
 
 #[derive(Clone)]
@@ -15,7 +16,17 @@ impl Texture {
     }
 
     pub fn as_region(&self, x: u32, y: u32, width: u32, height: u32) -> TextureRegion {
-        TextureRegion::new(self.clone(), x, y, width, height)
+        TextureRegion::new(self.clone(), x, self.image.get_extent().height - y - height, width, height)
+    }
+
+    pub fn as_full_region(&self) -> TextureRegion {
+        TextureRegion {
+            texture: self.clone(),
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        }
     }
 
     pub fn image(&self) -> Image {
@@ -50,5 +61,13 @@ impl TextureRegion {
             width: width as f32 / w,
             height: height as f32 / h,
         }
+    }
+
+    pub fn same_texture(&self, other: &TextureRegion) -> bool {
+        self.texture == other.texture
+    }
+
+    pub fn coords(&self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.width, self.height)
     }
 }

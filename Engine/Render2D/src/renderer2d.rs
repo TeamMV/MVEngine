@@ -33,20 +33,21 @@ use mvcore::render::window::Window;
 #[repr(C)]
 struct Vertex {
     position: Vec3,
-    tex_coord: Vec2,
 }
 
 impl Vertex {
     pub fn get_attribute_description() -> Vec<AttributeType> {
-        vec![AttributeType::Float32x3, AttributeType::Float32x2]
+        vec![AttributeType::Float32x3]
     }
 }
 
 #[repr(C)]
 pub struct Transform {
     pub position: Vec3,
-    pub rotation: f32,
+    pub rotation: Vec3,
     pub scale: Vec2,
+    pub tex_coord: Vec4,
+    pub color: Vec4,
 }
 
 static MAX_BATCH_SIZE: u32 = 10000;
@@ -260,20 +261,16 @@ impl Renderer2D {
 
         let vertices = vec![
             Vertex {
-                position: Vec3::new(-1.0, 1.0, 0.0),
-                tex_coord: Vec2::new(0.0, 0.0),
+                position: Vec3::new(-1.0, 1.0, 0.0)
             }, // 0
             Vertex {
-                position: Vec3::new(-1.0, -1.0, 0.0),
-                tex_coord: Vec2::new(0.0, 1.0),
+                position: Vec3::new(-1.0, -1.0, 0.0)
             }, // 1
             Vertex {
-                position: Vec3::new(1.0, -1.0, 0.0),
-                tex_coord: Vec2::new(1.0, 1.0),
+                position: Vec3::new(1.0, -1.0, 0.0)
             }, // 2
             Vertex {
-                position: Vec3::new(1.0, 1.0, 0.0),
-                tex_coord: Vec2::new(1.0, 0.0),
+                position: Vec3::new(1.0, 1.0, 0.0)
             }, // 3
         ];
 
@@ -433,6 +430,7 @@ impl Renderer2D {
 
     pub fn add_quad(&mut self, mut transform: Transform) {
         if self.transforms.len() as u32 > MAX_BATCH_SIZE {
+            // TODO
             log::error!("Todo: multiple batches");
             panic!();
         }

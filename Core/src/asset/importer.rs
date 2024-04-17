@@ -75,7 +75,7 @@ impl AssetLoader {
         };
 
         // TODO: check if this was an issue in the shader, remove this if it was
-        let image = image.fliph();
+        //let image = image.fliph();
 
         let width = image.width();
         let height = image.height();

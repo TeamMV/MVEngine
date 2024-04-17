@@ -27,31 +27,30 @@ mat4 rotate2d(float a)
 	            0, 0, 0, 1.0);
 }
 
-mat4 createModelMatrix(vec3 translation, float rotation, vec2 scale) {
+mat4 createModelMatrix(vec3 translation, vec3 rotation, vec2 scale) {
     // Translation matrix
     mat4 translateMatrix = translate(translation);
 
     // Rotation matrix (using Euler angles)
-//    mat4 rotateX = mat4(
-//        1.0, 0.0, 0.0, 0.0,
-//        0.0, cos(rotation.x), -sin(rotation.x), 0.0,
-//        0.0, sin(rotation.x), cos(rotation.x), 0.0,
-//        0.0, 0.0, 0.0, 1.0
-//    );
-//    mat4 rotateY = mat4(
-//        cos(rotation.y), 0.0, sin(rotation.y), 0.0,
-//        0.0, 1.0, 0.0, 0.0,
-//        -sin(rotation.y), 0.0, cos(rotation.y), 0.0,
-//        0.0, 0.0, 0.0, 1.0
-//    );
-//    mat4 rotateZ = mat4(
-//        cos(rotation.z), -sin(rotation.z), 0.0, 0.0,
-//        sin(rotation.z), cos(rotation.z), 0.0, 0.0,
-//        0.0, 0.0, 1.0, 0.0,
-//        0.0, 0.0, 0.0, 1.0
-//    );
-//    mat4 rotateMatrix = rotateX * rotateY * rotateZ;
-    mat4 rotateMatrix = rotate2d(rotation);
+    mat4 rotateX = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, cos(rotation.x), -sin(rotation.x), 0.0,
+        0.0, sin(rotation.x), cos(rotation.x), 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 rotateY = mat4(
+        cos(rotation.y), 0.0, sin(rotation.y), 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        -sin(rotation.y), 0.0, cos(rotation.y), 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 rotateZ = mat4(
+        cos(rotation.z), -sin(rotation.z), 0.0, 0.0,
+        sin(rotation.z), cos(rotation.z), 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    mat4 rotateMatrix = rotateX * rotateY * rotateZ;
 
     // Scale matrix
     mat4 scaleMatrix = mat4(
@@ -66,9 +65,9 @@ mat4 createModelMatrix(vec3 translation, float rotation, vec2 scale) {
 }
 
 layout(location = 0) in vec3 pos;
-layout(location = 1) in vec2 inTexCoords;
 
 layout(location = 0) out vec2 outTexCoord;
+layout(location = 1) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
@@ -77,9 +76,29 @@ layout(set = 0, binding = 0) uniform Matrices {
 
 struct Transform {
     vec3 position;
-    float rotation;
+    vec3 rotation;
     vec2 scale;
+    vec4 texCoords; // x, y, width, height,
+    vec4 color;
 };
+
+vec2 GetTextureCoords(int vertexIndex, vec4 inTexCoords)
+{
+    vec2 texCoords;
+    switch (vertexIndex)
+    {
+        case 0: texCoords = vec2(inTexCoords.x, inTexCoords.y + inTexCoords.w);
+            break;
+        case 1: texCoords = vec2(inTexCoords.x, inTexCoords.y);
+            break;
+        case 2: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y);
+            break;
+        case 3: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y + inTexCoords.w);
+            break;
+    }
+
+    return texCoords;
+}
 
 layout(set = 1, binding = 0, scalar) readonly buffer ObjectUbo
 {
@@ -90,5 +109,6 @@ void main() {
     Transform t = transforms.transform[gl_InstanceIndex];
     mat4 model = createModelMatrix(t.position.xyz, t.rotation, t.scale.xy);
     gl_Position = mat.proj * mat.view * model * vec4(pos.xyz, 1.0f);
-    outTexCoord = inTexCoords.xy;
+    outTexCoord = GetTextureCoords(gl_VertexIndex, t.texCoords);
+    outColor = t.color;
 }

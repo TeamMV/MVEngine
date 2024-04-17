@@ -124,6 +124,11 @@ impl VkImage {
             ash::vk::ImageCreateFlags::empty()
         };
 
+        let mut usage = create_info.usage;
+        if let Some(_) = create_info.data {
+            usage |= ash::vk::ImageUsageFlags::TRANSFER_DST;
+        }
+
         let create_info_vk = ash::vk::ImageCreateInfo::builder()
             .image_type(ash::vk::ImageType::TYPE_2D)
             .extent(ash::vk::Extent3D {
@@ -136,7 +141,7 @@ impl VkImage {
             .format(create_info.format)
             .tiling(create_info.tiling)
             .initial_layout(ash::vk::ImageLayout::UNDEFINED)
-            .usage(create_info.usage)
+            .usage(usage)
             .samples(ash::vk::SampleCountFlags::TYPE_1)
             .sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             .flags(flags);
