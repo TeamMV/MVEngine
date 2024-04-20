@@ -1,11 +1,13 @@
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::task::Wake;
 use std::thread::JoinHandle;
 use ahash::AHasher;
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use hashbrown::HashMap;
+use mvsync::block::Signal;
 use mvutils::hashers::U64IdentityHasher;
 use parking_lot::{Mutex, RwLock};
 
@@ -20,26 +22,31 @@ pub struct AssetHandle {
     handle: u64,
     global: bool,
     counter: Arc<Mutex<AtomicU64>>,
+    progress: Arc<AtomicBool>,
+    signal: Arc<Signal>,
 }
 
 impl AssetHandle {
-    pub fn load(&self) {
+    pub fn load<F: Fn(AssetHandle) + 'static>(&self, callback: F) {
         if self.global { return; }
         if self.counter.lock().fetch_add(1, Ordering::AcqRel) == 0 {
-            self.manager.push(AssetTask::Load(self.clone()));
+            self.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Load(self.clone(), Box::new(callback)));
         }
     }
 
-    pub fn unload(&self) {
+    pub fn unload<F: Fn(AssetHandle) + 'static>(&self, callback: F) {
         if self.global { return; }
         if self.counter.lock().fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.manager.push(AssetTask::Unload(self.clone()));
+            self.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Unload(self.clone(), Box::new(callback)));
         }
     }
 
-    pub fn reload(&self) {
+    pub fn reload<F: Fn(AssetHandle) + 'static>(&self, callback: F) {
         if self.counter.lock().load(Ordering::Acquire) > 0 {
-            self.manager.push(AssetTask::Load(self.clone()));
+            self.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Load(self.clone(), Box::new(callback)));
         }
     }
 
@@ -49,6 +56,16 @@ impl AssetHandle {
 
     pub fn is_loaded(&self) -> bool {
         self.global || self.manager.is_asset_loaded(self)
+    }
+
+    pub fn wait(&self) {
+        while !self.signal.ready() && self.progress.load(Ordering::Acquire) {
+            self.signal.wait();
+        }
+    }
+
+    pub async fn wait_async(&self) {
+        self.signal.wait_async().await
     }
 
     pub fn get(&self) -> Arc<Asset> {
@@ -111,20 +128,29 @@ impl AssetManager {
     fn loader_thread(receiver: Receiver<AssetTask>, queued: Arc<AtomicU64>) {
         while let Ok(task) = receiver.recv() {
             match task {
-                AssetTask::Load(handle) => {
+                AssetTask::Load(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.load();
                     queued.fetch_sub(1, Ordering::AcqRel);
+                    callback(handle.clone());
+                    handle.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
                 }
-                AssetTask::Unload(handle) => {
+                AssetTask::Unload(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.unload();
                     queued.fetch_sub(1, Ordering::AcqRel);
+                    callback(handle.clone());
+                    handle.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
                 }
-                AssetTask::Reload(handle) => {
+                AssetTask::Reload(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.reload();
                     queued.fetch_sub(1, Ordering::AcqRel);
+                    callback(handle.clone());
+                    handle.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
                 }
                 AssetTask::Close => {
                     queued.fetch_sub(1, Ordering::AcqRel);
@@ -152,6 +178,8 @@ impl AssetManager {
             handle,
             global,
             counter: Arc::new(AtomicU64::new(0).into()),
+            progress: Arc::new(AtomicBool::new(false)),
+            signal: Arc::new(Signal::new()),
         };
         let asset = Asset {
             inner: InnerAsset::Unloaded,
@@ -160,7 +188,7 @@ impl AssetManager {
         };
         self.asset_map.write().insert(handle.clone(), asset.into());
         if global {
-            self.push(AssetTask::Load(handle.clone()));
+            self.push(AssetTask::Load(handle.clone(), Box::new(|_| {})));
         }
         handle
     }
@@ -208,7 +236,7 @@ impl Drop for AssetManager {
     fn drop(&mut self) {
         for (handle, _) in self.asset_map.read().iter() {
             if handle.global || handle.counter.lock().load(Ordering::Acquire) > 0 {
-                self.push(AssetTask::Unload(handle.clone()));
+                self.push(AssetTask::Unload(handle.clone(), Box::new(|_| {})));
             }
         }
         for (_, sender) in &self.threads {
@@ -222,9 +250,9 @@ impl Drop for AssetManager {
 }
 
 enum AssetTask {
-    Load(AssetHandle),
-    Unload(AssetHandle),
-    Reload(AssetHandle),
+    Load(AssetHandle, Box<dyn Fn(AssetHandle)>),
+    Unload(AssetHandle, Box<dyn Fn(AssetHandle)>),
+    Reload(AssetHandle, Box<dyn Fn(AssetHandle)>),
     Close,
 }
 

@@ -3,8 +3,6 @@ use std::sync::Arc;
 
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use shaderc::ShaderKind;
-use mvcore::asset::asset::AssetType;
-use mvcore::asset::manager::{AssetHandle, AssetManager};
 
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
@@ -17,18 +15,17 @@ use mvcore::render::backend::device::Device;
 use mvcore::render::backend::framebuffer::{ClearColor, Framebuffer, MVFramebufferCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
 use mvcore::render::backend::pipeline::{
-    AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
+    AttributeType,  CullMode, Graphics,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
 };
 use mvcore::render::backend::sampler::{
     Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
 };
 use mvcore::render::backend::shader::ShaderStage;
-use mvcore::render::backend::{Extent2D, Extent3D};
+use mvcore::render::backend::Extent2D;
 use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::mesh::Mesh;
 use mvcore::render::renderer::Renderer;
-use mvcore::render::window::Window;
 
 #[repr(C)]
 struct Vertex {
@@ -65,8 +62,6 @@ pub struct Renderer2D {
     main_pipeline: Pipeline<Graphics>,
     geometry_framebuffers: Vec<Framebuffer>,
     extent: Extent2D,
-    manager: Arc<AssetManager>,
-    handle: AssetHandle,
     default_sampler: Sampler,
     atlas_sets: Vec<DescriptorSet>,
     default_image: Image
@@ -346,13 +341,6 @@ impl Renderer2D {
             },
         );
 
-        let manager = AssetManager::new(device.clone(), 1);
-
-        // TODO: delete this
-        let handle = manager.create_asset("texture.png", AssetType::Texture);
-
-        handle.load();
-
         Self {
             extent,
             device,
@@ -366,8 +354,6 @@ impl Renderer2D {
             transforms_sets,
             main_pipeline: default_pipeline,
             geometry_framebuffers,
-            manager,
-            handle,
             atlas_sets,
             default_sampler,
             default_image,
@@ -428,7 +414,7 @@ impl Renderer2D {
         self.transforms.clear();
     }
 
-    pub fn add_quad(&mut self, mut transform: Transform) {
+    pub fn add_quad(&mut self, transform: Transform) {
         if self.transforms.len() as u32 > MAX_BATCH_SIZE {
             // TODO
             log::error!("Todo: multiple batches");

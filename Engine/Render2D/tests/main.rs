@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use log::LevelFilter;
-use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
@@ -11,11 +10,9 @@ use mvengine_render2d::renderer2d::{Renderer2D, Transform};
 use mvutils::version::Version;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
-use mvcore::render::backend::buffer::MemoryProperties;
-use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
+use mvcore::render::backend::image::{AccessFlags, ImageLayout};
 use mvcore::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 use mvcore::render::renderer::Renderer;
-use mvcore::render::texture::TextureRegion;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -41,7 +38,7 @@ fn main() {
 struct AppLoop {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
-    renderer2d: Renderer2D,
+    renderer2d: Arc<DangerousCell<Renderer2D>>,
 
     quad_rotation: f32,
     quad_position: Vec2,
@@ -68,13 +65,11 @@ impl ApplicationLoopCallbacks for AppLoop {
         );
         let core_renderer = Arc::new(DangerousCell::new(Renderer::new(&window, device.clone())));
 
-        let renderer2d = Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent());
+        let renderer2d = Arc::new(DangerousCell::new(Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent())));
 
         let manager = AssetManager::new(device.clone(), 1);
 
         let handle = manager.create_asset("texture.png", AssetType::Texture);
-
-        handle.load();
 
         let sampler = Sampler::new(device.clone(), MVSamplerCreateInfo {
             address_mode: SamplerAddressMode::ClampToEdge,
@@ -87,20 +82,27 @@ impl ApplicationLoopCallbacks for AppLoop {
         Self { sampler, device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0, manager, handle, loaded: false }
     }
 
-    fn update(&mut self, window: &mut Window, delta_t: f64) {
-        let asset = self.handle.get();
-        if asset.failed() {
-            println!("Failed!");
-        } else if asset.is_loaded() && !self.loaded {
-            self.loaded = true;
-            // we can swap the image here
-            let Some(texture) = asset.as_texture() else { unreachable!() };
+    fn post_init(&mut self, window: &mut Window) {
+        let device = self.device.clone();
+        let renderer2d = self.renderer2d.clone();
+        let sampler = self.sampler.clone();
+        self.handle.load(move |handle| {
+            let asset = handle.get();
+            if asset.failed() {
+                println!("Failed!");
+            } else {
+                let Some(texture) = asset.as_texture() else { unreachable!() };
 
-            self.device.wait_idle();
-            for set in self.renderer2d.get_atlas_sets() {
-                set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
+                device.wait_idle();
+                for set in renderer2d.get_mut().get_atlas_sets() {
+                    set.update_image(0, &texture.image(), &sampler, ImageLayout::ShaderReadOnlyOptimal);
+                }
             }
-        }
+        });
+    }
+
+    fn update(&mut self, window: &mut Window, delta_t: f64) {
+
     }
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
@@ -110,7 +112,9 @@ impl ApplicationLoopCallbacks for AppLoop {
         self.quad_position.x = self.timer.sin() * 100.0;
         self.quad_position.y = self.timer.cos() * 100.0;
 
-        self.renderer2d.add_quad(Transform {
+        let renderer2d = self.renderer2d.get_mut();
+
+        renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 400.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -118,7 +122,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::new(1.0, 0.0, 0.0, 0.5),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 200.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -126,7 +130,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 200.0, -self.quad_position.y + 300.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -134,7 +138,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_quad(Transform {
             position: Vec3::new(self.quad_position.x + 400.0, -self.quad_position.y + 300.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -146,9 +150,9 @@ impl ApplicationLoopCallbacks for AppLoop {
         let cmd = self.core_renderer.get_mut().get_current_command_buffer();
         let frame_index = self.core_renderer.get().get_current_frame_index();
 
-        self.renderer2d.draw();
+        renderer2d.draw();
 
-        cmd.blit_image(self.renderer2d.get_geometry_image(frame_index as usize), self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0));
+        cmd.blit_image(renderer2d.get_geometry_image(frame_index as usize), self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0));
 
         self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), AccessFlags::empty(), AccessFlags::empty());
 
@@ -163,6 +167,6 @@ impl ApplicationLoopCallbacks for AppLoop {
     fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
         self.core_renderer.get_mut().recreate_swapchain(width, height, true, 2); // TODO
 
-        self.renderer2d.resize(Extent2D{ width, height });
+        self.renderer2d.get_mut().resize(Extent2D{ width, height });
     }
 }
