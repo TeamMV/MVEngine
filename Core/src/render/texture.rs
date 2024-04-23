@@ -1,16 +1,19 @@
+use crate::asset::manager::AssetHandle;
 use crate::math::vec::Vec4;
 use crate::render::backend::image::Image;
 
 #[derive(Clone)]
 pub struct Texture {
     image: Image,
+    handle: AssetHandle,
     id: u64,
 }
 
 impl Texture {
-    pub fn new(image: Image) -> Self {
+    pub fn new(image: Image, handle: AssetHandle) -> Self {
         Self {
             image,
+            handle,
             id: mvutils::utils::next_id("MVCore::Texture"),
         }
     }

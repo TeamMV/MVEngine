@@ -28,11 +28,12 @@ pub struct Asset {
 
 impl Asset {
     pub(crate) fn load(&mut self) {
+        std::thread::sleep(std::time::Duration::from_secs(3));
         if self.is_loaded() { return; }
         let loader = self.handle.get_manager().get_loader();
         match self.ty {
             AssetType::Texture => {
-                match loader.import_texture(self.handle.get_path()) {
+                match loader.import_texture(self.handle.clone()) {
                     Ok(texture) => self.inner = InnerAsset::Texture(texture),
                     Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
                 }
@@ -50,6 +51,10 @@ impl Asset {
         // This isn't the same as calling unload then load,
         // since we want to load it into memory, swap it with the loaded asset,
         // then unloaded the memory from the previous asset
+    }
+
+    pub fn handle(&self) -> AssetHandle {
+        self.handle.clone()
     }
 
     pub fn is_loaded(&self) -> bool {

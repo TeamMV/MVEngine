@@ -46,7 +46,6 @@ struct AppLoop {
 
     manager: Arc<AssetManager>,
     handle: AssetHandle,
-    loaded: bool,
     sampler: Sampler,
 }
 
@@ -67,7 +66,7 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         let renderer2d = Arc::new(DangerousCell::new(Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent())));
 
-        let manager = AssetManager::new(device.clone(), 1);
+        let manager = AssetManager::new(device.clone(), 1, 1);
 
         let handle = manager.create_asset("texture.png", AssetType::Texture);
 
@@ -79,14 +78,14 @@ impl ApplicationLoopCallbacks for AppLoop {
             label: None,
         });
 
-        Self { sampler, device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0, manager, handle, loaded: false }
+        Self { sampler, device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0, manager, handle }
     }
 
-    fn post_init(&mut self, window: &mut Window) {
+    fn post_init(&mut self, _window: &mut Window) {
         let device = self.device.clone();
         let renderer2d = self.renderer2d.clone();
         let sampler = self.sampler.clone();
-        self.handle.load(move |handle| {
+        self.handle.load(move |handle, _| {
             let asset = handle.get();
             if asset.failed() {
                 println!("Failed!");
@@ -101,11 +100,13 @@ impl ApplicationLoopCallbacks for AppLoop {
         });
     }
 
-    fn update(&mut self, window: &mut Window, delta_t: f64) {
+    fn update(&mut self, _window: &mut Window, _delta_t: f64) {
 
     }
 
-    fn draw(&mut self, window: &mut Window, delta_t: f64) {
+    fn draw(&mut self, _window: &mut Window, delta_t: f64) {
+        self.manager.poll_queue(0);
+
         self.timer += delta_t as f32;
         self.quad_rotation += delta_t as f32 * 2.0;
 
@@ -159,12 +160,12 @@ impl ApplicationLoopCallbacks for AppLoop {
         self.core_renderer.get_mut().end_frame().unwrap();
     }
 
-    fn exiting(&mut self, window: &mut Window)
+    fn exiting(&mut self, _window: &mut Window)
     {
         self.device.wait_idle();
     }
 
-    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
+    fn resize(&mut self, _window: &mut Window, width: u32, height: u32) {
         self.core_renderer.get_mut().recreate_swapchain(width, height, true, 2); // TODO
 
         self.renderer2d.get_mut().resize(Extent2D{ width, height });

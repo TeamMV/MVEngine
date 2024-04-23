@@ -1,6 +1,7 @@
 use std::fs::OpenOptions;
 use std::io::Read;
 use image::{ColorType, DynamicImage};
+use crate::asset::manager::AssetHandle;
 
 use crate::render::backend::buffer::MemoryProperties;
 use crate::render::backend::device::Device;
@@ -50,7 +51,8 @@ impl AssetLoader {
     //     todo!();
     // } ignore that for now, lets load in textures
 
-    pub(crate) fn import_texture(&self, path: &str) -> Result<Texture, &'static str> {
+    pub(crate) fn import_texture(&self, handle: AssetHandle) -> Result<Texture, &'static str> {
+        let path = handle.get_path();
         let image = if let Ok(image) = image::open(path) {
             image
         } else {
@@ -100,6 +102,6 @@ impl AssetLoader {
             label: Some(path.to_string()),
         });
 
-        Ok(Texture::new(image))
+        Ok(Texture::new(image, handle))
     }
 }
