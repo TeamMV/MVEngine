@@ -7,7 +7,7 @@ use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::{Backend, Extent2D};
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvengine_render2d::renderer2d::{Renderer2D, Transform};
+use mvengine_render2d::renderer2d::{Renderer2D, Shape};
 use mvutils::version::Version;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
@@ -41,7 +41,7 @@ fn main() {
 struct AppLoop {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
-    renderer2d: Renderer2D,
+    renderer2d: Arc<DangerousCell<Renderer2D>>,
 
     quad_rotation: f32,
     quad_position: Vec2,
@@ -68,7 +68,7 @@ impl ApplicationLoopCallbacks for AppLoop {
         );
         let core_renderer = Arc::new(DangerousCell::new(Renderer::new(&window, device.clone())));
 
-        let renderer2d = Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent());
+        let renderer2d = Arc::new(DangerousCell::new(Renderer2D::new(device.clone(), core_renderer.clone(), core_renderer.get().get_swapchain().get_extent(), false)));
 
         let manager = AssetManager::new(device.clone(), 1);
 
@@ -97,7 +97,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             let Some(texture) = asset.as_texture() else { unreachable!() };
 
             self.device.wait_idle();
-            for set in self.renderer2d.get_atlas_sets() {
+            for set in self.renderer2d.get_mut().get_atlas_sets() {
                 set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
             }
         }
@@ -110,7 +110,9 @@ impl ApplicationLoopCallbacks for AppLoop {
         self.quad_position.x = self.timer.sin() * 100.0;
         self.quad_position.y = self.timer.cos() * 100.0;
 
-        self.renderer2d.add_quad(Transform {
+        let renderer2d = self.renderer2d.get_mut();
+
+        renderer2d.add_shape(Shape::Rectangle {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 400.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -118,7 +120,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::new(1.0, 0.0, 0.0, 0.5),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_shape(Shape::Rectangle {
             position: Vec3::new(self.quad_position.x + 300.0, -self.quad_position.y + 200.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -126,7 +128,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_shape(Shape::Rectangle {
             position: Vec3::new(self.quad_position.x + 200.0, -self.quad_position.y + 300.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -134,7 +136,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
-        self.renderer2d.add_quad(Transform {
+        renderer2d.add_shape(Shape::Rectangle {
             position: Vec3::new(self.quad_position.x + 400.0, -self.quad_position.y + 300.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
@@ -142,13 +144,32 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
+        renderer2d.add_shape(Shape::RoundedRect {
+            position: Vec3::new(200.0, 200.0, 1.0),
+            rotation: Vec3::splat(0.0),
+            scale: Vec2::new(200.0, 200.0),
+            border_radius: 50.0,
+            smoothness: 8,
+            tex_coord: Default::default(),
+            color: Vec4::splat(0.0),
+        });
+
+        renderer2d.add_shape(Shape::Triangle {
+            vertices: [Vec2::new(-0.5, 0.5), Vec2::new(0.5, 0.5), Vec2::new(0.0, -0.5)],
+            translation: Vec3::new(200.0, 200.0, 1.0),
+            scale: Vec2::new(100.0, 100.0),
+            rotation: Vec3::splat(0.0),
+            tex_coord: Vec4::new(0.0, 0.0, 0.5, 0.5),
+            color: Vec4::splat(0.0),
+        });
+
         let image_index = self.core_renderer.get_mut().begin_frame().unwrap();
         let cmd = self.core_renderer.get_mut().get_current_command_buffer();
         let frame_index = self.core_renderer.get().get_current_frame_index();
 
-        self.renderer2d.draw();
+        renderer2d.draw();
 
-        cmd.blit_image(self.renderer2d.get_geometry_image(frame_index as usize), self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0));
+        cmd.blit_image(renderer2d.get_geometry_image(frame_index as usize), self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0));
 
         self.core_renderer.get_mut().get_swapchain().get_framebuffer(image_index as usize).get_image(0).transition_layout(ImageLayout::PresentSrc, Some(cmd), AccessFlags::empty(), AccessFlags::empty());
 
@@ -163,6 +184,6 @@ impl ApplicationLoopCallbacks for AppLoop {
     fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
         self.core_renderer.get_mut().recreate_swapchain(width, height, true, 2); // TODO
 
-        self.renderer2d.resize(Extent2D{ width, height });
+        self.renderer2d.get_mut().resize(Extent2D { width, height });
     }
 }
