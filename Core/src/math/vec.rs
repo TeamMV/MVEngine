@@ -50,6 +50,28 @@ impl Vec3 {
             z: val,
         }
     }
+
+    pub fn to_radians(self) -> Self {
+        Self {
+            x: self.x.to_radians(),
+            y: self.y.to_radians(),
+            z: self.z.to_radians(),
+        }
+    }
+
+    pub fn to_degrees(self) -> Self {
+        Self {
+            x: self.x.to_degrees(),
+            y: self.y.to_degrees(),
+            z: self.z.to_degrees(),
+        }
+    }
+}
+
+impl Into<Vec4> for Vec3 {
+    fn into(self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, 0.0)
+    }
 }
 
 #[derive(Default, Debug, Copy, Clone)]

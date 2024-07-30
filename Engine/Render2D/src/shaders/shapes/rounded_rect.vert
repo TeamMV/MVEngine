@@ -21,6 +21,7 @@ struct DataOut
     vec4 color;
     mat4 view;
     mat4 proj;
+    vec2 screenSize;
 };
 
 layout(location = 0) in vec3 pos;
@@ -30,35 +31,18 @@ layout(location = 0) out DataOut outData;
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
     mat4 proj;
+    vec2 screenSize;
 } mat;
 
 struct Transform {
-    vec3 position;
-    vec3 rotation;
+    vec4 texCoords; // x, y, width, height,
+    vec4 color;
+    vec4 position;
+    vec4 rotation;
     vec2 scale;
     float border_radius;
     int smoothness;
-    vec4 texCoords; // x, y, width, height,
-    vec4 color;
 };
-
-vec2 GetTextureCoords(int vertexIndex, vec4 inTexCoords)
-{
-    vec2 texCoords;
-    switch (vertexIndex)
-    {
-        case 0: texCoords = vec2(inTexCoords.x, inTexCoords.y + inTexCoords.w);
-        break;
-        case 1: texCoords = vec2(inTexCoords.x, inTexCoords.y);
-        break;
-        case 2: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y);
-        break;
-        case 3: texCoords = vec2(inTexCoords.x + inTexCoords.z, inTexCoords.y + inTexCoords.w);
-        break;
-    }
-
-    return texCoords;
-}
 
 layout(set = 1, binding = 0, scalar) readonly buffer ObjectUbo
 {
@@ -73,7 +57,9 @@ void main() {
     outData.proj = mat.proj;
     outData.smoothness = t.smoothness;
     outData.scale = t.scale;
-    outData.rotation = t.rotation;
+    outData.rotation = t.rotation.xyz;
     outData.border_radius = t.border_radius;
-    // outData = TODO
+    outData.screenSize = mat.screenSize;
+    outData.texCoords = t.texCoords;
+    outData.color = t.color;
 }

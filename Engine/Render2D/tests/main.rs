@@ -1,7 +1,9 @@
 use std::sync::Arc;
+use std::time::{Instant, SystemTime};
 use log::LevelFilter;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
+use mvutils::utils::TetrahedronOp;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::{Backend, Extent2D};
@@ -15,7 +17,6 @@ use mvcore::render::backend::buffer::MemoryProperties;
 use mvcore::render::backend::image::{AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
 use mvcore::render::backend::sampler::{Filter, MipmapMode, MVSamplerCreateInfo, Sampler, SamplerAddressMode};
 use mvcore::render::renderer::Renderer;
-use mvcore::render::texture::TextureRegion;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -29,7 +30,7 @@ fn main() {
         resizable: true,
         transparent: false,
         theme: None,
-        vsync: true,
+        vsync: false,
         max_frames_in_flight: 2,
         fps: 9999,
         ups: 20,
@@ -105,7 +106,7 @@ impl ApplicationLoopCallbacks for AppLoop {
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         self.timer += delta_t as f32;
-        self.quad_rotation += delta_t as f32 * 2.0;
+        self.quad_rotation += delta_t as f32 * 90.0;
 
         self.quad_position.x = self.timer.sin() * 100.0;
         self.quad_position.y = self.timer.cos() * 100.0;
@@ -144,19 +145,21 @@ impl ApplicationLoopCallbacks for AppLoop {
             color: Vec4::splat(0.0),
         });
 
-        renderer2d.add_shape(Shape::RoundedRect {
-            position: Vec3::new(200.0, 200.0, 1.0),
-            rotation: Vec3::splat(0.0),
-            scale: Vec2::new(200.0, 200.0),
-            border_radius: 50.0,
-            smoothness: 8,
-            tex_coord: Default::default(),
-            color: Vec4::splat(0.0),
-        });
+        for i in 0..4 {
+            renderer2d.add_shape(Shape::RoundedRect {
+                position: Vec3::new(((i * 150)) as f32 + 25.0, 200.0, 1.0),
+                rotation: Vec3::new(0.0, 0.0, 0.0),
+                scale: Vec2::new(100.0, 100.0),
+                border_radius: 15.0 * (i + 1) as f32,
+                smoothness: 8,
+                tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+                color: Vec4::splat(0.0),
+            });
+        }
 
         renderer2d.add_shape(Shape::Triangle {
             vertices: [Vec2::new(-0.5, 0.5), Vec2::new(0.5, 0.5), Vec2::new(0.0, -0.5)],
-            translation: Vec3::new(200.0, 200.0, 1.0),
+            translation: Vec3::new(400.0, 400.0, 1.0),
             scale: Vec2::new(100.0, 100.0),
             rotation: Vec3::splat(0.0),
             tex_coord: Vec4::new(0.0, 0.0, 0.5, 0.5),

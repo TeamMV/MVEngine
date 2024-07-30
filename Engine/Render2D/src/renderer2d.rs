@@ -5,7 +5,7 @@ use mvutils::utils::TetrahedronOp;
 use shaderc::ShaderKind;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
-
+use mvcore::math::mat::Mat4;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
 use mvcore::render::backend::descriptor_set::{
@@ -88,16 +88,24 @@ struct Triangle {
 
 #[repr(C)]
 struct RoundedRect {
-    pub position: Vec3,
-    pub rotation: Vec3,
+    pub tex_coord: Vec4,
+    pub color: Vec4,
+    pub position: Vec4,
+    pub rotation: Vec4,
     pub scale: Vec2,
     pub border_radius: f32,
     pub smoothness: i32,
-    pub tex_coord: Vec4,
-    pub color: Vec4,
 }
 
 static MAX_BATCH_SIZE: u64 = 10000;
+
+#[repr(C)]
+struct CameraBuffer
+{
+    pub view_matrix: Mat4,
+    pub proj_matrix: Mat4,
+    pub screen_size: Vec2
+}
 
 pub struct Renderer2D {
     device: Device,
@@ -189,7 +197,7 @@ impl Renderer2D {
             let mut buffer = Buffer::new(
                 device.clone(),
                 MVBufferCreateInfo {
-                    instance_size: 128,
+                    instance_size: size_of::<CameraBuffer>() as u64,
                     instance_count: 1,
                     buffer_usage: BufferUsage::UNIFORM_BUFFER,
                     memory_properties: MemoryProperties::HOST_VISIBLE
@@ -200,8 +208,12 @@ impl Renderer2D {
                 },
             );
 
-            let matrices = [camera.get_view(), camera.get_projection()];
-            let bytes = unsafe { std::slice::from_raw_parts(matrices.as_ptr() as *const u8, 128) };
+            let camera_buffer: CameraBuffer = CameraBuffer {
+                view_matrix: camera.get_view(),
+                proj_matrix: camera.get_projection(),
+                screen_size: Vec2::new(600.0, 600.0),
+            };
+            let bytes = unsafe { std::slice::from_raw_parts(&camera_buffer as *const CameraBuffer as *const u8, size_of::<CameraBuffer>()) };
 
             buffer.write(bytes, 0, None);
             camera_buffers.push(buffer);
@@ -224,7 +236,7 @@ impl Renderer2D {
                 },
             );
 
-            camera_set.add_buffer(0, &camera_buffers[index as usize], 0, 128);
+            camera_set.add_buffer(0, &camera_buffers[index as usize], 0, size_of::<CameraBuffer>() as u64);
             camera_set.build();
 
             camera_sets.push(camera_set);
@@ -546,26 +558,30 @@ impl Renderer2D {
         // Push data to the storage buffer
         macro_rules! setup {
             ($frame:ident, $data:expr, $datatype:ty, $buffers:expr) => {
-                let bytes = unsafe {
-                    std::slice::from_raw_parts(
-                        $data.as_ptr() as *const u8,
-                        $data.len() * size_of::<$datatype>(),
-                    )
-                };
-                $buffers[$frame as usize].write(bytes, 0, None);
+                if !$data.is_empty() {
+                    let bytes = unsafe {
+                        std::slice::from_raw_parts(
+                            $data.as_ptr() as *const u8,
+                            $data.len() * size_of::<$datatype>(),
+                        )
+                    };
+                    $buffers[$frame as usize].write(bytes, 0, None);
+                }
             };
         }
 
         // Call draw instanced on data
         macro_rules! draw {
             ($cmd:ident, $frame:ident, $data:expr, $pipeline:expr, $sets:expr, $mesh:expr) => {
-                $pipeline.bind($cmd);
+                if !$data.is_empty() {
+                    $pipeline.bind($cmd);
 
-                self.camera_sets[$frame as usize].bind($cmd, &$pipeline, 0);
-                $sets[$frame as usize].bind($cmd, &$pipeline, 1);
-                self.atlas_sets[$frame as usize].bind($cmd, &$pipeline, 2);
+                    self.camera_sets[$frame as usize].bind($cmd, &$pipeline, 0);
+                    $sets[$frame as usize].bind($cmd, &$pipeline, 1);
+                    self.atlas_sets[$frame as usize].bind($cmd, &$pipeline, 2);
 
-                $mesh.draw_instanced($cmd, 0, $data.len() as u32);
+                    $mesh.draw_instanced($cmd, 0, $data.len() as u32);
+                }
             };
         }
 
@@ -609,7 +625,7 @@ impl Renderer2D {
 
                 self.rectangles.push(Rectangle {
                     position,
-                    rotation,
+                    rotation: rotation.to_radians(),
                     scale,
                     tex_coord,
                     color,
@@ -655,7 +671,7 @@ impl Renderer2D {
                 self.triangles.push(Triangle {
                     vertices: vertices4,
                     translation,
-                    rotation,
+                    rotation: rotation.to_radians(),
                     scale,
                     color,
                 });
@@ -668,8 +684,8 @@ impl Renderer2D {
                 }
 
                 self.rounded_rects.push(RoundedRect {
-                    position,
-                    rotation,
+                    position: position.into(),
+                    rotation: rotation.to_radians().into(),
                     scale,
                     border_radius,
                     smoothness: smoothness.clamp(1, 20),

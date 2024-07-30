@@ -33,22 +33,22 @@ mat4 createModelMatrix(vec3 translation, vec3 rotation, vec2 scale) {
 
     // Rotation matrix (using Euler angles)
     mat4 rotateX = mat4(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, cos(rotation.x), -sin(rotation.x), 0.0,
-    0.0, sin(rotation.x), cos(rotation.x), 0.0,
-    0.0, 0.0, 0.0, 1.0
+        1.0, 0.0, 0.0, 0.0,
+        0.0, cos(rotation.x), -sin(rotation.x), 0.0,
+        0.0, sin(rotation.x), cos(rotation.x), 0.0,
+        0.0, 0.0, 0.0, 1.0
     );
     mat4 rotateY = mat4(
-    cos(rotation.y), 0.0, sin(rotation.y), 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    -sin(rotation.y), 0.0, cos(rotation.y), 0.0,
-    0.0, 0.0, 0.0, 1.0
+        cos(rotation.y), 0.0, sin(rotation.y), 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        -sin(rotation.y), 0.0, cos(rotation.y), 0.0,
+        0.0, 0.0, 0.0, 1.0
     );
     mat4 rotateZ = mat4(
-    cos(rotation.z), -sin(rotation.z), 0.0, 0.0,
-    sin(rotation.z), cos(rotation.z), 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0
+        cos(rotation.z), -sin(rotation.z), 0.0, 0.0,
+        sin(rotation.z), cos(rotation.z), 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
     );
     mat4 rotateMatrix = rotateX * rotateY * rotateZ;
 
@@ -72,6 +72,7 @@ layout(location = 1) out vec4 outColor;
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
     mat4 proj;
+    vec2 screenSize;
 } mat;
 
 struct Transform {
