@@ -108,6 +108,11 @@ impl Mesh {
         ));
     }
 
+    pub fn remove_index_buffer(&mut self) {
+        self.index_buffer = None;
+        self.index_count = 0;
+    }
+
     pub fn draw(&self, cmd: &CommandBuffer) {
         cmd.bind_vertex_buffer(&self.vertex_buffer);
 

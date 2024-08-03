@@ -85,6 +85,8 @@ impl ApplicationLoopCallbacks for AppLoop {
             label: None,
         });
 
+        renderer2d.get_mut().disable_texture();
+
         Self { sampler, device, renderer2d, core_renderer, quad_rotation: 0.0, quad_position: Vec2::splat(0.0), timer: 0.0, manager, handle, loaded: false }
     }
 
@@ -98,9 +100,9 @@ impl ApplicationLoopCallbacks for AppLoop {
             let Some(texture) = asset.as_texture() else { unreachable!() };
 
             self.device.wait_idle();
-            for set in self.renderer2d.get_mut().get_atlas_sets() {
-                set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
-            }
+            // for set in self.renderer2d.get_mut().get_atlas_sets() {
+            //     set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
+            // }
         }
     }
 
@@ -126,7 +128,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
             scale: Vec2::splat(50.0),
             tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-            color: Vec4::splat(0.0),
+            color: Vec4::splat(1.0),
         });
 
         renderer2d.add_shape(Shape::Rectangle {
@@ -153,7 +155,7 @@ impl ApplicationLoopCallbacks for AppLoop {
                 border_radius: 15.0 * (i + 1) as f32,
                 smoothness: 8,
                 tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-                color: Vec4::splat(0.0),
+                color: Vec4::splat(1.0),
             });
         }
 

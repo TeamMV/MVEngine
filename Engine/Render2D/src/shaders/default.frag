@@ -9,5 +9,5 @@ layout(set = 2, binding = 0) uniform sampler2D atlas;
 
 void main() {
     vec4 tex = texture(atlas, inTexCoords);
-    outColor = vec4(mix(tex.rgb, inColor.rgb, inColor.a), tex.a);
+    outColor = vec4(mix(tex.rgba, vec4(inColor.rgb, 1.0f), inColor.a));
 }

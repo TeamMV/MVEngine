@@ -119,15 +119,19 @@ pub struct Renderer2D {
     camera_buffers: Vec<Buffer>,
     descriptor_pool: DescriptorPool,
 
+    // TODO: make transparency work properly, potentially remove triangles and assume that only rects can be drawn behind other objects
     rectangles: Vec<Rectangle>,
+    transparent_rectangles: Vec<Rectangle>,
     rectangle_buffers: Vec<Buffer>,
     rectangle_sets: Vec<DescriptorSet>,
 
     triangles: Vec<Triangle>,
+    transparent_triangles: Vec<Triangle>,
     triangle_buffers: Vec<Buffer>,
     triangle_sets: Vec<DescriptorSet>,
 
     rounded_rects: Vec<RoundedRect>,
+    transparent_rounded_rects: Vec<RoundedRect>,
     rounded_rect_buffers: Vec<Buffer>,
     rounded_rect_sets: Vec<DescriptorSet>,
 
@@ -139,7 +143,6 @@ pub struct Renderer2D {
     extent: Extent2D,
     default_sampler: Sampler,
     atlas_sets: Vec<DescriptorSet>,
-    default_image: Image
 }
 
 impl Renderer2D {
@@ -278,22 +281,6 @@ impl Renderer2D {
             label: None,
         });
 
-        let default_image = Image::new(device.clone(), MVImageCreateInfo {
-            size: Extent2D { width: 2, height: 2 },
-            format: ImageFormat::R8G8B8A8,
-            usage: ImageUsage::SAMPLED | ImageUsage::STORAGE,
-            memory_properties: MemoryProperties::DEVICE_LOCAL,
-            aspect: ImageAspect::COLOR,
-            tiling: ImageTiling::Optimal,
-            layer_count: 1,
-            image_type: ImageType::Image2D,
-            cubemap: false,
-            memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-            data: Some(vec![255u8, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255u8, 0, 255, 255]),
-            label: Some("Default image".to_string()),
-        });
-        default_image.transition_layout(ImageLayout::ShaderReadOnlyOptimal, None, AccessFlags::empty(), AccessFlags::empty());
-
         let mut atlas_sets = Vec::new();
         for index in 0..renderer.get().get_max_frames_in_flight() {
             let mut set = DescriptorSet::new(
@@ -312,7 +299,7 @@ impl Renderer2D {
 
             set.add_image(
                 0,
-                &default_image,
+                &renderer.get().get_missing_texture(),
                 &default_sampler,
                 ImageLayout::ShaderReadOnlyOptimal
             );
@@ -430,7 +417,7 @@ impl Renderer2D {
                 cull_mode: CullMode::None,
                 enable_depth_test: true,
                 depth_clamp: false,
-                blending_enable: false,
+                blending_enable: true,
                 descriptor_sets: vec![camera_sets[0].get_layout(), rectangle_sets[0].get_layout(), atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
@@ -458,7 +445,7 @@ impl Renderer2D {
                 cull_mode: CullMode::None,
                 enable_depth_test: true,
                 depth_clamp: false,
-                blending_enable: false,
+                blending_enable: true,
                 descriptor_sets: vec![camera_sets[0].get_layout(), triangle_sets[0].get_layout(), atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
@@ -493,7 +480,7 @@ impl Renderer2D {
                 cull_mode: CullMode::None,
                 enable_depth_test: true,
                 depth_clamp: false,
-                blending_enable: false,
+                blending_enable: true,
                 descriptor_sets: vec![camera_sets[0].get_layout(), rounded_rect_sets[0].get_layout(), atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
@@ -516,14 +503,17 @@ impl Renderer2D {
             descriptor_pool,
 
             rectangles: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
+            transparent_rectangles: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
             rectangle_buffers,
             rectangle_sets,
 
             triangles: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
+            transparent_triangles: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
             triangle_buffers,
             triangle_sets,
 
             rounded_rects: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
+            transparent_rounded_rects: Vec::with_capacity(preallocate.yn(MAX_BATCH_SIZE as usize, 0)),
             rounded_rect_buffers,
             rounded_rect_sets,
 
@@ -534,7 +524,6 @@ impl Renderer2D {
             geometry_framebuffers,
             atlas_sets,
             default_sampler,
-            default_image,
         }
     }
 
@@ -557,7 +546,7 @@ impl Renderer2D {
 
         // Push data to the storage buffer
         macro_rules! setup {
-            ($frame:ident, $data:expr, $datatype:ty, $buffers:expr) => {
+            ($frame:ident, $data:expr, $transparent_data:expr, $datatype:ty, $buffers:expr) => {
                 if !$data.is_empty() {
                     let bytes = unsafe {
                         std::slice::from_raw_parts(
@@ -567,12 +556,21 @@ impl Renderer2D {
                     };
                     $buffers[$frame as usize].write(bytes, 0, None);
                 }
+                if !$transparent_data.is_empty() {
+                    let bytes = unsafe {
+                        std::slice::from_raw_parts(
+                            $transparent_data.as_ptr() as *const u8,
+                            $transparent_data.len() * size_of::<$datatype>(),
+                        )
+                    };
+                    $buffers[$frame as usize].write(bytes, MAX_BATCH_SIZE * size_of::<$datatype>() as u64, None);
+                }
             };
         }
 
         // Call draw instanced on data
         macro_rules! draw {
-            ($cmd:ident, $frame:ident, $data:expr, $pipeline:expr, $sets:expr, $mesh:expr) => {
+            ($cmd:ident, $frame:ident, $data:expr, $offset:expr, $pipeline:expr, $sets:expr, $mesh:expr) => {
                 if !$data.is_empty() {
                     $pipeline.bind($cmd);
 
@@ -580,14 +578,14 @@ impl Renderer2D {
                     $sets[$frame as usize].bind($cmd, &$pipeline, 1);
                     self.atlas_sets[$frame as usize].bind($cmd, &$pipeline, 2);
 
-                    $mesh.draw_instanced($cmd, 0, $data.len() as u32);
+                    $mesh.draw_instanced($cmd, $offset as u32, $data.len() as u32);
                 }
             };
         }
 
-        setup!(current_frame, self.rectangles, Rectangle, self.rectangle_buffers);
-        setup!(current_frame, self.triangles, Triangle, self.triangle_buffers);
-        setup!(current_frame, self.rounded_rects, RoundedRect, self.rounded_rect_buffers);
+        setup!(current_frame, self.rectangles, self.transparent_rectangles, Rectangle, self.rectangle_buffers);
+        setup!(current_frame, self.triangles, self.transparent_triangles, Triangle, self.triangle_buffers);
+        setup!(current_frame, self.rounded_rects, self.transparent_rounded_rects, RoundedRect, self.rounded_rect_buffers);
 
         // GEOMETRY PASS
         geometry_framebuffer.begin_render_pass(
@@ -602,9 +600,13 @@ impl Renderer2D {
             self.extent,
         );
 
-        draw!(cmd, current_frame, self.rectangles, self.rectangle_pipeline, self.rectangle_sets, self.rectangle_mesh);
-        draw!(cmd, current_frame, self.triangles, self.triangle_pipeline, self.triangle_sets, self.triangle_mesh);
-        draw!(cmd, current_frame, self.rounded_rects, self.rounded_rect_pipeline, self.rounded_rect_sets, self.rounded_rect_mesh);
+        draw!(cmd, current_frame, self.triangles, 0, self.triangle_pipeline, self.triangle_sets, self.triangle_mesh);
+        draw!(cmd, current_frame, self.rounded_rects, 0, self.rounded_rect_pipeline, self.rounded_rect_sets, self.rounded_rect_mesh);
+        draw!(cmd, current_frame, self.rectangles, 0, self.rectangle_pipeline, self.rectangle_sets, self.rectangle_mesh);
+
+        draw!(cmd, current_frame, self.transparent_triangles, MAX_BATCH_SIZE, self.triangle_pipeline, self.triangle_sets, self.triangle_mesh);
+        draw!(cmd, current_frame, self.transparent_rounded_rects, MAX_BATCH_SIZE, self.rounded_rect_pipeline, self.rounded_rect_sets, self.rounded_rect_mesh);
+        draw!(cmd, current_frame, self.transparent_rectangles, MAX_BATCH_SIZE, self.rectangle_pipeline, self.rectangle_sets, self.rectangle_mesh);
 
         geometry_framebuffer.end_render_pass(cmd);
 
@@ -612,6 +614,9 @@ impl Renderer2D {
         self.rectangles.clear();
         self.triangles.clear();
         self.rounded_rects.clear();
+        self.transparent_rectangles.clear();
+        self.transparent_triangles.clear();
+        self.transparent_rounded_rects.clear();
     }
 
     pub fn add_shape(&mut self, shape: Shape) {
@@ -623,13 +628,19 @@ impl Renderer2D {
                     panic!();
                 }
 
-                self.rectangles.push(Rectangle {
+                let rectangle = Rectangle {
                     position,
                     rotation: rotation.to_radians(),
                     scale,
                     tex_coord,
                     color,
-                });
+                };
+                if (color.w < 1.0) {
+                    self.transparent_rectangles.push(rectangle);
+                }
+                else {
+                    self.rectangles.push(rectangle);
+                }
             }
             Shape::Triangle { vertices, translation, rotation, scale, tex_coord, color } => {
                 if self.triangles.len() as u64 > MAX_BATCH_SIZE {
@@ -668,13 +679,20 @@ impl Renderer2D {
                     vertices4[i].w = ((vertices[i].y - min_y) / (max_y - min_y)) * tex_coord.w + tex_coord.y;
                 }
 
-                self.triangles.push(Triangle {
+
+                let triangle = Triangle {
                     vertices: vertices4,
                     translation,
                     rotation: rotation.to_radians(),
                     scale,
                     color,
-                });
+                };
+                if (color.w < 1.0) {
+                    self.transparent_triangles.push(triangle);
+                }
+                else {
+                    self.triangles.push(triangle);
+                }
             }
             Shape::RoundedRect { position, rotation, scale, border_radius, smoothness, tex_coord, color } => {
                 if self.rounded_rects.len() as u64 > MAX_BATCH_SIZE {
@@ -683,7 +701,7 @@ impl Renderer2D {
                     panic!();
                 }
 
-                self.rounded_rects.push(RoundedRect {
+                let rounded_rect = RoundedRect {
                     position: position.into(),
                     rotation: rotation.to_radians().into(),
                     scale,
@@ -691,8 +709,36 @@ impl Renderer2D {
                     smoothness: smoothness.clamp(1, 20),
                     tex_coord,
                     color,
-                });
+                };
+                if (color.w < 1.0) {
+                    self.transparent_rounded_rects.push(rounded_rect);
+                }
+                else {
+                    self.rounded_rects.push(rounded_rect);
+                }
             }
+        }
+    }
+
+    pub fn disable_texture(&mut self) {
+        for atlas in &mut self.atlas_sets {
+            atlas.update_image(
+                0,
+                self.core_renderer.get().get_empty_texture(),
+                &self.default_sampler,
+                ImageLayout::ShaderReadOnlyOptimal,
+            );
+        }
+    }
+
+    pub fn reset_texture(&mut self) {
+        for atlas in &mut self.atlas_sets {
+            atlas.update_image(
+                0,
+                self.core_renderer.get().get_missing_texture(),
+                &self.default_sampler,
+                ImageLayout::ShaderReadOnlyOptimal,
+            );
         }
     }
 
@@ -700,7 +746,7 @@ impl Renderer2D {
         let buffer = Buffer::new(
             device.clone(),
             MVBufferCreateInfo {
-                instance_size: MAX_BATCH_SIZE * struct_size,
+                instance_size: MAX_BATCH_SIZE * 2 * struct_size, // * 2 to account for transparent object taking up to half of the buffer
                 instance_count: 1,
                 buffer_usage: BufferUsage::STORAGE_BUFFER,
                 memory_properties: MemoryProperties::DEVICE_LOCAL,
@@ -777,7 +823,7 @@ impl Renderer2D {
                 cull_mode: CullMode::Back,
                 enable_depth_test: true,
                 depth_clamp: false,
-                blending_enable: false,
+                blending_enable: true,
                 descriptor_sets: vec![self.camera_sets[0].get_layout(), self.rectangle_sets[0].get_layout(), self.atlas_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: self.geometry_framebuffers[0].clone(),

@@ -378,7 +378,7 @@ impl VkPipeline {
                 src_color_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
                 dst_color_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
                 color_blend_op: ash::vk::BlendOp::ADD,
-                src_alpha_blend_factor: ash::vk::BlendFactor::ONE,
+                src_alpha_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
                 dst_alpha_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
                 alpha_blend_op: ash::vk::BlendOp::ADD,
                 color_write_mask: ash::vk::ColorComponentFlags::RGBA,
