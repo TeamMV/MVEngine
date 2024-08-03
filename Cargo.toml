@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "Core",
-    "Engine/Mods", "Engine/Render2D",
+    "Engine/Mods",
+    "Engine/Render2D",
+    "Engine/Ui",
 ]
 resolver = "2"
 
