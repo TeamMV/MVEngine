@@ -336,8 +336,9 @@ impl VkDevice {
 
         #[cfg(debug_assertions)]
         unsafe {
-            let validation =
-                CStr::from_ptr(b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const std::ffi::c_char);
+            let validation = CStr::from_ptr(
+                b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const std::ffi::c_char
+            );
             for layer in instance_layers {
                 if layer.layer_name.contains(&0) {
                     let name = CStr::from_ptr(layer.layer_name.as_ptr());
@@ -770,16 +771,16 @@ impl VkDevice {
         let mut device_address = ash::vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::builder()
             .buffer_device_address(true);
 
-        let mut synch2 = *ash::vk::PhysicalDeviceSynchronization2Features::builder()
-            .synchronization2(true);
+        let mut synch2 =
+            *ash::vk::PhysicalDeviceSynchronization2Features::builder().synchronization2(true);
 
-        let mut scalar_block = *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder()
-            .scalar_block_layout(true);
+        let mut scalar_block =
+            *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder().scalar_block_layout(true);
 
         device_address.p_next =
             &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
-        synch2.p_next =
-            &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures as *mut c_void;
+        synch2.p_next = &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures
+            as *mut c_void;
         features = features.push_next(&mut device_address);
 
         let create_info = ash::vk::DeviceCreateInfo::builder()
@@ -1045,7 +1046,11 @@ impl VkDevice {
             panic!()
         });
 
-        unsafe { self.device.bind_image_memory(image, *block.memory(), block.offset()) }.unwrap_or_else(|e| {
+        unsafe {
+            self.device
+                .bind_image_memory(image, *block.memory(), block.offset())
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
             panic!();
         });
@@ -1199,7 +1204,7 @@ impl Drop for VkDevice {
 }
 
 static IGNORED_MESSAGES_IDS: [i32; 3] = [
-    1413273847, // Memory Priority
+    1413273847,  // Memory Priority
     -1687544056, // Sparse Index Buffer ( MALI BEST PRACTICES )
     -2027362524, // Command Pool Reset?
 ];

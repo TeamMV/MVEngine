@@ -2,8 +2,8 @@ use crate::render::backend::command_buffer::{CommandBufferLevel, MVCommandBuffer
 use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
-use std::sync::Arc;
 use ash::vk::{AccessFlags, CommandBufferUsageFlags, ImageLayout};
+use std::sync::Arc;
 
 pub(crate) struct CreateInfo {
     level: ash::vk::CommandBufferLevel,
@@ -152,8 +152,18 @@ impl VkCommandBuffer {
     }
 
     pub(crate) fn blit_image(&self, src_image: Arc<VkImage>, dst_image: Arc<VkImage>) {
-        src_image.transition_layout(ImageLayout::TRANSFER_SRC_OPTIMAL, Some(self), AccessFlags::empty(), AccessFlags::empty());
-        dst_image.transition_layout(ImageLayout::TRANSFER_DST_OPTIMAL, Some(self), AccessFlags::empty(), AccessFlags::empty());
+        src_image.transition_layout(
+            ImageLayout::TRANSFER_SRC_OPTIMAL,
+            Some(self),
+            AccessFlags::empty(),
+            AccessFlags::empty(),
+        );
+        dst_image.transition_layout(
+            ImageLayout::TRANSFER_DST_OPTIMAL,
+            Some(self),
+            AccessFlags::empty(),
+            AccessFlags::empty(),
+        );
 
         let blit = ash::vk::ImageBlit {
             src_subresource: ash::vk::ImageSubresourceLayers {
@@ -201,9 +211,12 @@ impl VkCommandBuffer {
 
     pub(crate) fn dispatch(&self, extent: ash::vk::Extent3D) {
         unsafe {
-            self.device
-                .get_device()
-                .cmd_dispatch(self.handle, extent.width, extent.height, extent.depth)
+            self.device.get_device().cmd_dispatch(
+                self.handle,
+                extent.width,
+                extent.height,
+                extent.depth,
+            )
         };
     }
 

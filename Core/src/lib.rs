@@ -2,8 +2,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-pub mod input;
-pub mod render;
-pub mod err;
 pub mod asset;
+pub mod err;
+pub mod input;
 pub mod math;
+pub mod render;

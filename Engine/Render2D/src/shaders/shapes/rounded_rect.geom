@@ -10,19 +10,23 @@ const float M_PI_OVER_2 = M_PI / 2.0f;
 
 layout(location = 0) in DataIn
 {
-    vec2 scale;
-    vec3 rotation;
-    float border_radius;
-    int smoothness;
-    vec4 texCoords; // x, y, width, height,
-    vec4 color;
     mat4 view;
     mat4 proj;
+    vec4 scale;
+    vec4 rotation;
+    vec4 texCoords; // x, y, width, height,
+    vec4 color;
     vec2 screenSize;
+    int texId;
+    float border_radius;
+    int smoothness;
+    float blending;
 } gs_in[];
 
 layout(location = 0) out vec2 outTexCoord;
 layout(location = 1) out vec4 outColor;
+layout(location = 2) out int outTexId;
+layout(location = 3) out float outBlending;
 
 const int MAX_SMOOTHNESS = 20;
 
@@ -48,15 +52,15 @@ void EmitCurve(vec2 curve[MAX_SMOOTHNESS + 1], vec2 center, float xMult, float y
 
     for (int i = 1; i <= gs_in[0].smoothness; i++)
     {
-        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
         CalculateTexCoords(rectangle);
         gl_Position = rotationMat * gl_Position;
         EmitVertex();
-        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(curve[i-1].x * xMult, curve[i-1].y * yMult, 1.0f, 1.0f);
+        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(curve[i-1].x * xMult, curve[i-1].y * yMult, 0.0f, 1.0f);
         CalculateTexCoords(rectangle);
         gl_Position = rotationMat * gl_Position;
         EmitVertex();
-        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(curve[i].x * xMult, curve[i].y * yMult, 1.0f, 1.0f);
+        gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(curve[i].x * xMult, curve[i].y * yMult, 0.0f, 1.0f);
         CalculateTexCoords(rectangle);
         gl_Position = rotationMat * gl_Position;
         EmitVertex();
@@ -77,19 +81,19 @@ void EmitRect(vec2 position, vec2 scale, vec4 rectangle, mat4 rotationMat)
 
     mat4 modelMatrix = translationMatrix * scaleMatrix;
 
-    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 0.0f, 1.0f, 1.0f);
+    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
     CalculateTexCoords(rectangle);
     gl_Position = rotationMat * gl_Position;
     EmitVertex();
-    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(1.0f, 0.0f, 1.0f, 1.0f);
+    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(1.0f, 0.0f, 0.0f, 1.0f);
     CalculateTexCoords(rectangle);
     gl_Position = rotationMat * gl_Position;
     EmitVertex();
-    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 1.0f, 1.0f, 1.0f);
+    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(0.0f, 1.0f, 0.0f, 1.0f);
     CalculateTexCoords(rectangle);
     gl_Position = rotationMat * gl_Position;
     EmitVertex();
-    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    gl_Position = gs_in[0].proj * gs_in[0].view * modelMatrix * vec4(1.0f, 1.0f, 0.0f, 1.0f);
     CalculateTexCoords(rectangle);
     gl_Position = rotationMat * gl_Position;
     EmitVertex();
@@ -99,15 +103,17 @@ void EmitRect(vec2 position, vec2 scale, vec4 rectangle, mat4 rotationMat)
 void main()
 {
     outColor = gs_in[0].color;
+    outTexId = gs_in[0].texId;
+    outBlending = gs_in[0].blending;
     int smoothness = gs_in[0].smoothness;
-    vec2 scale = gs_in[0].scale;
+    vec2 scale = gs_in[0].scale.xy;
     float angle = M_PI_OVER_2 / float(smoothness);
     float x_radius = clamp(gs_in[0].border_radius, 0, gs_in[0].scale.x / 2.0);
     float y_radius = clamp(gs_in[0].border_radius, 0, gs_in[0].scale.y / 2.0);
 
     vec2 curve[MAX_SMOOTHNESS + 1];
 
-    vec2 rectangleScale = (gs_in[0].scale * 2.0f) / gs_in[0].screenSize;
+    vec2 rectangleScale = (scale * 2.0f) / gs_in[0].screenSize;
     vec4 screenSpacePosition = gs_in[0].proj * gs_in[0].view * vec4(gl_in[0].gl_Position.xyz, 1.0f);
     vec4 rectangle = vec4(screenSpacePosition.xy, rectangleScale);
 
@@ -120,7 +126,7 @@ void main()
         curve[i].y = y_radius * sin(step_angle);
     }
 
-    vec3 rotation = gs_in[0].rotation;
+    vec3 rotation = gs_in[0].rotation.xyz;
 
     mat4 rotateX = mat4(
         1.0, 0.0, 0.0, 0.0,

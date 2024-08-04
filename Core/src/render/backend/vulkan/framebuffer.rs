@@ -5,8 +5,8 @@ use crate::render::backend::image::ImageType;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use crate::render::backend::vulkan::image::VkImage;
-use std::sync::Arc;
 use ash::vk::DependencyFlags;
+use std::sync::Arc;
 
 impl From<ClearColor> for ash::vk::ClearValue {
     fn from(value: ClearColor) -> Self {
@@ -253,7 +253,13 @@ impl VkFramebuffer {
     }
 
     fn is_depth_format(format: ash::vk::Format) -> bool {
-        matches!(format, ash::vk::Format::D32_SFLOAT | ash::vk::Format::D16_UNORM | ash::vk::Format::D16_UNORM_S8_UINT | ash::vk::Format::D24_UNORM_S8_UINT)
+        matches!(
+            format,
+            ash::vk::Format::D32_SFLOAT
+                | ash::vk::Format::D16_UNORM
+                | ash::vk::Format::D16_UNORM_S8_UINT
+                | ash::vk::Format::D24_UNORM_S8_UINT
+        )
     }
 
     fn create_color_attachment(
@@ -443,17 +449,18 @@ impl VkFramebuffer {
         dependencies.extend(&render_pass_create_info.dependencies);
 
         if has_depth {
-            dependencies.push(ash::vk::SubpassDependency{
+            dependencies.push(ash::vk::SubpassDependency {
                 src_subpass: ash::vk::SUBPASS_EXTERNAL,
                 dst_subpass: 0,
-                src_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+                src_stage_mask: ash::vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
+                    | ash::vk::PipelineStageFlags::TOP_OF_PIPE,
                 dst_stage_mask: ash::vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
                 src_access_mask: ash::vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
                 dst_access_mask: ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
                 dependency_flags: DependencyFlags::empty(),
             });
 
-            dependencies.push(ash::vk::SubpassDependency{
+            dependencies.push(ash::vk::SubpassDependency {
                 src_subpass: ash::vk::SUBPASS_EXTERNAL,
                 dst_subpass: 0,
                 src_stage_mask: ash::vk::PipelineStageFlags::TOP_OF_PIPE,

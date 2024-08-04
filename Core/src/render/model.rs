@@ -1,9 +1,7 @@
 use crate::asset::manager::AssetHandle;
 use crate::math::vec::Vec4;
 
-pub struct Model {
-
-}
+pub struct Model {}
 
 pub struct Material {
     color: Vec4,

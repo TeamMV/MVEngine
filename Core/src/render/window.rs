@@ -5,8 +5,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
 
-use crate::render::ApplicationLoopCallbacks;
 use crate::render::backend::Extent2D;
+use crate::render::ApplicationLoopCallbacks;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 

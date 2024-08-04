@@ -1,16 +1,18 @@
+use image::{ColorType, DynamicImage};
 use std::fs::OpenOptions;
 use std::io::Read;
-use image::{ColorType, DynamicImage};
 
 use crate::render::backend::buffer::MemoryProperties;
 use crate::render::backend::device::Device;
+use crate::render::backend::image::{
+    Image, ImageAspect, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo,
+};
 use crate::render::backend::Extent2D;
-use crate::render::backend::image::{Image, ImageAspect, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
 use crate::render::texture::Texture;
 
 #[derive(Clone)]
 pub struct AssetLoader {
-    device: Device
+    device: Device,
 }
 
 impl AssetLoader {
@@ -55,8 +57,12 @@ impl AssetLoader {
             image
         } else {
             let mut buffer = Vec::new();
-            let mut file = OpenOptions::new().read(true).open(path).map_err(|_| "Failed to open texture file")?;
-            file.read_to_end(&mut buffer).map_err(|_| "Failed to read texture file")?;
+            let mut file = OpenOptions::new()
+                .read(true)
+                .open(path)
+                .map_err(|_| "Failed to open texture file")?;
+            file.read_to_end(&mut buffer)
+                .map_err(|_| "Failed to read texture file")?;
             image::load_from_memory(&buffer).map_err(|_| "Invalid texture format")?
         };
 
@@ -82,23 +88,23 @@ impl AssetLoader {
         let format = image.color();
         let data = image.into_bytes();
 
-        let image = Image::new(self.device.clone(), MVImageCreateInfo {
-            size: Extent2D {
-                width,
-                height,
+        let image = Image::new(
+            self.device.clone(),
+            MVImageCreateInfo {
+                size: Extent2D { width, height },
+                format: format.into(),
+                usage: ImageUsage::TRANSFER_DST | ImageUsage::SAMPLED | ImageUsage::STORAGE,
+                memory_properties: MemoryProperties::DEVICE_LOCAL,
+                aspect: ImageAspect::COLOR,
+                tiling: ImageTiling::Optimal,
+                layer_count: 1,
+                image_type: ImageType::Image2D,
+                cubemap: false,
+                memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                data: Some(data),
+                label: Some(path.to_string()),
             },
-            format: format.into(),
-            usage: ImageUsage::TRANSFER_DST | ImageUsage::SAMPLED | ImageUsage::STORAGE,
-            memory_properties: MemoryProperties::DEVICE_LOCAL,
-            aspect: ImageAspect::COLOR,
-            tiling: ImageTiling::Optimal,
-            layer_count: 1,
-            image_type: ImageType::Image2D,
-            cubemap: false,
-            memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-            data: Some(data),
-            label: Some(path.to_string()),
-        });
+        );
 
         Ok(Texture::new(image))
     }
