@@ -1,13 +1,9 @@
-use log::LevelFilter;
+use log::{error, LevelFilter};
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
-use mvcore::render::backend::buffer::MemoryProperties;
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
-use mvcore::render::backend::image::{
-    AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage,
-    MVImageCreateInfo,
-};
+use mvcore::render::backend::image::{AccessFlags, ImageLayout};
 use mvcore::render::backend::sampler::{
     Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
 };
@@ -16,12 +12,12 @@ use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
 use mvengine_render2d::renderer2d::{Renderer2D, Shape};
-use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
-use mvutils::utils::TetrahedronOp;
 use mvutils::version::Version;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime};
+use bytebuffer::ByteBuffer;
+use mvutils::save::Savable;
+use mvengine_render2d::font::{AtlasData, PreparedAtlasData};
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -55,8 +51,11 @@ struct AppLoop {
 
     manager: Arc<AssetManager>,
     handle: AssetHandle,
+    atlas_handle: AssetHandle,
     loaded: bool,
     sampler: Sampler,
+
+    atlas_data: Arc<PreparedAtlasData>,
 }
 
 impl ApplicationLoopCallbacks for AppLoop {
@@ -85,8 +84,18 @@ impl ApplicationLoopCallbacks for AppLoop {
         let manager = AssetManager::new(device.clone(), 1);
 
         let handle = manager.create_asset("texture.png", AssetType::Texture);
+        let atlas_handle = manager.create_asset("atlas.png", AssetType::Texture);
 
         handle.load();
+        atlas_handle.load();
+
+        let font_data_bytes = include_bytes!("data.font");
+        let mut buffer = ByteBuffer::from_bytes(font_data_bytes);
+        let atlas_data = Arc::new(AtlasData::load(&mut buffer).unwrap_or_else(|err| {
+            error!("{err}");
+            panic!()
+        }).into());
+        drop(buffer);
 
         let sampler = Sampler::new(
             device.clone(),
@@ -119,25 +128,23 @@ impl ApplicationLoopCallbacks for AppLoop {
             timer: 0.0,
             manager,
             handle,
+            atlas_handle,
             loaded: false,
+            atlas_data,
         }
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {
-        let asset = self.handle.get();
+        let asset = self.atlas_handle.get();
         if asset.failed() {
             println!("Failed!");
         } else if asset.is_loaded() && !self.loaded {
             self.loaded = true;
-            // we can swap the image here
             let Some(texture) = asset.as_texture() else {
                 unreachable!()
             };
 
-            self.device.wait_idle();
-            // for set in self.renderer2d.get_mut().get_atlas_sets() {
-            //     set.update_image(0, &texture.image(), &self.sampler, ImageLayout::ShaderReadOnlyOptimal);
-            // }
+            self.renderer2d.get_mut().set_font(0, &texture.image(), self.atlas_data.clone());
         }
     }
 

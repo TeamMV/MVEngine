@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::sync::Arc;
-
+use bytebuffer::ByteBuffer;
+use mvutils::hashers::U32IdentityHasher;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::math::mat::Mat4;
@@ -33,6 +34,7 @@ use mvcore::render::window::Window;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::TetrahedronOp;
 use shaderc::ShaderKind;
+use crate::font::{AtlasData, PreparedAtlasData};
 
 #[repr(C)]
 struct Vertex {
@@ -65,6 +67,14 @@ pub enum Shape {
         tex_coord: Vec4,
         color: Vec4,
         blending: f32,
+    },
+    Text {
+        position: Vec3,
+        rotation: Vec3,
+        height: f32,
+        font_id: u16,
+        text: String,
+        color: Vec4,
     },
 }
 
@@ -131,6 +141,8 @@ pub struct Renderer2D {
     extent: Extent2D,
     default_sampler: Sampler,
     atlas_sets: Vec<DescriptorSet>,
+
+    font_data: hashbrown::HashMap<u32, Arc<PreparedAtlasData>, U32IdentityHasher>,
 
     max_textures: u32,
     max_fonts: u32,
@@ -524,8 +536,9 @@ impl Renderer2D {
             atlas_sets,
             default_sampler,
 
-            max_textures: max_textures as u32,
-            max_fonts: max_textures as u32,
+            max_textures: max_textures,
+            max_fonts: max_textures,
+            font_data: hashbrown::HashMap::with_hasher(U32IdentityHasher::default()),
         }
     }
 
@@ -705,7 +718,7 @@ impl Renderer2D {
                     tex_coord,
                     color,
                     tex_id: tex_id.map(|id| id as i32).unwrap_or(-1),
-                    blending,
+                    blending: blending.clamp(0.0, 1.0),
                 };
 
                 self.rectangles.push(rectangle);
@@ -751,6 +764,68 @@ impl Renderer2D {
 
                 self.rounded_rects.push(rounded_rect);
             }
+            Shape::Text { position, rotation, height, font_id, text, color } => {
+                if let Some(atlas) = self.font_data.get(&(font_id as u32)) {
+
+                    let font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
+                    let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
+
+                    let mut x = 0.0;
+                    let mut y = 0.0;
+
+                    for char in text.chars()
+                    {
+                        if (char == '\t')
+                        {
+                            x += 6.0 + space_advance * font_scale;
+                            continue;
+                        }
+                        else if (char == ' ')
+                        {
+                            x += space_advance * font_scale;
+                            continue;
+                        }
+                        else if (char == '\n')
+                        {
+                            x = 0.0;
+                            y -= font_scale * atlas.metrics.line_height;
+                            continue;
+                        }
+
+                        let glyph = if let Some(glyph) = atlas.find_glyph(char) { glyph } else {
+                            atlas.find_glyph('?').unwrap()
+                        };
+
+                        let bounds_plane = &glyph.plane_bounds;
+                        let bounds_atlas = &glyph.atlas_bounds;
+
+                        let tex_coords = Vec4::new(bounds_atlas.left as f32, bounds_atlas.top as f32, bounds_atlas.right as f32, bounds_atlas.bottom as f32);
+
+                        tex_coords.x /= atlas.atlas.width as f32;
+                        tex_coords.y /= atlas.atlas.height as f32;
+                        tex_coords.z /= atlas.atlas.width as f32;
+                        tex_coords.w /= atlas.atlas.height as f32;
+
+                        let scale = Vec2::new((bounds_plane.right - bounds_plane.left) as f32, (bounds_plane.top - bounds_plane.bottom) as f32);
+
+                        self.add_shape(Shape::Rectangle {
+                            position: Vec3::new(
+                                x as f32,
+                                y as f32,
+                                0.0,
+                            ),
+                            rotation,
+                            scale,
+                            tex_id: Some(font_id),
+                            tex_coord: tex_coords,
+                            color: Vec4::splat(1.0),
+                            blending: -1.0,
+                        });
+
+                        x += glyph.advance;
+                    }
+                }
+            }
         }
     }
 
@@ -778,6 +853,20 @@ impl Renderer2D {
                 ImageLayout::ShaderReadOnlyOptimal,
             );
         }
+    }
+
+    pub fn set_font(&mut self, index: u32, texture: &Image, data: Arc<PreparedAtlasData>) {
+        self.device.wait_idle();
+        for atlas in &mut self.atlas_sets {
+            atlas.update_image_array(
+                0,
+                index,
+                texture,
+                &self.default_sampler,
+                ImageLayout::ShaderReadOnlyOptimal,
+            );
+        }
+        self.font_data.insert(index, data);
     }
 
     fn create_buffer_and_set(

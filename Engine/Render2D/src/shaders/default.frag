@@ -11,6 +11,15 @@ layout(set = 2, binding = 0) uniform sampler2D textures[];
 layout(set = 2, binding = 1) uniform sampler2D fonts[];
 
 void main() {
-    vec4 tex = texture(textures[0], inTexCoords);
-    outColor = texId == -1 ? inColor : mix(tex.rgba, inColor.rgba, blending);
+
+    if (blending < 0.0f)
+    {
+        // font
+    }
+    else
+    {
+        // no font
+        vec4 tex = texture(textures[0], inTexCoords);
+        outColor = texId == -1 ? inColor : mix(tex, inColor, blending);
+    }
 }
