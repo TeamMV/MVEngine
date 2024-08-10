@@ -590,7 +590,7 @@ impl Renderer2D {
 
         // Call draw instanced on data
         macro_rules! draw {
-            ($cmd:ident, $frame:ident, $data:expr, $offset:expr, $pipeline:expr, $sets:expr, $mesh:expr) => {
+            ($cmd:ident, $frame:ident, $data:expr, $pipeline:expr, $sets:expr, $mesh:expr) => {
                 if !$data.is_empty() {
                     $pipeline.bind($cmd);
 
@@ -598,7 +598,7 @@ impl Renderer2D {
                     $sets[$frame as usize].bind($cmd, &$pipeline, 1);
                     self.atlas_sets[$frame as usize].bind($cmd, &$pipeline, 2);
 
-                    $mesh.draw_instanced($cmd, $offset as u32, $data.len() as u32);
+                    $mesh.draw_instanced($cmd, 0, $data.len() as u32);
                 }
             };
         }
@@ -633,7 +633,6 @@ impl Renderer2D {
             cmd,
             current_frame,
             self.rectangles,
-            0,
             self.rectangle_pipeline,
             self.rectangle_sets,
             self.rectangle_mesh
@@ -642,7 +641,6 @@ impl Renderer2D {
             cmd,
             current_frame,
             self.rounded_rects,
-            0,
             self.rounded_rect_pipeline,
             self.rounded_rect_sets,
             self.rounded_rect_mesh
@@ -765,8 +763,21 @@ impl Renderer2D {
                 self.rounded_rects.push(rounded_rect);
             }
             Shape::Text { position, rotation, height, font_id, text, color } => {
-                if let Some(atlas) = self.font_data.get(&(font_id as u32)) {
+                while self.rectangles.capacity() <= self.rectangles.len() + text.len() {
+                    if self.rectangles.len() as u64 == MAX_BATCH_SIZE {
+                        log::error!("Renderer2D: Maximum rectangle draw limit exceeded");
+                        panic!();
+                    }
+                    grow_batch!(
+                        self.rectangles,
+                        self.rectangle_buffers,
+                        self.rectangle_sets,
+                        Rectangle,
+                        "Rectangle"
+                    );
+                }
 
+                if let Some(atlas) = self.font_data.get(&(font_id as u32)).cloned() {
                     let font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
                     let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
 
@@ -793,34 +804,45 @@ impl Renderer2D {
                         }
 
                         let glyph = if let Some(glyph) = atlas.find_glyph(char) { glyph } else {
-                            atlas.find_glyph('?').unwrap()
+                            atlas.find_glyph('?').unwrap_or_else(|| {
+                                log::error!("Font atlas missing 'missing character' glyph");
+                                panic!()
+                            })
                         };
 
                         let bounds_plane = &glyph.plane_bounds;
                         let bounds_atlas = &glyph.atlas_bounds;
 
-                        let tex_coords = Vec4::new(bounds_atlas.left as f32, bounds_atlas.top as f32, bounds_atlas.right as f32, bounds_atlas.bottom as f32);
+                        let mut tex_coords = Vec4::new(bounds_atlas.left as f32, (atlas.atlas.height as f64 - bounds_atlas.top) as f32, (bounds_atlas.right - bounds_atlas.left) as f32, (bounds_atlas.top - bounds_atlas.bottom) as f32);
 
                         tex_coords.x /= atlas.atlas.width as f32;
                         tex_coords.y /= atlas.atlas.height as f32;
                         tex_coords.z /= atlas.atlas.width as f32;
                         tex_coords.w /= atlas.atlas.height as f32;
 
-                        let scale = Vec2::new((bounds_plane.right - bounds_plane.left) as f32, (bounds_plane.top - bounds_plane.bottom) as f32);
+                        //tex_coords.x = 0.0;
+                        //tex_coords.y = 0.0;
+                        //tex_coords.z = 1.0;
+                        //tex_coords.w = 1.0;
 
-                        self.add_shape(Shape::Rectangle {
-                            position: Vec3::new(
-                                x as f32,
-                                y as f32,
-                                0.0,
-                            ),
-                            rotation,
+                        let mut scale = Vec2::new((bounds_plane.right - bounds_plane.left) as f32, (bounds_plane.top - bounds_plane.bottom) as f32);
+                        scale.x = scale.x * 200.0;
+                        scale.y = scale.y * 200.0;
+
+                        let rot = rotation.to_radians();
+
+                        // TODO: far plane is hardcoded to 100.0, change it. We use half the far plane to allow for negative z values
+                        let rectangle = Rectangle {
+                            position: Vec4::new(x as f32 + position.x, y as f32 + position.y, 50.0 - position.z, 0.0),
+                            rotation: Vec4::new(rot.x, rot.y, rot.z, 0.0),
                             scale,
-                            tex_id: Some(font_id),
-                            tex_coord: tex_coords,
-                            color: Vec4::splat(1.0),
+                            tex_coord : tex_coords,
+                            color,
+                            tex_id: font_id as i32,
                             blending: -1.0,
-                        });
+                        };
+
+                        self.rectangles.push(rectangle);
 
                         x += glyph.advance;
                     }
@@ -859,7 +881,7 @@ impl Renderer2D {
         self.device.wait_idle();
         for atlas in &mut self.atlas_sets {
             atlas.update_image_array(
-                0,
+                1,
                 index,
                 texture,
                 &self.default_sampler,

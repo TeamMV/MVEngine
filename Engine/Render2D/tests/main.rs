@@ -1,4 +1,4 @@
-use log::{error, LevelFilter};
+use log::LevelFilter;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
@@ -92,7 +92,7 @@ impl ApplicationLoopCallbacks for AppLoop {
         let font_data_bytes = include_bytes!("data.font");
         let mut buffer = ByteBuffer::from_bytes(font_data_bytes);
         let atlas_data = Arc::new(AtlasData::load(&mut buffer).unwrap_or_else(|err| {
-            error!("{err}");
+            log::error!("{err}");
             panic!()
         }).into());
         drop(buffer);
@@ -157,75 +157,84 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         let renderer2d = self.renderer2d.get_mut();
 
-        renderer2d.add_shape(Shape::Rectangle {
-            position: Vec3::new(
-                self.quad_position.x + 300.0,
-                -self.quad_position.y + 400.0,
-                5.0,
-            ),
-            rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
-            scale: Vec2::splat(50.0),
-            tex_id: None,
-            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-            color: Vec4::new(1.0, 1.0, 1.0, 1.0),
-            blending: 0.0,
-        });
+        // renderer2d.add_shape(Shape::Rectangle {
+        //     position: Vec3::new(
+        //         self.quad_position.x + 300.0,
+        //         -self.quad_position.y + 400.0,
+        //         5.0,
+        //     ),
+        //     rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
+        //     scale: Vec2::splat(50.0),
+        //     tex_id: None,
+        //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        //     color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+        //     blending: 0.0,
+        // });
+        //
+        // renderer2d.add_shape(Shape::Rectangle {
+        //     position: Vec3::new(
+        //         self.quad_position.x + 300.0,
+        //         -self.quad_position.y + 200.0,
+        //         -1.0,
+        //     ),
+        //     rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
+        //     scale: Vec2::splat(50.0),
+        //     tex_id: None,
+        //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        //     color: Vec4::splat(1.0),
+        //     blending: 0.0,
+        // });
+        //
+        // renderer2d.add_shape(Shape::Rectangle {
+        //     position: Vec3::new(
+        //         self.quad_position.x + 200.0,
+        //         -self.quad_position.y + 300.0,
+        //         0.0,
+        //     ),
+        //     rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
+        //     scale: Vec2::splat(50.0),
+        //     tex_id: None,
+        //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        //     color: Vec4::splat(0.0),
+        //     blending: 0.0,
+        // });
+        //
+        // renderer2d.add_shape(Shape::Rectangle {
+        //     position: Vec3::new(
+        //         self.quad_position.x + 400.0,
+        //         -self.quad_position.y + 300.0,
+        //         0.0,
+        //     ),
+        //     rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
+        //     scale: Vec2::splat(50.0),
+        //     tex_id: Some(0),
+        //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        //     color: Vec4::splat(0.0),
+        //     blending: 0.0,
+        // });
+        //
+        // for i in 0..4 {
+        //     renderer2d.add_shape(Shape::RoundedRect {
+        //         position: Vec3::new((i * 150) as f32 + 25.0, 200.0, 0.0),
+        //         rotation: Vec3::new(0.0, 0.0, 0.0),
+        //         scale: Vec2::new(100.0, 100.0),
+        //         tex_id: None,
+        //         border_radius: 15.0 * (i + 1) as f32,
+        //         smoothness: 8,
+        //         tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        //         color: Vec4::new(1.0, 0.0, 0.0, 0.5),
+        //         blending: 0.0,
+        //     });
+        // }
 
-        renderer2d.add_shape(Shape::Rectangle {
-            position: Vec3::new(
-                self.quad_position.x + 300.0,
-                -self.quad_position.y + 200.0,
-                -1.0,
-            ),
-            rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
-            scale: Vec2::splat(50.0),
-            tex_id: None,
-            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
+        renderer2d.add_shape(Shape::Text {
+            position: Vec3::new(300.0, 300.0, 0.0),
+            rotation: Vec3::splat(0.0),
+            height: 50.0,
+            font_id: 0,
+            text: "A".to_string(),
             color: Vec4::splat(1.0),
-            blending: 0.0,
         });
-
-        renderer2d.add_shape(Shape::Rectangle {
-            position: Vec3::new(
-                self.quad_position.x + 200.0,
-                -self.quad_position.y + 300.0,
-                0.0,
-            ),
-            rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
-            scale: Vec2::splat(50.0),
-            tex_id: None,
-            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-            color: Vec4::splat(0.0),
-            blending: 0.0,
-        });
-
-        renderer2d.add_shape(Shape::Rectangle {
-            position: Vec3::new(
-                self.quad_position.x + 400.0,
-                -self.quad_position.y + 300.0,
-                0.0,
-            ),
-            rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
-            scale: Vec2::splat(50.0),
-            tex_id: Some(0),
-            tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-            color: Vec4::splat(0.0),
-            blending: 0.0,
-        });
-
-        for i in 0..4 {
-            renderer2d.add_shape(Shape::RoundedRect {
-                position: Vec3::new((i * 150) as f32 + 25.0, 200.0, 0.0),
-                rotation: Vec3::new(0.0, 0.0, 0.0),
-                scale: Vec2::new(100.0, 100.0),
-                tex_id: None,
-                border_radius: 15.0 * (i + 1) as f32,
-                smoothness: 8,
-                tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-                color: Vec4::new(1.0, 0.0, 0.0, 0.5),
-                blending: 0.0,
-            });
-        }
 
         let image_index = self.core_renderer.get_mut().begin_frame().unwrap();
         let cmd = self.core_renderer.get_mut().get_current_command_buffer();

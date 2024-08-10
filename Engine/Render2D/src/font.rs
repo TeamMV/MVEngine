@@ -70,7 +70,7 @@ pub(crate) struct Kerning {
 impl Into<PreparedAtlasData> for AtlasData {
     fn into(self) -> PreparedAtlasData {
         let mut glyphs = hashbrown::HashMap::with_capacity_and_hasher(self.glyphs.len(), U32IdentityHasher::default());
-        let mut kerning = hashbrown::HashMap::with_capacity_and_hasher(self.kerning.len(), U32IdentityHasher::default());
+        let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher> = hashbrown::HashMap::with_capacity_and_hasher(self.kerning.len(), U32IdentityHasher::default());
 
         for glyph in self.glyphs {
             glyphs.insert(glyph.unicode, glyph);
