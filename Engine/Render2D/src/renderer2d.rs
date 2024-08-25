@@ -78,6 +78,11 @@ pub enum Shape {
     },
 }
 
+pub enum SamplerType {
+    Linear,
+    Nearest,
+}
+
 #[derive(Debug)]
 #[repr(C)]
 struct Rectangle {
@@ -139,7 +144,8 @@ pub struct Renderer2D {
 
     geometry_framebuffers: Vec<Framebuffer>,
     extent: Extent2D,
-    default_sampler: Sampler,
+    nearest_sampler: Sampler,
+    linear_sampler: Sampler,
     atlas_sets: Vec<DescriptorSet>,
 
     font_data: hashbrown::HashMap<u32, Arc<PreparedAtlasData>, U32IdentityHasher>,
@@ -300,7 +306,18 @@ impl Renderer2D {
             rounded_rect_sets.push(set);
         }
 
-        let default_sampler = Sampler::new(
+        let linear_sampler = Sampler::new(
+            device.clone(),
+            MVSamplerCreateInfo {
+                address_mode: SamplerAddressMode::ClampToEdge,
+                filter_mode: Filter::Linear,
+                mipmap_mode: MipmapMode::Linear,
+                anisotropy: false,
+                label: None,
+            },
+        );
+
+        let nearest_sampler = Sampler::new(
             device.clone(),
             MVSamplerCreateInfo {
                 address_mode: SamplerAddressMode::ClampToEdge,
@@ -339,7 +356,7 @@ impl Renderer2D {
                 set.add_image(
                     0,
                     renderer.get().get_missing_texture(),
-                    &default_sampler,
+                    &nearest_sampler,
                     ImageLayout::ShaderReadOnlyOptimal,
                 );
             }
@@ -347,7 +364,7 @@ impl Renderer2D {
                 set.add_image(
                     1,
                     renderer.get().get_missing_texture(),
-                    &default_sampler,
+                    &linear_sampler,
                     ImageLayout::ShaderReadOnlyOptimal,
                 );
             }
@@ -534,7 +551,8 @@ impl Renderer2D {
 
             geometry_framebuffers,
             atlas_sets,
-            default_sampler,
+            linear_sampler,
+            nearest_sampler,
 
             max_textures: max_textures,
             max_fonts: max_textures,
@@ -546,8 +564,12 @@ impl Renderer2D {
         &mut self.atlas_sets
     }
 
-    pub fn get_sampler(&self) -> &Sampler {
-        &self.default_sampler
+    pub fn get_linear_sampler(&self) -> &Sampler {
+        &self.linear_sampler
+    }
+
+    pub fn get_nearest_sampler(&self) -> &Sampler {
+        &self.nearest_sampler
     }
 
     pub fn get_max_textures(&self) -> u32 {
@@ -778,7 +800,8 @@ impl Renderer2D {
                 }
 
                 if let Some(atlas) = self.font_data.get(&(font_id as u32)).cloned() {
-                    let font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
+                    let mut font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
+                    font_scale *= height as f64 / atlas.metrics.line_height;
                     let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
 
                     let mut x = 0.0;
@@ -820,14 +843,9 @@ impl Renderer2D {
                         tex_coords.z /= atlas.atlas.width as f32;
                         tex_coords.w /= atlas.atlas.height as f32;
 
-                        //tex_coords.x = 0.0;
-                        //tex_coords.y = 0.0;
-                        //tex_coords.z = 1.0;
-                        //tex_coords.w = 1.0;
-
                         let mut scale = Vec2::new((bounds_plane.right - bounds_plane.left) as f32, (bounds_plane.top - bounds_plane.bottom) as f32);
-                        scale.x = scale.x * 200.0;
-                        scale.y = scale.y * 200.0;
+                        scale.x = scale.x * font_scale as f32;
+                        scale.y = scale.y * font_scale as f32;
 
                         let rot = rotation.to_radians();
 
@@ -844,7 +862,7 @@ impl Renderer2D {
 
                         self.rectangles.push(rectangle);
 
-                        x += glyph.advance;
+                        x += glyph.advance * font_scale;
                     }
                 }
             }
@@ -858,20 +876,23 @@ impl Renderer2D {
                 0,
                 index,
                 self.core_renderer.get().get_missing_texture(),
-                &self.default_sampler,
+                &self.nearest_sampler,
                 ImageLayout::ShaderReadOnlyOptimal,
             );
         }
     }
 
-    pub fn set_texture(&mut self, index: u32, texture: &Image) {
+    pub fn set_texture(&mut self, index: u32, texture: &Image, sampler_type: SamplerType) {
         self.device.wait_idle();
         for atlas in &mut self.atlas_sets {
             atlas.update_image_array(
                 0,
                 index,
                 texture,
-                &self.default_sampler,
+                match sampler_type {
+                    SamplerType::Linear => &self.linear_sampler,
+                    SamplerType::Nearest => &self.nearest_sampler,
+                },
                 ImageLayout::ShaderReadOnlyOptimal,
             );
         }
@@ -884,7 +905,7 @@ impl Renderer2D {
                 1,
                 index,
                 texture,
-                &self.default_sampler,
+                &self.linear_sampler,
                 ImageLayout::ShaderReadOnlyOptimal,
             );
         }

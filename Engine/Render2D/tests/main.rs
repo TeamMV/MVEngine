@@ -11,7 +11,7 @@ use mvcore::render::backend::{Backend, Extent2D};
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvengine_render2d::renderer2d::{Renderer2D, Shape};
+use mvengine_render2d::renderer2d::{Renderer2D, SamplerType, Shape};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use std::sync::Arc;
@@ -108,15 +108,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             },
         );
 
-        for set in renderer2d.get_mut().get_atlas_sets() {
-            set.update_image_array(
-                0,
-                1,
-                core_renderer.get().get_empty_texture(),
-                renderer2d.get().get_sampler(),
-                ImageLayout::ShaderReadOnlyOptimal,
-            );
-        }
+        renderer2d.get_mut().set_texture(1, core_renderer.get().get_missing_texture(), SamplerType::Linear);
 
         Self {
             sampler,
@@ -165,9 +157,9 @@ impl ApplicationLoopCallbacks for AppLoop {
         //     ),
         //     rotation: Vec3::new(0.0, 0.0, self.quad_rotation),
         //     scale: Vec2::splat(50.0),
-        //     tex_id: None,
+        //     tex_id: Some(1),
         //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-        //     color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+        //     color: Vec4::splat(1.0),
         //     blending: 0.0,
         // });
         //
@@ -179,7 +171,7 @@ impl ApplicationLoopCallbacks for AppLoop {
         //     ),
         //     rotation: Vec3::new(0.0, 0.0, -self.quad_rotation),
         //     scale: Vec2::splat(50.0),
-        //     tex_id: None,
+        //     tex_id: Some(0),
         //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
         //     color: Vec4::splat(1.0),
         //     blending: 0.0,
@@ -195,7 +187,7 @@ impl ApplicationLoopCallbacks for AppLoop {
         //     scale: Vec2::splat(50.0),
         //     tex_id: None,
         //     tex_coord: Vec4::new(0.0, 0.0, 1.0, 1.0),
-        //     color: Vec4::splat(0.0),
+        //     color: Vec4::splat(1.0),
         //     blending: 0.0,
         // });
         //
@@ -230,9 +222,9 @@ impl ApplicationLoopCallbacks for AppLoop {
         renderer2d.add_shape(Shape::Text {
             position: Vec3::new(300.0, 300.0, 0.0),
             rotation: Vec3::splat(0.0),
-            height: 50.0,
+            height: 200.0,
             font_id: 0,
-            text: "A".to_string(),
+            text: "a".to_string(),
             color: Vec4::splat(1.0),
         });
 

@@ -36,7 +36,7 @@ void main() {
         float screenPxDistance = screenPxRange(fonts[texId])*(sd - 0.5);
         float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-        outColor = vec4(texture(fonts[texId], inTexCoords));
+        outColor = vec4(vec3(1.0f), opacity);
     }
     else
     {
