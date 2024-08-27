@@ -48,6 +48,7 @@ impl VkDescriptorWriter {
     pub(crate) fn write_image(
         &mut self,
         binding: u32,
+        array_index: u32,
         image_info: &[ash::vk::DescriptorImageInfo],
     ) {
         let binding_description = self.layout.get_binding(binding);
@@ -58,7 +59,8 @@ impl VkDescriptorWriter {
             .image_info(image_info);
 
         // Not sure why but this field isn't present in the builder
-        write.descriptor_count = binding_description.descriptor_count;
+        write.descriptor_count = image_info.len() as u32;
+        write.dst_array_element = array_index;
 
         self.writes.push(*write);
     }

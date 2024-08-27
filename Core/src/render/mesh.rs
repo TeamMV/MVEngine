@@ -1,4 +1,4 @@
-use crate::render::backend::buffer::{Buffer, BufferUsage, MemoryProperties, MVBufferCreateInfo};
+use crate::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
 
@@ -106,6 +106,11 @@ impl Mesh {
             indices,
             self.name.clone(),
         ));
+    }
+
+    pub fn remove_index_buffer(&mut self) {
+        self.index_buffer = None;
+        self.index_count = 0;
     }
 
     pub fn draw(&self, cmd: &CommandBuffer) {

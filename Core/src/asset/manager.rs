@@ -1,10 +1,10 @@
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread::JoinHandle;
 use ahash::AHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
 
-use crossbeam_channel::{Receiver, Sender, unbounded};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use parking_lot::{Mutex, RwLock};
@@ -24,14 +24,18 @@ pub struct AssetHandle {
 
 impl AssetHandle {
     pub fn load(&self) {
-        if self.global { return; }
+        if self.global {
+            return;
+        }
         if self.counter.lock().fetch_add(1, Ordering::AcqRel) == 0 {
             self.manager.push(AssetTask::Load(self.clone()));
         }
     }
 
     pub fn unload(&self) {
-        if self.global { return; }
+        if self.global {
+            return;
+        }
         if self.counter.lock().fetch_sub(1, Ordering::AcqRel) == 1 {
             self.manager.push(AssetTask::Unload(self.clone()));
         }
@@ -97,14 +101,15 @@ impl AssetManager {
             let thread = std::thread::spawn(|| Self::loader_thread(receiver, queued));
             threads.push((thread, sender));
         }
-        
+
         Self {
             asset_map: RwLock::new(HashMap::with_hasher(U64IdentityHasher::default())),
             threads,
             index: AtomicU64::new(0),
             queued,
             loader: AssetLoader::new(device),
-        }.into()
+        }
+        .into()
     }
 
     #[allow(invalid_reference_casting)]
@@ -128,8 +133,8 @@ impl AssetManager {
                 }
                 AssetTask::Close => {
                     queued.fetch_sub(1, Ordering::AcqRel);
-                    break
-                },
+                    break;
+                }
             }
         }
     }
@@ -142,7 +147,12 @@ impl AssetManager {
         self.create_asset_inner(path, ty, true)
     }
 
-    fn create_asset_inner(self: &Arc<Self>, path: &str, ty: AssetType, global: bool) -> AssetHandle {
+    fn create_asset_inner(
+        self: &Arc<Self>,
+        path: &str,
+        ty: AssetType,
+        global: bool,
+    ) -> AssetHandle {
         let mut hasher = AHasher::default();
         path.hash(&mut hasher);
         let handle = hasher.finish();
@@ -166,7 +176,11 @@ impl AssetManager {
     }
 
     pub fn get(&self, handle: &AssetHandle) -> Arc<Asset> {
-        self.asset_map.read().get(handle).expect("AssetHandle not valid").clone()
+        self.asset_map
+            .read()
+            .get(handle)
+            .expect("AssetHandle not valid")
+            .clone()
     }
 
     pub fn is_asset_handle_valid(&self, handle: &AssetHandle) -> bool {
@@ -174,12 +188,17 @@ impl AssetManager {
     }
 
     pub fn is_asset_loaded(&self, handle: &AssetHandle) -> bool {
-        self.asset_map.read().get(handle).map(|asset| asset.is_loaded()).unwrap_or_default()
+        self.asset_map
+            .read()
+            .get(handle)
+            .map(|asset| asset.is_loaded())
+            .unwrap_or_default()
     }
 
     fn push(&self, task: AssetTask) {
         let index = self.index.load(Ordering::Acquire);
-        self.index.store((index + 1) % self.threads.len() as u64, Ordering::Release);
+        self.index
+            .store((index + 1) % self.threads.len() as u64, Ordering::Release);
         self.queued.fetch_add(1, Ordering::AcqRel);
         #[allow(invalid_reference_casting)]
         if let Err(task) = self.threads[index as usize].1.send(task) {
@@ -190,7 +209,9 @@ impl AssetManager {
             sender.send(task.0).expect("Failed to send upon creation");
             let queued = self.queued.clone();
             let thread = std::thread::spawn(|| Self::loader_thread(receiver, queued));
-            let _unsafe_mut = unsafe { &mut *(&self.threads as *const _ as *mut Vec<(JoinHandle<()>, Sender<AssetTask>)>) };
+            let _unsafe_mut = unsafe {
+                &mut *(&self.threads as *const _ as *mut Vec<(JoinHandle<()>, Sender<AssetTask>)>)
+            };
             _unsafe_mut[index as usize] = (thread, sender);
         }
     }

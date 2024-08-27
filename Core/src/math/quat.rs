@@ -1,7 +1,7 @@
+use crate::math::vec::{DerefVec4, Vec4};
+use mvutils::unsafe_utils::Unsafe;
 use std::ops::{Deref, DerefMut, Mul};
 use std::simd::{f32x4, simd_swizzle};
-use mvutils::unsafe_utils::Unsafe;
-use crate::math::vec::{DerefVec4, Vec4};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(transparent)]
@@ -81,7 +81,6 @@ impl Mul for Quat {
 
         let rhs_trans_inv_lz = z * rhs_transformed_inverted;
         let sum_a = rhs_lw + rhs_inv_lx_norm;
-
 
         const NPPN: f32x4 = f32x4::from_array([-1.0, 1.0, 1.0, -1.0]);
         let rhs_trans_inv_lz_norm = rhs_trans_inv_lz * NPPN;

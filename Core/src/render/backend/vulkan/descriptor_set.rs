@@ -1,4 +1,6 @@
-use crate::render::backend::descriptor_set::{MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo};
+use crate::render::backend::descriptor_set::{
+    MVDescriptorSetCreateInfo, MVDescriptorSetFromLayoutCreateInfo,
+};
 #[cfg(feature = "ray-tracing")]
 use crate::render::backend::pipeline::RayTracing;
 use crate::render::backend::pipeline::{Compute, Graphics, PipelineType};
@@ -24,7 +26,7 @@ pub struct VkDescriptorSet {
     bindings_write_info: Vec<Binding>,
 
     #[cfg(debug_assertions)]
-    debug_name: std::ffi::CString
+    debug_name: std::ffi::CString,
 }
 
 pub(crate) struct CreateInfo {
@@ -195,7 +197,7 @@ impl VkDescriptorSet {
             bindings_write_info: writes,
 
             #[cfg(debug_assertions)]
-            debug_name: create_info.debug_name
+            debug_name: create_info.debug_name,
         }
     }
 
@@ -315,6 +317,7 @@ impl VkDescriptorSet {
                     binding_data_image.push(binding_data);
                     writer.write_image(
                         index as u32,
+                        0,
                         &binding_data_image[binding_data_image.len() - 1],
                     );
                 }
@@ -344,10 +347,19 @@ impl VkDescriptorSet {
         writer.build(&mut self.handle, &mut self.pool_index, true);
 
         #[cfg(debug_assertions)]
-        self.device.set_object_name(&ash::vk::ObjectType::DESCRIPTOR_SET, self.handle.as_raw(), self.debug_name.as_c_str());
+        self.device.set_object_name(
+            &ash::vk::ObjectType::DESCRIPTOR_SET,
+            self.handle.as_raw(),
+            self.debug_name.as_c_str(),
+        );
     }
 
-    pub(crate) fn update_image(&mut self, binding: u32, image_info: ash::vk::DescriptorImageInfo) {
+    pub(crate) fn update_image(
+        &mut self,
+        binding: u32,
+        array_index: u32,
+        image_info: ash::vk::DescriptorImageInfo,
+    ) {
         let mut writer = VkDescriptorWriter::new(
             self.device.clone(),
             descriptor_writer::CreateInfo {
@@ -356,7 +368,7 @@ impl VkDescriptorSet {
             },
         );
 
-        writer.write_image(binding, &[image_info]);
+        writer.write_image(binding, array_index, &[image_info]);
 
         writer.build(&mut self.handle, &mut self.pool_index, false);
     }

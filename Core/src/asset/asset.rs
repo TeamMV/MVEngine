@@ -1,15 +1,15 @@
-use std::any::Any;
 use crate::render::texture::Texture;
+use std::any::Any;
 
-pub use shaderc::ShaderKind;
 use crate::asset::manager::AssetHandle;
 use crate::render::backend::shader::Shader;
 use crate::render::model::Model;
+pub use shaderc::ShaderKind;
 
 pub enum AssetType {
     Texture,
     Model,
-    Shader(ShaderKind)
+    Shader(ShaderKind),
 }
 
 pub enum InnerAsset {
@@ -28,22 +28,24 @@ pub struct Asset {
 
 impl Asset {
     pub(crate) fn load(&mut self) {
-        if self.is_loaded() { return; }
+        if self.is_loaded() {
+            return;
+        }
         let loader = self.handle.get_manager().get_loader();
         match self.ty {
-            AssetType::Texture => {
-                match loader.import_texture(self.handle.get_path()) {
-                    Ok(texture) => self.inner = InnerAsset::Texture(texture),
-                    Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
-                }
-            }
+            AssetType::Texture => match loader.import_texture(self.handle.get_path()) {
+                Ok(texture) => self.inner = InnerAsset::Texture(texture),
+                Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
+            },
             AssetType::Model => {}
             AssetType::Shader(kind) => {}
         }
     }
 
     pub(crate) fn unload(&mut self) {
-        if !self.is_loaded() { return; }
+        if !self.is_loaded() {
+            return;
+        }
     }
 
     pub(crate) fn reload(&mut self) {
@@ -71,7 +73,10 @@ impl Asset {
     pub fn take_error(&self) -> Option<Box<dyn Any + Send + 'static>> {
         if self.failed() {
             let unsafe_ref = unsafe { &mut *(&self.inner as *const _ as *mut InnerAsset) };
-            let InnerAsset::Failed(err) = std::mem::replace(unsafe_ref, InnerAsset::Unloaded) else { unreachable!() };
+            let InnerAsset::Failed(err) = std::mem::replace(unsafe_ref, InnerAsset::Unloaded)
+            else {
+                unreachable!()
+            };
             Some(err)
         } else {
             None

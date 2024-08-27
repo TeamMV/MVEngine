@@ -1,16 +1,20 @@
-use mvutils::remake::Remake;
-use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
-
+use crate::render::backend::buffer::MemoryProperties;
 use crate::render::backend::command_buffer::{
     CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
 };
 use crate::render::backend::device::Device;
-use crate::render::backend::Extent2D;
 use crate::render::backend::framebuffer::Framebuffer;
-use crate::render::backend::image::{AccessFlags, Image, ImageLayout};
+use crate::render::backend::image::{
+    AccessFlags, Image, ImageAspect, ImageFormat, ImageLayout, ImageTiling, ImageType, ImageUsage,
+    MVImageCreateInfo,
+};
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
+use crate::render::backend::Extent2D;
+use crate::render::texture::Texture;
 use crate::render::window::Window;
+use mvutils::remake::Remake;
+use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
 
 pub struct Renderer {
     device: Device,
@@ -18,6 +22,8 @@ pub struct Renderer {
     current_frame: u32,
     current_image_index: u32,
     swapchain: Remake<Swapchain>,
+    empty_texture: Image,
+    missing_texture: Image,
     vsync: bool,
     max_frames_in_flight: u32,
     width: u32,
@@ -52,10 +58,68 @@ impl Renderer {
             ));
         }
 
+        let missing_texture = Image::new(
+            device.clone(),
+            MVImageCreateInfo {
+                size: Extent2D {
+                    width: 2,
+                    height: 2,
+                },
+                format: ImageFormat::R8G8B8A8,
+                usage: ImageUsage::SAMPLED | ImageUsage::STORAGE,
+                memory_properties: MemoryProperties::DEVICE_LOCAL,
+                aspect: ImageAspect::COLOR,
+                tiling: ImageTiling::Optimal,
+                layer_count: 1,
+                image_type: ImageType::Image2D,
+                cubemap: false,
+                memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                data: Some(vec![
+                    255u8, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255u8, 0, 255, 255,
+                ]),
+                label: Some("Default image".to_string()),
+            },
+        );
+        missing_texture.transition_layout(
+            ImageLayout::ShaderReadOnlyOptimal,
+            None,
+            AccessFlags::empty(),
+            AccessFlags::empty(),
+        );
+
+        let empty_texture = Image::new(
+            device.clone(),
+            MVImageCreateInfo {
+                size: Extent2D {
+                    width: 1,
+                    height: 1,
+                },
+                format: ImageFormat::R8G8B8A8,
+                usage: ImageUsage::SAMPLED | ImageUsage::STORAGE,
+                memory_properties: MemoryProperties::DEVICE_LOCAL,
+                aspect: ImageAspect::COLOR,
+                tiling: ImageTiling::Optimal,
+                layer_count: 1,
+                image_type: ImageType::Image2D,
+                cubemap: false,
+                memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                data: Some(vec![0, 0, 0, 0]),
+                label: Some("Default image".to_string()),
+            },
+        );
+        empty_texture.transition_layout(
+            ImageLayout::ShaderReadOnlyOptimal,
+            None,
+            AccessFlags::empty(),
+            AccessFlags::empty(),
+        );
+
         Self {
             device,
             command_buffers,
             swapchain,
+            empty_texture,
+            missing_texture,
             vsync: window.info.vsync,
             current_frame: 0,
             current_image_index: 0,
@@ -212,7 +276,13 @@ impl Renderer {
         self.max_frames_in_flight
     }
 
-    pub fn compile_shader(&self, data: &str, kind: ShaderKind, name: Option<String>, defines: &[String]) -> Shader {
+    pub fn compile_shader(
+        &self,
+        data: &str,
+        kind: ShaderKind,
+        name: Option<String>,
+        defines: &[String],
+    ) -> Shader {
         let compiler = shaderc::Compiler::new().unwrap();
         let mut options = shaderc::CompileOptions::new().unwrap();
         options.set_optimization_level(OptimizationLevel::Performance);
@@ -241,5 +311,13 @@ impl Renderer {
                 label: name,
             },
         )
+    }
+
+    pub fn get_empty_texture(&self) -> &Image {
+        &self.empty_texture
+    }
+
+    pub fn get_missing_texture(&self) -> &Image {
+        &self.missing_texture
     }
 }

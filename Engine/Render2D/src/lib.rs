@@ -2,3 +2,4 @@
 #![allow(unused_variables)]
 
 pub mod renderer2d;
+pub mod font;

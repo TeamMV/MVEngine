@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, parse_macro_input, Type};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
 
 pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -13,7 +13,7 @@ pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
 
     let vk = match &input.data {
         Data::Enum(data) => get_field(&data.variants[0].fields),
-        _ => unreachable!()
+        _ => unreachable!(),
     };
 
     match s.as_str() {
@@ -74,13 +74,14 @@ pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
         },
-        _ => unreachable!()
-    }.into()
+        _ => unreachable!(),
+    }
+    .into()
 }
 
 fn get_field(fields: &Fields) -> Type {
     match fields {
         Fields::Unnamed(fields) => fields.unnamed[0].ty.clone(),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }

@@ -12,17 +12,11 @@ pub struct Vec2 {
 
 impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self {
-        Self {
-            x,
-            y,
-        }
+        Self { x, y }
     }
 
     pub fn splat(val: f32) -> Self {
-        Self {
-            x: val,
-            y: val,
-        }
+        Self { x: val, y: val }
     }
 }
 
@@ -36,11 +30,7 @@ pub struct Vec3 {
 
 impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            x,
-            y,
-            z,
-        }
+        Self { x, y, z }
     }
 
     pub fn splat(val: f32) -> Self {
@@ -49,6 +39,28 @@ impl Vec3 {
             y: val,
             z: val,
         }
+    }
+
+    pub fn to_radians(self) -> Self {
+        Self {
+            x: self.x.to_radians(),
+            y: self.y.to_radians(),
+            z: self.z.to_radians(),
+        }
+    }
+
+    pub fn to_degrees(self) -> Self {
+        Self {
+            x: self.x.to_degrees(),
+            y: self.y.to_degrees(),
+            z: self.z.to_degrees(),
+        }
+    }
+}
+
+impl Into<Vec4> for Vec3 {
+    fn into(self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, 0.0)
     }
 }
 
