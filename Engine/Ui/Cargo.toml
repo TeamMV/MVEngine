@@ -1,0 +1,19 @@
+[package]
+name = "Ui"
+version = "0.1.0"
+edition = "2021"
+
+[[test]]
+name = "test"
+path = "tests/main.rs"
+harness = false
+
+[dependencies]
+mvcore = { path = "../../Core" }
+mve2d = { path = "../Render2D", package = "mvengine_render2d" }
+mvutils.workspace = true
+mvlogger.workspace = true
+parking_lot.workspace = true
+num-traits.workspace = true
+hashbrown.workspace = true
+log.workspace = true
