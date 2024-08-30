@@ -28,7 +28,7 @@ pub struct Input {
 }
 
 impl Input {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             keys: [false; MAX_KEYS],
             keystates: [State::Released; MAX_KEYS],
@@ -40,7 +40,7 @@ impl Input {
         }
     }
 
-    pub(crate) fn loop_states(&mut self) {
+    pub fn loop_states(&mut self) {
         for i in 0..MAX_KEYS {
             if self.keystates[i] == State::JustPressed {
                 self.keystates[i] = State::Pressed

@@ -2,7 +2,7 @@ use crate::input::raw::Input;
 use crate::input::InputAction::{Keyboard, Mouse};
 use mvutils::utils::Recover;
 use std::sync::{Arc, RwLock};
-
+use mvutils::unsafe_utils::{DangerousCell, Nullable, Unsafe};
 pub use consts::*;
 pub use raw::State;
 
@@ -11,31 +11,31 @@ pub mod raw;
 
 pub struct InputCollector {
     default_processor: InputProcessorImpl,
-    gui_processor: GuiInputProcessor,
-    custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
+    custom_processor: Option<fn(InputAction)>,
 }
 
 impl InputCollector {
-    pub(crate) fn new(input: Arc<RwLock<Input>>) -> Self
+    pub(crate) fn new(input: Arc<DangerousCell<Input>>) -> Self
     where
         Self: Sized,
     {
         Self {
             default_processor: InputProcessorImpl::new(input.clone()),
-            gui_processor: GuiInputProcessor::new(input),
             custom_processor: None,
         }
     }
 
-    pub(crate) fn get_input(&self) -> Arc<RwLock<Input>> {
+    pub(crate) fn get_input(&self) -> Arc<DangerousCell<Input>> {
         self.default_processor.input()
     }
 
     pub fn set_custom_processor(
         &mut self,
-        custom_processor: Option<Arc<RwLock<Box<dyn InputProcessor>>>>,
+        custom_processor: fn(InputAction),
     ) {
-        self.custom_processor = custom_processor;
+        unsafe {
+            self.custom_processor = Some(custom_processor);
+        }
     }
 
     pub(crate) fn collect(&mut self, action: InputAction) {
@@ -43,29 +43,20 @@ impl InputCollector {
             if self.default_processor.is_enabled() {
                 self.default_processor.keyboard_change(ka);
             }
-            if self.custom_processor.is_some() {
-                let mut unwrapped = self.custom_processor.as_mut().unwrap().write().recover();
-                if unwrapped.is_enabled() {
-                    unwrapped.keyboard_change(ka);
-                }
-            }
         }
         if let Mouse(ma) = action {
             if self.default_processor.is_enabled() {
                 self.default_processor.mouse_change(ma);
             }
-            if self.custom_processor.is_some() {
-                let mut unwrapped = self.custom_processor.as_mut().unwrap().write().recover();
-                if unwrapped.is_enabled() {
-                    unwrapped.mouse_change(ma)
-                }
-            }
+        }
+        if self.custom_processor.is_some() {
+            self.custom_processor.unwrap()(action);
         }
     }
 }
 
 #[derive(Copy, Clone)]
-pub(crate) enum InputAction {
+pub enum InputAction {
     Keyboard(KeyboardAction),
     Mouse(MouseAction),
 }
@@ -86,10 +77,10 @@ pub enum MouseAction {
 }
 
 pub trait InputProcessor {
-    fn new(input: Arc<RwLock<Input>>) -> Self
+    fn new(input: Arc<DangerousCell<Input>>) -> Self
     where
         Self: Sized;
-    fn input(&self) -> Arc<RwLock<Input>>;
+    fn input(&self) -> Arc<DangerousCell<Input>>;
     fn mouse_change(&mut self, action: MouseAction);
     fn keyboard_change(&mut self, action: KeyboardAction);
     fn set_enabled(&mut self, enabled: bool);
@@ -106,24 +97,24 @@ pub trait InputProcessor {
 }
 
 pub struct InputProcessorImpl {
-    input: Arc<RwLock<Input>>,
+    input: Arc<DangerousCell<Input>>,
     enabled: bool,
 }
 
 impl InputProcessor for InputProcessorImpl {
-    fn new(input: Arc<RwLock<Input>>) -> Self {
+    fn new(input: Arc<DangerousCell<Input>>) -> Self {
         Self {
             input,
             enabled: true,
         }
     }
 
-    fn input(&self) -> Arc<RwLock<Input>> {
+    fn input(&self) -> Arc<DangerousCell<Input>> {
         self.input.clone()
     }
 
     fn mouse_change(&mut self, action: MouseAction) {
-        let mut input = self.input.write().recover();
+        let mut input = self.input.get_mut();
         if let MouseAction::Press(btn) = action {
             input.mouse[btn] = true;
             input.mousestates[btn] = State::JustPressed;
@@ -159,7 +150,7 @@ impl InputProcessor for InputProcessorImpl {
     }
 
     fn keyboard_change(&mut self, action: KeyboardAction) {
-        let mut input = self.input.write().recover();
+        let mut input = self.input.get_mut();
         if let KeyboardAction::Press(key) = action {
             input.keys[key] = true;
             input.keystates[key] = State::JustPressed;
@@ -178,39 +169,3 @@ impl InputProcessor for InputProcessorImpl {
     }
 }
 
-pub(crate) struct GuiInputProcessor {
-    input: Arc<RwLock<Input>>,
-    enabled: bool,
-}
-
-impl InputProcessor for GuiInputProcessor {
-    fn new(input: Arc<RwLock<Input>>) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            input,
-            enabled: true,
-        }
-    }
-
-    fn input(&self) -> Arc<RwLock<Input>> {
-        todo!()
-    }
-
-    fn mouse_change(&mut self, action: MouseAction) {
-        todo!()
-    }
-
-    fn keyboard_change(&mut self, action: KeyboardAction) {
-        todo!()
-    }
-
-    fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
-    }
-
-    fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-}

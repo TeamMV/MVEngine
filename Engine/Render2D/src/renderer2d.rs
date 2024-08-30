@@ -159,6 +159,10 @@ impl Renderer2D {
         self.geometry_framebuffers[frame_index].get_image(0).clone()
     }
 
+    pub fn get_extent(&self) -> &Extent2D {
+        &self.extent
+    }
+
     pub fn new(
         device: Device,
         renderer: Arc<DangerousCell<Renderer>>,
@@ -379,13 +383,13 @@ impl Renderer2D {
 
         let rectangle_vertices = vec![
             Vertex {
-                position: Vec3::new(-1.0, 1.0, 0.0),
+                position: Vec3::new(0.0, 1.0, 0.0),
             }, // 0
             Vertex {
-                position: Vec3::new(-1.0, -1.0, 0.0),
+                position: Vec3::new(0.0, 0.0, 0.0),
             }, // 1
             Vertex {
-                position: Vec3::new(1.0, -1.0, 0.0),
+                position: Vec3::new(1.0, 0.0, 0.0),
             }, // 2
             Vertex {
                 position: Vec3::new(1.0, 1.0, 0.0),

@@ -1,10 +1,13 @@
+use std::sync::Arc;
 use std::time::SystemTime;
-
+use mvutils::unsafe_utils::DangerousCell;
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
-
+use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
+use crate::input::raw::Input;
 use crate::render::backend::Extent2D;
 use crate::render::ApplicationLoopCallbacks;
 
@@ -110,6 +113,9 @@ pub struct Window {
     update_time_nanos: u64,
     delta_t: f64,
     delta_u: f64,
+
+    input: Arc<DangerousCell<Input>>,
+    input_collector: InputCollector,
 }
 
 impl Window {
@@ -129,6 +135,11 @@ impl Window {
             .build(&event_loop)
             .unwrap();
 
+        let input = Input::new();
+
+        let input_arc = Arc::new(DangerousCell::new(input));
+        let input_collector = InputCollector::new(input_arc.clone());
+
         Window {
             frame_time_nanos: NANOS_PER_SEC / info.fps as u64,
             update_time_nanos: NANOS_PER_SEC / info.ups as u64,
@@ -138,6 +149,8 @@ impl Window {
             event_loop: Some(event_loop),
             delta_t: 0.0,
             delta_u: 0.0,
+            input: input_arc,
+            input_collector
         }
     }
 
@@ -154,6 +167,8 @@ impl Window {
             .expect("Event loop should never be None")
             .run(|event, target| match event {
                 Event::AboutToWait => {
+                    self.input.get_mut().loop_states();
+
                     let elapsed = time_u.elapsed().expect("SystemTime error").as_nanos();
                     if elapsed > self.update_time_nanos as u128 {
                         time_u = SystemTime::now();
@@ -190,14 +205,85 @@ impl Window {
                     WindowEvent::HoveredFile(_) => {}
                     WindowEvent::HoveredFileCancelled => {}
                     WindowEvent::Focused(_) => {}
-                    WindowEvent::KeyboardInput { .. } => {}
+                    WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+                        let input = self.input.get_mut();
+                        let code = match event.physical_key {
+                            PhysicalKey::Code(code) => code,
+                            _ => KeyCode::Escape,
+                        };
+
+                        if let ElementState::Pressed = event.state {
+                            let index = Input::key_from_winit(code);
+                            if index > 0 && index < input.keys.len() {}
+                            if input.keys[index] {
+                                self.input_collector
+                                    .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                            } else {
+                                self.input_collector
+                                    .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                                self.input_collector
+                                    .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                            }
+                        }
+
+                        if let ElementState::Released = event.state {
+                            self.input_collector
+                                .collect(InputAction::Keyboard(KeyboardAction::Release(
+                                    Input::key_from_winit(code),
+                                )));
+                        }
+                    }
                     WindowEvent::ModifiersChanged(_) => {}
                     WindowEvent::Ime(_) => {}
-                    WindowEvent::CursorMoved { .. } => {}
+                    WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                        ..
+                    } => self
+                        .input_collector
+                        .collect(InputAction::Mouse(MouseAction::Move(
+                            position.x as i32,
+                            self.get_extent().height as i32 - position.y as i32,
+                        ))),
                     WindowEvent::CursorEntered { .. } => {}
                     WindowEvent::CursorLeft { .. } => {}
-                    WindowEvent::MouseWheel { .. } => {}
-                    WindowEvent::MouseInput { .. } => {}
+                    WindowEvent::MouseWheel {
+                        device_id,
+                        delta,
+                        phase,
+                        ..
+                    } => {
+                        if let MouseScrollDelta::PixelDelta(pos) = delta {
+                            self.input_collector
+                                .collect(InputAction::Mouse(MouseAction::Wheel(
+                                    pos.x as f32,
+                                    pos.y as f32,
+                                )))
+                        }
+                        if let MouseScrollDelta::LineDelta(x, y) = delta {
+                            self.input_collector
+                                .collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
+                        }
+                    }
+                    WindowEvent::MouseInput {
+                        device_id,
+                        state,
+                        button,
+                        ..
+                    } => {
+                        if let ElementState::Pressed = state {
+                            self.input_collector
+                                .collect(InputAction::Mouse(MouseAction::Press(
+                                    Input::mouse_from_winit(button),
+                                )));
+                        }
+
+                        if let ElementState::Released = state {
+                            self.input_collector.collect(InputAction::Mouse(
+                                MouseAction::Release(Input::mouse_from_winit(button)),
+                            ));
+                        }
+                    }
                     WindowEvent::TouchpadMagnify { .. } => {}
                     WindowEvent::SmartMagnify { .. } => {}
                     WindowEvent::TouchpadRotate { .. } => {}
@@ -248,5 +334,13 @@ impl Window {
     pub fn set_ups(&mut self, ups: u32) {
         self.info.ups = ups;
         self.update_time_nanos = NANOS_PER_SEC / ups as u64;
+    }
+
+    pub fn get_input(&self) -> Arc<DangerousCell<Input>> {
+        self.input.clone()
+    }
+
+    pub fn set_input_processor(&mut self, processor: fn(InputAction)) {
+        self.input_collector.set_custom_processor(processor);
     }
 }
