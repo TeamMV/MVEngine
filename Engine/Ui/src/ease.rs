@@ -1,268 +1,209 @@
-use std::f32::consts::PI;
 use std::ops::Range;
 
-use mvutils::utils::Map;
-
-#[derive(Clone)]
 pub struct Easing {
-    pub xr: Range<f32>,
-    pub yr: Range<f32>,
-    pub(crate) gen: EasingGen,
+    gen: EasingGen,
+    mode: EasingMode,
+    x_range: Range<f32>,
+    y_range: Range<f32>
 }
 
 impl Easing {
-    pub fn new_linear(xr: Range<f32>, yr: Range<f32>) -> Self {
+    pub fn new(gen: EasingGen, mode: EasingMode, x_range: Range<f32>, y_range: Range<f32>) -> Self {
         Self {
-            xr: xr.clone(),
-            yr: yr.clone(),
-            gen: EasingGen::Linear(EasingLinear::new(xr.clone(), yr.clone())),
+            gen,
+            mode,
+            x_range,
+            y_range,
         }
     }
 
-    pub fn new_sin(xr: Range<f32>, yr: Range<f32>) -> Self {
-        Self {
-            xr: xr.clone(),
-            yr: yr.clone(),
-            gen: EasingGen::Sin(EasingSin::new(xr.clone(), yr.clone())),
+    pub fn get(&self, pos: f32) -> f32 {
+        match &self.gen {
+            EasingGen::Linear(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Exponential(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Sin(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Back(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Bounce(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Elastic(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
         }
-    }
-
-    pub fn new_sin_in(xr: Range<f32>, yr: Range<f32>) -> Self {
-        Self {
-            xr: xr.clone(),
-            yr: yr.clone(),
-            gen: EasingGen::SinIn(EasingSinIn::new(xr.clone(), yr.clone())),
-        }
-    }
-
-    pub fn new_sin_out(xr: Range<f32>, yr: Range<f32>) -> Self {
-        Self {
-            xr: xr.clone(),
-            yr: yr.clone(),
-            gen: EasingGen::SinOut(EasingSinOut::new(xr.clone(), yr.clone())),
-        }
-    }
-
-    pub fn linear() -> Self {
-        Self::new_linear(0.0..1.0, 0.0..1.0)
-    }
-
-    pub fn sin() -> Self {
-        Self::new_sin(0.0..1.0, 0.0..1.0)
-    }
-
-    pub fn sin_in() -> Self {
-        Self::new_sin_in(0.0..1.0, 0.0..1.0)
-    }
-
-    pub fn sin_out() -> Self {
-        Self::new_sin_out(0.0..1.0, 0.0..1.0)
-    }
-
-    pub fn get(&self, x: f32) -> f32 {
-        self.gen.get(x)
-    }
-
-    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
-        self.gen.simulate(range, steps)
     }
 }
 
-impl Default for Easing {
-    fn default() -> Self {
-        Easing::new_linear(0.0..1.0, 0.0..1.0)
-    }
-}
-
-#[derive(Clone)]
 pub enum EasingGen {
-    Linear(EasingLinear),
-    Sin(EasingSin),
-    SinIn(EasingSinIn),
-    SinOut(EasingSinOut),
-    ExpIn(EasingExpIn),
-}
-
-macro_rules! ease_fn {
-    ($s:expr, $name:ident, $($param:ident),*) => {
-        return match $s {
-            EasingGen::Linear(e) => {e.$name($($param,)*)}
-            EasingGen::Sin(e) => {e.$name($($param,)*)}
-            EasingGen::SinIn(e) => {e.$name($($param,)*)}
-            EasingGen::SinOut(e) => {e.$name($($param,)*)}
-            EasingGen::ExpIn(e) => {e.$name($($param,)*)}
-        }
-    };
+    Linear(LinearEasing),
+    Exponential(ExponentialEasing),
+    Sin(SinEasing),
+    Back(BackEasing),
+    Bounce(BounceEasing),
+    Elastic(ElasticEasing)
 }
 
 impl EasingGen {
-    pub fn get(&self, x: f32) -> f32 {
-        ease_fn!(self, get, x)
-    }
+    pub fn linear() -> Self { Self::Linear(LinearEasing) }
+    pub fn exponential(exp: f32) -> Self { Self::Exponential(ExponentialEasing { exponent: exp }) }
+    pub fn sin() -> Self { Self::Sin(SinEasing) }
+    pub fn back() -> Self { Self::Back(BackEasing) }
+    pub fn bounce() -> Self { Self::Bounce(BounceEasing) }
+    pub fn elastic() -> Self { Self::Elastic(ElasticEasing) }
+}
 
-    pub fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
-        ease_fn!(self, simulate, range, steps)
-    }
+#[derive(Clone)]
+pub enum EasingMode {
+    In,
+    Out,
+    InOut
 }
 
 pub trait EasingFunction {
-    fn get(&self, x: f32) -> f32;
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32;
+}
 
-    fn simulate(&self, range: &Range<f32>, steps: usize) -> Vec<f32> {
-        let mut vec: Vec<f32> = vec![];
-        let step: f32 = (range.end - range.start) / steps as f32;
-        let mut i: f32 = 0.0;
-        while i < range.end {
-            vec.push(self.get(i));
-            i += step;
-        }
-        vec
+// Linear Easing
+pub struct LinearEasing;
+
+impl EasingFunction for LinearEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let value = t;
+        y_range.start + value * (y_range.end - y_range.start)
     }
 }
 
-macro_rules! easing_struct {
-    ($name:ident $(,$p:ident: $t:ty)*) => {
-        #[derive(Clone)]
-        pub struct $name {
-            pub(crate) xr: Range<f32>,
-            pub(crate) yr: Range<f32>,
-            $(
-                pub(crate) $p: $t
-            ),*
-        }
+// Exponential Easing
+pub struct ExponentialEasing {
+    pub exponent: f32,
+}
 
-        impl $name {
-            pub const fn new(xr: Range<f32>, yr: Range<f32> $(, $p: $t)*) -> Self {
-                Self {
-                    xr,
-                    yr,
-                    $(
-                        $p
-                    ),*
+impl EasingFunction for ExponentialEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let value = match mode {
+            EasingMode::In => if t == 0.0 { 0.0 } else { (self.exponent).powf(10.0 * (t - 1.0)) },
+            EasingMode::Out => if t == 1.0 { 1.0 } else { 1.0 - (self.exponent).powf(-10.0 * t) },
+            EasingMode::InOut => if t == 0.0 {
+                0.0
+            } else if t == 1.0 {
+                1.0
+            } else if t < 0.5 {
+                0.5 * (self.exponent).powf(20.0 * t - 10.0)
+            } else {
+                1.0 - 0.5 * (self.exponent).powf(-20.0 * t + 10.0)
+            },
+        };
+        y_range.start + value * (y_range.end - y_range.start)
+    }
+}
+
+// Sinusoidal Easing
+pub struct SinEasing;
+
+impl EasingFunction for SinEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let value = match mode {
+            EasingMode::In => 1.0 - (t * std::f32::consts::FRAC_PI_2).cos(),
+            EasingMode::Out => (t * std::f32::consts::FRAC_PI_2).sin(),
+            EasingMode::InOut => 0.5 * (1.0 - (std::f32::consts::PI * t).cos()),
+        };
+        y_range.start + value * (y_range.end - y_range.start)
+    }
+}
+
+// Back Easing
+pub struct BackEasing;
+
+impl EasingFunction for BackEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let s = 1.70158;
+        let value = match mode {
+            EasingMode::In => t * t * ((s + 1.0) * t - s),
+            EasingMode::Out => {
+                let t = t - 1.0;
+                t * t * ((s + 1.0) * t + s) + 1.0
+            },
+            EasingMode::InOut => {
+                let s = s * 1.525;
+                if t < 0.5 {
+                    let t = 2.0 * t;
+                    0.5 * (t * t * ((s + 1.0) * t - s))
+                } else {
+                    let t = 2.0 * t - 2.0;
+                    0.5 * (t * t * ((s + 1.0) * t + s) + 2.0)
                 }
-            }
-        }
-    };
-}
-
-easing_struct!(EasingLinear);
-easing_struct!(EasingSin);
-easing_struct!(EasingSinIn);
-easing_struct!(EasingSinOut);
-easing_struct!(EasingExpIn, base: f32);
-
-impl EasingFunction for EasingLinear {
-    fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
-            return self.yr.start;
-        } else if x >= self.xr.end {
-            return self.yr.end;
-        }
-        x.map(&self.yr, &self.xr)
+            },
+        };
+        y_range.start + value * (y_range.end - y_range.start)
     }
 }
 
-impl EasingFunction for EasingSin {
-    fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
-            return self.yr.start;
-        } else if x >= self.xr.end {
-            return self.yr.end;
-        }
-        (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
-            * ((self.xr.end - self.xr.start) / 2.0)
-            + self.xr.start
+// Bounce Easing
+pub struct BounceEasing;
+
+impl EasingFunction for BounceEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let value = match mode {
+            EasingMode::In => 1.0 - bounce_out(1.0 - t),
+            EasingMode::Out => bounce_out(t),
+            EasingMode::InOut => {
+                if t < 0.5 {
+                    0.5 * (1.0 - bounce_out(1.0 - 2.0 * t))
+                } else {
+                    0.5 * bounce_out(2.0 * t - 1.0) + 0.5
+                }
+            },
+        };
+        y_range.start + value * (y_range.end - y_range.start)
     }
 }
 
-impl EasingFunction for EasingSinIn {
-    fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
-            return self.yr.start;
-        } else if x >= self.xr.end {
-            return self.yr.end;
-        }
-        (f32::cos((PI * (x - self.yr.start)) / (self.yr.end - self.yr.start) + PI) + 1.0)
-            * (self.xr.end - self.xr.start)
-            + self.xr.start
+fn bounce_out(t: f32) -> f32 {
+    if t < 1.0 / 2.75 {
+        7.5625 * t * t
+    } else if t < 2.0 / 2.75 {
+        let t = t - 1.5 / 2.75;
+        7.5625 * t * t + 0.75
+    } else if t < 2.5 / 2.75 {
+        let t = t - 2.25 / 2.75;
+        7.5625 * t * t + 0.9375
+    } else {
+        let t = t - 2.625 / 2.75;
+        7.5625 * t * t + 0.984375
     }
 }
 
-impl EasingFunction for EasingSinOut {
-    fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
-            return self.yr.start;
-        } else if x >= self.xr.end {
-            return self.yr.end;
-        }
-        (f32::cos((PI * (x - self.yr.start)) / (2.0 * (self.yr.end - self.yr.start)) + PI) + 1.0)
-            * (self.xr.end - self.xr.start)
-            + self.xr.start
-    }
-}
+// Elastic Easing
+pub struct ElasticEasing;
 
-impl EasingFunction for EasingExpIn {
-    fn get(&self, x: f32) -> f32 {
-        if x <= self.xr.start {
-            return self.yr.start;
-        } else if x >= self.xr.end {
-            return self.yr.end;
-        }
-        (self.yr.end - self.yr.start)
-            * ((self
-                .base
-                .powf(x / (self.xr.end - self.xr.start) - self.xr.start)
-                - 1.0)
-                / (x - 1.0))
-            + self.yr.start
+impl EasingFunction for ElasticEasing {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+        let t = (pos - x_range.start) / (x_range.end - x_range.start);
+        let value = match mode {
+            EasingMode::In => if t == 0.0 {
+                0.0
+            } else if t == 1.0 {
+                1.0
+            } else {
+                -2f32.powf(10.0 * (t - 1.0)) * (2.0 * std::f32::consts::PI * (t - 1.1) * 2.0).sin()
+            },
+            EasingMode::Out => if t == 0.0 {
+                0.0
+            } else if t == 1.0 {
+                1.0
+            } else {
+                2f32.powf(-10.0 * t) * (2.0 * std::f32::consts::PI * (t - 0.1) * 2.0).sin() + 1.0
+            },
+            EasingMode::InOut => if t == 0.0 {
+                0.0
+            } else if t == 1.0 {
+                1.0
+            } else if t < 0.5 {
+                -0.5 * 2f32.powf(20.0 * t - 10.0) * (2.0 * std::f32::consts::PI * (t - 0.1125) * 2.0).sin()
+            } else {
+                2f32.powf(-20.0 * t + 10.0) * (2.0 * std::f32::consts::PI * (t - 0.1125) * 2.0).sin() * 0.5 + 1.0
+            },
+        };
+        y_range.start + value * (y_range.end - y_range.start)
     }
-}
-
-pub fn linear(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
-        return yr.start;
-    } else if x >= xr.end {
-        return yr.end;
-    }
-    x.map(yr, xr)
-}
-
-pub fn sin(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
-        return yr.start;
-    } else if x >= xr.end {
-        return yr.end;
-    }
-    (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0) * ((xr.end - xr.start) / 2.0)
-        + xr.start
-}
-
-pub fn sin_in(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
-        return yr.start;
-    } else if x >= xr.end {
-        return yr.end;
-    }
-    (f32::cos((PI * (x - yr.start)) / (yr.end - yr.start) + PI) + 1.0) * (xr.end - xr.start)
-        + xr.start
-}
-
-pub fn sin_out(x: f32, xr: &Range<f32>, yr: &Range<f32>) -> f32 {
-    if x <= xr.start {
-        return yr.start;
-    } else if x >= xr.end {
-        return yr.end;
-    }
-    (f32::cos((PI * (x - yr.start)) / (2.0 * (yr.end - yr.start)) + PI) + 1.0) * (xr.end - xr.start)
-        + xr.start
-}
-
-pub fn exp_in(x: f32, xr: &Range<f32>, yr: &Range<f32>, base: f32) -> f32 {
-    if x <= xr.start {
-        return yr.start;
-    } else if x >= xr.end {
-        return yr.end;
-    }
-    (yr.end - yr.start) * ((base.powf(x / (xr.end - xr.start) - xr.start) - 1.0) / (x - 1.0))
-        + yr.start
 }

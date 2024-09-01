@@ -327,6 +327,9 @@ impl UiElementState {
 
         let (scale_x, scale_y) = style.transform.scale.resolve_with_default(state.ctx.dpi, state.parent.clone(), |s| &s.transform.scale, (1.0, 1.0));
 
+        let non_trans_width = width;
+        let non_trans_height = height;
+
         width = (width as f32 * scale_x) as i32;
         height = (height as f32 * scale_y) as i32;
 
@@ -357,7 +360,7 @@ impl UiElementState {
                 } else {
                     0
                 };
-                state.bounding_x = origin.get_actual_x(x, state.content_width);
+                state.bounding_x = origin.get_actual_x(x, state.content_width, state);
             }
             if !style.y.is_auto() {
                 let y = if style.y.is_set() {
@@ -365,34 +368,44 @@ impl UiElementState {
                 } else {
                     0
                 };
-                state.bounding_y = origin.get_actual_y(y, state.content_height);
+                state.bounding_y = origin.get_actual_y(y, state.content_height, state);
             }
         }
 
         let transform_origin = resolve!(binding, transform.origin);
         match transform_origin {
             Origin::TopLeft => {
-                state.bounding_y -= (scale_y - 1.0) as i32;
+                println!("{scale_y}");
+                state.bounding_y -= state.bounding_height;
             }
             Origin::BottomLeft => {/*Nothing cuz already right scaling*/}
             Origin::TopRight => {
-                state.bounding_x -= ((scale_x - 1.0) * state.bounding_width as f32) as i32;
-                state.bounding_y -= ((scale_y - 1.0) * state.bounding_height as f32) as i32;
+                state.bounding_x -= state.bounding_width;
+                state.bounding_y -= state.bounding_height;
             }
             Origin::BottomRight => {
-                state.bounding_x -= ((scale_x - 1.0) * state.bounding_width as f32) as i32;
+                state.bounding_x -= state.bounding_width
             }
             Origin::Center => {
-                state.bounding_x -= ((scale_x - 1.0) * (state.bounding_width as f32 * 0.5)) as i32;
-                state.bounding_y -= ((scale_y - 1.0) * (state.bounding_height as f32 * 0.5)) as i32;
+                state.bounding_x -= (state.bounding_width as f32 * 0.5) as i32;
+                state.bounding_y -= (state.bounding_height as f32 * 0.5) as i32;
             }
             Origin::Custom(cx, cy) => {
                 //TODO: test this chatgpt code
                 let dx = cx - state.bounding_x;
                 let dy = cy - state.bounding_y;
 
-                state.bounding_x += (dx - (dx as f32 * scale_x) as i32);
-                state.bounding_y += (dy - (dy as f32 * scale_y) as i32);
+                state.bounding_x -= (dx as f32 * (scale_x - 1.0)) as i32;
+                state.bounding_y -= (dy as f32 * (scale_y - 1.0)) as i32;
+            }
+            Origin::Eval(f) => {
+                let res = f(state.bounding_x, state.bounding_y, non_trans_width + margin[2] + margin[3], non_trans_height + margin[0] + margin[1]);
+
+                let dx = res.0 - state.bounding_x;
+                let dy = res.1 - state.bounding_y;
+
+                state.bounding_x -= (dx as f32 * (scale_x - 1.0)) as i32;
+                state.bounding_y -= (dy as f32 * (scale_y - 1.0)) as i32;
             }
         }
 
@@ -439,7 +452,7 @@ impl UiElementState {
 
                 match direction {
                     Direction::Vertical => {
-                        stat.bounding_y = child_origin.get_actual_y(y_off, stat.bounding_height)
+                        stat.bounding_y = child_origin.get_actual_y(y_off, stat.bounding_height, state)
                             + state.content_y;
                         stat.bounding_x = child_origin.get_actual_x(
                             match child_align {
@@ -462,11 +475,12 @@ impl UiElementState {
                                 }
                             },
                             stat.bounding_width,
+                            state
                         );
                     }
                     Direction::Horizontal => {
                         stat.bounding_x =
-                            child_origin.get_actual_x(x_off, stat.bounding_width) + state.content_x;
+                            child_origin.get_actual_x(x_off, stat.bounding_width, state) + state.content_x;
                         stat.bounding_y = child_origin.get_actual_y(
                             match child_align {
                                 ChildAlign::Start => state.content_y,
@@ -490,6 +504,7 @@ impl UiElementState {
                                 }
                             },
                             stat.bounding_height,
+                            state
                         );
                     }
                 }

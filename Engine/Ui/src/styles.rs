@@ -1,5 +1,5 @@
 
-use crate::elements::{UiElement, UiElementStub};
+use crate::elements::{UiElement, UiElementState, UiElementStub};
 use crate::blanked_partial_ord;
 use mvcore::color::{Color, ColorFormat, RgbColor};
 use mvutils::save::Savable;
@@ -65,7 +65,7 @@ pub struct UiStyle {
 
 blanked_partial_ord!(UiStyle);
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -74,6 +74,7 @@ pub enum Origin {
     BottomRight,
     Center,
     Custom(i32, i32),
+    Eval(fn(i32, i32, i32, i32) -> (i32, i32))
 }
 
 impl Origin {
@@ -93,7 +94,7 @@ impl Origin {
         }
     }
 
-    pub fn get_actual_x(&self, x: i32, width: i32) -> i32 {
+    pub fn get_actual_x(&self, x: i32, width: i32, state: &UiElementState) -> i32 {
         match self {
             Origin::TopLeft => x,
             Origin::BottomLeft => x,
@@ -101,10 +102,14 @@ impl Origin {
             Origin::BottomRight => x - width,
             Origin::Center => x - width / 2,
             Origin::Custom(cx, _) => x - cx,
+            Origin::Eval(f) => {
+                let res = f(state.bounding_x, state.bounding_y, state.bounding_width, state.bounding_height);
+                x - res.0
+            }
         }
     }
 
-    pub fn get_actual_y(&self, y: i32, height: i32) -> i32 {
+    pub fn get_actual_y(&self, y: i32, height: i32, state: &UiElementState) -> i32 {
         match self {
             Origin::TopLeft => y - height,
             Origin::BottomLeft => y,
@@ -112,6 +117,10 @@ impl Origin {
             Origin::BottomRight => y,
             Origin::Center => y - height / 2,
             Origin::Custom(_, cy) => y - cy,
+            Origin::Eval(f) => {
+                let res = f(state.bounding_x, state.bounding_y, state.bounding_width, state.bounding_height);
+                y - res.1
+            }
         }
     }
 }
@@ -690,7 +699,7 @@ fn no_parent<T>() -> T {
 }
 
 pub trait Interpolator<T: PartialOrd + Clone + 'static> {
-    fn interpolate<F>(&mut self, end: &Self, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self;
 }
@@ -699,12 +708,13 @@ macro_rules! impl_interpolator_primitives {
     ($($t:ty,)*) => {
         $(
             impl Interpolator<$t> for $t {
-                fn interpolate<F>(&mut self, end: &$t, percent: f32, elem: &UiElement, f: F)
+                fn interpolate<F>(&mut self, start: &$t, end: &$t, percent: f32, elem: &UiElement, f: F)
                     where
                         F: Fn(&UiStyle) -> &Self,
                 {
                     let frac = percent / 100.0;
-                    *self = *self + ((((*end - *self) as f32) * frac) as $t);
+
+                    *self = (*start as f32 + ((*end as f32 - *start as f32) * frac)) as $t;
                 }
             }
         )*
@@ -714,20 +724,22 @@ macro_rules! impl_interpolator_primitives {
 impl_interpolator_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64,);
 
 impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Resolve<T> {
-    fn interpolate<F>(&mut self, end: &Self, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self,
     {
         let state = elem.state();
 
-        let mut start_resolve = self.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
+        let mut self_resolve = self.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
+        let start_resolve = start.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
         let end_resolve = end.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
 
-        if start_resolve.is_none() || end_resolve.is_none() {
+        if start_resolve.is_none() || end_resolve.is_none() || self_resolve.is_none() {
             return;
         }
 
-        let mut start_resolve = start_resolve.unwrap();
+        let start_resolve = start_resolve.unwrap();
+        let mut self_resolve = self_resolve.unwrap();
         let end_resolve = end_resolve.unwrap();
 
         let dpi = state.ctx.dpi;
@@ -735,111 +747,113 @@ impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Reso
 
         //why do i have to clone parent again???
         unsafe {
-            start_resolve.interpolate(&end_resolve, percent, elem, move |s| {
+            self_resolve.interpolate(&start_resolve, &end_resolve, percent, elem, move |s| {
                 Unsafe::cast_static(&f(s).resolve(dpi, parent.clone(), |s2| &f(s2)).unwrap())
             });
 
-            *self = Resolve::UiValue(UiValue::Just(start_resolve));
+            *self = Resolve::UiValue(UiValue::Just(self_resolve));
         }
     }
 }
 
 impl Interpolator<UiStyle> for UiStyle {
-    fn interpolate<F>(&mut self, end: &UiStyle, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &UiStyle, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self,
     {
-        self.x.interpolate(&end.x, percent, elem, |s| &s.x);
-        self.y.interpolate(&end.y, percent, elem, |s| &s.y);
-        self.width.interpolate(&end.width, percent, elem, |s| &s.width);
-        self.height.interpolate(&end.height, percent, elem, |s| &s.height);
-        self.padding.left.interpolate(&end.padding.left, percent, elem, |s| { &s.padding.left });
-        self.padding.right.interpolate(&end.padding.right, percent, elem, |s| { &s.padding.right });
-        self.padding.top.interpolate(&end.padding.top, percent, elem, |s| &s.padding.top);
-        self.padding.bottom.interpolate(&end.padding.bottom, percent, elem, |s| { &s.padding.bottom });
+        self.x.interpolate(&start.x, &end.x, percent, elem, |s| &s.x);
+        self.y.interpolate(&start.y, &end.y, percent, elem, |s| &s.y);
+        self.width.interpolate(&start.width, &end.width, percent, elem, |s| &s.width);
+        self.height.interpolate(&start.height, &end.height, percent, elem, |s| &s.height);
+        self.padding.left.interpolate(&start.padding.left, &end.padding.left, percent, elem, |s| { &s.padding.left });
+        self.padding.right.interpolate(&start.padding.right, &end.padding.right, percent, elem, |s| { &s.padding.right });
+        self.padding.top.interpolate(&start.padding.top, &end.padding.top, percent, elem, |s| &s.padding.top);
+        self.padding.bottom.interpolate(&start.padding.bottom, &end.padding.bottom, percent, elem, |s| { &s.padding.bottom });
 
-        self.margin.left.interpolate(&end.margin.left, percent, elem, |s| &s.margin.left);
-        self.margin.right.interpolate(&end.margin.right, percent, elem, |s| { &s.margin.right });
-        self.margin.top.interpolate(&end.margin.top, percent, elem, |s| &s.margin.top);
-        self.margin.bottom.interpolate(&end.margin.bottom, percent, elem, |s| { &s.margin.bottom });
+        self.margin.left.interpolate(&start.margin.left, &end.margin.left, percent, elem, |s| &s.margin.left);
+        self.margin.right.interpolate(&start.margin.right, &end.margin.right, percent, elem, |s| { &s.margin.right });
+        self.margin.top.interpolate(&start.margin.top, &end.margin.top, percent, elem, |s| &s.margin.top);
+        self.margin.bottom.interpolate(&start.margin.bottom, &end.margin.bottom, percent, elem, |s| { &s.margin.bottom });
 
-        self.origin = (percent < 50f32).yn(self.origin.clone(), end.origin.clone());
-        self.position = (percent < 50f32).yn(self.position.clone(), end.position.clone());
-        self.direction = (percent < 50f32).yn(self.direction.clone(), end.direction.clone());
-        self.child_align = (percent < 50f32).yn(self.child_align.clone(), end.child_align.clone());
+        self.origin = (percent < 50f32).yn(start.origin.clone(), end.origin.clone());
+        self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
+        self.direction = (percent < 50f32).yn(start.direction.clone(), end.direction.clone());
+        self.child_align = (percent < 50f32).yn(start.child_align.clone(), end.child_align.clone());
 
-        self.text.size.interpolate(&end.text.size, percent, elem, |s| { &s.text.size });
-        self.text.stretch.interpolate(&end.text.stretch, percent, elem, |s| { &s.text.stretch });
-        self.text.skew.interpolate(&end.text.skew, percent, elem, |s| { &s.text.skew });
-        self.text.kerning.interpolate(&end.text.kerning, percent, elem, |s| { &s.text.kerning });
-        self.text.color.interpolate(&end.text.color, percent, elem, |s| { &s.text.color });
-        self.text.fit = (percent < 50f32).yn(self.text.fit.clone(), end.text.fit.clone());
-        self.text.font = (percent < 50f32).yn(self.text.font.clone(), end.text.font.clone());
+        self.text.size.interpolate(&start.text.size, &end.text.size, percent, elem, |s| { &s.text.size });
+        self.text.stretch.interpolate(&start.text.stretch, &end.text.stretch, percent, elem, |s| { &s.text.stretch });
+        self.text.skew.interpolate(&start.text.skew, &end.text.skew, percent, elem, |s| { &s.text.skew });
+        self.text.kerning.interpolate(&start.text.kerning, &end.text.kerning, percent, elem, |s| { &s.text.kerning });
+        self.text.color.interpolate(&start.text.color, &end.text.color, percent, elem, |s| { &s.text.color });
+        self.text.fit = (percent < 50f32).yn(start.text.fit.clone(), end.text.fit.clone());
+        self.text.font = (percent < 50f32).yn(start.text.font.clone(), end.text.font.clone());
 
-        self.transform.translate.x.interpolate(&end.transform.translate.x, percent, elem, |s| &f(s).transform.translate.x);
-        self.transform.translate.y.interpolate(&end.transform.translate.y, percent, elem, |s| &f(s).transform.translate.y);
-        self.transform.scale.x.interpolate(&end.transform.scale.x, percent, elem, |s| &f(s).transform.scale.x);
-        self.transform.scale.y.interpolate(&end.transform.scale.y, percent, elem, |s| &f(s).transform.scale.y);
-        self.transform.rotate.interpolate(&end.transform.rotate, percent, elem, |s| &f(s).transform.rotate);
-        self.transform.origin = (percent > 50.0).yn(end.transform.origin.clone(), self.transform.origin.clone());
+        self.transform.translate.x.interpolate(&start.transform.translate.x, &end.transform.translate.x, percent, elem, |s| &f(s).transform.translate.x);
+        self.transform.translate.y.interpolate(&start.transform.translate.y, &end.transform.translate.y, percent, elem, |s| &f(s).transform.translate.y);
+        self.transform.scale.x.interpolate(&start.transform.scale.x, &end.transform.scale.x, percent, elem, |s| &f(s).transform.scale.x);
+        self.transform.scale.y.interpolate(&start.transform.scale.y, &end.transform.scale.y, percent, elem, |s| &f(s).transform.scale.y);
+        self.transform.rotate.interpolate(&start.transform.rotate, &end.transform.rotate, percent, elem, |s| &f(s).transform.rotate);
+        self.transform.origin = (percent > 50.0).yn(end.transform.origin.clone(), start.transform.origin.clone());
+
     }
 }
 
 impl Interpolator<TextStyle> for TextStyle {
-    fn interpolate<F>(&mut self, end: &TextStyle, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self,
     {
         self.fit = (percent < 50f32).yn(self.fit.clone(), end.fit.clone());
         self.size
-            .interpolate(&end.size, percent, elem, |s| &s.text.size);
+            .interpolate(&start.size, &end.size, percent, elem, |s| &s.text.size);
         self.font = (percent < 50f32).yn(self.font.clone(), end.font.clone());
         self.kerning
-            .interpolate(&end.kerning, percent, elem, |s| &s.text.kerning);
+            .interpolate(&start.kerning, &end.kerning, percent, elem, |s| &s.text.kerning);
         self.skew
-            .interpolate(&end.skew, percent, elem, |s| &s.text.skew);
+            .interpolate(&start.skew, &end.skew, percent, elem, |s| &s.text.skew);
         self.stretch
-            .interpolate(&end.stretch, percent, elem, |s| &s.text.stretch);
+            .interpolate(&start.stretch, &end.stretch, percent, elem, |s| &s.text.stretch);
     }
 }
 
 impl<T: Interpolator<T> + Num + Clone + Debug + PartialOrd + 'static> Interpolator<Dimension<T>>
     for Dimension<T>
 {
-    fn interpolate<F>(&mut self, end: &Dimension<T>, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &Dimension<T>, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self,
     {
         self.width
-            .interpolate(&end.width, percent, elem, |s| &f(s).width);
+            .interpolate(&start.width, &end.width, percent, elem, |s| &f(s).width);
         self.height
-            .interpolate(&end.height, percent, elem, |s| &f(s).height);
+            .interpolate(&start.height, &end.height, percent, elem, |s| &f(s).height);
     }
 }
 
 impl<T: Interpolator<T> + Num + Clone + Debug + PartialOrd + 'static> Interpolator<Point<T>>
     for Point<T>
 {
-    fn interpolate<F>(&mut self, end: &Point<T>, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &Point<T>, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self,
     {
         self.x
-            .interpolate(&end.x, percent, elem, |s| &f(s).x);
+            .interpolate(&start.x, &end.x, percent, elem, |s| &f(s).x);
         self.y
-            .interpolate(&end.y, percent, elem, |s| &f(s).y);
+            .interpolate(&start.y, &end.y, percent, elem, |s| &f(s).y);
     }
 }
 
 impl<Fmt: ColorFormat + 'static> Interpolator<Color<Fmt>> for Color<Fmt> where Fmt::ComponentType: Interpolator<Fmt::ComponentType> + PartialOrd<Fmt::ComponentType> {
-    fn interpolate<F>(&mut self, end: &Self, percent: f32, elem: &UiElement, f: F)
+    fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self
     {
         let comp = self.components_mut();
+        let start_comp = start.components();
         let end_comp = end.components();
         for i in 0..comp.len() {
-            comp[i].interpolate(&end_comp[i], percent, elem, |s| &f(s).components()[i]);
+            comp[i].interpolate(&start_comp[i], &end_comp[i], percent, elem, |s| &f(s).components()[i]);
         }
     }
 }

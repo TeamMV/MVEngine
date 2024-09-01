@@ -1,33 +1,13 @@
-use crate::ease::{Easing, EasingGen, EasingLinear, EasingSin, EasingSinIn, EasingSinOut};
 use crate::elements::{UiElement, UiElementStub};
 use crate::styles::{Interpolator, UiStyle};
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::Percentage;
+use crate::ease::{Easing, EasingGen, EasingMode};
 
-pub const EASING_LINEAR: Easing = Easing {
-    xr: 0.0..100.0,
-    yr: 0.0..100.0,
-    gen: EasingGen::Linear(EasingLinear::new(0.0..100.0, 0.0..100.0))
-};
-
-pub const EASING_SIN: Easing = Easing {
-    xr: 0.0..100.0,
-    yr: 0.0..100.0,
-    gen: EasingGen::Sin(EasingSin::new(0.0..100.0, 0.0..100.0))
-};
-
-pub const EASING_SIN_IN: Easing = Easing {
-    xr: 0.0..100.0,
-    yr: 0.0..100.0,
-    gen: EasingGen::SinIn(EasingSinIn::new(0.0..100.0, 0.0..100.0))
-};
-
-pub const EASING_SIN_OUT: Easing = Easing {
-    xr: 0.0..100.0,
-    yr: 0.0..100.0,
-    gen: EasingGen::SinOut(EasingSinOut::new(0.0..100.0, 0.0..100.0))
-};
+pub fn easing(gen: EasingGen, mode: EasingMode) -> Easing {
+    Easing::new(gen, mode, 0.0..100.0, 0.0..100.0)
+}
 
 ///Specifies if the end result of the animation should be kept or reverted to the initial style
 pub enum FillMode {
@@ -86,8 +66,10 @@ pub fn animate(elem: &mut UiElement, initial: &mut UiStyle, target: &UiStyle, ti
                     let percent = (time as f32).percentage(time_ms as f32);
                     let percent = em.easing.get(percent);
 
+                    let backup_style = em.elem.state().last_style.as_ref().unwrap();
+
                     let elem_ref = em.elem;
-                    em.initial.interpolate(em.target, percent, elem_ref, |s| s);
+                    em.initial.interpolate(backup_style, em.target, percent, elem_ref, |s| s);
 
                     if percent >= 100.0 {
                         match em.fill_mode {
@@ -96,7 +78,6 @@ pub fn animate(elem: &mut UiElement, initial: &mut UiStyle, target: &UiStyle, ti
                                 em.initial.clone_from(em.target);
                             }
                             FillMode::Revert => {
-                                let backup_style = em.elem.state().last_style.as_ref().unwrap();
 
                                 //let elem_style = guard.style_mut();
                                 em.initial.clone_from(backup_style);

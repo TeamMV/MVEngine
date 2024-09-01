@@ -18,6 +18,7 @@ use Ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub}
 use Ui::styles::{Origin, Position, UiStyle, UiValue};
 use Ui::timing::TIMING_MANAGER;
 use Ui::{anim, modify_style, resolve, UI};
+use Ui::ease::{EasingGen, EasingMode};
 use Ui::elements::events::{UiClickAction, UiHoverAction};
 
 fn main() {
@@ -64,24 +65,26 @@ impl ApplicationLoopCallbacks for Application {
 
         let mut style = UiStyle::default();
         modify_style!(style.position = UiValue::Just(Position::Absolute));
-        modify_style!(style.x = UiValue::Just(100));
-        modify_style!(style.y = UiValue::Just(100));
+        modify_style!(style.x = UiValue::Just(300));
+        modify_style!(style.y = UiValue::Just(300));
         modify_style!(style.width = UiValue::Just(100));
         modify_style!(style.height = UiValue::Just(100));
-        modify_style!(style.transform.origin = UiValue::Just(Origin::Center));
+        modify_style!(style.transform.origin = UiValue::Just(
+            Origin::Eval(|x, y, w, h| (x + w / 2, y + h))
+        ));
 
         let mut anim_style_from = style.clone();
         let mut anim_style_to = style.clone();
-        modify_style!(anim_style_to.transform.scale! = UiValue::Just(1.2));
+        modify_style!(anim_style_to.transform.scale! = UiValue::Just(2.0));
 
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
         lmao.state_mut().events.on_hover(move |event| {
             let elem = event.base.elem;
             if let UiHoverAction::Enter = event.base.action {
-                anim::animate_self(elem, &anim_style_to, 200, anim::EASING_LINEAR, FillMode::Keep, AnimationMode::StartOver);
+                anim::animate_self(elem, &anim_style_to, 200, anim::easing(EasingGen::bounce(), EasingMode::Out), FillMode::Keep, AnimationMode::StartOver);
             } else {
-                anim::animate_self(elem, &anim_style_from, 200, anim::EASING_LINEAR, FillMode::Keep, AnimationMode::StartOver);
+                anim::animate_self(elem, &anim_style_from, 1000, anim::easing(EasingGen::sin(), EasingMode::InOut), FillMode::Keep, AnimationMode::StartOver);
             }
         });
 
