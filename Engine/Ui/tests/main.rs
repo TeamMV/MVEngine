@@ -1,27 +1,24 @@
-use std::sync::Arc;
 use log::LevelFilter;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use mvutils::version::Version;
-use parking_lot::RwLock;
-use mvcore::color::RgbColor;
 use mvcore::input;
-use mvcore::input::InputCollector;
-use mvcore::input::raw::Input;
-use mvcore::math::vec::{Vec2, Vec3};
-use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::render::backend::Backend;
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, ImageLayout};
+use mvcore::render::backend::Backend;
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
-use mve2d::renderer2d::{Renderer2D, Shape};
+use mvcore::render::ApplicationLoopCallbacks;
+use mve2d::renderer2d::Renderer2D;
+use mvutils::unsafe_utils::DangerousCell;
+use mvutils::version::Version;
+use parking_lot::RwLock;
+use std::sync::Arc;
+use Ui::anim::{AnimationMode, FillMode};
 use Ui::attributes::Attributes;
 use Ui::elements::lmao::LmaoElement;
 use Ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use Ui::{anim, modify_style, UI};
-use Ui::anim::FillMode;
-use Ui::styles::{Position, Resolve, UiStyle, UiValue};
-use Ui::timing::{AnimationState, DelayTask, TIMING_MANAGER};
+use Ui::styles::{Origin, Position, UiStyle, UiValue};
+use Ui::timing::TIMING_MANAGER;
+use Ui::{anim, modify_style, resolve, UI};
+use Ui::elements::events::{UiClickAction, UiHoverAction};
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -71,16 +68,20 @@ impl ApplicationLoopCallbacks for Application {
         modify_style!(style.y = UiValue::Just(100));
         modify_style!(style.width = UiValue::Just(100));
         modify_style!(style.height = UiValue::Just(100));
+        modify_style!(style.transform.origin = UiValue::Just(Origin::Center));
 
-        let mut anim_style = style.clone();
-        modify_style!(anim_style.x = UiValue::Just(200));
+        let mut anim_style_from = style.clone();
+        let mut anim_style_to = style.clone();
+        modify_style!(anim_style_to.transform.scale! = UiValue::Just(1.2));
 
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
-        lmao.state_mut().events.on_click(move |event| {
-            if event.button == input::MOUSE_LEFT {
-                let elem = event.base.elem;
-                anim::animate_self(elem, &anim_style, 100, anim::EASING_LINEAR, FillMode::Revert);
+        lmao.state_mut().events.on_hover(move |event| {
+            let elem = event.base.elem;
+            if let UiHoverAction::Enter = event.base.action {
+                anim::animate_self(elem, &anim_style_to, 200, anim::EASING_LINEAR, FillMode::Keep, AnimationMode::StartOver);
+            } else {
+                anim::animate_self(elem, &anim_style_from, 200, anim::EASING_LINEAR, FillMode::Keep, AnimationMode::StartOver);
             }
         });
 

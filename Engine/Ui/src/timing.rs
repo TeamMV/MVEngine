@@ -3,10 +3,10 @@ use crate::utils::AnyType;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use mvutils::lazy;
-use mvutils::utils::Time;
+use mvutils::utils::{TetrahedronOp, Time};
 
 pub struct TimingManager {
-    tasks: HashMap<u64, Box<dyn TimingTask>, U64IdentityHasher>,
+    tasks: HashMap<u64, (Box<dyn TimingTask>, Option<Box<dyn FnMut()>>), U64IdentityHasher>,
 }
 
 lazy! {
@@ -20,12 +20,12 @@ impl TimingManager {
         }
     }
 
-    pub fn request<T>(&mut self, task: T) -> u64
+    pub fn request<T>(&mut self, task: T, on_finish: Option<Box<dyn FnMut()>>) -> u64
     where
         T: TimingTask + 'static,
     {
         let id = mvutils::utils::next_id("MVCore::ui::timingTask");
-        self.tasks.insert(id, Box::new(task));
+        self.tasks.insert(id, (Box::new(task), on_finish));
         id
     }
 
@@ -40,9 +40,13 @@ impl TimingManager {
     pub fn post_frame(&mut self, dt: f32, frame: u64) {
         let mut to_remove = vec![];
         for task in self.tasks.iter_mut() {
-            task.1.iteration(dt, frame);
-            if task.1.is_done() {
+            task.1.0.iteration(dt, frame);
+            if task.1.0.is_done() {
                 to_remove.push(task.0.clone());
+                if task.1.1.is_some() {
+                    let on_finish = task.1.1.as_mut().unwrap();
+                    on_finish();
+                }
             }
         }
         for id in to_remove {

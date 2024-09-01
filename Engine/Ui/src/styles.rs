@@ -37,6 +37,10 @@ macro_rules! modify_style {
     ($($style:ident).* = $($ac:tt)*) => {
         $($style).*.for_value(|v| *v = $($ac)*);
     };
+    ($($style:ident).*! = $($ac:tt)*) => {
+        $($style).*.x.for_value(|v| *v = $($ac)*);
+        $($style).*.y.for_value(|v| *v = $($ac)*);
+    };
     ($($style:ident).*:$acc:ident = $($ac:tt)*) => {
         $($style).*.for_field(|l| (*l).$acc = $($ac)*);
     };
@@ -52,17 +56,16 @@ pub struct UiStyle {
     pub margin: SideStyle,
     pub origin: Resolve<Origin>,
     pub position: Resolve<Position>,
-    pub rotation_origin: Resolve<Origin>,
-    pub rotation: Resolve<f32>,
     pub direction: Resolve<Direction>,
     pub child_align: Resolve<ChildAlign>,
 
     pub text: TextStyle,
+    pub transform: TransformStyle,
 }
 
 blanked_partial_ord!(UiStyle);
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -175,6 +178,67 @@ impl TextStyle {
 }
 
 #[derive(Clone)]
+pub struct TransformStyle {
+    pub translate: VectorField<i32>,
+    pub scale: VectorField<f32>,
+    pub rotate: Resolve<f32>,
+    pub origin: Resolve<Origin>,
+}
+
+impl TransformStyle {
+    pub fn initial() -> Self {
+        Self {
+            translate: VectorField::splat(UiValue::Just(0).to_field().into()),
+            scale: VectorField::splat(UiValue::Just(1.0).to_field().into()),
+            rotate: UiValue::Just(0.0).to_field().into(),
+            origin: UiValue::Just(Origin::Center).into(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct VectorField<T: PartialOrd + Clone + 'static> {
+    pub x: Resolve<T>,
+    pub y: Resolve<T>
+}
+
+impl<T: PartialOrd + Clone + 'static> VectorField<T> {
+    pub fn splat(t: Resolve<T>) -> Self {
+        Self {
+            x: t.clone(),
+            y: t,
+        }
+    }
+
+    pub fn set(&mut self, t: Resolve<T>) {
+        self.x = t.clone();
+        self.y = t;
+    }
+
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> (Option<T>, Option<T>)
+    where
+        F: Fn(&UiStyle) -> &Self
+    {
+        let x_res = self.x.resolve(dpi, parent.clone(), |s| &map(s).x);
+        let y_res = self.y.resolve(dpi, parent, |s| &map(s).y);
+        (x_res, y_res)
+    }
+
+    pub fn resolve_with_default<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F, def: (T, T)) -> (T, T)
+    where
+        F: Fn(&UiStyle) -> &Self
+    {
+        let x_res = self.x.resolve(dpi, parent.clone(), |s| &map(s).x);
+        let y_res = self.y.resolve(dpi, parent, |s| &map(s).y);
+
+        let mut res = def;
+        if x_res.is_some() { res.0 = x_res.unwrap() }
+        if y_res.is_some() { res.1 = y_res.unwrap() }
+        res
+    }
+}
+
+#[derive(Clone)]
 pub struct LayoutField<T: PartialOrd + Clone + 'static> {
     pub value: UiValue<T>,
     pub min: UiValue<T>,
@@ -188,7 +252,7 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 
     fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
     where
-        F: Fn(&UiStyle) -> &Self,
+        F: Fn(&UiStyle) -> &Self
     {
         let value = self.value.resolve(dpi, parent.clone(), |s| &map(s).value);
         let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
@@ -568,7 +632,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
         LayoutField::from(self)
     }
 
-    fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -701,10 +765,6 @@ impl Interpolator<UiStyle> for UiStyle {
 
         self.origin = (percent < 50f32).yn(self.origin.clone(), end.origin.clone());
         self.position = (percent < 50f32).yn(self.position.clone(), end.position.clone());
-        self.rotation_origin =
-            (percent < 50f32).yn(self.rotation_origin.clone(), end.rotation_origin.clone());
-        self.rotation
-            .interpolate(&end.rotation, percent, elem, |s| &s.rotation);
         self.direction = (percent < 50f32).yn(self.direction.clone(), end.direction.clone());
         self.child_align = (percent < 50f32).yn(self.child_align.clone(), end.child_align.clone());
 
@@ -715,6 +775,13 @@ impl Interpolator<UiStyle> for UiStyle {
         self.text.color.interpolate(&end.text.color, percent, elem, |s| { &s.text.color });
         self.text.fit = (percent < 50f32).yn(self.text.fit.clone(), end.text.fit.clone());
         self.text.font = (percent < 50f32).yn(self.text.font.clone(), end.text.font.clone());
+
+        self.transform.translate.x.interpolate(&end.transform.translate.x, percent, elem, |s| &f(s).transform.translate.x);
+        self.transform.translate.y.interpolate(&end.transform.translate.y, percent, elem, |s| &f(s).transform.translate.y);
+        self.transform.scale.x.interpolate(&end.transform.scale.x, percent, elem, |s| &f(s).transform.scale.x);
+        self.transform.scale.y.interpolate(&end.transform.scale.y, percent, elem, |s| &f(s).transform.scale.y);
+        self.transform.rotate.interpolate(&end.transform.rotate, percent, elem, |s| &f(s).transform.rotate);
+        self.transform.origin = (percent > 50.0).yn(end.transform.origin.clone(), self.transform.origin.clone());
     }
 }
 
@@ -788,11 +855,10 @@ impl Default for UiStyle {
             margin: SideStyle::all_i32(0).into(),
             origin: UiValue::Just(Origin::BottomLeft).into(),
             position: UiValue::Just(Position::Relative).into(),
-            rotation_origin: UiValue::Just(Origin::Center).into(),
-            rotation: UiValue::Just(0.0).to_field().into(),
             direction: UiValue::Auto.into(),
             child_align: UiValue::Auto.into(),
             text: TextStyle::initial(),
+            transform: TransformStyle::initial(),
         }
     }
 }

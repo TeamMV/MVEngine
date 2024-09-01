@@ -29,21 +29,53 @@ pub const EASING_SIN_OUT: Easing = Easing {
     gen: EasingGen::SinOut(EasingSinOut::new(0.0..100.0, 0.0..100.0))
 };
 
+///Specifies if the end result of the animation should be kept or reverted to the initial style
 pub enum FillMode {
     Keep,
     Revert
 }
 
-pub fn animate_self(elem: &mut UiElement, target: &UiStyle, time_ms: u32, easing: Easing, fill_mode: FillMode) -> u64 {
-    let style = unsafe { Unsafe::cast_mut_static(elem.style_mut()) };
-    animate(elem, style, target, time_ms, easing, fill_mode)
+
+///Specifies how to handle an animation call, when this element is being animated already
+pub enum AnimationMode {
+    StartOver,
+    BlockNew
 }
 
-pub fn animate(elem: &UiElement, initial: &mut UiStyle, target: &UiStyle, time_ms: u32, easing: Easing, fill_mode: FillMode) -> u64 {
-    let mut backup = None;
-    if matches!(fill_mode, FillMode::Revert) {
-        backup = Some(initial.clone());
+///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
+pub fn animate_self(elem: &mut UiElement, target: &UiStyle, time_ms: u32, easing: Easing, fill_mode: FillMode, animation_mode: AnimationMode) -> u64 {
+    let style = unsafe { Unsafe::cast_mut_static(elem.style_mut()) };
+    animate(elem, style, target, time_ms, easing, fill_mode, animation_mode)
+}
+
+
+///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
+pub fn animate(elem: &mut UiElement, initial: &mut UiStyle, target: &UiStyle, time_ms: u32, easing: Easing, fill_mode: FillMode, animation_mode: AnimationMode) -> u64 {
+    if !elem.state().is_animating {
+        elem.state_mut().is_animating = true;
+    } else {
+        match animation_mode {
+            AnimationMode::StartOver => {
+                unsafe {
+                    if TIMING_MANAGER.is_present(elem.state().last_animation) { //extra check cuz why not and i dont want crash or smth
+                        TIMING_MANAGER.cancel(elem.state().last_animation);
+                    }
+
+                    if elem.state().last_style.is_some() {
+                        let backup = Unsafe::cast_static(elem.state().last_style.as_ref().unwrap());
+                        elem.style_mut().clone_from(backup);
+                    }
+                }
+            }
+            AnimationMode::BlockNew => {
+                return elem.state().last_animation
+            }
+        }
     }
+
+    elem.state_mut().last_style = Some(initial.clone());
+
+    let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
 
     let id = unsafe {
         TIMING_MANAGER.request(DurationTask::new(
@@ -64,8 +96,7 @@ pub fn animate(elem: &UiElement, initial: &mut UiStyle, target: &UiStyle, time_m
                                 em.initial.clone_from(em.target);
                             }
                             FillMode::Revert => {
-                                //TODO: maybe get rid of this clone, its unnecessary
-                                let backup_style = &em.backup_style.clone().unwrap();
+                                let backup_style = em.elem.state().last_style.as_ref().unwrap();
 
                                 //let elem_style = guard.style_mut();
                                 em.initial.clone_from(backup_style);
@@ -79,12 +110,12 @@ pub fn animate(elem: &UiElement, initial: &mut UiStyle, target: &UiStyle, time_m
                 fill_mode,
                 easing,
                 initial,
-                backup,
                 target,
                 elem
             )),
-        ))
+        ), Some(Box::new(move || static_elem.state_mut().is_animating = false)))
     };
+    elem.state_mut().last_animation = id;
     id
 }
 
@@ -93,7 +124,6 @@ pub(crate) struct ElementAnimationInfo {
     pub(crate) duration: u32,
     pub(crate) easing: Easing,
     pub(crate) initial: &'static mut UiStyle,
-    pub(crate) backup_style: Option<UiStyle>,
     pub(crate) target: &'static UiStyle,
     pub(crate) elem: &'static UiElement
 }
@@ -104,7 +134,6 @@ impl ElementAnimationInfo {
         fill_mode: FillMode,
         easing: Easing,
         initial: &mut UiStyle,
-        backup_style: Option<UiStyle>,
         target: &UiStyle,
         elem: &UiElement
     ) -> Self {
@@ -114,7 +143,6 @@ impl ElementAnimationInfo {
                 duration: duration_ms,
                 easing,
                 initial: Unsafe::cast_mut_static(initial),
-                backup_style,
                 target: Unsafe::cast_static(target),
                 elem: Unsafe::cast_static(elem)
             }

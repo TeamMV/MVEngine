@@ -6,9 +6,7 @@ use crate::resolve;
 use crate::attributes::Attributes;
 use crate::ease::Easing;
 use crate::elements::child::Child;
-use crate::styles::{
-    ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, TextFit, UiStyle, UiValue,
-};
+use crate::styles::{ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, Resolve, TextFit, UiStyle, UiValue};
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
@@ -149,26 +147,29 @@ pub struct UiElementState {
     pub ctx: ResCon,
     pub parent: Option<Arc<RwLock<UiElement>>>,
 
-    pub(crate) children: Vec<Child>,
+    pub children: Vec<Child>,
 
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) content_x: i32,
-    pub(crate) content_y: i32,
-    pub(crate) bounding_x: i32,
-    pub(crate) bounding_y: i32,
-    pub(crate) width: i32,
-    pub(crate) height: i32,
-    pub(crate) content_width: i32,
-    pub(crate) content_height: i32,
-    pub(crate) bounding_width: i32,
-    pub(crate) bounding_height: i32,
-    pub(crate) margins: [i32; 4], //t,d,l,r
-    pub(crate) paddings: [i32; 4],
+    pub x: i32,
+    pub y: i32,
+    pub content_x: i32,
+    pub content_y: i32,
+    pub bounding_x: i32,
+    pub bounding_y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub content_width: i32,
+    pub content_height: i32,
+    pub bounding_width: i32,
+    pub bounding_height: i32,
+    pub margins: [i32; 4], //t,d,l,r
+    pub paddings: [i32; 4],
 
-    pub(crate) transforms: UiTransformations,
+    pub events: UiEvents,
+    pub is_animating: bool,
+    pub last_animation: u64,
+    pub last_style: Option<UiStyle>,
 
-    pub events: UiEvents
+    pub transforms: UiTransformations,
 }
 
 #[derive(Clone)]
@@ -199,13 +200,16 @@ impl UiElementState {
             bounding_height: 0,
             margins: [0; 4],
             paddings: [0; 4],
+            events: UiEvents::create(),
+            is_animating: false,
+            last_animation: 0,
+            last_style: None,
             transforms: UiTransformations {
                 translation: Dimension::new(0, 0),
                 rotation: 0.0,
-                scale: Dimension::new(1.0, 1.0),
-                origin: Origin::Center,
+                scale: Dimension::new(0.0, 0.0),
+                origin: Default::default(),
             },
-            events: UiEvents::create()
         }
     }
 
@@ -311,14 +315,20 @@ impl UiElementState {
             height = occupied_height;
         };
 
-        width = style
-            .width
-            .get_field()
-            .apply(width, binding, |s| &s.width.get_field());
-        height = style
-            .height
-            .get_field()
-            .apply(height, binding, |s| &s.height.get_field());
+        width = match &style.width {
+            Resolve::UiValue(val) => val.resolve(state.ctx.dpi, state.parent.clone(), |s| &s.width.get_value()).unwrap_or(width),
+            Resolve::LayoutField(lay) => lay.apply(width, binding, |s| &s.width.get_field())
+        };
+
+        height = match &style.height {
+            Resolve::UiValue(val) => val.resolve(state.ctx.dpi, state.parent.clone(), |s| &s.height.get_value()).unwrap_or(height),
+            Resolve::LayoutField(lay) => lay.apply(height, binding, |s| &s.height.get_field())
+        };
+
+        let (scale_x, scale_y) = style.transform.scale.resolve_with_default(state.ctx.dpi, state.parent.clone(), |s| &s.transform.scale, (1.0, 1.0));
+
+        width = (width as f32 * scale_x) as i32;
+        height = (height as f32 * scale_y) as i32;
 
         let padding = style.padding.get(binding, |s| &s.padding); //t,b,l,r
         let margin = style.margin.get(binding, |s| &s.margin);
@@ -359,12 +369,41 @@ impl UiElementState {
             }
         }
 
+        let transform_origin = resolve!(binding, transform.origin);
+        match transform_origin {
+            Origin::TopLeft => {
+                state.bounding_y -= (scale_y - 1.0) as i32;
+            }
+            Origin::BottomLeft => {/*Nothing cuz already right scaling*/}
+            Origin::TopRight => {
+                state.bounding_x -= ((scale_x - 1.0) * state.bounding_width as f32) as i32;
+                state.bounding_y -= ((scale_y - 1.0) * state.bounding_height as f32) as i32;
+            }
+            Origin::BottomRight => {
+                state.bounding_x -= ((scale_x - 1.0) * state.bounding_width as f32) as i32;
+            }
+            Origin::Center => {
+                state.bounding_x -= ((scale_x - 1.0) * (state.bounding_width as f32 * 0.5)) as i32;
+                state.bounding_y -= ((scale_y - 1.0) * (state.bounding_height as f32 * 0.5)) as i32;
+            }
+            Origin::Custom(cx, cy) => {
+                //TODO: test this chatgpt code
+                let dx = cx - state.bounding_x;
+                let dy = cy - state.bounding_y;
+
+                state.bounding_x += (dx - (dx as f32 * scale_x) as i32);
+                state.bounding_y += (dy - (dy as f32 * scale_y) as i32);
+            }
+        }
+
+        let (trans_x, trans_y) = style.transform.translate.resolve_with_default(state.ctx.dpi, state.parent.clone(), |s| &s.transform.translate, (0, 0));
+        state.bounding_x += trans_x;
+        state.bounding_y += trans_y;
+
         state.x = state.bounding_x + margin[2];
         state.y = state.bounding_y + margin[1];
         state.content_x = state.x + padding[2];
         state.content_y = state.y + padding[1];
-
-        let mut height_remaining = state.content_height;
 
         for e in state
             .children

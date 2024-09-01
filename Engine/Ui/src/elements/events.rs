@@ -83,7 +83,7 @@ impl UiEvents {
                     }
                 } else {
                     if elem.inside(max, may) {
-                        self.last_inside = false;
+                        self.last_inside = true;
 
                         for listener in &self.mouse.hovers {
                             let base = UiEventBase {
