@@ -18,6 +18,7 @@ use Ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub}
 use Ui::styles::{Origin, Position, UiStyle, UiValue};
 use Ui::timing::TIMING_MANAGER;
 use Ui::{anim, modify_style, resolve, UI};
+use Ui::anim::complex::{KeyframeAnimation, UiElementAnimationStub};
 use Ui::ease::{EasingGen, EasingMode};
 use Ui::elements::events::{UiClickAction, UiHoverAction};
 
@@ -79,12 +80,23 @@ impl ApplicationLoopCallbacks for Application {
 
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
-        lmao.state_mut().events.on_hover(move |event| {
+        let animation = KeyframeAnimation::build(anim_style_from)
+            .next_keyframe(|s| {
+                modify_style!(s.x = UiValue::Just(400));
+            }, Some(anim::easing(EasingGen::sin(), EasingMode::Out)), Some(10.0))
+            .next_keyframe(|s| {
+                modify_style!(s.y = UiValue::Just(400));
+            }, Some(anim::easing(EasingGen::back(), EasingMode::InOut)), Some(60.0))
+            .next_keyframe(|s| {
+                modify_style!(s.x = UiValue::Just(700));
+                modify_style!(s.y = UiValue::Just(300));
+            }, Some(anim::easing(EasingGen::bounce(), EasingMode::Out)), None)
+            .build();
+
+        lmao.state_mut().events.on_click(move |event| {
             let elem = event.base.elem;
-            if let UiHoverAction::Enter = event.base.action {
-                anim::animate_self(elem, &anim_style_to, 200, anim::easing(EasingGen::bounce(), EasingMode::Out), FillMode::Keep, AnimationMode::StartOver);
-            } else {
-                anim::animate_self(elem, &anim_style_from, 1000, anim::easing(EasingGen::sin(), EasingMode::InOut), FillMode::Keep, AnimationMode::StartOver);
+            if let UiClickAction::Click = event.base.action {
+                animation.play(elem, 1000, FillMode::Revert, AnimationMode::BlockNew);
             }
         });
 

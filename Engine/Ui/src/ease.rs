@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+#[derive(Clone)]
 pub struct Easing {
     gen: EasingGen,
     mode: EasingMode,
@@ -29,6 +30,7 @@ impl Easing {
     }
 }
 
+#[derive(Clone)]
 pub enum EasingGen {
     Linear(LinearEasing),
     Exponential(ExponentialEasing),
@@ -59,6 +61,7 @@ pub trait EasingFunction {
 }
 
 // Linear Easing
+#[derive(Clone)]
 pub struct LinearEasing;
 
 impl EasingFunction for LinearEasing {
@@ -70,6 +73,7 @@ impl EasingFunction for LinearEasing {
 }
 
 // Exponential Easing
+#[derive(Clone)]
 pub struct ExponentialEasing {
     pub exponent: f32,
 }
@@ -95,6 +99,7 @@ impl EasingFunction for ExponentialEasing {
 }
 
 // Sinusoidal Easing
+#[derive(Clone)]
 pub struct SinEasing;
 
 impl EasingFunction for SinEasing {
@@ -110,6 +115,7 @@ impl EasingFunction for SinEasing {
 }
 
 // Back Easing
+#[derive(Clone)]
 pub struct BackEasing;
 
 impl EasingFunction for BackEasing {
@@ -138,6 +144,7 @@ impl EasingFunction for BackEasing {
 }
 
 // Bounce Easing
+#[derive(Clone)]
 pub struct BounceEasing;
 
 impl EasingFunction for BounceEasing {
@@ -174,6 +181,7 @@ fn bounce_out(t: f32) -> f32 {
 }
 
 // Elastic Easing
+#[derive(Clone)]
 pub struct ElasticEasing;
 
 impl EasingFunction for ElasticEasing {

@@ -1,3 +1,5 @@
+pub mod complex;
+
 use crate::elements::{UiElement, UiElementStub};
 use crate::styles::{Interpolator, UiStyle};
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
@@ -10,6 +12,7 @@ pub fn easing(gen: EasingGen, mode: EasingMode) -> Easing {
 }
 
 ///Specifies if the end result of the animation should be kept or reverted to the initial style
+#[derive(Clone)]
 pub enum FillMode {
     Keep,
     Revert
@@ -17,6 +20,7 @@ pub enum FillMode {
 
 
 ///Specifies how to handle an animation call, when this element is being animated already
+#[derive(Clone)]
 pub enum AnimationMode {
     StartOver,
     BlockNew
