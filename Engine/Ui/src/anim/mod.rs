@@ -23,7 +23,8 @@ pub enum FillMode {
 #[derive(Clone)]
 pub enum AnimationMode {
     StartOver,
-    BlockNew
+    BlockNew,
+    KeepProgress
 }
 
 ///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
@@ -48,6 +49,13 @@ pub fn animate(elem: &mut UiElement, initial: &mut UiStyle, target: &UiStyle, ti
                     if elem.state().last_style.is_some() {
                         let backup = Unsafe::cast_static(elem.state().last_style.as_ref().unwrap());
                         elem.style_mut().clone_from(backup);
+                    }
+                }
+            }
+            AnimationMode::KeepProgress => {
+                unsafe {
+                    if TIMING_MANAGER.is_present(elem.state().last_animation) { //extra check cuz why not and i dont want crash or smth
+                        TIMING_MANAGER.cancel(elem.state().last_animation);
                     }
                 }
             }

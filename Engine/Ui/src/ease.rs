@@ -1,4 +1,6 @@
 use std::ops::Range;
+use mvutils::utils::Map;
+use mvcore::math::curve::SimpleBezierCurve;
 
 #[derive(Clone)]
 pub struct Easing {
@@ -26,6 +28,7 @@ impl Easing {
             EasingGen::Back(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
             EasingGen::Bounce(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
             EasingGen::Elastic(e) => e.get(pos, self.x_range.clone(), self.y_range.clone(), self.mode.clone()),
+            EasingGen::Bezier(e) => e.get(pos.map(&self.x_range, &(0f32..1f32)) as f64) as f32
         }
     }
 }
@@ -37,7 +40,8 @@ pub enum EasingGen {
     Sin(SinEasing),
     Back(BackEasing),
     Bounce(BounceEasing),
-    Elastic(ElasticEasing)
+    Elastic(ElasticEasing),
+    Bezier(SimpleBezierCurve)
 }
 
 impl EasingGen {
@@ -47,6 +51,7 @@ impl EasingGen {
     pub fn back() -> Self { Self::Back(BackEasing) }
     pub fn bounce() -> Self { Self::Bounce(BounceEasing) }
     pub fn elastic() -> Self { Self::Elastic(ElasticEasing) }
+    pub fn bezier(points: &[f64]) -> Self { Self::Bezier(SimpleBezierCurve::new(points)) }
 }
 
 #[derive(Clone)]

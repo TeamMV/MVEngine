@@ -36,7 +36,7 @@ pub struct KeyframeAnimation {
 }
 
 impl KeyframeAnimation {
-    pub fn build(start_style: UiStyle) -> KeyframeAnimationBuilder {
+    pub fn builder(start_style: UiStyle) -> KeyframeAnimationBuilder {
         KeyframeAnimationBuilder::new(start_style)
     }
 

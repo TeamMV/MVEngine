@@ -44,6 +44,10 @@ macro_rules! modify_style {
     ($($style:ident).*:$acc:ident = $($ac:tt)*) => {
         $($style).*.for_field(|l| (*l).$acc = $($ac)*);
     };
+    ($($style:ident).*!:$acc:ident = $($ac:tt)*) => {
+        $($style).*.x.for_field(|l| (*l).$acc = $($ac)*);
+        $($style).*.y.for_field(|l| (*l).$acc = $($ac)*);
+    };
 }
 
 #[derive(Clone)]

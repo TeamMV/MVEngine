@@ -6,11 +6,14 @@ use mvcore::render::backend::Backend;
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use mve2d::renderer2d::Renderer2D;
+use mve2d::renderer2d::{Renderer2D, Shape};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use mvcore::color::RgbColor;
+use mvcore::input::raw::Input;
+use mvcore::math::vec::{Vec2, Vec3};
 use Ui::anim::{AnimationMode, FillMode};
 use Ui::attributes::Attributes;
 use Ui::elements::lmao::LmaoElement;
@@ -71,7 +74,7 @@ impl ApplicationLoopCallbacks for Application {
         modify_style!(style.width = UiValue::Just(100));
         modify_style!(style.height = UiValue::Just(100));
         modify_style!(style.transform.origin = UiValue::Just(
-            Origin::Eval(|x, y, w, h| (x + w / 2, y + h))
+            Origin::Custom(50, 50)
         ));
 
         let mut anim_style_from = style.clone();
@@ -80,7 +83,7 @@ impl ApplicationLoopCallbacks for Application {
 
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
-        let animation = KeyframeAnimation::build(anim_style_from)
+        let animation = KeyframeAnimation::builder(anim_style_from.clone())
             .next_keyframe(|s| {
                 modify_style!(s.x = UiValue::Just(400));
             }, Some(anim::easing(EasingGen::sin(), EasingMode::Out)), Some(10.0))
@@ -88,15 +91,18 @@ impl ApplicationLoopCallbacks for Application {
                 modify_style!(s.y = UiValue::Just(400));
             }, Some(anim::easing(EasingGen::back(), EasingMode::InOut)), Some(60.0))
             .next_keyframe(|s| {
-                modify_style!(s.x = UiValue::Just(700));
-                modify_style!(s.y = UiValue::Just(300));
+                modify_style!(s.x = UiValue::Just(2));
             }, Some(anim::easing(EasingGen::bounce(), EasingMode::Out)), None)
             .build();
 
         lmao.state_mut().events.on_click(move |event| {
             let elem = event.base.elem;
-            if let UiClickAction::Click = event.base.action {
-                animation.play(elem, 1000, FillMode::Revert, AnimationMode::BlockNew);
+            if event.button == input::MOUSE_LEFT {
+                if let UiClickAction::Click = event.base.action {
+                    anim::animate_self(elem, &anim_style_to, 200, anim::easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
+                } else {
+                    anim::animate_self(elem, &anim_style_from, 200, anim::easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
+                }
             }
         });
 
@@ -122,6 +128,19 @@ impl ApplicationLoopCallbacks for Application {
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         let ren = self.renderer2d.get_mut();
         UiElementState::compute(self.elem.clone(), ren);
+
+        let inp = window.get_input();
+        if inp.get().keys[Input::key_from_str("w")] {
+            ren.add_shape(Shape::Rectangle {
+                position: Vec3::new(50.0, 50.0, 0.0),
+                rotation: Default::default(),
+                scale: Vec2::splat(100.0),
+                tex_id: None,
+                tex_coord: Default::default(),
+                color: RgbColor::yellow().as_vec4(),
+                blending: 0.0,
+            })
+        }
 
         let mut guard = self.elem.write();
         guard.draw(ren);

@@ -214,15 +214,16 @@ impl Window {
 
                         if let ElementState::Pressed = event.state {
                             let index = Input::key_from_winit(code);
-                            if index > 0 && index < input.keys.len() {}
-                            if input.keys[index] {
-                                self.input_collector
-                                    .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
-                            } else {
-                                self.input_collector
-                                    .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
-                                self.input_collector
-                                    .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                            if index >= 0 && index < input.keys.len() {
+                                if input.keys[index] {
+                                    self.input_collector
+                                        .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                                } else {
+                                    self.input_collector
+                                        .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
+                                    self.input_collector
+                                        .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                                }
                             }
                         }
 

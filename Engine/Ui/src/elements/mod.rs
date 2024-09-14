@@ -6,7 +6,7 @@ use crate::resolve;
 use crate::attributes::Attributes;
 use crate::ease::Easing;
 use crate::elements::child::Child;
-use crate::styles::{ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, Resolve, TextFit, UiStyle, UiValue};
+use crate::styles::{ChildAlign, Dimension, Direction, Interpolator, Origin, Point, Position, ResCon, Resolve, TextFit, UiStyle, UiValue};
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};

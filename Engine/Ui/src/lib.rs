@@ -32,6 +32,7 @@ impl Ui {
     fn new() -> Self {
         unsafe {
             if UI.created() {
+
             }
         }
 
