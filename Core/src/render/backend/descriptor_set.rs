@@ -156,7 +156,9 @@ impl DescriptorSet {
 
     pub fn from_layout(device: Device, create_info: MVDescriptorSetFromLayoutCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => DescriptorSet::Vulkan(VkDescriptorSet::from_layout(device, create_info.into())),
+            Device::Vulkan(device) => {
+                DescriptorSet::Vulkan(VkDescriptorSet::from_layout(device, create_info.into()))
+            }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -236,6 +238,35 @@ impl DescriptorSet {
                 let image = image.as_vulkan();
                 descriptor_set.update_image(
                     binding,
+                    0,
+                    ash::vk::DescriptorImageInfo {
+                        sampler: sampler.as_vulkan().get_handle(),
+                        image_view: image.get_view(0),
+                        image_layout: layout.into(),
+                    },
+                )
+            }
+            #[cfg(target_os = "macos")]
+            DescriptorSet::Metal => unimplemented!(),
+            #[cfg(target_os = "windows")]
+            DescriptorSet::DirectX => unimplemented!(),
+        }
+    }
+
+    pub fn update_image_array(
+        &mut self,
+        binding: u32,
+        array_index: u32,
+        image: &Image,
+        sampler: &Sampler,
+        layout: ImageLayout,
+    ) {
+        match self {
+            DescriptorSet::Vulkan(descriptor_set) => {
+                let image = image.as_vulkan();
+                descriptor_set.update_image(
+                    binding,
+                    array_index,
                     ash::vk::DescriptorImageInfo {
                         sampler: sampler.as_vulkan().get_handle(),
                         image_view: image.get_view(0),

@@ -1,3 +1,3 @@
 pub mod asset;
-pub mod manager;
 mod importer;
+pub mod manager;

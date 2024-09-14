@@ -240,10 +240,10 @@ impl<Type: PipelineType> VkPipeline<Type> {
                 .get_device()
                 .create_pipeline_layout(&layout_info, None)
         }
-        .unwrap_or_else(|e| {
-            log::error!("Failed to create pipeline layout for error: {e}");
-            panic!();
-        })
+            .unwrap_or_else(|e| {
+                log::error!("Failed to create pipeline layout for error: {e}");
+                panic!();
+            })
     }
 
     pub(crate) fn get_handle(&self) -> ash::vk::Pipeline {
@@ -327,10 +327,10 @@ impl VkPipeline {
                 None,
             )
         }
-        .unwrap_or_else(|(_, e)| {
-            log::error!("Failed to create pipeline! error: {e}");
-            panic!();
-        })[0];
+            .unwrap_or_else(|(_, e)| {
+                log::error!("Failed to create pipeline! error: {e}");
+                panic!();
+            })[0];
 
         #[cfg(debug_assertions)]
         device.set_object_name(
@@ -378,7 +378,7 @@ impl VkPipeline {
                 src_color_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
                 dst_color_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
                 color_blend_op: ash::vk::BlendOp::ADD,
-                src_alpha_blend_factor: ash::vk::BlendFactor::ONE,
+                src_alpha_blend_factor: ash::vk::BlendFactor::SRC_ALPHA,
                 dst_alpha_blend_factor: ash::vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
                 alpha_blend_op: ash::vk::BlendOp::ADD,
                 color_write_mask: ash::vk::ColorComponentFlags::RGBA,
@@ -439,11 +439,10 @@ impl VkPipeline<Compute> {
                 None,
             )
         }
-        .unwrap_or_else(|e| {
-            log::error!("Failed to create pipeline! error: {}", e.1);
-            panic!()
-        })[0];
-
+            .unwrap_or_else(|e| {
+                log::error!("Failed to create pipeline! error: {}", e.1);
+                panic!()
+            })[0];
 
         #[cfg(debug_assertions)]
         device.set_object_name(

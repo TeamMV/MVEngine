@@ -68,18 +68,23 @@ layout(location = 0) in vec3 pos;
 
 layout(location = 0) out vec2 outTexCoord;
 layout(location = 1) out vec4 outColor;
+layout(location = 2) out int outTexId;
+layout(location = 3) out float outBlending;
 
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
     mat4 proj;
+    vec2 screenSize;
 } mat;
 
 struct Transform {
-    vec3 position;
-    vec3 rotation;
-    vec2 scale;
+    vec4 position;
+    vec4 rotation;
     vec4 texCoords; // x, y, width, height,
     vec4 color;
+    vec2 scale;
+    int texId;
+    float blending;
 };
 
 vec2 GetTextureCoords(int vertexIndex, vec4 inTexCoords)
@@ -107,8 +112,10 @@ layout(set = 1, binding = 0, scalar) readonly buffer ObjectUbo
 
 void main() {
     Transform t = transforms.transform[gl_InstanceIndex];
-    mat4 model = createModelMatrix(t.position.xyz, t.rotation, t.scale.xy);
+    mat4 model = createModelMatrix(t.position.xyz, t.rotation.xyz, t.scale.xy);
     gl_Position = mat.proj * mat.view * model * vec4(pos.xyz, 1.0f);
     outTexCoord = GetTextureCoords(gl_VertexIndex, t.texCoords);
     outColor = t.color;
+    outTexId = t.texId;
+    outBlending = t.blending;
 }

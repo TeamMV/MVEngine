@@ -86,11 +86,7 @@ impl PerspectiveCamera {
     pub fn update_view(&mut self) {
         self.view = Mat4::view(
             self.position,
-            Quat::from_euler(
-                self.rotation.x,
-                self.rotation.y,
-                self.rotation.z,
-            ),
+            Quat::from_euler(self.rotation.x, self.rotation.y, self.rotation.z),
             Vec4::splat(self.zoom),
         );
     }
