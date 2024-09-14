@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use crate::render::backend::image::{
     ImageFormat, ImageLayout, ImageTiling, ImageType, MVImageCreateInfo,
 };
@@ -7,6 +6,7 @@ use crate::render::backend::vulkan::buffer::VkBuffer;
 use crate::render::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::render::backend::vulkan::device::VkDevice;
 use mvutils::unsafe_utils::DangerousCell;
+use std::ffi::CString;
 use std::sync::Arc;
 
 pub struct VkImage {
@@ -238,8 +238,7 @@ impl VkImage {
         }
     }
 
-    pub fn write_pixels(&mut self, pixels: &[u8], provided_cmd: Option<&VkCommandBuffer>)
-    {
+    pub fn write_pixels(&mut self, pixels: &[u8], provided_cmd: Option<&VkCommandBuffer>) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd.get_handle(), false)
         } else {
@@ -252,17 +251,19 @@ impl VkImage {
 
         let vk_cmd = VkCommandBuffer {
             device: self.device.clone(),
-            handle: cmd
+            handle: cmd,
         };
 
         let pixel_size = Self::format_to_size(self.format);
-        let image_byte_size: ash::vk::DeviceSize = (self.size.width * self.size.height * pixel_size) as ash::vk::DeviceSize;
+        let image_byte_size: ash::vk::DeviceSize =
+            (self.size.width * self.size.height * pixel_size) as ash::vk::DeviceSize;
 
-        let buffer_info = buffer::CreateInfo{
+        let buffer_info = buffer::CreateInfo {
             instance_size: image_byte_size,
             instance_count: 1,
             usage_flags: ash::vk::BufferUsageFlags::TRANSFER_SRC,
-            memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
+            memory_properties: ash::vk::MemoryPropertyFlags::HOST_VISIBLE
+                | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
             minimum_alignment: 1,
             memory_usage_flags: gpu_alloc::UsageFlags::HOST_ACCESS,
             debug_name: CString::new("Texture staging buffer").unwrap(),
@@ -273,9 +274,19 @@ impl VkImage {
         buffer.write_to_buffer(pixels, 0, Some(cmd));
         buffer.unmap();
 
-        self.transition_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+        self.transition_layout(
+            ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            Some(&vk_cmd),
+            ash::vk::AccessFlags::empty(),
+            ash::vk::AccessFlags::empty(),
+        );
         self.copy_buffer_to_image(&buffer, Some(&vk_cmd));
-        self.transition_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL, Some(&vk_cmd), ash::vk::AccessFlags::empty(), ash::vk::AccessFlags::empty());
+        self.transition_layout(
+            ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            Some(&vk_cmd),
+            ash::vk::AccessFlags::empty(),
+            ash::vk::AccessFlags::empty(),
+        );
 
         if end {
             self.device.end_single_time_command(

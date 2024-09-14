@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use log::LevelFilter;
-use mvutils::version::Version;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::math::vec::Vec4;
-use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::render::backend::Backend;
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
+use mvcore::render::backend::Backend;
 use mvcore::render::window::{Window, WindowCreateInfo};
+use mvcore::render::ApplicationLoopCallbacks;
+use mvutils::version::Version;
+use std::sync::Arc;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -57,7 +57,11 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         handle.load();
 
-        Self { device, manager, handle }
+        Self {
+            device,
+            manager,
+            handle,
+        }
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {}
@@ -71,7 +75,9 @@ impl ApplicationLoopCallbacks for AppLoop {
             //draw loading thing
             println!("loading")
         } else {
-            let Some(texture) = texture.as_texture() else { unreachable!() };
+            let Some(texture) = texture.as_texture() else {
+                unreachable!()
+            };
             //draw the texture ig
             println!("loaded")
         }

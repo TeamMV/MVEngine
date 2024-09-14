@@ -16,3 +16,5 @@ mvlogger.workspace = true
 gpu-alloc.workspace = true
 shaderc.workspace = true
 log.workspace = true
+bytebuffer.workspace = true
+hashbrown.workspace = true

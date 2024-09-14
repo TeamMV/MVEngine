@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Wake;
 use std::thread::JoinHandle;
-use ahash::AHasher;
 
-use crossbeam_channel::{Receiver, Sender, unbounded};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use hashbrown::HashMap;
 use mvsync::block::Signal;
 use mvutils::hashers::U64IdentityHasher;
@@ -200,7 +200,12 @@ impl AssetManager {
         self.create_asset_inner(path, ty, true)
     }
 
-    fn create_asset_inner(self: &Arc<Self>, path: &str, ty: AssetType, global: bool) -> AssetHandle {
+    fn create_asset_inner(
+        self: &Arc<Self>,
+        path: &str,
+        ty: AssetType,
+        global: bool,
+    ) -> AssetHandle {
         let mut hasher = AHasher::default();
         path.hash(&mut hasher);
         let handle = hasher.finish();
@@ -228,7 +233,11 @@ impl AssetManager {
     }
 
     pub fn get(&self, handle: &AssetHandle) -> Arc<Asset> {
-        self.asset_map.read().get(handle).expect("AssetHandle not valid").clone()
+        self.asset_map
+            .read()
+            .get(handle)
+            .expect("AssetHandle not valid")
+            .clone()
     }
 
     pub fn is_asset_handle_valid(&self, handle: &AssetHandle) -> bool {
@@ -236,12 +245,17 @@ impl AssetManager {
     }
 
     pub fn is_asset_loaded(&self, handle: &AssetHandle) -> bool {
-        self.asset_map.read().get(handle).map(|asset| asset.is_loaded()).unwrap_or_default()
+        self.asset_map
+            .read()
+            .get(handle)
+            .map(|asset| asset.is_loaded())
+            .unwrap_or_default()
     }
 
     fn push(self: &Arc<AssetManager>, task: AssetTask) {
         let index = self.index.load(Ordering::Acquire);
-        self.index.store((index + 1) % self.threads.len() as u64, Ordering::Release);
+        self.index
+            .store((index + 1) % self.threads.len() as u64, Ordering::Release);
         self.queued.fetch_add(1, Ordering::AcqRel);
         #[allow(invalid_reference_casting)]
         if let Err(task) = self.threads[index as usize].1.send(task) {

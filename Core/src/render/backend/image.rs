@@ -8,8 +8,8 @@ use mvcore_proc_macro::graphics_item;
 use crate::render::backend::buffer::{Buffer, MemoryProperties};
 use crate::render::backend::command_buffer::CommandBuffer;
 use crate::render::backend::device::Device;
-use crate::render::backend::Extent2D;
 use crate::render::backend::vulkan::image::VkImage;
+use crate::render::backend::Extent2D;
 
 pub enum ImageType {
     Image2D,
@@ -54,7 +54,7 @@ impl From<ColorType> for ImageFormat {
             ColorType::Rgba16 => ImageFormat::R16G16B16A16,
             ColorType::Rgb32F => ImageFormat::R32G32B32,
             ColorType::Rgba32F => ImageFormat::R32G32B32A32,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
