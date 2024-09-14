@@ -220,11 +220,11 @@ impl ApplicationLoopCallbacks for AppLoop {
         // }
 
         renderer2d.add_shape(Shape::Text {
-            position: Vec3::new(300.0, 300.0, 0.0),
+            position: Vec3::new(100.0, 300.0, 0.0),
             rotation: Vec3::splat(0.0),
-            height: 200.0,
+            height: 100.0,
             font_id: 0,
-            text: "a".to_string(),
+            text: "Hello World".to_string(),
             color: Vec4::splat(1.0),
         });
 

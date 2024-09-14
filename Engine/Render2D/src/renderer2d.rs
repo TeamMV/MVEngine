@@ -849,9 +849,11 @@ impl Renderer2D {
 
                         let rot = rotation.to_radians();
 
+                        let y_offset: f32 = (1.0 - bounds_plane.bottom) as f32 * scale.y;
+
                         // TODO: far plane is hardcoded to 100.0, change it. We use half the far plane to allow for negative z values
                         let rectangle = Rectangle {
-                            position: Vec4::new(x as f32 + position.x, y as f32 + position.y, 50.0 - position.z, 0.0),
+                            position: Vec4::new(x as f32 + position.x, y as f32 + position.y - y_offset, 50.0 - position.z, 0.0),
                             rotation: Vec4::new(rot.x, rot.y, rot.z, 0.0),
                             scale,
                             tex_coord : tex_coords,
