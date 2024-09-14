@@ -220,23 +220,13 @@ impl ApplicationLoopCallbacks for AppLoop {
         //     });
         // }
 
-        //renderer2d.add_shape(Shape::Text {
-        //    position: Vec3::new(300.0, 300.0, 0.0),
-        //    rotation: Vec3::splat(0.0),
-        //    height: 200.0,
-        //    font_id: 0,
-        //    text: "a".to_string(),
-        //    color: Vec4::splat(1.0),
-        //});
-
-        renderer2d.add_shape(Shape::Rectangle {
-            position: Vec3::new(200.0, 200.0, 0.0),
-            rotation: Default::default(),
-            scale: Vec2::new(100.0, 100.0),
-            tex_id: None,
-            tex_coord: Default::default(),
-            color: RgbColor::blue().as_vec4(),
-            blending: 0.0,
+        renderer2d.add_shape(Shape::Text {
+            position: Vec3::new(100.0, 300.0, 0.0),
+            rotation: Vec3::splat(0.0),
+            height: 100.0,
+            font_id: 0,
+            text: "Hello World".to_string(),
+            color: Vec4::splat(1.0),
         });
 
         renderer2d.add_shape(Shape::Rectangle {
