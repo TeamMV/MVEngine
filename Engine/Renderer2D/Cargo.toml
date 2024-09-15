@@ -1,5 +1,5 @@
 [package]
-name = "Ui"
+name = "Renderer2D"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,11 +10,12 @@ harness = false
 
 [dependencies]
 mvcore = { path = "../../Core" }
-mve2d = { path = "../GameRenderer2D", package = "game_renderer_2d" }
-uiproc = { path = "Proc", package = "mvengine-ui-proc-macro" }
 mvutils.workspace = true
 mvlogger.workspace = true
 parking_lot.workspace = true
 num-traits.workspace = true
 hashbrown.workspace = true
 log.workspace = true
+gpu-alloc.workspace = true
+shaderc.workspace = true
+bytebuffer.workspace = true

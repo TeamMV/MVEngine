@@ -120,7 +120,7 @@ struct CameraBuffer {
     pub screen_size: Vec2,
 }
 
-pub struct Renderer2D {
+pub struct GameRenderer2D {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
 
@@ -154,7 +154,7 @@ pub struct Renderer2D {
     max_fonts: u32,
 }
 
-impl Renderer2D {
+impl GameRenderer2D {
     pub fn get_geometry_image(&self, frame_index: usize) -> Image {
         self.geometry_framebuffers[frame_index].get_image(0).clone()
     }
@@ -409,7 +409,7 @@ impl Renderer2D {
             rectangle_vertices_bytes,
             4,
             Some(&rectangle_indices),
-            Some("Render2D Rectangle Mesh".to_string()),
+            Some("GameRenderer2D Rectangle Mesh".to_string()),
         );
 
         let rounded_rect_vertices_bytes = [0u8; 12];
@@ -420,7 +420,7 @@ impl Renderer2D {
             &rounded_rect_vertices_bytes,
             1,
             Some(&rounded_rect_indices),
-            Some("Render2D Rounded Rect Mesh".to_string()),
+            Some("GameRenderer2D Rounded Rect Mesh".to_string()),
         );
 
         //
@@ -451,7 +451,7 @@ impl Renderer2D {
         let fragment_shader = renderer.get().compile_shader(
             include_str!("shaders/default.frag"),
             ShaderKind::Fragment,
-            Some("Render2D Shared Fragment Shader".to_string()),
+            Some("GameRenderer2D Shared Fragment Shader".to_string()),
             &[],
         );
 
@@ -460,7 +460,7 @@ impl Renderer2D {
         let rectangle_shader = renderer.get().compile_shader(
             include_str!("shaders/shapes/rectangle.vert"),
             ShaderKind::Vertex,
-            Some("Render2D Rectangle Shader".to_string()),
+            Some("GameRenderer2D Rectangle Shader".to_string()),
             &[],
         );
 
@@ -483,7 +483,7 @@ impl Renderer2D {
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
                 color_attachments_count: 1,
-                label: Some("Render2D Rectangle Pipeline".to_string()),
+                label: Some("GameRenderer2D Rectangle Pipeline".to_string()),
             },
         );
 
@@ -492,14 +492,14 @@ impl Renderer2D {
         let rounded_rect_geometry_shader = renderer.get().compile_shader(
             include_str!("shaders/shapes/rounded_rect.geom"),
             ShaderKind::Geometry,
-            Some("Render2D Rounded Rect Geometry Shader".to_string()),
+            Some("GameRenderer2D Rounded Rect Geometry Shader".to_string()),
             &[],
         );
 
         let rounded_rect_vertex_shader = renderer.get().compile_shader(
             include_str!("shaders/shapes/rounded_rect.vert"),
             ShaderKind::Vertex,
-            Some("Render2D Rounded Rect Vertex Shader".to_string()),
+            Some("GameRenderer2D Rounded Rect Vertex Shader".to_string()),
             &[],
         );
 
@@ -526,7 +526,7 @@ impl Renderer2D {
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
                 color_attachments_count: 1,
-                label: Some("Render2D Rounded Rect Pipeline".to_string()),
+                label: Some("GameRenderer2D Rounded Rect Pipeline".to_string()),
             },
         );
 
@@ -700,7 +700,7 @@ impl Renderer2D {
                             memory_properties: MemoryProperties::DEVICE_LOCAL,
                             minimum_alignment: 1,
                             memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-                            label: Some(format!("Render2D {} Buffer", $ty)),
+                            label: Some(format!("GameRenderer2D {} Buffer", $ty)),
                         },
                     );
 
@@ -933,7 +933,7 @@ impl Renderer2D {
                 memory_properties: MemoryProperties::DEVICE_LOCAL,
                 minimum_alignment: 1,
                 memory_usage: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
-                label: Some(format!("Render2D {ty} Buffer")),
+                label: Some(format!("GameRenderer2D {ty} Buffer")),
             },
         );
 
@@ -947,7 +947,7 @@ impl Renderer2D {
                     ty: DescriptorType::StorageBuffer,
                     count: 1,
                 }],
-                label: Some(format!("Render2D {ty} Set")),
+                label: Some(format!("GameRenderer2D {ty} Set")),
             },
         );
 

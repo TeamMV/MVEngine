@@ -11,7 +11,7 @@ pub trait Factorial {
     fn fact(&self) -> Self;
 }
 
-impl<T> Factorial for T where T: Num + MulAssign + AddAssign + Copy {
+impl<T> Factorial for T where T: Num + MulAssign + AddAssign + Copy + PartialOrd {
     fn fact(&self) -> Self {
         let mut res = T::one();
         let mut i = T::one() + T::one();

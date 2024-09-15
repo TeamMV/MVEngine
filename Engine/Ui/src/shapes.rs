@@ -1,6 +1,6 @@
 use mvcore::color::RgbColor;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
-use mve2d::renderer2d::Renderer2D;
+use mve2d::renderer2d::GameRenderer2D;
 use crate::styles::Dimension;
 use crate::utils::OptionGetMapOr;
 
@@ -10,7 +10,7 @@ pub enum Shape {
 }
 
 impl Shape {
-    pub fn draw(&self, renderer: &mut Renderer2D) {
+    pub fn draw(&self, renderer: &mut GameRenderer2D) {
         match self {
             Shape::Rect(s) => s.draw(renderer),
             Shape::VoidRect(s) => {}
@@ -42,7 +42,7 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn draw(&self, renderer: &mut Renderer2D) {
+    pub fn draw(&self, renderer: &mut GameRenderer2D) {
         renderer.add_shape(mve2d::renderer2d::Shape::Rectangle {
             position: self.base.transform.position,
             rotation: self.base.transform.rotation,

@@ -1,3 +1,4 @@
+use std::process::exit;
 use log::LevelFilter;
 use mvcore::input;
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
@@ -6,7 +7,7 @@ use mvcore::render::backend::Backend;
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use mve2d::renderer2d::{Renderer2D, Shape};
+use mve2d::renderer2d::{GameRenderer2D, Shape};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
@@ -24,8 +25,23 @@ use Ui::{anim, modify_style, resolve, UI};
 use Ui::anim::complex::{KeyframeAnimation, UiElementAnimationStub};
 use Ui::ease::{EasingGen, EasingMode};
 use Ui::elements::events::{UiClickAction, UiHoverAction};
+use Ui::parser::xml;
+use uiproc::ui;
 
 fn main() {
+    let xml = r#"<tag1 attr={let a = 1; {}}><tag2></tag2></tag1>"#;
+    let res = xml::parse_rsx(xml.to_string());
+    if res.is_err() {
+        let err = res.err().unwrap();
+        println!("error:");
+        println!("{}", err);
+    } else {
+        println!("result:");
+        println!("{:?}", res.unwrap());
+    }
+
+    exit(0);
+
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     let mut info = WindowCreateInfo::default();
     info.title = "UI test".to_string();
@@ -40,7 +56,7 @@ fn main() {
 struct Application {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
-    renderer2d: Arc<DangerousCell<Renderer2D>>,
+    renderer2d: Arc<DangerousCell<GameRenderer2D>>,
     elem: Arc<RwLock<UiElement>>,
 }
 
@@ -59,7 +75,7 @@ impl ApplicationLoopCallbacks for Application {
         );
         let core_renderer = Arc::new(DangerousCell::new(Renderer::new(&window, device.clone())));
 
-        let renderer2d = Arc::new(DangerousCell::new(Renderer2D::new(
+        let renderer2d = Arc::new(DangerousCell::new(GameRenderer2D::new(
             device.clone(),
             core_renderer.clone(),
             core_renderer.get().get_swapchain().get_extent(),

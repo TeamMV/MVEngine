@@ -14,7 +14,7 @@ use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use mvutils::once::CreateOnce;
-use mve2d::renderer2d::Renderer2D;
+use mve2d::renderer2d::GameRenderer2D;
 use crate::elements::events::UiEvents;
 use crate::elements::lmao::LmaoElement;
 //use crate::elements::events::UiEvents;
@@ -22,7 +22,7 @@ use crate::elements::lmao::LmaoElement;
 pub trait UiElementCallbacks {
     fn init(&mut self);
 
-    fn draw(&mut self, renderer: &mut Renderer2D);
+    fn draw(&mut self, renderer: &mut GameRenderer2D);
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -93,7 +93,7 @@ impl UiElementCallbacks for UiElement {
         ui_element_fn!(self, init());
     }
 
-    fn draw(&mut self, renderer: &mut Renderer2D) {
+    fn draw(&mut self, renderer: &mut GameRenderer2D) {
         ui_element_fn!(self, draw(renderer))
     }
 }
@@ -213,7 +213,7 @@ impl UiElementState {
         }
     }
 
-    pub fn compute(elem: Arc<RwLock<UiElement>>, renderer: &mut Renderer2D) {
+    pub fn compute(elem: Arc<RwLock<UiElement>>, renderer: &mut GameRenderer2D) {
         let mut guard = elem.write();
         guard.state_mut().ctx.dpi = 20.0; //TODO: get dpi from renderer
 

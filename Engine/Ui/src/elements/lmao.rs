@@ -3,7 +3,7 @@ use parking_lot::RwLock;
 use mvcore::color::RgbColor;
 use mvcore::math::vec::{Vec2, Vec3};
 use mvcore::render::renderer::Renderer;
-use mve2d::renderer2d::{Renderer2D, Shape};
+use mve2d::renderer2d::{GameRenderer2D, Shape};
 use crate::{resolve};
 use crate::attributes::Attributes;
 use crate::elements::child::Child;
@@ -22,7 +22,7 @@ impl UiElementCallbacks for LmaoElement {
         todo!()
     }
 
-    fn draw(&mut self, renderer: &mut Renderer2D) {
+    fn draw(&mut self, renderer: &mut GameRenderer2D) {
         let shape = Shape::Rectangle {
             position: Vec3::new(self.state.x as f32, renderer.get_extent().height as f32 - self.state.y as f32 - self.state.height as f32, 0f32),
             rotation: Default::default(),

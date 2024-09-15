@@ -2,8 +2,9 @@
 members = [
     "Core",
     "Engine/Mods",
-    "Engine/Render2D",
+    "Engine/GameRenderer2D",
     "Engine/Ui",
+    "Engine/Renderer2D",
 ]
 resolver = "2"
 
@@ -72,3 +73,6 @@ objc = "0.2.7"
 # directx dependencies
 d3d12 = "22.0.0"
 winapi = "0.3.9"
+
+# ui dependencies
+xmlparser = "0.13.6"

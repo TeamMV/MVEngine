@@ -13,12 +13,12 @@ pub mod drawable;
 pub mod ease;
 pub mod elements;
 pub mod parse;
-pub mod parsing;
 pub mod prelude;
 pub mod styles;
 pub mod timing;
 pub mod utils;
-mod shapes;
+pub mod shapes;
+pub mod parser;
 
 pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> = Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
 

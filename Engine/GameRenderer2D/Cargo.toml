@@ -1,5 +1,5 @@
 [package]
-name = "mvengine_render2d"
+name = "game_renderer_2d"
 version = "0.1.0"
 edition = "2021"
 

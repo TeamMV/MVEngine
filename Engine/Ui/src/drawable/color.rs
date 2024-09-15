@@ -3,7 +3,7 @@ use crate::styles::{Dimension, Location};
 use mvutils::utils::{Map, PClamp, Percentage};
 use num_traits::AsPrimitive;
 use mvcore::color::{ColorFormat, RgbColor};
-use mve2d::renderer2d::Renderer2D;
+use mve2d::renderer2d::GameRenderer2D;
 
 pub struct ColorDrawable {
     pub color: RgbColor,
@@ -16,7 +16,7 @@ impl ColorDrawable {
 }
 
 impl DrawableCallbacks for ColorDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer: &mut Renderer2D) {
+    fn draw(&mut self, location: Location<i32>, renderer: &mut GameRenderer2D) {
         todo!("implement this")
     }
 }
@@ -54,7 +54,7 @@ impl GradientDrawable {
 }
 
 impl DrawableCallbacks for GradientDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer2d: &mut Renderer2D) {
+    fn draw(&mut self, location: Location<i32>, renderer2d: &mut GameRenderer2D) {
         match self.gradient_type {
             GradientType::Linear(angle) => for marker in &self.markers {},
             GradientType::Radial => {}
@@ -85,7 +85,7 @@ impl SimpleGradientDrawable {
 }
 
 impl DrawableCallbacks for SimpleGradientDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer: &mut Renderer2D) {
+    fn draw(&mut self, location: Location<i32>, renderer: &mut GameRenderer2D) {
         todo!("implement this")
     }
 }

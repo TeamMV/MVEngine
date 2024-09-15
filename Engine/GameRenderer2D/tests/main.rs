@@ -11,14 +11,14 @@ use mvcore::render::backend::{Backend, Extent2D};
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use mvengine_render2d::renderer2d::{Renderer2D, SamplerType, Shape};
+use game_renderer_2d::renderer2d::{GameRenderer2D, SamplerType, Shape};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use std::sync::Arc;
 use bytebuffer::ByteBuffer;
 use mvutils::save::Savable;
 use mvcore::color::RgbColor;
-use mvengine_render2d::font::{AtlasData, PreparedAtlasData};
+use game_renderer_2d::font::{AtlasData, PreparedAtlasData};
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -44,7 +44,7 @@ fn main() {
 struct AppLoop {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
-    renderer2d: Arc<DangerousCell<Renderer2D>>,
+    renderer2d: Arc<DangerousCell<GameRenderer2D>>,
 
     quad_rotation: f32,
     quad_position: Vec2,
@@ -74,7 +74,7 @@ impl ApplicationLoopCallbacks for AppLoop {
         );
         let core_renderer = Arc::new(DangerousCell::new(Renderer::new(&window, device.clone())));
 
-        let renderer2d = Arc::new(DangerousCell::new(Renderer2D::new(
+        let renderer2d = Arc::new(DangerousCell::new(GameRenderer2D::new(
             device.clone(),
             core_renderer.clone(),
             core_renderer.get().get_swapchain().get_extent(),
