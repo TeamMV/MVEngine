@@ -29,7 +29,7 @@ use Ui::parser::xml;
 use uiproc::ui;
 
 fn main() {
-    let xml = r#"<tag1 attr={let a = 1; {}}><tag2></tag2></tag1>"#;
+    let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
     let res = xml::parse_rsx(xml.to_string());
     if res.is_err() {
         let err = res.err().unwrap();

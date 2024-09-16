@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io::empty;
 use mvutils::{enum_val, enum_val_ref};
 
 pub struct Entity {
@@ -21,129 +22,146 @@ pub struct Attribute {
 
 pub fn parse_rsx(input: String) -> Result<Entity, String> {
     let mut lexer = XmlLexer::new(input);
-    let en = parse_entity(&mut lexer)?;
-    Ok(en)
+    parse_entity(&mut lexer)
 }
 
 fn parse_entity(lexer: &mut XmlLexer) -> Result<Entity, String> {
     lexer.expect_next(XmlTokenType::LeftAngleBracket)?;
-    let tkn = lexer.expect_next(XmlTokenType::Str)?;
-    let name = enum_val_ref!(XmlToken, tkn, Str).clone();
+    let name = lexer.expect_next(XmlTokenType::Literal)?.as_literal();
+
     let mut tkn = lexer.next()?;
 
-    let mut attribs = Vec::new();
-    while tkn.ordinal() == XmlTokenType::Str.ordinal() {
-        let attrib_name = enum_val_ref!(XmlToken, tkn, Str).clone();
-        lexer.expect_next(XmlTokenType::Equals)?;
-        let type_tkn = lexer.next()?;
+    //
+    // Attributes
+    //
 
-        let is_code = type_tkn.ordinal() == XmlTokenType::LeftBrace.ordinal();
+    let mut attributes = Vec::new();
+    if tkn.is(XmlTokenType::Literal) {
+        while tkn.is(XmlTokenType::Literal) {
+            let attrib_name = tkn.as_literal();
+            lexer.expect_next(XmlTokenType::Equals)?;
+            let next_tkn = lexer.next()?;
 
-        let inner = if is_code {
-            let attrib_body = lexer.next()?;
-            lexer.expect_next(XmlTokenType::RightBrace)?;
-            XmlValue::Code(enum_val!(XmlToken, attrib_body, Code))
-        } else {
-            XmlValue::Str(enum_val!(XmlToken, type_tkn, Str))
-        };
+            let inner = if next_tkn.is(XmlTokenType::Quote) {
+                let str_tkn = lexer.expect_next(XmlTokenType::Literal)?;
+                lexer.expect_next(XmlTokenType::Quote)?;
+                XmlValue::Str(str_tkn.as_literal())
+            } else {
+                let code_tkn = lexer.expect_next(XmlTokenType::Code)?;
+                lexer.expect_next(XmlTokenType::RightBrace)?;
+                XmlValue::Code(code_tkn.as_code())
+            };
 
-        let attrib = Attribute {
-            name: attrib_name,
-            value: inner,
-        };
-        attribs.push(attrib);
+            let attrib = Attribute {
+                name: attrib_name,
+                value: inner,
+            };
+            attributes.push(attrib);
 
-        tkn = lexer.next()?;
-        println!("{:?}", tkn);
-        if tkn.ordinal() != XmlTokenType::Str.ordinal() {
-            lexer.putback(tkn.clone());
+            tkn = lexer.next()?;
+            if !tkn.is(XmlTokenType::Literal) {
+                lexer.putback(tkn.clone());
+            }
         }
+    } else {
+        lexer.putback(tkn);
     }
 
-    println!("1");
-
     let tkn = lexer.next()?;
-    if tkn.ordinal() == XmlTokenType::Slash.ordinal() {
-        lexer.expect_next(XmlTokenType::RightAngleBracket)?;
-
-        return Ok(Entity {
-            name,
-            prefix: None,
-            attributes: attribs,
-            inner: None,
-        });
-    } else {
-        let mut children = Vec::new();
-
-        let tkn = lexer.next()?;
-        if tkn.ordinal() == XmlTokenType::LeftAngleBracket.ordinal() {
-            lexer.putback(tkn);
+    match tkn {
+        XmlToken::Slash => {
+            lexer.expect_next(XmlTokenType::RightAngleBracket)?;
+            Ok(Entity {
+                name,
+                prefix: None,
+                attributes,
+                inner: None,
+            })
+        }
+        XmlToken::RightAngleBracket => {
             let mut tkn = lexer.next()?;
-
-            while tkn.ordinal() == XmlTokenType::LeftAngleBracket.ordinal() {
+            if tkn.is(XmlTokenType::Literal) {
+                let inner = XmlValue::Str(tkn.as_literal());
+                let entity = Entity {
+                    name,
+                    prefix: None,
+                    attributes,
+                    inner: Some(inner),
+                };
+                validate_entity(lexer, entity)
+            } else if tkn.is(XmlTokenType::LeftBrace) {
+                let tkn = lexer.expect_next(XmlTokenType::Code)?;
+                let inner = XmlValue::Code(tkn.as_code());
+                lexer.expect_next(XmlTokenType::RightBrace)?;
+                let entity = Entity {
+                    name,
+                    prefix: None,
+                    attributes,
+                    inner: Some(inner),
+                };
+                validate_entity(lexer, entity)
+            } else if tkn.is(XmlTokenType::LeftAngleBracket) {
                 let next_tkn = lexer.next()?;
-                if next_tkn.ordinal() == XmlTokenType::Slash.ordinal() {
+                if next_tkn.is(XmlTokenType::Slash) {
                     lexer.putback(next_tkn);
                     lexer.putback(tkn);
                     let entity = Entity {
                         name,
                         prefix: None,
-                        attributes: attribs,
-                        inner: Some(XmlValue::Entities(children)),
+                        attributes,
+                        inner: None,
                     };
+                    validate_entity(lexer, entity)
+                } else {
+                    let mut entities = Vec::new();
 
-                    let en = validate_entity_end(lexer, entity)?;
-                    return Ok(en);
+                    lexer.putback(next_tkn);
+
+                    while tkn.is(XmlTokenType::LeftAngleBracket) {
+                        let next_tkn = lexer.next()?;
+                        if next_tkn.is(XmlTokenType::Slash) {
+                            lexer.putback(next_tkn);
+                            lexer.putback(tkn.clone());
+                            break;
+                        }
+
+                        lexer.putback(next_tkn);
+                        lexer.putback(tkn.clone());
+
+                        let inner = parse_entity(lexer)?;
+                        entities.push(inner);
+
+                        tkn = lexer.next()?;
+                    }
+
+                    let entity = Entity {
+                        name,
+                        prefix: None,
+                        attributes,
+                        inner: Some(XmlValue::Entities(entities)),
+                    };
+                    validate_entity(lexer, entity)
                 }
-
-                lexer.putback(next_tkn);
-                lexer.putback(tkn);
-                let child = parse_entity(lexer)?;
-                children.push(child);
-                tkn = lexer.next()?;
+            } else {
+                Err(format!("Unexpected token1, got {:?}", tkn).to_string())
             }
-
-        } else if tkn.ordinal() == XmlTokenType::LeftBrace.ordinal() {
-            let code_tkn = lexer.expect_next(XmlTokenType::Code)?;
-            let code = enum_val!(XmlToken, code_tkn, Code);
-            lexer.expect_next(XmlTokenType::RightBrace)?;
-            let entity = Entity {
-                name,
-                prefix: None,
-                attributes: attribs,
-                inner: Some(XmlValue::Code(code)),
-            };
-            let en = validate_entity_end(lexer, entity)?;
-            return Ok(en);
-
-        } else if tkn.ordinal() == XmlTokenType::Str.ordinal() {
-            let str = enum_val!(XmlToken, tkn, Str);
-
-            let entity = Entity {
-                name,
-                prefix: None,
-                attributes: attribs,
-                inner: Some(XmlValue::Str(str)),
-            };
-            let en = validate_entity_end(lexer, entity)?;
-            return Ok(en);
+        }
+        _ => {
+            Err(format!("Unexpected token, got {:?}", tkn).to_string())
         }
     }
-
-    Err("Smth went wrong :(".to_string())
 }
 
-fn validate_entity_end(lexer: &mut XmlLexer, en: Entity) -> Result<Entity, String> {
-    let en_name = en.name.clone();
+fn validate_entity(lexer: &mut XmlLexer, en: Entity) -> Result<Entity, String> {
     lexer.expect_next(XmlTokenType::LeftAngleBracket)?;
     lexer.expect_next(XmlTokenType::Slash)?;
-    let name_tkn = lexer.expect_next(XmlTokenType::Str)?;
-    let name = enum_val!(XmlToken, name_tkn, Str);
-    if name != en_name {
-        return Err("Opening and closing tags must match!".to_string());
+    let name = lexer.expect_next(XmlTokenType::Literal)?.as_literal();
+    if name == en.name {
+        lexer.expect_next(XmlTokenType::RightAngleBracket)?;
+        Ok(en)
+    } else {
+        Err("Closing tag must match opening tag name".to_string())
     }
-    lexer.expect_next(XmlTokenType::RightAngleBracket)?;
-    Ok(en)
 }
 
 #[repr(u8)]
@@ -151,12 +169,13 @@ fn validate_entity_end(lexer: &mut XmlLexer, en: Entity) -> Result<Entity, Strin
 enum XmlToken {
     LeftAngleBracket,
     RightAngleBracket,
-    Str(String),
+    Literal(String),
     Code(String),
     Equals,
     LeftBrace,
     RightBrace,
     Slash,
+    Quote,
 }
 
 impl XmlToken {
@@ -165,6 +184,24 @@ impl XmlToken {
             *(self as *const XmlToken as *const u8)
         }
     }
+
+    pub(crate) fn as_literal(&self) -> String {
+        match self {
+            XmlToken::Literal(s) => s.clone(),
+            _ => "".to_string()
+        }
+    }
+
+    pub(crate) fn as_code(&self) -> String {
+        match self {
+            XmlToken::Code(s) => s.clone(),
+            _ => "".to_string()
+        }
+    }
+
+    pub(crate) fn is(&self, ty: XmlTokenType) -> bool {
+        self.ordinal() == ty.ordinal()
+    }
 }
 
 #[repr(u8)]
@@ -172,12 +209,13 @@ impl XmlToken {
 enum XmlTokenType {
     LeftAngleBracket,
     RightAngleBracket,
-    Str,
+    Literal,
     Code,
     Equals,
     LeftBrace,
     RightBrace,
     Slash,
+    Quote
 }
 
 impl XmlTokenType {
@@ -192,6 +230,7 @@ struct XmlLexer {
     input: String,
     idx: usize,
     in_code_block: bool,
+    in_literal: bool,
     putback: Vec<XmlToken>
 }
 
@@ -201,17 +240,15 @@ impl XmlLexer {
             input,
             idx: 0,
             in_code_block: false,
+            in_literal: false,
             putback: vec![],
         }
     }
 
-    fn c(&self) -> Result<char, String> {
-        self.input.chars().nth(self.idx).ok_or(format!("expected char at position {}", self.idx + 1).to_string())
+    fn next_char(&mut self) -> Result<char, String> {
+        self.idx += 1;
+        self.input.chars().nth(self.idx - 1).ok_or(format!("Unexpected end at position {}", self.idx + 1).to_string())
     }
-
-    //fn peek(&self) -> Option<char> {
-    //    self.input.chars().nth(self.idx + 1)
-    //}
 
     pub fn putback(&mut self, tkn: XmlToken) {
         self.putback.push(tkn);
@@ -230,12 +267,29 @@ impl XmlLexer {
             return self.putback.pop().ok_or("Idk whats wrong but this line is shorter :P".to_string());
         }
 
+        if self.in_literal {
+            let mut str = String::new();
+            loop {
+                let n = self.next_char()?;
+                if n == '\\' {
+                    let n = self.next_char()?;
+                    str.push(n);
+                } else {
+                    if n == '"' {
+                        self.putback(XmlToken::Quote);
+                        self.in_literal = false;
+                        return Ok(XmlToken::Literal(str));
+                    }
+                    str.push(n);
+                }
+            }
+        }
+
         if self.in_code_block {
             let mut code = String::new();
             let mut brace_count = 1;
             loop {
-                let n = self.c()?;
-                self.idx += 1;
+                let n = self.next_char()?;
                 if n == '{' {
                     brace_count += 1;
                 } else if n == '}' {
@@ -250,52 +304,33 @@ impl XmlLexer {
             }
         }
 
-        let mut next = self.c()?;
-        self.idx += 1;
+        let mut next = self.next_char()?;
         if next.is_whitespace() {
-            next = self.c()?;
-            self.idx += 1;
+            next = self.next_char()?;
         }
 
         match next {
             '<' => Ok(XmlToken::LeftAngleBracket),
             '>' => Ok(XmlToken::RightAngleBracket),
             '/' => Ok(XmlToken::Slash),
-            '=' => Ok(XmlToken::Equals),
             '"' => {
-                let mut str = String::new();
-                loop {
-                    let n = self.c()?;
-                    self.idx += 1;
-                    if n == '\\' {
-                        let n = self.c()?;
-                        self.idx += 1;
-                        str.push(n);
-                    } else {
-                        if n == '"' {
-                            //self.idx += 1;
-                            return Ok(XmlToken::Str(str));
-                        }
-                        str.push(n);
-                    }
-                }
+                self.in_literal = true;
+                Ok(XmlToken::Quote)
             }
             '{' => {
                 self.in_code_block = true;
                 Ok(XmlToken::LeftBrace)
             }
             '}' => Ok(XmlToken::RightBrace),
+            '=' => Ok(XmlToken::Equals),
             _ => {
                 let mut str = String::new();
-                self.idx -= 1;
-                str.push(self.c()?);
-                self.idx += 1;
+                str.push(next);
                 loop {
-                    let n = self.c()?;
-                    self.idx += 1;
+                    let n = self.next_char()?;
                     if !n.is_alphanumeric() && n != '_' {
                         self.idx -= 1;
-                        return Ok(XmlToken::Str(str));
+                        return Ok(XmlToken::Literal(str));
                     }
                     str.push(n);
                 }
