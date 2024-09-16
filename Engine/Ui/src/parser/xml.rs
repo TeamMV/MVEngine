@@ -80,16 +80,8 @@ fn parse_entity(lexer: &mut XmlLexer) -> Result<Entity, String> {
         }
         XmlToken::RightAngleBracket => {
             let mut tkn = lexer.next()?;
-            if tkn.is(XmlTokenType::Literal) {
-                let inner = XmlValue::Str(tkn.as_literal());
-                let entity = Entity {
-                    name,
-                    prefix: None,
-                    attributes,
-                    inner: Some(inner),
-                };
-                validate_entity(lexer, entity)
-            } else if tkn.is(XmlTokenType::LeftBrace) {
+
+            if tkn.is(XmlTokenType::LeftBrace) {
                 let tkn = lexer.expect_next(XmlTokenType::Code)?;
                 let inner = XmlValue::Code(tkn.as_code());
                 lexer.expect_next(XmlTokenType::RightBrace)?;
@@ -143,7 +135,35 @@ fn parse_entity(lexer: &mut XmlLexer) -> Result<Entity, String> {
                     validate_entity(lexer, entity)
                 }
             } else {
-                Err(format!("Unexpected token1, got {:?}", tkn).to_string())
+                let mut str = String::new();
+                while !tkn.is(XmlTokenType::LeftAngleBracket) {
+                    let s = match tkn {
+                        XmlToken::Literal(ref s) => s.clone(),
+                        XmlToken::Equals => "=".to_string(),
+                        XmlToken::LeftBrace => "{".to_string(),
+                        XmlToken::RightBrace => "}".to_string(),
+                        XmlToken::Slash => "/".to_string(),
+                        XmlToken::Quote => "\"".to_string(),
+                        XmlToken::WhiteSpace(c) => c.to_string(),
+                        _ => {
+                            return Err(format!("Unexpected token {:?}", tkn).to_string());
+                        }
+                    };
+
+                    str.push_str(s.as_str());
+
+                    tkn = lexer.next_whitespace()?;
+                }
+                lexer.putback(tkn);
+
+                let inner = XmlValue::Str(str);
+                let entity = Entity {
+                    name,
+                    prefix: None,
+                    attributes,
+                    inner: Some(inner),
+                };
+                validate_entity(lexer, entity)
             }
         }
         _ => {
@@ -176,6 +196,7 @@ enum XmlToken {
     RightBrace,
     Slash,
     Quote,
+    WhiteSpace(char)
 }
 
 impl XmlToken {
@@ -215,7 +236,8 @@ enum XmlTokenType {
     LeftBrace,
     RightBrace,
     Slash,
-    Quote
+    Quote,
+    WhiteSpace
 }
 
 impl XmlTokenType {
@@ -263,6 +285,14 @@ impl XmlLexer {
     }
 
     pub fn next(&mut self) -> Result<XmlToken, String> {
+        let mut t = self.next_whitespace()?;
+        while t.is(XmlTokenType::WhiteSpace) {
+            t = self.next_whitespace()?;
+        }
+        Ok(t)
+    }
+
+    pub fn next_whitespace(&mut self) -> Result<XmlToken, String> {
         if !self.putback.is_empty() {
             return self.putback.pop().ok_or("Idk whats wrong but this line is shorter :P".to_string());
         }
@@ -306,7 +336,7 @@ impl XmlLexer {
 
         let mut next = self.next_char()?;
         if next.is_whitespace() {
-            next = self.next_char()?;
+            return Ok(XmlToken::WhiteSpace(next));
         }
 
         match next {
