@@ -1,6 +1,4 @@
 use std::fmt;
-use std::io::empty;
-use mvutils::{enum_val, enum_val_ref};
 
 pub struct Entity {
     name: String,
@@ -9,7 +7,29 @@ pub struct Entity {
     inner: Option<XmlValue>
 }
 
-enum XmlValue {
+impl Entity {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn prefix(&self) -> Option<String> {
+        self.prefix.clone()
+    }
+
+    pub fn attributes(&self) -> &[Attribute] {
+        &self.attributes
+    }
+
+    pub fn get_attrib(&self, name: &str) -> Option<&XmlValue> {
+        self.attributes.iter().find(|a| a.name == name.clone()).map(|a| &a.value)
+    }
+
+    pub fn inner(&self) -> &Option<XmlValue> {
+        &self.inner
+    }
+}
+
+pub enum XmlValue {
     Str(String),
     Entities(Vec<Entity>),
     Code(String)
@@ -18,6 +38,16 @@ enum XmlValue {
 pub struct Attribute {
     name: String,
     value: XmlValue
+}
+
+impl Attribute {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn value(&self) -> &XmlValue {
+        &self.value
+    }
 }
 
 pub fn parse_rsx(input: String) -> Result<Entity, String> {

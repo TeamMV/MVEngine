@@ -22,7 +22,7 @@ panic = "unwind"
 ## Global ##
 
 # mvteam dependencies
-mvutils = "0.6.1"
+mvutils = "0.7.1"
 mvsync = "1.1.4"
 mvlogger = "0.3.0"
 
@@ -75,4 +75,3 @@ d3d12 = "22.0.0"
 winapi = "0.3.9"
 
 # ui dependencies
-xmlparser = "0.13.6"

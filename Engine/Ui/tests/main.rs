@@ -12,35 +12,31 @@ use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use mvutils::state::State;
+use mvutils::when;
 use mvcore::color::RgbColor;
 use mvcore::input::raw::Input;
 use mvcore::math::vec::{Vec2, Vec3};
-use Ui::anim::{AnimationMode, FillMode};
-use Ui::attributes::Attributes;
-use Ui::elements::lmao::LmaoElement;
-use Ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use Ui::styles::{Origin, Position, UiStyle, UiValue};
-use Ui::timing::TIMING_MANAGER;
-use Ui::{anim, modify_style, resolve, UI};
-use Ui::anim::complex::{KeyframeAnimation, UiElementAnimationStub};
-use Ui::ease::{EasingGen, EasingMode};
-use Ui::elements::events::{UiClickAction, UiHoverAction};
-use Ui::parser::xml;
+use mvengine_ui::anim::{AnimationMode, FillMode};
+use mvengine_ui::attributes::Attributes;
+use mvengine_ui::elements::lmao::LmaoElement;
+use mvengine_ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use mvengine_ui::styles::{Origin, Position, UiStyle, UiValue};
+use mvengine_ui::timing::TIMING_MANAGER;
+use mvengine_ui::{anim, modify_style, resolve, UI};
+use mvengine_ui::anim::complex::{KeyframeAnimation, UiElementAnimationStub};
+use mvengine_ui::ease::{EasingGen, EasingMode};
+use mvengine_ui::elements::events::{UiClickAction, UiHoverAction};
 use uiproc::ui;
 
 fn main() {
     let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
-    let res = xml::parse_rsx(xml.to_string());
-    if res.is_err() {
-        let err = res.err().unwrap();
-        println!("error:");
-        println!("{}", err);
-    } else {
-        println!("result:");
-        println!("{:?}", res.unwrap());
-    }
 
-    exit(0);
+    let e = ui! {
+        <LmaoElement a={{}}>
+            <LmaoElement some_attrib="hello world"/>
+        </LmaoElement>
+    };
 
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     let mut info = WindowCreateInfo::default();
@@ -127,7 +123,7 @@ impl ApplicationLoopCallbacks for Application {
         unsafe {
             UI.get_mut().init_input(window.get_input());
             UI.get_mut().add_root(arc.clone());
-            window.set_input_processor(Ui::Ui::input_processor);
+            window.set_input_processor(mvengine_ui::Ui::input_processor);
         }
 
 

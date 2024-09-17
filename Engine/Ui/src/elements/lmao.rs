@@ -7,7 +7,7 @@ use mve2d::renderer2d::{GameRenderer2D, Shape};
 use crate::{resolve};
 use crate::attributes::Attributes;
 use crate::elements::child::Child;
-use crate::elements::{UiElementStub, UiElementCallbacks, UiElementState};
+use crate::elements::{UiElementStub, UiElementCallbacks, UiElementState, UiElement};
 use crate::styles::{Dimension, UiStyle};
 
 pub struct LmaoElement {
@@ -48,6 +48,10 @@ impl UiElementStub for LmaoElement {
             col: RgbColor::blue(),
             attributes,
         }
+    }
+
+    fn to_element(self) -> UiElement {
+        UiElement::Lmao(self)
     }
 
     fn attributes(&self) -> &Attributes {

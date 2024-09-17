@@ -1,6 +1,11 @@
+use hashbrown::HashMap;
+use crate::elements::UiElement;
+
 pub struct Attributes {
     pub classes: Vec<String>,
     pub id: Option<String>,
+    pub attribs: HashMap<String, AttributeValue>,
+    pub inner: Option<AttributeValue>
 }
 
 impl Attributes {
@@ -8,6 +13,8 @@ impl Attributes {
         Self {
             classes: vec![],
             id: None,
+            attribs: HashMap::new(),
+            inner: None,
         }
     }
 
@@ -25,4 +32,18 @@ impl Attributes {
         self.classes.extend_from_slice(classes);
         self
     }
+
+    pub fn with_attrib(mut self, name: String, value: AttributeValue) -> Self {
+        self.attribs.insert(name, value);
+        self
+    }
+    pub fn with_inner(mut self, value: AttributeValue) -> Self {
+        self.inner = Some(value);
+        self
+    }
+}
+
+pub enum AttributeValue {
+    Str(String),
+    Code(Box<dyn FnMut(&mut UiElement)>)
 }

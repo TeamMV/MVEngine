@@ -30,6 +30,8 @@ pub trait UiElementStub: UiElementCallbacks {
     where
         Self: Sized;
 
+    fn to_element(self) -> UiElement;
+
     fn attributes(&self) -> &Attributes;
 
     fn attributes_mut(&mut self) -> &mut Attributes;
@@ -104,6 +106,10 @@ impl UiElementStub for UiElement {
         Self: Sized
     {
         unimplemented!("To instantiate an UiElement, use the struct's constructor!")
+    }
+
+    fn to_element(self) -> UiElement {
+        self
     }
 
     fn attributes(&self) -> &Attributes {
