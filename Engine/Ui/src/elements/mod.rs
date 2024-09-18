@@ -1,6 +1,9 @@
 pub mod child;
 pub mod lmao;
 pub mod events;
+mod implementations;
+
+pub use implementations::*;
 
 use crate::resolve;
 use crate::attributes::Attributes;
@@ -30,7 +33,7 @@ pub trait UiElementStub: UiElementCallbacks {
     where
         Self: Sized;
 
-    fn to_element(self) -> UiElement;
+    fn wrap(self) -> UiElement;
 
     fn attributes(&self) -> &Attributes;
 
@@ -74,18 +77,21 @@ pub trait UiElementStub: UiElementCallbacks {
 }
 
 pub enum UiElement {
-    Lmao(LmaoElement)
+    Lmao(LmaoElement),
+    Div(Div)
 }
 
 macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident()) => {
         match $this {
             UiElement::Lmao(e) => e.$fn_name(),
+            UiElement::Div(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
         match $this {
             UiElement::Lmao(e) => e.$fn_name($($args),*),
+            UiElement::Div(e) => e.$fn_name($($args),*),
         }
     };
 }
@@ -108,7 +114,7 @@ impl UiElementStub for UiElement {
         unimplemented!("To instantiate an UiElement, use the struct's constructor!")
     }
 
-    fn to_element(self) -> UiElement {
+    fn wrap(self) -> UiElement {
         self
     }
 

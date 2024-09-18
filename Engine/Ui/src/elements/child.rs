@@ -1,16 +1,17 @@
+use std::fmt::Display;
 use crate::elements::UiElement;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use mvutils::state::State;
 
 pub enum Child {
     String(String),
     Element(Arc<RwLock<UiElement>>),
-    DynamicValue(Value<dyn ToString>),
 }
 
 impl Child {
     pub fn is_text(&self) -> bool {
-        matches!(self, Child::String(_) | Child::DynamicValue(_))
+        matches!(self, Child::String(_))
     }
 
     pub fn is_element(&self) -> bool {
@@ -20,7 +21,6 @@ impl Child {
     pub fn as_string(&self) -> String {
         match self {
             Child::String(s) => s.clone(),
-            Child::DynamicValue(v) => v.inner.read().to_string(),
             _ => unreachable!(),
         }
     }
@@ -31,8 +31,4 @@ impl Child {
             _ => unreachable!(),
         }
     }
-}
-
-pub struct Value<T: ?Sized> {
-    inner: Arc<RwLock<T>>,
 }

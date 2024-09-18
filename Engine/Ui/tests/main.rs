@@ -1,6 +1,9 @@
 use std::process::exit;
 use log::LevelFilter;
+use mvcore::color::RgbColor;
 use mvcore::input;
+use mvcore::input::raw::Input;
+use mvcore::math::vec::{Vec2, Vec3};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, ImageLayout};
 use mvcore::render::backend::Backend;
@@ -8,35 +11,36 @@ use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
 use mve2d::renderer2d::{GameRenderer2D, Shape};
+use mvengine_ui::anim::complex::KeyframeAnimation;
+use mvengine_ui::anim::{AnimationMode, FillMode};
+use mvengine_ui::attributes::Attributes;
+use mvengine_ui::ease::{EasingGen, EasingMode};
+use mvengine_ui::elements::events::UiClickAction;
+use mvengine_ui::elements::lmao::LmaoElement;
+use mvengine_ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use mvengine_ui::styles::{Origin, Position, UiStyle, UiValue};
+use mvengine_ui::timing::TIMING_MANAGER;
+use mvengine_ui::{anim, modify_style, UI};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use mvutils::state::State;
-use mvutils::when;
-use mvcore::color::RgbColor;
-use mvcore::input::raw::Input;
-use mvcore::math::vec::{Vec2, Vec3};
-use mvengine_ui::anim::{AnimationMode, FillMode};
-use mvengine_ui::attributes::Attributes;
-use mvengine_ui::elements::lmao::LmaoElement;
-use mvengine_ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use mvengine_ui::styles::{Origin, Position, UiStyle, UiValue};
-use mvengine_ui::timing::TIMING_MANAGER;
-use mvengine_ui::{anim, modify_style, resolve, UI};
-use mvengine_ui::anim::complex::{KeyframeAnimation, UiElementAnimationStub};
-use mvengine_ui::ease::{EasingGen, EasingMode};
-use mvengine_ui::elements::events::{UiClickAction, UiHoverAction};
 use uiproc::ui;
+
+use mvengine_ui::elements::Div;
 
 fn main() {
     let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
 
-    let e = ui! {
-        <LmaoElement a={{}}>
-            <LmaoElement some_attrib="hello world"/>
-        </LmaoElement>
-    };
+    let s = State::new("hello");
+
+    let mut e = ui!([s] => {
+            <Div id="outer" style={mystyle}>
+                <Text>{s}</Text>
+            </Div>
+        }
+    );
 
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     let mut info = WindowCreateInfo::default();

@@ -10,6 +10,8 @@ use crate::elements::child::Child;
 use crate::elements::{UiElementStub, UiElementCallbacks, UiElementState, UiElement};
 use crate::styles::{Dimension, UiStyle};
 
+use crate as mvengine_ui;
+
 pub struct LmaoElement {
     state: UiElementState,
     style: UiStyle,
@@ -50,7 +52,7 @@ impl UiElementStub for LmaoElement {
         }
     }
 
-    fn to_element(self) -> UiElement {
+    fn wrap(self) -> UiElement {
         UiElement::Lmao(self)
     }
 

@@ -14,9 +14,6 @@ keywords = [
     "mvteam",
     "mvengine"
 ]
-categories = [
-    "ui"
-]
 description = "Procedural macros for MVEngine Ui"
 
 [lib]

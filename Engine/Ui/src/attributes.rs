@@ -34,6 +34,18 @@ impl Attributes {
     }
 
     pub fn with_attrib(mut self, name: String, value: AttributeValue) -> Self {
+        if let AttributeValue::Str(ref s) = value {
+            if name == "id".to_string() {
+                self.id = Some(s.clone());
+                return self;
+            }
+            if name == "class".to_string() {
+                self.classes.extend(s.split_whitespace().map(|st| st.to_string()));
+                return self;
+            }
+            return self;
+        }
+
         self.attribs.insert(name, value);
         self
     }
