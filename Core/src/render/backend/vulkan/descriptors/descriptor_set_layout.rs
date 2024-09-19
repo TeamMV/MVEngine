@@ -67,7 +67,7 @@ impl VkDescriptorSetLayout {
                 .create_descriptor_set_layout(&create_info_vk, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create descriptor set layout, error: {e}");
+            log::error!("Failed to uix descriptor set layout, error: {e}");
             panic!();
         });
 

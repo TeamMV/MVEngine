@@ -210,7 +210,7 @@ impl VkFramebuffer {
                 .create_framebuffer(&framebuffer_create_info, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create framebuffer, error: {e}");
+            log::error!("Failed to uix framebuffer, error: {e}");
             panic!();
         });
 
@@ -482,7 +482,7 @@ impl VkFramebuffer {
                 .create_render_pass(&render_pass_create_info_vk, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create render pass, error: {e}");
+            log::error!("Failed to uix render pass, error: {e}");
             panic!();
         })
     }
@@ -504,7 +504,7 @@ impl VkFramebuffer {
 
         let handle = unsafe { device.get_device().create_framebuffer(&create_info, None) }
             .unwrap_or_else(|e| {
-                log::error!("Failed to create framebuffer, error: {e}");
+                log::error!("Failed to uix framebuffer, error: {e}");
                 panic!();
             });
 

@@ -26,9 +26,13 @@ use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use mvutils::state::State;
-use uiproc::ui;
+use uiproc::{ui, uix};
+
+pub mod test;
 
 use mvengine_ui::elements::Div;
+use mvengine_ui::uix::UiCompoundElement;
+use crate::test::MyComponent;
 
 fn main() {
     let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
@@ -41,6 +45,8 @@ fn main() {
             </Div>
         }
     );
+
+    let mut ce = MyComponent::new();
 
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     let mut info = WindowCreateInfo::default();

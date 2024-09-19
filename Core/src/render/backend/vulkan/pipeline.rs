@@ -241,7 +241,7 @@ impl<Type: PipelineType> VkPipeline<Type> {
                 .create_pipeline_layout(&layout_info, None)
         }
             .unwrap_or_else(|e| {
-                log::error!("Failed to create pipeline layout for error: {e}");
+                log::error!("Failed to uix pipeline layout for error: {e}");
                 panic!();
             })
     }
@@ -328,7 +328,7 @@ impl VkPipeline {
             )
         }
             .unwrap_or_else(|(_, e)| {
-                log::error!("Failed to create pipeline! error: {e}");
+                log::error!("Failed to uix pipeline! error: {e}");
                 panic!();
             })[0];
 
@@ -440,7 +440,7 @@ impl VkPipeline<Compute> {
             )
         }
             .unwrap_or_else(|e| {
-                log::error!("Failed to create pipeline! error: {}", e.1);
+                log::error!("Failed to uix pipeline! error: {}", e.1);
                 panic!()
             })[0];
 

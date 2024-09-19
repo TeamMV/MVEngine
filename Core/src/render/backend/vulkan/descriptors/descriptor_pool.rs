@@ -59,7 +59,7 @@ impl VkDescriptorPool {
                 .create_descriptor_pool(&create_info_vk, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create descriptor pool, error: {e}");
+            log::error!("Failed to uix descriptor pool, error: {e}");
             panic!();
         });
 
@@ -149,7 +149,7 @@ impl VkDescriptorPool {
                 .create_descriptor_pool(&create_info_vk, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create descriptor pool, error: {e}");
+            log::error!("Failed to uix descriptor pool, error: {e}");
             panic!();
         });
 

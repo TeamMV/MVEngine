@@ -20,6 +20,7 @@ use mvutils::once::CreateOnce;
 use mve2d::renderer2d::GameRenderer2D;
 use crate::elements::events::UiEvents;
 use crate::elements::lmao::LmaoElement;
+use crate::uix::{DynamicUi, UiCompoundElement};
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
@@ -77,6 +78,7 @@ pub trait UiElementStub: UiElementCallbacks {
 }
 
 pub enum UiElement {
+    Compound(DangerousCell<Box<dyn UiCompoundElement>>),
     Lmao(LmaoElement),
     Div(Div)
 }
@@ -84,12 +86,14 @@ pub enum UiElement {
 macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident()) => {
         match $this {
+            UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name(),
             UiElement::Lmao(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
         match $this {
+            UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name($($args),*),
             UiElement::Lmao(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
         }

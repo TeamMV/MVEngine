@@ -45,7 +45,7 @@ impl VkShader {
                 .create_shader_module(&vk_create_info, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create shader module, error: {e}");
+            log::error!("Failed to uix shader module, error: {e}");
             panic!();
         });
 

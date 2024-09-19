@@ -162,7 +162,7 @@ impl VkSwapchain {
             indices.compute_queue_index.unwrap(),
         ];
 
-        // if graphics and present queue are the same which happens on some hardware create images in exclusive sharing mode
+        // if graphics and present queue are the same which happens on some hardware uix images in exclusive sharing mode
         if indices.present_queue_index != indices.graphics_queue_index {
             vk_create_info.image_sharing_mode = ash::vk::SharingMode::CONCURRENT;
             vk_create_info.queue_family_index_count = 2;
@@ -179,7 +179,7 @@ impl VkSwapchain {
                 .create_swapchain(&vk_create_info, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create swapchain, error: {e}");
+            log::error!("Failed to uix swapchain, error: {e}");
             panic!()
         });
 
@@ -385,7 +385,7 @@ impl VkSwapchain {
                 .create_render_pass(&render_pass_create_info, None)
         }
         .unwrap_or_else(|e| {
-            log::error!("Failed to create swapchain render pass! error: {e}");
+            log::error!("Failed to uix swapchain render pass! error: {e}");
             panic!();
         })
     }
@@ -414,7 +414,7 @@ impl VkSwapchain {
                         .create_semaphore(&semaphore_create_info, None)
                 }
                 .unwrap_or_else(|e| {
-                    log::error!("Failed to create wait semaphore, error {e}");
+                    log::error!("Failed to uix wait semaphore, error {e}");
                     panic!()
                 }),
             );
@@ -426,7 +426,7 @@ impl VkSwapchain {
                         .create_semaphore(&semaphore_create_info, None)
                 }
                 .unwrap_or_else(|e| {
-                    log::error!("Failed to create signal semaphore, error {e}");
+                    log::error!("Failed to uix signal semaphore, error {e}");
                     panic!()
                 }),
             );
@@ -434,7 +434,7 @@ impl VkSwapchain {
             in_flight_fences.push(
                 unsafe { device.get_device().create_fence(&fence_create_info, None) }
                     .unwrap_or_else(|e| {
-                        log::error!("Failed to create fence, error {e}");
+                        log::error!("Failed to uix fence, error {e}");
                         panic!()
                     }),
             );

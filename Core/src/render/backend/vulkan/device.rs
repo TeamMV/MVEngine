@@ -406,7 +406,7 @@ impl VkDevice {
 
         unsafe { debug_utils.create_debug_utils_messenger(&create_info, None) }.unwrap_or_else(
             |e| {
-                log::error!("Failed to create debug utils messenger, error: {e}");
+                log::error!("Failed to uix debug utils messenger, error: {e}");
                 panic!()
             },
         )
@@ -521,7 +521,7 @@ impl VkDevice {
             win32_loader
                 .create_win32_surface(&info, None)
                 .unwrap_or_else(|_| {
-                    log::error!("Unable to create Win32 surface");
+                    log::error!("Unable to uix Win32 surface");
                     panic!();
                 })
         }
@@ -793,7 +793,7 @@ impl VkDevice {
             .push_next(&mut features);
 
         let device = unsafe { instance.create_device(*physical_device, &create_info, None) }
-            .expect("Failed to create logical device!");
+            .expect("Failed to uix logical device!");
 
         let graphics_queue =
             unsafe { device.get_device_queue(indices.graphics_queue_index.unwrap(), 0) };

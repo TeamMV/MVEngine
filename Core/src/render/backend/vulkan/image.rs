@@ -180,7 +180,7 @@ impl VkImage {
 
             let view = unsafe { device.get_device().create_image_view(&view_info, None) }
                 .unwrap_or_else(|e| {
-                    log::error!("Failed to create image view, error: {e}");
+                    log::error!("Failed to uix image view, error: {e}");
                     panic!();
                 });
 

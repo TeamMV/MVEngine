@@ -89,7 +89,7 @@ impl VkSampler {
 
         let handle = unsafe { device.get_device().create_sampler(&create_info_vk, None) }
             .unwrap_or_else(|e| {
-                log::error!("Failed to create sampler, error: {e}");
+                log::error!("Failed to uix sampler, error: {e}");
                 panic!();
             });
 
