@@ -5,38 +5,14 @@ use syn::{parse_str, Expr};
 use ui_parsing::xml::{Entity, XmlValue};
 
 pub fn ui(input: TokenStream) -> TokenStream {
-    let s = input.to_string();
-    let mut chars = s.chars();
-    let mut chars = chars.skip_while(|c| c.is_whitespace());
-    if !chars.next().is_some_and(|c| c == '[') { panic!("Expected form '[states] => {{rsx}}]'") }
-    let mut dep_str = String::new();
-    loop {
-        let c = chars.next().unwrap_or_else(|| { panic!("Expected form '[states] => {{rsx}}]'") });
-        if c == ']' {
-            break;
-        }
-        dep_str.push(c);
+    let rsx_raw = input.to_string();
+
+    if rsx_raw.trim().is_empty() {
+        return quote! { mvengine_ui::elements::blank::Blank::new(Attributes::new(), UiStyle::default()).wrap() }.into();
     }
 
-    let mut chars = chars.skip_while(|c| c.is_whitespace());
-    if !chars.next().is_some_and(|c| c == '=') { panic!("Expected form '[states] => {{rsx}}]'") }
-    if !chars.next().is_some_and(|c| c == '>') { panic!("Expected form '[states] => {{rsx}}]'") }
-    let mut chars = chars.skip_while(|c| c.is_whitespace());
-    if !chars.next().is_some_and(|c| c == '{') { panic!("Expected form '[states] => {{rsx}}]'") }
-
-    let rsx_raw = chars.collect::<String>();
-    let rsx_raw = rsx_raw.strip_suffix("}").unwrap_or_else(|| { panic!("Expected form '[states] => {{rsx}}]'") }).to_string();
-
     let rsx = ui_parsing::xml::parse_rsx(rsx_raw).unwrap_or_else(|err| panic!("{}", err));
-    let tree = parse_entity(&rsx);
-
-    let when_str = format!("mvutils::state::when!([{}] => {{this.cached = {}}})", dep_str, tree.to_string());
-    let parsed_when: Expr = parse_str(&when_str).expect("Failed to parse code as expression");
-
-    let q = quote! {
-        mvengine_ui::uix::DynamicUi::new(#tree, |this| {#parsed_when})
-    };
-    q.into()
+    parse_entity(&rsx).into()
 }
 
 fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
@@ -73,7 +49,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         };
 
         attrib_tokens.extend(quote! {
-            #attribs_ident = #attribs_ident.with_attrib(#attrib_name.to_string(), #attrib_value);
+            #attribs_ident.with_attrib(#attrib_name.to_string(), #attrib_value);
         });
     }
 
@@ -86,7 +62,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         match inner_xml {
             XmlValue::Str(s) => {
                 quote! {
-                    #attribs_ident = #attribs_ident.with_inner(mvengine_ui::attributes::AttributeValue::Str(#s.to_string()));
+                    __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Str(#s.to_string()));
                     #elem_ident.state_mut().children.push(mvengine_ui::elements::child::Child::String(#s.to_string()))
                 }
             }
@@ -103,7 +79,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    #attribs_ident = #attribs_ident.with_inner(mvengine_ui::attributes::AttributeValue::Code(Box::new(#parsed_code)))
+                    __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Code(Box::new(#parsed_code)))
                 }
             }
         }
@@ -115,6 +91,8 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         {
             let mut #attribs_ident = #attributes_code;
             #attrib_tokens
+
+            let __attribs_ref__ = &mut #attribs_ident;
 
             let mut #elem_ident = #name_ident::new(#attribs_ident, #style_code);
             #inner_code;

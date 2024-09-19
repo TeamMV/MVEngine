@@ -2,10 +2,10 @@ use proc_macro::TokenStream;
 use std::fmt::{Debug, Formatter};
 use proc_macro2::Ident;
 use quote::{quote, ToTokens};
-use quote::spanned::Spanned;
 use syn::{parse_macro_input, Block, Expr, ExprCall, ExprPath, GenericArgument, ItemFn, Local, Pat, PathArguments, Stmt};
 
 use proc_macro2 as pm2;
+use syn::parse::{Parse, ParseStream};
 
 pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -16,8 +16,7 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
 
     let block = input.block.as_ref();
 
-    let (local_states, global_states) = get_state_uses(block);
-    let ui_creation = get_return_code(block);
+    let (local_states, global_states, replaced_block) = get_state_uses(block);
 
     let state_mod = quote! { mvutils::state };
 
@@ -33,7 +32,9 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
 
     let struct_code = quote! {
         #vis struct #comp_name {
-            _cached: mvengine_ui::uix::DynamicUi,
+            _cached: mvutils::once::CreateOnce<mvengine_ui::uix::DynamicUi>,
+            attributes: mvengine_ui::attributes::Attributes,
+            style: mvengine_ui::styles::UiStyle,
             #state_fields
         }
     };
@@ -46,37 +47,71 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
             let #name = #state_mod::State::new(#init);
         });
     }
+    for global_state in global_states.iter() {
+        let name = &global_state.var_name;
+        let init = &global_state.init_tokens;
+        state_init_code.extend(quote! {
+            let #name = #init;
+        });
+    }
 
     let mut field_init_code = quote! {
-        _cached: #ui_creation
+        attributes: attributes.unwrap_or(mvengine_ui::attributes::Attributes::new()),
+        style: style.unwrap_or(mvengine_ui::styles::UiStyle::default()),
+        _cached: mvutils::once::CreateOnce::new(),
     };
+
     for local_state in local_states.iter() {
         let name = &local_state.var_name;
-        let init = &local_state.init_tokens;
+        field_init_code.extend(quote! {
+            #name
+        });
+    }
+    for global_state in global_states.iter() {
+        let name = &global_state.var_name;
         field_init_code.extend(quote! {
             #name
         });
     }
 
-    let mut state_supply = quote! {};
+    let mut state_when_code = quote! {if };
     for local_state in local_states.iter() {
         let name = &local_state.var_name;
-        state_supply.extend(quote! {
-            let #name = self.#name.clone();
+        state_when_code.extend(quote! {
+            self.#name.is_outdated() ||
         });
     }
+    for global_state in global_states.iter() {
+        let name = &global_state.var_name;
+        state_when_code.extend(quote! {
+            self.#name.is_outdated() ||
+        });
+    }
+    state_when_code.extend(quote! {
+        false {
+            self._cached.regenerate();
+        } else {
+            self._cached.check_children();
+        }
+    });
 
     let struct_impl = quote! {
         impl mvengine_ui::uix::UiCompoundElement for #comp_name {
-            fn new() -> Self where Self: Sized {
+            fn new(attributes: Option<mvengine_ui::attributes::Attributes>, style: Option<mvengine_ui::styles::UiStyle>) -> Self where Self: Sized {
                 #state_init_code
                 Self {
                     #field_init_code
                 }
             }
 
-            fn get_dyn_ui(&mut self) -> &mut mvengine_ui::uix::DynamicUi {
-                &mut self._cached
+            fn generate(&self) #returns {
+                let _ = self._cached.try_create(|| mvengine_ui::uix::DynamicUi::new(|| self.generate()));
+
+                #replaced_block
+            }
+
+            fn regenerate(&mut self) {
+                #state_when_code
             }
         }
     };
@@ -104,9 +139,11 @@ impl Debug for StateUse {
     }
 }
 
-fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>) {
+fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::TokenStream) {
     let mut local_usages = Vec::new();
     let mut global_usages = Vec::new();
+
+    let mut rep_block = quote! {};
 
     for stmt in fn_block.stmts.iter() {
         if let Stmt::Local(Local { pat, init, .. }) = stmt {
@@ -140,19 +177,28 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>) {
                                 panic!("use_state() can only be used to assign a variable.")
                             };
 
+                            rep_block.extend(quote! {
+                                let #var_name_ts = self.#var_name_ts;
+                            });
+
                             local_usages.push(StateUse {
                                 var_name: var_name_ts,
                                 var_type: type_ts,
                                 init_tokens: init_ts,
                             });
+                            continue;
                         }
                     }
                 }
             }
         }
+
+        rep_block.extend(quote! {
+            #stmt
+        });
     }
 
-    (local_usages, global_usages)
+    (local_usages, global_usages, rep_block)
 }
 
 fn get_return_code(block: &Block) -> pm2::TokenStream {

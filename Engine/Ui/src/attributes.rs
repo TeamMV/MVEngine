@@ -18,40 +18,35 @@ impl Attributes {
         }
     }
 
-    pub fn with_id(mut self, id: String) -> Self {
+    pub fn with_id(&mut self, id: String) {
         self.id = Some(id);
-        self
     }
 
-    pub fn with_class(mut self, class: String) -> Self {
+    pub fn with_class(&mut self, class: String) {
         self.classes.push(class);
-        self
     }
 
-    pub fn with_classes(mut self, classes: &[String]) -> Self {
+    pub fn with_classes(&mut self, classes: &[String]) {
         self.classes.extend_from_slice(classes);
-        self
     }
 
-    pub fn with_attrib(mut self, name: String, value: AttributeValue) -> Self {
+    pub fn with_attrib(&mut self, name: String, value: AttributeValue) {
         if let AttributeValue::Str(ref s) = value {
             if name == "id".to_string() {
                 self.id = Some(s.clone());
-                return self;
+                return;
             }
             if name == "class".to_string() {
                 self.classes.extend(s.split_whitespace().map(|st| st.to_string()));
-                return self;
+                return;
             }
-            return self;
+            return;
         }
 
         self.attribs.insert(name, value);
-        self
     }
-    pub fn with_inner(mut self, value: AttributeValue) -> Self {
+    pub fn with_inner(&mut self, value: AttributeValue) {
         self.inner = Some(value);
-        self
     }
 }
 

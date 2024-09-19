@@ -1,46 +1,51 @@
-use std::any::Any;
 use mvutils::state::State;
-use mvutils::unsafe_utils::Unsafe;
-use crate::elements::UiElement;
+use crate::attributes::Attributes;
+use crate::elements::{UiElement, UiElementStub};
+use crate::elements::child::Child;
+use crate::styles::UiStyle;
 
 pub struct DynamicUi {
     cached: UiElement,
-    _when_call: Box<dyn FnMut(&mut DynamicUi)>,
+    generator: Box<dyn FnMut() -> UiElement>,
 }
 
 impl DynamicUi {
-    pub fn new(cached: UiElement, _when_call: Box<dyn FnMut(&mut DynamicUi)>) -> Self {
+    pub fn new(generator: Box<dyn FnMut() -> UiElement>) -> Self {
         Self {
-            cached,
-            _when_call,
+            cached: generator(),
+            generator,
         }
     }
 
-    ///Returns the underlying element and recreate its tree, if one of its dependent states have changed.
+    /// Returns the cached element
     pub fn get_element(&mut self) -> &mut UiElement {
-        unsafe {
-            let mut static_self = (self as *mut Self).as_mut().unwrap();
-            (self._when_call)(static_self);
-            &mut self.cached
-        }
-    }
-
-    ///Returns the underlying element which can be outdated
-    pub fn get_cache(&mut self) -> &mut UiElement {
         &mut self.cached
     }
 
-    ///This will return the underlying UiElement. Keep in mind that this removes and dynamic functionality with states.
+    /// This will return the underlying UiElement. Keep in mind that this removes and dynamic functionality with states.
     pub fn to_static(mut self) -> UiElement {
-        unsafe {
-            let mut static_self = (&mut self as *mut Self).as_mut().unwrap();
-            (self._when_call)(static_self);
-            self.cached
+        self.cached
+    }
+
+    pub fn regenerate(&mut self) {
+        self.cached = self.generator();
+    }
+
+    pub fn check_children(&mut self) {
+        for child in self.cached.children_mut() {
+            if let Child::Element(e) = child {
+                let guard = e.write();
+                if let UiElement::Compound(compound) = guard {
+                    compound.get_mut().regenerate();
+                } else {
+                    guard.
+                }
+            }
         }
     }
 }
 
-///creates a new State\<T\> object which can be used inside the ui! macro. Please preserve the form
+/// Creates a new State\<T\> object which can be used inside the ui! macro. Please preserve the form
 /// ```use_state::<T>(init)```
 /// <br>
 /// example:<br>
@@ -50,10 +55,26 @@ impl DynamicUi {
 ///     let test_state = use_state::<i32>(5);
 /// }
 /// ```
-pub fn use_state<T>(init: T) {}
+pub fn use_state<T>(init: T) -> State<T> { panic!("You can only use use_state() in an uix function!") }
+
+/// Imports an existing State\<T\> object which can be used inside the ui! macro. Please preserve the form
+/// ```global_state::<T>(init)```
+/// <br>
+/// example:<br>
+/// ```
+/// static STATE: State<i32> = State::new(5);
+///
+/// #[uix]
+/// pub fn TestComponent() {
+///     let test_state = global_state::<i32>(STATE);
+/// }
+/// ```
+pub fn global_state<T>(init: State<T>) -> State<T> { panic!("You can only use use_state() in an uix function!") }
 
 pub trait UiCompoundElement {
-    fn new() -> Self where Self: Sized;
+    fn new(attributes: Option<Attributes>, style: Option<UiStyle>) -> Self where Self: Sized;
 
-    fn get_dyn_ui(&mut self) -> &mut DynamicUi;
+    fn generate(&self) -> UiElement;
+
+    fn regenerate(&mut self);
 }

@@ -1,7 +1,8 @@
 pub mod child;
 pub mod lmao;
 pub mod events;
-mod implementations;
+pub mod implementations;
+pub mod blank;
 
 pub use implementations::*;
 
@@ -18,6 +19,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use mvutils::once::CreateOnce;
 use mve2d::renderer2d::GameRenderer2D;
+use crate::elements::blank::Blank;
 use crate::elements::events::UiEvents;
 use crate::elements::lmao::LmaoElement;
 use crate::uix::{DynamicUi, UiCompoundElement};
@@ -78,6 +80,7 @@ pub trait UiElementStub: UiElementCallbacks {
 }
 
 pub enum UiElement {
+    Blank(Blank),
     Compound(DangerousCell<Box<dyn UiCompoundElement>>),
     Lmao(LmaoElement),
     Div(Div)
@@ -86,13 +89,16 @@ pub enum UiElement {
 macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident()) => {
         match $this {
+            UiElement::Blank(e) => e.$fn_name(),
             UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name(),
             UiElement::Lmao(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
+
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
         match $this {
+            UiElement::Blank(e) => e.$fn_name($($args),*),
             UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name($($args),*),
             UiElement::Lmao(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
