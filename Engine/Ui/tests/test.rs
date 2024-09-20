@@ -1,8 +1,10 @@
-use mvengine_ui::elements::UiElement;
+use mvengine_ui::elements::{Div, UiElement, UiElementStub};
 use mvengine_ui::styles::UiStyle;
-use mvengine_ui::uix::{global_state, use_state, DynamicUi, UiCompoundElement};
+use mvengine_ui::uix::{global_state, use_state, UiCompoundElement};
 use mvutils::state::State;
 use mvutils::{update, when};
+use mvengine_ui::attributes::{AttributeValue, Attributes};
+use mvengine_ui::uix::dom::{VElement, VNode};
 use uiproc::{ui, uix};
 
 fn some_function(input: i32) -> u32 {
@@ -34,27 +36,27 @@ pub fn MyComponent() -> UiElement {
     }
 }
 
-pub struct MyComponent2 {
-    _cached: mvutils::once::CreateOnce<mvengine_ui::uix::DynamicUi>,
-    attributes: mvengine_ui::attributes::Attributes,
-    style: mvengine_ui::styles::UiStyle,
-    clicks: mvutils::state::State<i32>,
-    shown: mvutils::state::State<bool>,
-    number: mvutils::state::State<i32>,
-    global: mvutils::state::State<i32>,
+struct GeneratedComponent {
+    key: String,
+    attributes: Attributes,
+    style: UiStyle,
+    empty: State<()>,
+    redraw: State<()>,
+    clicks: State<i32>,
+    global: State<i32>,
 }
-impl mvengine_ui::uix::UiCompoundElement for MyComponent2 {
-    fn new(attributes: Option<mvengine_ui::attributes::Attributes>, style: Option<mvengine_ui::styles::UiStyle>) -> Self
+
+impl UiCompoundElement for GeneratedComponent {
+    fn new(attributes: Attributes, style: UiStyle) -> Self
     where
-        Self: Sized,
+        Self: Sized
     {
-        let attributes = attributes.unwrap_or(mvengine_ui::attributes::Attributes::new());
-        let style = style.unwrap_or(mvengine_ui::styles::UiStyle::default());
-        let clicks = mvutils::state::State::new(0);
-        let shown = mvutils::state::State::new(false);
+        let empty = State::new(());
+        empty.force_outdated();
 
-        let number = mvutils::state::State::new(*clicks.read() * 2);
+        let redraw = State::new(());
 
+        let clicks = State::new(0);
         let global = get_global_state();
 
         if false {
@@ -65,54 +67,110 @@ impl mvengine_ui::uix::UiCompoundElement for MyComponent2 {
 
             use_state::<i32>(*clicks.read() * 2);
         }
-        Self { attributes, style, _cached: mvutils::once::CreateOnce::new(), clicks, shown, number, global }
+
+        Self {
+            attributes,
+            style,
+            empty,
+            redraw,
+            clicks,
+            global,
+        }
     }
-    fn generate(&self) -> UiElement {
+
+    fn generate(&self) -> VNode {
         let clicks = self.clicks.clone();
         let global = self.global.clone();
-        let shown = self.shown.clone();
-        let number = self.number.clone();
-        if clicks.is_outdated() {
-            *number.write() = *clicks.read() * 2;
-        }
 
-        {
-            let mut __attributes_4__ = mvengine_ui::attributes::Attributes::new();
-            let __attribs_ref__ = &mut __attributes_4__;
-            let mut __div_4__ = Div::new(__attributes_4__, mvengine_ui::styles::UiStyle::default());
-            __div_4__.state_mut().children.push(mvengine_ui::elements::child::Child::Element(std::sync::Arc::new(parking_lot::RwLock::new({
-                let mut __attributes_5__ = mvengine_ui::attributes::Attributes::new();
-                let __attribs_ref__ = &mut __attributes_5__;
-                let mut __text_5__ = Text::new(__attributes_5__, mvengine_ui::styles::UiStyle::default());
-                __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Code(Box::new({
-                    ::alloc::__export::must_use({
-                        let res = ::alloc::fmt::format(::alloc::__export::format_args!("Clicked 2x{} times", number));
-                        res
-                    })
-                })));
-                __text_5__.wrap()
-            }))));
-            __div_4__.state_mut().children.push(mvengine_ui::elements::child::Child::Element(std::sync::Arc::new(parking_lot::RwLock::new({
-                let mut __attributes_6__ = mvengine_ui::attributes::Attributes::new();
-                __attributes_6__.with_attrib("onclick".to_string(), mvengine_ui::attributes::AttributeValue::Code(Box::new({ *clicks.write() += 1 })));
-                let __attribs_ref__ = &mut __attributes_6__;
-                let mut __button_6__ = Button::new(__attributes_6__, mvengine_ui::styles::UiStyle::default());
-                __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Str("Click ".to_string()));
-                __button_6__.state_mut().children.push(mvengine_ui::elements::child::Child::String("Click ".to_string()));
-                __button_6__.wrap()
-            }))));   ;
-            __div_4__.wrap()
-        }
+        when!([self.empty] => {
+            println!("Only runs on first component generation");
+        });
+
+        when!([clicks] => {
+            *global.write() = *clicks.read() * 2;
+        });
+
+        when!([global] => {
+            if *global.read() == 10 {
+                self.request_regenerate();
+            }
+        });
+
+        // ui! {
+        //     <Div>
+        //         <Text>{{ format!("Clicked 2x{} times", *global.read()) }}</Text>
+        //         <Button onclick={{ |_| *clicks.write() += 1 }}>Click</Button>
+        //     </Div>
+        // }
+
+        let mut attributes = Attributes::new();
+        let mut style = UiStyle::default();
+        let mut elem = VElement::new(attributes, style, format!("{}_div1", self.key), |a, s| Div::new(a, s).wrap(), "Div".to_string());
+
+        elem.add_child({
+            let mut attributes = Attributes::new();
+            let mut style = UiStyle::default();
+            let mut elem = VElement::new(
+                attributes,
+                style,
+                format!("{}_text1", self.key),
+                |a, s| Div::new(a, s).wrap(), // pretend this is text because we dont have this component
+                "Text".to_string(),
+            );
+            elem.add_child({
+                let text = { format!("Clicked 2x{} times", *global.read()) };
+                VNode::Text(text)
+            });
+            VNode::Element(elem)
+        });
+        elem.add_child({
+            let mut attributes = Attributes::new();
+            let mut style = UiStyle::default();
+            let onclick = {
+                let clicks = clicks.clone();
+                |_: &mut UiElement| *clicks.write() = 1
+            };
+            attributes.with_attrib("onclick".to_string(), AttributeValue::Code(Box::new(onclick)));
+            let mut elem = VElement::new(
+                attributes,
+                style,
+                format!("{}_button1", self.key),
+                |a, s| Div::new(a, s).wrap(), // pretend this is button because we dont have this component
+                "Button".to_string(),
+            );
+            elem.add_child({
+                let text = "Click".to_string();
+                VNode::Text(text)
+            });
+            VNode::Element(elem)
+        });
+        VNode::Element(elem)
     }
-    fn regenerate(&mut self) {
-        if (self.clicks).is_outdated() || (self.shown).is_outdated() || (self.number).is_outdated() || (self.global).is_outdated() { self._cached.regenerate(); } else { self._cached.check_children(); }
-        (self.clicks).update();
-        (self.shown).update();
-        (self.number).update();
-        (self.global).update();
+
+    fn post_generate(&mut self) {
+        update!([self.clicks, self.global, self.empty]);
     }
-    fn get(&self) -> &mvengine_ui::elements::UiElement {
-        if !self._cached.created() { let _ = self._cached.try_create(|| mvengine_ui::uix::DynamicUi::new(Box::new(|| self.generate()))); }
-        self._cached.get_element()
+
+    fn regenerate(&mut self) -> bool {
+        when!([self.clicks, self.global, self.redraw] => {
+            update!([self.redraw]);
+            true
+        } else {
+            false
+        })
+    }
+
+    fn request_regenerate(&self) {
+        self.redraw.force_outdated();
+    }
+
+    fn update_style(&mut self, style: UiStyle) {
+        self.style = style;
+        self.request_regenerate();
+    }
+
+    fn update_attributes(&mut self, attributes: Attributes) {
+        self.attributes = attributes;
+        self.request_regenerate();
     }
 }

@@ -84,7 +84,6 @@ pub trait UiElementStub: UiElementCallbacks {
 
 pub enum UiElement {
     Blank(Blank),
-    Compound(DangerousCell<Box<dyn UiCompoundElement>>),
     Lmao(LmaoElement),
     Div(Div),
 }
@@ -93,7 +92,6 @@ macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident()) => {
         match $this {
             UiElement::Blank(e) => e.$fn_name(),
-            UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name(),
             UiElement::Lmao(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
 
@@ -102,7 +100,6 @@ macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
         match $this {
             UiElement::Blank(e) => e.$fn_name($($args),*),
-            UiElement::Compound(e) => e.get_mut().get_dyn_ui().get_cache().$fn_name($($args),*),
             UiElement::Lmao(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
         }

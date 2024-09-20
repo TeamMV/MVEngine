@@ -1,11 +1,13 @@
 use crate::elements::UiElement;
 use hashbrown::HashMap;
+use crate::uix::dom::VNode;
 
 pub struct Attributes {
     pub classes: Vec<String>,
     pub id: Option<String>,
     pub attribs: HashMap<String, AttributeValue>,
     pub inner: Option<AttributeValue>,
+    pub children: Option<Vec<VNode>>,
 }
 
 impl Attributes {
@@ -15,6 +17,7 @@ impl Attributes {
             id: None,
             attribs: HashMap::new(),
             inner: None,
+            children: None,
         }
     }
 
@@ -53,5 +56,9 @@ impl Attributes {
 
 pub enum AttributeValue {
     Str(String),
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    Char(char),
     Code(Box<dyn FnMut(&mut UiElement)>),
 }

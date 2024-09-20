@@ -1,8 +1,11 @@
+pub mod dom;
+
 use crate::attributes::Attributes;
 use crate::elements::child::Child;
 use crate::elements::{UiElement, UiElementStub};
 use crate::styles::UiStyle;
 use mvutils::state::State;
+use crate::uix::dom::VNode;
 
 pub struct DynamicUi {
     cached: UiElement,
@@ -80,13 +83,19 @@ pub fn global_state<T>(init: State<T>) -> State<T> {
 }
 
 pub trait UiCompoundElement {
-    fn new(attributes: Option<Attributes>, style: Option<UiStyle>) -> Self
+    fn new(attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized;
 
-    fn generate(&self) -> UiElement;
+    fn generate(&self) -> VNode;
 
-    fn regenerate(&mut self);
+    fn post_generate(&mut self);
 
-    fn get(&self) -> &UiElement;
+    fn regenerate(&mut self) -> bool;
+
+    fn request_regenerate(&self);
+
+    fn update_style(&mut self, style: UiStyle);
+
+    fn update_attributes(&mut self, attributes: Attributes);
 }
