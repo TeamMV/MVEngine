@@ -20,17 +20,23 @@ pub fn MyComponent() -> UiElement {
     let clicks = use_state::<i32>(0);
     let global = global_state::<i32>(get_global_state());
 
-    let shown = use_state::<bool>(false);
-
-    let number = use_state::<i32>(*clicks.read() * 2);
+    when!([] => {
+        println!("Only runs on first component generation");
+    });
 
     when!([clicks] => {
-        *number.write() = *clicks.read() * 2;
+        *global.write() = *clicks.read() * 2;
+    });
+
+    when!([global] => {
+        if *global.read() == 10 {
+            self.request_regenerate();
+        }
     });
 
     ui! {
         <Div>
-            <Text>{{ format!("Clicked 2x{} times", number) }}</Text>
+            <Text>{{ format!("Clicked 2x{} times", *gloabal.read()) }}</Text>
             <Button onclick={{ *clicks.write() += 1 }}>Click</Button>
         </Div>
     }
@@ -95,13 +101,6 @@ impl UiCompoundElement for GeneratedComponent {
                 self.request_regenerate();
             }
         });
-
-        // ui! {
-        //     <Div>
-        //         <Text>{{ format!("Clicked 2x{} times", *global.read()) }}</Text>
-        //         <Button onclick={{ |_| *clicks.write() += 1 }}>Click</Button>
-        //     </Div>
-        // }
 
         let mut attributes = Attributes::new();
         let mut style = UiStyle::default();
