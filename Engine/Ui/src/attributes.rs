@@ -1,11 +1,11 @@
-use hashbrown::HashMap;
 use crate::elements::UiElement;
+use hashbrown::HashMap;
 
 pub struct Attributes {
     pub classes: Vec<String>,
     pub id: Option<String>,
     pub attribs: HashMap<String, AttributeValue>,
-    pub inner: Option<AttributeValue>
+    pub inner: Option<AttributeValue>,
 }
 
 impl Attributes {
@@ -37,7 +37,8 @@ impl Attributes {
                 return;
             }
             if name == "class".to_string() {
-                self.classes.extend(s.split_whitespace().map(|st| st.to_string()));
+                self.classes
+                    .extend(s.split_whitespace().map(|st| st.to_string()));
                 return;
             }
             return;
@@ -52,5 +53,5 @@ impl Attributes {
 
 pub enum AttributeValue {
     Str(String),
-    Code(Box<dyn FnMut(&mut UiElement)>)
+    Code(Box<dyn FnMut(&mut UiElement)>),
 }

@@ -4,7 +4,7 @@ pub struct Entity {
     name: String,
     prefix: Option<String>,
     attributes: Vec<Attribute>,
-    inner: Option<XmlValue>
+    inner: Option<XmlValue>,
 }
 
 impl Entity {
@@ -21,7 +21,10 @@ impl Entity {
     }
 
     pub fn get_attrib(&self, name: &str) -> Option<&XmlValue> {
-        self.attributes.iter().find(|a| a.name == name.clone()).map(|a| &a.value)
+        self.attributes
+            .iter()
+            .find(|a| a.name == name)
+            .map(|a| &a.value)
     }
 
     pub fn inner(&self) -> &Option<XmlValue> {
@@ -32,12 +35,12 @@ impl Entity {
 pub enum XmlValue {
     Str(String),
     Entities(Vec<Entity>),
-    Code(String)
+    Code(String),
 }
 
 pub struct Attribute {
     name: String,
-    value: XmlValue
+    value: XmlValue,
 }
 
 impl Attribute {
@@ -196,9 +199,7 @@ fn parse_entity(lexer: &mut XmlLexer) -> Result<Entity, String> {
                 validate_entity(lexer, entity)
             }
         }
-        _ => {
-            Err(format!("Unexpected token, got {:?}", tkn).to_string())
-        }
+        _ => Err(format!("Unexpected token, got {:?}", tkn).to_string()),
     }
 }
 
@@ -226,27 +227,25 @@ enum XmlToken {
     RightBrace,
     Slash,
     Quote,
-    WhiteSpace(char)
+    WhiteSpace(char),
 }
 
 impl XmlToken {
     fn ordinal(&self) -> u8 {
-        unsafe {
-            *(self as *const XmlToken as *const u8)
-        }
+        unsafe { *(self as *const XmlToken as *const u8) }
     }
 
     pub(crate) fn as_literal(&self) -> String {
         match self {
             XmlToken::Literal(s) => s.clone(),
-            _ => "".to_string()
+            _ => "".to_string(),
         }
     }
 
     pub(crate) fn as_code(&self) -> String {
         match self {
             XmlToken::Code(s) => s.clone(),
-            _ => "".to_string()
+            _ => "".to_string(),
         }
     }
 
@@ -267,14 +266,12 @@ enum XmlTokenType {
     RightBrace,
     Slash,
     Quote,
-    WhiteSpace
+    WhiteSpace,
 }
 
 impl XmlTokenType {
     fn ordinal(&self) -> u8 {
-        unsafe {
-            *(self as *const XmlTokenType as *const u8)
-        }
+        unsafe { *(self as *const XmlTokenType as *const u8) }
     }
 }
 
@@ -283,7 +280,7 @@ struct XmlLexer {
     idx: usize,
     in_code_block: bool,
     in_literal: bool,
-    putback: Vec<XmlToken>
+    putback: Vec<XmlToken>,
 }
 
 impl XmlLexer {
@@ -299,7 +296,10 @@ impl XmlLexer {
 
     fn next_char(&mut self) -> Result<char, String> {
         self.idx += 1;
-        self.input.chars().nth(self.idx - 1).ok_or(format!("Unexpected end at position {}", self.idx + 1).to_string())
+        self.input
+            .chars()
+            .nth(self.idx - 1)
+            .ok_or(format!("Unexpected end at position {}", self.idx + 1).to_string())
     }
 
     pub fn putback(&mut self, tkn: XmlToken) {
@@ -324,7 +324,10 @@ impl XmlLexer {
 
     pub fn next_whitespace(&mut self) -> Result<XmlToken, String> {
         if !self.putback.is_empty() {
-            return self.putback.pop().ok_or("Idk whats wrong but this line is shorter :P".to_string());
+            return self
+                .putback
+                .pop()
+                .ok_or("Idk whats wrong but this line is shorter :P".to_string());
         }
 
         if self.in_literal {
@@ -364,7 +367,7 @@ impl XmlLexer {
             }
         }
 
-        let mut next = self.next_char()?;
+        let next = self.next_char()?;
         if next.is_whitespace() {
             return Ok(XmlToken::WhiteSpace(next));
         }
@@ -420,7 +423,7 @@ impl fmt::Debug for XmlValue {
             XmlValue::Str(s) => write!(f, "Str({:?})", s),
             XmlValue::Entities(entities) => {
                 write!(f, "Entities({:#?})", entities) // Pretty-print for nested entities
-            },
+            }
             XmlValue::Code(code) => write!(f, "Code({:?})", code),
         }
     }

@@ -1,8 +1,8 @@
-use mvutils::state::State;
 use crate::attributes::Attributes;
-use crate::elements::{UiElement, UiElementStub};
 use crate::elements::child::Child;
+use crate::elements::{UiElement, UiElementStub};
 use crate::styles::UiStyle;
+use mvutils::state::State;
 
 pub struct DynamicUi {
     cached: UiElement,
@@ -10,7 +10,7 @@ pub struct DynamicUi {
 }
 
 impl DynamicUi {
-    pub fn new(generator: Box<dyn FnMut() -> UiElement>) -> Self {
+    pub fn new(mut generator: Box<dyn FnMut() -> UiElement>) -> Self {
         Self {
             cached: generator(),
             generator,
@@ -18,7 +18,12 @@ impl DynamicUi {
     }
 
     /// Returns the cached element
-    pub fn get_element(&mut self) -> &mut UiElement {
+    pub fn get_element(&self) -> &UiElement {
+        &self.cached
+    }
+
+    /// Returns the cached element as a mutable reference
+    pub fn get_element_mut(&mut self) -> &mut UiElement {
         &mut self.cached
     }
 
@@ -28,7 +33,7 @@ impl DynamicUi {
     }
 
     pub fn regenerate(&mut self) {
-        self.cached = self.generator();
+        self.cached = (self.generator)();
     }
 
     pub fn check_children(&mut self) {
@@ -38,7 +43,6 @@ impl DynamicUi {
                 if let UiElement::Compound(compound) = guard {
                     compound.get_mut().regenerate();
                 } else {
-                    guard.
                 }
             }
         }
@@ -55,7 +59,9 @@ impl DynamicUi {
 ///     let test_state = use_state::<i32>(5);
 /// }
 /// ```
-pub fn use_state<T>(init: T) -> State<T> { panic!("You can only use use_state() in an uix function!") }
+pub fn use_state<T>(init: T) -> State<T> {
+    panic!("You can only use use_state() in an #[uix] function!")
+}
 
 /// Imports an existing State\<T\> object which can be used inside the ui! macro. Please preserve the form
 /// ```global_state::<T>(init)```
@@ -69,12 +75,18 @@ pub fn use_state<T>(init: T) -> State<T> { panic!("You can only use use_state() 
 ///     let test_state = global_state::<i32>(STATE);
 /// }
 /// ```
-pub fn global_state<T>(init: State<T>) -> State<T> { panic!("You can only use use_state() in an uix function!") }
+pub fn global_state<T>(init: State<T>) -> State<T> {
+    panic!("You can only use global_state() in an #[uix] function!")
+}
 
 pub trait UiCompoundElement {
-    fn new(attributes: Option<Attributes>, style: Option<UiStyle>) -> Self where Self: Sized;
+    fn new(attributes: Option<Attributes>, style: Option<UiStyle>) -> Self
+    where
+        Self: Sized;
 
     fn generate(&self) -> UiElement;
 
     fn regenerate(&mut self);
+
+    fn get(&self) -> &UiElement;
 }

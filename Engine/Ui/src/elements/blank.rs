@@ -1,8 +1,8 @@
-use mve2d::renderer2d::GameRenderer2D;
 use crate::attributes::Attributes;
 use crate::elements::child::Child;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::styles::{Dimension, UiStyle};
+use mve2d::renderer2d::GameRenderer2D;
 
 pub struct Blank {
     children: Vec<Child>,
@@ -15,10 +15,11 @@ impl UiElementCallbacks for Blank {
 }
 
 impl UiElementStub for Blank {
-    fn new(_: Attributes, _: UiStyle) -> Self where Self: Sized {
-        Self {
-            children: vec![]
-        }
+    fn new(_: Attributes, _: UiStyle) -> Self
+    where
+        Self: Sized,
+    {
+        Self { children: vec![] }
     }
 
     fn wrap(self) -> UiElement {

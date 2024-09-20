@@ -1,19 +1,27 @@
-use std::sync::Arc;
-use mvutils::unsafe_utils::DangerousCell;
-use shaderc::ShaderKind;
+use crate::gpu::{CameraBuffer, Vertex};
 use mvcore::math::vec::Vec2;
 use mvcore::render::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
-use mvcore::render::backend::descriptor_set::{DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet, DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo, MVDescriptorSetCreateInfo};
+use mvcore::render::backend::descriptor_set::{
+    DescriptorPool, DescriptorPoolFlags, DescriptorPoolSize, DescriptorSet,
+    DescriptorSetLayoutBinding, DescriptorType, MVDescriptorPoolCreateInfo,
+    MVDescriptorSetCreateInfo,
+};
 use mvcore::render::backend::device::Device;
-use mvcore::render::backend::Extent2D;
 use mvcore::render::backend::framebuffer::{Framebuffer, MVFramebufferCreateInfo};
 use mvcore::render::backend::image::{ImageFormat, ImageUsage};
-use mvcore::render::backend::pipeline::{AttributeType, CullMode, Graphics, MVGraphicsPipelineCreateInfo, Pipeline, Topology};
-use mvcore::render::backend::sampler::{Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode};
+use mvcore::render::backend::pipeline::{
+    AttributeType, CullMode, Graphics, MVGraphicsPipelineCreateInfo, Pipeline, Topology,
+};
+use mvcore::render::backend::sampler::{
+    Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
+};
 use mvcore::render::backend::shader::ShaderStage;
+use mvcore::render::backend::Extent2D;
 use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::renderer::Renderer;
-use crate::gpu::{CameraBuffer, Vertex};
+use mvutils::unsafe_utils::DangerousCell;
+use shaderc::ShaderKind;
+use std::sync::Arc;
 
 pub struct Renderer2D {
     device: Device,
@@ -28,7 +36,7 @@ pub struct Renderer2D {
     extent: Extent2D,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
-    pipeline: Pipeline<Graphics>
+    pipeline: Pipeline<Graphics>,
 }
 
 impl Renderer2D {
@@ -37,16 +45,14 @@ impl Renderer2D {
         let descriptor_pool = DescriptorPool::new(
             device.clone(),
             MVDescriptorPoolCreateInfo {
-                sizes: vec![
-                    DescriptorPoolSize {
-                        ty: DescriptorType::CombinedImageSampler,
-                        count: max_textures,
-                    }
-                ],
+                sizes: vec![DescriptorPoolSize {
+                    ty: DescriptorType::CombinedImageSampler,
+                    count: max_textures,
+                }],
                 max_sets: 1000,
                 flags: DescriptorPoolFlags::FREE_DESCRIPTOR,
                 label: Some("Renderer2D desc pool".to_string()),
-            }
+            },
         );
 
         let extent = core_renderer.get().get_swapchain().get_extent();
@@ -63,11 +69,12 @@ impl Renderer2D {
                     instance_size: size_of::<CameraBuffer>() as u64,
                     instance_count: 1,
                     buffer_usage: BufferUsage::UNIFORM_BUFFER,
-                    memory_properties: MemoryProperties::HOST_VISIBLE | MemoryProperties::HOST_COHERENT,
+                    memory_properties: MemoryProperties::HOST_VISIBLE
+                        | MemoryProperties::HOST_COHERENT,
                     minimum_alignment: 1,
                     memory_usage: gpu_alloc::UsageFlags::HOST_ACCESS,
                     label: None,
-                }
+                },
             );
 
             let buf = CameraBuffer {
@@ -178,16 +185,13 @@ impl Renderer2D {
                 enable_depth_test: true,
                 depth_clamp: false,
                 blending_enable: true,
-                descriptor_sets: vec![
-                    camera_sets[0].get_layout(),
-                ],
+                descriptor_sets: vec![camera_sets[0].get_layout()],
                 push_constants: vec![],
                 framebuffer: geometry_framebuffers[0].clone(),
                 color_attachments_count: 1,
                 label: Some("Renderer2D Rectangle Pipeline".to_string()),
             },
         );
-
 
         Self {
             device,

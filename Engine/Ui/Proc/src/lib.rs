@@ -1,5 +1,5 @@
-mod uix;
 mod ui;
+mod uix;
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -10,6 +10,6 @@ pub fn ui(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn uix(attrib:TokenStream, input: TokenStream) -> TokenStream {
+pub fn uix(attrib: TokenStream, input: TokenStream) -> TokenStream {
     uix::uix(attrib, input)
 }

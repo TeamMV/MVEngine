@@ -40,11 +40,11 @@ impl TimingManager {
     pub fn post_frame(&mut self, dt: f32, frame: u64) {
         let mut to_remove = vec![];
         for task in self.tasks.iter_mut() {
-            task.1.0.iteration(dt, frame);
-            if task.1.0.is_done() {
+            task.1 .0.iteration(dt, frame);
+            if task.1 .0.is_done() {
                 to_remove.push(task.0.clone());
-                if task.1.1.is_some() {
-                    let on_finish = task.1.1.as_mut().unwrap();
+                if task.1 .1.is_some() {
+                    let on_finish = task.1 .1.as_mut().unwrap();
                     on_finish();
                 }
             }
@@ -121,7 +121,10 @@ impl TimingTask for DurationTask {
     }
 
     fn iteration(&mut self, dt: f32, frame: u64) {
-        (self.function)(&mut self.state, (u128::time_millis() - self.init_time) as u32);
+        (self.function)(
+            &mut self.state,
+            (u128::time_millis() - self.init_time) as u32,
+        );
     }
 }
 
@@ -131,7 +134,7 @@ pub struct DelayTask {
     state: AnimationState,
     init_time: u128,
     delay: u32,
-    done: bool
+    done: bool,
 }
 
 impl DelayTask {
@@ -236,7 +239,7 @@ impl AnimationState {
     }
 
     pub fn get_value(&self) -> AnyType {
-        return self.value.clone().unwrap()
+        return self.value.clone().unwrap();
     }
 
     pub fn values(values: &[AnyType]) -> Self {

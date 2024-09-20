@@ -1,7 +1,5 @@
-use std::cmp::Ordering;
-use std::sync::Arc;
+use crate::font::{AtlasData, PreparedAtlasData};
 use bytebuffer::ByteBuffer;
-use mvutils::hashers::U32IdentityHasher;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::math::mat::Mat4;
@@ -31,10 +29,12 @@ use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::mesh::Mesh;
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::Window;
+use mvutils::hashers::U32IdentityHasher;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::TetrahedronOp;
 use shaderc::ShaderKind;
-use crate::font::{AtlasData, PreparedAtlasData};
+use std::cmp::Ordering;
+use std::sync::Arc;
 
 #[repr(C)]
 struct Vertex {
@@ -788,7 +788,14 @@ impl GameRenderer2D {
 
                 self.rounded_rects.push(rounded_rect);
             }
-            Shape::Text { position, rotation, height, font_id, text, color } => {
+            Shape::Text {
+                position,
+                rotation,
+                height,
+                font_id,
+                text,
+                color,
+            } => {
                 while self.rectangles.capacity() <= self.rectangles.len() + text.len() {
                     if self.rectangles.len() as u64 == MAX_BATCH_SIZE {
                         log::error!("Renderer2D: Maximum rectangle draw limit exceeded");
@@ -811,26 +818,22 @@ impl GameRenderer2D {
                     let mut x = 0.0;
                     let mut y = 0.0;
 
-                    for char in text.chars()
-                    {
-                        if (char == '\t')
-                        {
+                    for char in text.chars() {
+                        if (char == '\t') {
                             x += 6.0 + space_advance * font_scale;
                             continue;
-                        }
-                        else if (char == ' ')
-                        {
+                        } else if (char == ' ') {
                             x += space_advance * font_scale;
                             continue;
-                        }
-                        else if (char == '\n')
-                        {
+                        } else if (char == '\n') {
                             x = 0.0;
                             y -= font_scale * atlas.metrics.line_height;
                             continue;
                         }
 
-                        let glyph = if let Some(glyph) = atlas.find_glyph(char) { glyph } else {
+                        let glyph = if let Some(glyph) = atlas.find_glyph(char) {
+                            glyph
+                        } else {
                             atlas.find_glyph('?').unwrap_or_else(|| {
                                 log::error!("Font atlas missing 'missing character' glyph");
                                 panic!()
@@ -840,14 +843,22 @@ impl GameRenderer2D {
                         let bounds_plane = &glyph.plane_bounds;
                         let bounds_atlas = &glyph.atlas_bounds;
 
-                        let mut tex_coords = Vec4::new(bounds_atlas.left as f32, (atlas.atlas.height as f64 - bounds_atlas.top) as f32, (bounds_atlas.right - bounds_atlas.left) as f32, (bounds_atlas.top - bounds_atlas.bottom) as f32);
+                        let mut tex_coords = Vec4::new(
+                            bounds_atlas.left as f32,
+                            (atlas.atlas.height as f64 - bounds_atlas.top) as f32,
+                            (bounds_atlas.right - bounds_atlas.left) as f32,
+                            (bounds_atlas.top - bounds_atlas.bottom) as f32,
+                        );
 
                         tex_coords.x /= atlas.atlas.width as f32;
                         tex_coords.y /= atlas.atlas.height as f32;
                         tex_coords.z /= atlas.atlas.width as f32;
                         tex_coords.w /= atlas.atlas.height as f32;
 
-                        let mut scale = Vec2::new((bounds_plane.right - bounds_plane.left) as f32, (bounds_plane.top - bounds_plane.bottom) as f32);
+                        let mut scale = Vec2::new(
+                            (bounds_plane.right - bounds_plane.left) as f32,
+                            (bounds_plane.top - bounds_plane.bottom) as f32,
+                        );
                         scale.x = scale.x * font_scale as f32;
                         scale.y = scale.y * font_scale as f32;
 
@@ -857,10 +868,15 @@ impl GameRenderer2D {
 
                         // TODO: far plane is hardcoded to 100.0, change it. We use half the far plane to allow for negative z values
                         let rectangle = Rectangle {
-                            position: Vec4::new(x as f32 + position.x, y as f32 + position.y - y_offset, 50.0 - position.z, 0.0),
+                            position: Vec4::new(
+                                x as f32 + position.x,
+                                y as f32 + position.y - y_offset,
+                                50.0 - position.z,
+                                0.0,
+                            ),
                             rotation: Vec4::new(rot.x, rot.y, rot.z, 0.0),
                             scale,
-                            tex_coord : tex_coords,
+                            tex_coord: tex_coords,
                             color,
                             tex_id: font_id as i32,
                             blending: -1.0,

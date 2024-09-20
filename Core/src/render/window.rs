@@ -1,15 +1,15 @@
+use crate::input::raw::Input;
+use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
+use crate::render::backend::Extent2D;
+use crate::render::ApplicationLoopCallbacks;
+use mvutils::unsafe_utils::DangerousCell;
 use std::sync::Arc;
 use std::time::SystemTime;
-use mvutils::unsafe_utils::DangerousCell;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
-use crate::input::{InputAction, InputCollector, InputProcessor, KeyboardAction, MouseAction};
-use crate::input::raw::Input;
-use crate::render::backend::Extent2D;
-use crate::render::ApplicationLoopCallbacks;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -150,7 +150,7 @@ impl Window {
             delta_t: 0.0,
             delta_u: 0.0,
             input: input_arc,
-            input_collector
+            input_collector,
         }
     }
 
@@ -191,114 +191,119 @@ impl Window {
                     self.state = State::Exited;
                     app_loop.exiting(&mut self);
                 }
-                Event::WindowEvent { window_id, event } => match event {
-                    WindowEvent::ActivationTokenDone { .. } => {}
-                    WindowEvent::Resized(size) => {
-                        self.info.width = size.width;
-                        self.info.height = size.height;
-                        app_loop.resize(&mut self, size.width, size.height);
-                    }
-                    WindowEvent::Moved(_) => {}
-                    WindowEvent::CloseRequested => target.exit(),
-                    WindowEvent::Destroyed => {}
-                    WindowEvent::DroppedFile(_) => {}
-                    WindowEvent::HoveredFile(_) => {}
-                    WindowEvent::HoveredFileCancelled => {}
-                    WindowEvent::Focused(_) => {}
-                    WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
-                        let input = self.input.get_mut();
-                        let code = match event.physical_key {
-                            PhysicalKey::Code(code) => code,
-                            _ => KeyCode::Escape,
-                        };
+                Event::WindowEvent { window_id, event } => {
+                    match event {
+                        WindowEvent::ActivationTokenDone { .. } => {}
+                        WindowEvent::Resized(size) => {
+                            self.info.width = size.width;
+                            self.info.height = size.height;
+                            app_loop.resize(&mut self, size.width, size.height);
+                        }
+                        WindowEvent::Moved(_) => {}
+                        WindowEvent::CloseRequested => target.exit(),
+                        WindowEvent::Destroyed => {}
+                        WindowEvent::DroppedFile(_) => {}
+                        WindowEvent::HoveredFile(_) => {}
+                        WindowEvent::HoveredFileCancelled => {}
+                        WindowEvent::Focused(_) => {}
+                        WindowEvent::KeyboardInput {
+                            device_id,
+                            event,
+                            is_synthetic,
+                        } => {
+                            let input = self.input.get_mut();
+                            let code = match event.physical_key {
+                                PhysicalKey::Code(code) => code,
+                                _ => KeyCode::Escape,
+                            };
 
-                        if let ElementState::Pressed = event.state {
-                            let index = Input::key_from_winit(code);
-                            if index >= 0 && index < input.keys.len() {
-                                if input.keys[index] {
-                                    self.input_collector
-                                        .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
-                                } else {
-                                    self.input_collector
-                                        .collect(InputAction::Keyboard(KeyboardAction::Type(index)));
-                                    self.input_collector
-                                        .collect(InputAction::Keyboard(KeyboardAction::Press(index)));
+                            if let ElementState::Pressed = event.state {
+                                let index = Input::key_from_winit(code);
+                                if index >= 0 && index < input.keys.len() {
+                                    if input.keys[index] {
+                                        self.input_collector.collect(InputAction::Keyboard(
+                                            KeyboardAction::Type(index),
+                                        ));
+                                    } else {
+                                        self.input_collector.collect(InputAction::Keyboard(
+                                            KeyboardAction::Type(index),
+                                        ));
+                                        self.input_collector.collect(InputAction::Keyboard(
+                                            KeyboardAction::Press(index),
+                                        ));
+                                    }
                                 }
                             }
-                        }
 
-                        if let ElementState::Released = event.state {
-                            self.input_collector
-                                .collect(InputAction::Keyboard(KeyboardAction::Release(
-                                    Input::key_from_winit(code),
-                                )));
+                            if let ElementState::Released = event.state {
+                                self.input_collector.collect(InputAction::Keyboard(
+                                    KeyboardAction::Release(Input::key_from_winit(code)),
+                                ));
+                            }
                         }
-                    }
-                    WindowEvent::ModifiersChanged(_) => {}
-                    WindowEvent::Ime(_) => {}
-                    WindowEvent::CursorMoved {
-                        device_id,
-                        position,
-                        ..
-                    } => self
-                        .input_collector
-                        .collect(InputAction::Mouse(MouseAction::Move(
-                            position.x as i32,
-                            self.get_extent().height as i32 - position.y as i32,
-                        ))),
-                    WindowEvent::CursorEntered { .. } => {}
-                    WindowEvent::CursorLeft { .. } => {}
-                    WindowEvent::MouseWheel {
-                        device_id,
-                        delta,
-                        phase,
-                        ..
-                    } => {
-                        if let MouseScrollDelta::PixelDelta(pos) = delta {
-                            self.input_collector
-                                .collect(InputAction::Mouse(MouseAction::Wheel(
-                                    pos.x as f32,
-                                    pos.y as f32,
-                                )))
+                        WindowEvent::ModifiersChanged(_) => {}
+                        WindowEvent::Ime(_) => {}
+                        WindowEvent::CursorMoved {
+                            device_id,
+                            position,
+                            ..
+                        } => self
+                            .input_collector
+                            .collect(InputAction::Mouse(MouseAction::Move(
+                                position.x as i32,
+                                self.get_extent().height as i32 - position.y as i32,
+                            ))),
+                        WindowEvent::CursorEntered { .. } => {}
+                        WindowEvent::CursorLeft { .. } => {}
+                        WindowEvent::MouseWheel {
+                            device_id,
+                            delta,
+                            phase,
+                            ..
+                        } => {
+                            if let MouseScrollDelta::PixelDelta(pos) = delta {
+                                self.input_collector.collect(InputAction::Mouse(
+                                    MouseAction::Wheel(pos.x as f32, pos.y as f32),
+                                ))
+                            }
+                            if let MouseScrollDelta::LineDelta(x, y) = delta {
+                                self.input_collector
+                                    .collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
+                            }
                         }
-                        if let MouseScrollDelta::LineDelta(x, y) = delta {
-                            self.input_collector
-                                .collect(InputAction::Mouse(MouseAction::Wheel(x, y)))
-                        }
-                    }
-                    WindowEvent::MouseInput {
-                        device_id,
-                        state,
-                        button,
-                        ..
-                    } => {
-                        if let ElementState::Pressed = state {
-                            self.input_collector
-                                .collect(InputAction::Mouse(MouseAction::Press(
-                                    Input::mouse_from_winit(button),
-                                )));
-                        }
+                        WindowEvent::MouseInput {
+                            device_id,
+                            state,
+                            button,
+                            ..
+                        } => {
+                            if let ElementState::Pressed = state {
+                                self.input_collector.collect(InputAction::Mouse(
+                                    MouseAction::Press(Input::mouse_from_winit(button)),
+                                ));
+                            }
 
-                        if let ElementState::Released = state {
-                            self.input_collector.collect(InputAction::Mouse(
-                                MouseAction::Release(Input::mouse_from_winit(button)),
-                            ));
+                            if let ElementState::Released = state {
+                                self.input_collector.collect(InputAction::Mouse(
+                                    MouseAction::Release(Input::mouse_from_winit(button)),
+                                ));
+                            }
+                        }
+                        WindowEvent::TouchpadMagnify { .. } => {}
+                        WindowEvent::SmartMagnify { .. } => {}
+                        WindowEvent::TouchpadRotate { .. } => {}
+                        WindowEvent::TouchpadPressure { .. } => {}
+                        WindowEvent::AxisMotion { .. } => {}
+                        WindowEvent::Touch(_) => {}
+                        WindowEvent::ScaleFactorChanged { .. } => {}
+                        WindowEvent::ThemeChanged(_) => {}
+                        WindowEvent::Occluded(_) => {}
+                        WindowEvent::RedrawRequested => {
+                            let delta_t = self.delta_t;
+                            app_loop.draw(&mut self, delta_t);
                         }
                     }
-                    WindowEvent::TouchpadMagnify { .. } => {}
-                    WindowEvent::SmartMagnify { .. } => {}
-                    WindowEvent::TouchpadRotate { .. } => {}
-                    WindowEvent::TouchpadPressure { .. } => {}
-                    WindowEvent::AxisMotion { .. } => {}
-                    WindowEvent::Touch(_) => {}
-                    WindowEvent::ScaleFactorChanged { .. } => {}
-                    WindowEvent::ThemeChanged(_) => {}
-                    WindowEvent::Occluded(_) => {}
-                    WindowEvent::RedrawRequested => {
-                        let delta_t = self.delta_t;
-                        app_loop.draw(&mut self, delta_t);
-                    }
-                },
+                }
                 _ => {}
             })
             .unwrap()

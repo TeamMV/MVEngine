@@ -777,13 +777,15 @@ impl VkDevice {
         let mut scalar_block =
             *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder().scalar_block_layout(true);
 
-        let mut indexingFeatures = *ash::vk::PhysicalDeviceDescriptorIndexingFeatures::builder().runtime_descriptor_array(true);
+        let mut indexingFeatures = *ash::vk::PhysicalDeviceDescriptorIndexingFeatures::builder()
+            .runtime_descriptor_array(true);
 
         device_address.p_next =
             &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
         synch2.p_next = &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures
             as *mut c_void;
-        scalar_block.p_next = &mut indexingFeatures as *mut ash::vk::PhysicalDeviceDescriptorIndexingFeatures
+        scalar_block.p_next = &mut indexingFeatures
+            as *mut ash::vk::PhysicalDeviceDescriptorIndexingFeatures
             as *mut c_void;
         features = features.push_next(&mut device_address);
 

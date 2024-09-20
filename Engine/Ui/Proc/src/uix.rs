@@ -1,8 +1,12 @@
 use proc_macro::TokenStream;
-use std::fmt::{Debug, Formatter};
 use proc_macro2::Ident;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Block, Expr, ExprCall, ExprPath, GenericArgument, ItemFn, Local, Pat, PathArguments, Stmt};
+use std::fmt::{Debug, Formatter};
+use std::str::FromStr;
+use syn::{
+    parse_macro_input, Block, Expr, ExprCall, ExprPath, GenericArgument, ItemFn, Local, Pat,
+    PathArguments, Stmt,
+};
 
 use proc_macro2 as pm2;
 use syn::parse::{Parse, ParseStream};
@@ -16,7 +20,7 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
 
     let block = input.block.as_ref();
 
-    let (local_states, global_states, replaced_block) = get_state_uses(block);
+    let (local_states, global_states, replaced_block, highlighting) = get_state_uses(block);
 
     let state_mod = quote! { mvutils::state };
 
@@ -26,7 +30,15 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
         let ty = &local_state.var_type;
 
         state_fields.extend(quote! {
-            #name: #state_mod::State<#ty>
+            #name: #state_mod::State<#ty>,
+        });
+    }
+    for global_state in global_states.iter() {
+        let name = &global_state.var_name;
+        let ty = &global_state.var_type;
+
+        state_fields.extend(quote! {
+            #name: #state_mod::State<#ty>,
         });
     }
 
@@ -38,6 +50,13 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
             #state_fields
         }
     };
+
+    let mut highlight_code = quote! {};
+    for highlight in highlighting {
+        highlight_code.extend(quote! {
+            #highlight;
+        });
+    }
 
     let mut state_init_code = quote! {};
     for local_state in local_states.iter() {
@@ -56,62 +75,85 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let mut field_init_code = quote! {
-        attributes: attributes.unwrap_or(mvengine_ui::attributes::Attributes::new()),
-        style: style.unwrap_or(mvengine_ui::styles::UiStyle::default()),
+        attributes,
+        style,
         _cached: mvutils::once::CreateOnce::new(),
     };
 
     for local_state in local_states.iter() {
         let name = &local_state.var_name;
         field_init_code.extend(quote! {
-            #name
+            #name,
         });
     }
     for global_state in global_states.iter() {
         let name = &global_state.var_name;
         field_init_code.extend(quote! {
-            #name
+            #name,
         });
     }
 
-    let mut state_when_code = quote! {if };
+    let mut state_when_str = "mvutils::when!([".to_string();
+    let mut state_update_str = "mvutils::update!([".to_string();
     for local_state in local_states.iter() {
         let name = &local_state.var_name;
-        state_when_code.extend(quote! {
-            self.#name.is_outdated() ||
-        });
+        state_when_str.push_str("self.");
+        state_when_str.push_str(&name.to_string());
+        state_when_str.push(',');
+        state_update_str.push_str("self.");
+        state_update_str.push_str(&name.to_string());
+        state_update_str.push(',');
     }
     for global_state in global_states.iter() {
         let name = &global_state.var_name;
-        state_when_code.extend(quote! {
-            self.#name.is_outdated() ||
-        });
+        state_when_str.push_str("self.");
+        state_when_str.push_str(&name.to_string());
+        state_when_str.push(',');
+        state_update_str.push_str("self.");
+        state_update_str.push_str(&name.to_string());
+        state_update_str.push(',');
     }
-    state_when_code.extend(quote! {
-        false {
+    state_when_str.push_str(
+        r#"
+        ] => {
             self._cached.regenerate();
         } else {
             self._cached.check_children();
-        }
-    });
+        });"#,
+    );
+    state_update_str.push_str("]);");
+
+    let state_when_code = proc_macro2::TokenStream::from_str(&state_when_str).unwrap();
+    let state_update_code = proc_macro2::TokenStream::from_str(&state_update_str).unwrap();
 
     let struct_impl = quote! {
         impl mvengine_ui::uix::UiCompoundElement for #comp_name {
             fn new(attributes: Option<mvengine_ui::attributes::Attributes>, style: Option<mvengine_ui::styles::UiStyle>) -> Self where Self: Sized {
+                let attributes = attributes.unwrap_or(mvengine_ui::attributes::Attributes::new());
+                let style = style.unwrap_or(mvengine_ui::styles::UiStyle::default());
                 #state_init_code
+                if false {
+                    #highlight_code
+                }
                 Self {
                     #field_init_code
                 }
             }
 
             fn generate(&self) #returns {
-                let _ = self._cached.try_create(|| mvengine_ui::uix::DynamicUi::new(|| self.generate()));
-
                 #replaced_block
             }
 
             fn regenerate(&mut self) {
                 #state_when_code
+                #state_update_code
+            }
+
+            fn get(&self) -> &mvengine_ui::elements::UiElement {
+                if !self._cached.created() {
+                    let _ = self._cached.try_create(|| mvengine_ui::uix::DynamicUi::new(Box::new(|| self.generate())));
+                }
+                self._cached.get_element()
             }
         }
     };
@@ -126,7 +168,7 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
 struct StateUse {
     var_name: Ident,
     var_type: pm2::TokenStream,
-    init_tokens: pm2::TokenStream
+    init_tokens: pm2::TokenStream,
 }
 
 impl Debug for StateUse {
@@ -139,9 +181,10 @@ impl Debug for StateUse {
     }
 }
 
-fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::TokenStream) {
+fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::TokenStream, Vec<Expr>) {
     let mut local_usages = Vec::new();
     let mut global_usages = Vec::new();
+    let mut highlighting = Vec::new();
 
     let mut rep_block = quote! {};
 
@@ -152,8 +195,13 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::Token
 
                 if let Expr::Call(ExprCall { func, args, .. }) = expr {
                     if let Expr::Path(ExprPath { path, .. }) = func.as_ref() {
-                        if path.segments.first().unwrap().ident.to_string() == "use_state".to_string() {
-                            let type_ts = if let PathArguments::AngleBracketed(generic_args) = &path.segments.last().unwrap().arguments {
+                        let fn_name = path.segments.first().unwrap().ident.to_string();
+                        if fn_name == "use_state".to_string()
+                            || fn_name == "global_state".to_string()
+                        {
+                            let type_ts = if let PathArguments::AngleBracketed(generic_args) =
+                                &path.segments.last().unwrap().arguments
+                            {
                                 let g = generic_args.args.first().unwrap();
                                 if let GenericArgument::Type(ty) = g {
                                     ty.to_token_stream()
@@ -161,9 +209,8 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::Token
                                     panic!("Generic Argument was not a type!")
                                 }
                             } else {
-                                panic!("use_state() needs a generic type!");
+                                panic!("use_state() and global_state() need a generic type!");
                             };
-
 
                             let init_ts = if let Some(init_expr) = args.first() {
                                 init_expr.to_token_stream()
@@ -178,14 +225,24 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::Token
                             };
 
                             rep_block.extend(quote! {
-                                let #var_name_ts = self.#var_name_ts;
+                                let #var_name_ts = self.#var_name_ts.clone();
                             });
 
-                            local_usages.push(StateUse {
-                                var_name: var_name_ts,
-                                var_type: type_ts,
-                                init_tokens: init_ts,
-                            });
+                            if fn_name == "use_state" {
+                                local_usages.push(StateUse {
+                                    var_name: var_name_ts,
+                                    var_type: type_ts,
+                                    init_tokens: init_ts,
+                                });
+                            } else {
+                                global_usages.push(StateUse {
+                                    var_name: var_name_ts,
+                                    var_type: type_ts,
+                                    init_tokens: init_ts,
+                                });
+                            }
+
+                            highlighting.push(expr.clone());
                             continue;
                         }
                     }
@@ -198,7 +255,7 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::Token
         });
     }
 
-    (local_usages, global_usages, rep_block)
+    (local_usages, global_usages, rep_block, highlighting)
 }
 
 fn get_return_code(block: &Block) -> pm2::TokenStream {
@@ -209,7 +266,7 @@ fn get_return_code(block: &Block) -> pm2::TokenStream {
                     return_value.to_token_stream()
                 } else {
                     quote::quote! { () }
-                }
+                };
             }
         }
     }

@@ -1,4 +1,3 @@
-use std::process::exit;
 use log::LevelFilter;
 use mvcore::color::RgbColor;
 use mvcore::input;
@@ -21,18 +20,19 @@ use mvengine_ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiEle
 use mvengine_ui::styles::{Origin, Position, UiStyle, UiValue};
 use mvengine_ui::timing::TIMING_MANAGER;
 use mvengine_ui::{anim, modify_style, UI};
+use mvutils::state::State;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
+use std::process::exit;
 use std::sync::Arc;
-use mvutils::state::State;
 use uiproc::{ui, uix};
 
 pub mod test;
 
+use crate::test::MyComponent;
 use mvengine_ui::elements::Div;
 use mvengine_ui::uix::UiCompoundElement;
-use crate::test::MyComponent;
 
 fn main() {
     let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
@@ -95,9 +95,7 @@ impl ApplicationLoopCallbacks for Application {
         modify_style!(style.y = UiValue::Just(300));
         modify_style!(style.width = UiValue::Just(100));
         modify_style!(style.height = UiValue::Just(100));
-        modify_style!(style.transform.origin = UiValue::Just(
-            Origin::Custom(50, 50)
-        ));
+        modify_style!(style.transform.origin = UiValue::Just(Origin::Custom(50, 50)));
 
         let mut anim_style_from = style.clone();
         let mut anim_style_to = style.clone();
@@ -106,24 +104,50 @@ impl ApplicationLoopCallbacks for Application {
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
         let animation = KeyframeAnimation::builder(anim_style_from.clone())
-            .next_keyframe(|s| {
-                modify_style!(s.x = UiValue::Just(400));
-            }, Some(anim::easing(EasingGen::sin(), EasingMode::Out)), Some(10.0))
-            .next_keyframe(|s| {
-                modify_style!(s.y = UiValue::Just(400));
-            }, Some(anim::easing(EasingGen::back(), EasingMode::InOut)), Some(60.0))
-            .next_keyframe(|s| {
-                modify_style!(s.x = UiValue::Just(2));
-            }, Some(anim::easing(EasingGen::bounce(), EasingMode::Out)), None)
+            .next_keyframe(
+                |s| {
+                    modify_style!(s.x = UiValue::Just(400));
+                },
+                Some(anim::easing(EasingGen::sin(), EasingMode::Out)),
+                Some(10.0),
+            )
+            .next_keyframe(
+                |s| {
+                    modify_style!(s.y = UiValue::Just(400));
+                },
+                Some(anim::easing(EasingGen::back(), EasingMode::InOut)),
+                Some(60.0),
+            )
+            .next_keyframe(
+                |s| {
+                    modify_style!(s.x = UiValue::Just(2));
+                },
+                Some(anim::easing(EasingGen::bounce(), EasingMode::Out)),
+                None,
+            )
             .build();
 
         lmao.state_mut().events.on_click(move |event| {
             let elem = event.base.elem;
             if event.button == input::MOUSE_LEFT {
                 if let UiClickAction::Click = event.base.action {
-                    anim::animate_self(elem, &anim_style_to, 200, anim::easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
+                    anim::animate_self(
+                        elem,
+                        &anim_style_to,
+                        200,
+                        anim::easing(EasingGen::linear(), EasingMode::In),
+                        FillMode::Keep,
+                        AnimationMode::KeepProgress,
+                    );
                 } else {
-                    anim::animate_self(elem, &anim_style_from, 200, anim::easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
+                    anim::animate_self(
+                        elem,
+                        &anim_style_from,
+                        200,
+                        anim::easing(EasingGen::linear(), EasingMode::In),
+                        FillMode::Keep,
+                        AnimationMode::KeepProgress,
+                    );
                 }
             }
         });
@@ -135,7 +159,6 @@ impl ApplicationLoopCallbacks for Application {
             UI.get_mut().add_root(arc.clone());
             window.set_input_processor(mvengine_ui::Ui::input_processor);
         }
-
 
         Self {
             device,
@@ -168,7 +191,6 @@ impl ApplicationLoopCallbacks for Application {
         guard.draw(ren);
         drop(guard);
 
-
         let image_index = self.core_renderer.get_mut().begin_frame().unwrap();
         let cmd = self.core_renderer.get_mut().get_current_command_buffer();
         let frame_index = self.core_renderer.get().get_current_frame_index();
@@ -198,7 +220,9 @@ impl ApplicationLoopCallbacks for Application {
 
         self.core_renderer.get_mut().end_frame().unwrap();
 
-        unsafe { TIMING_MANAGER.post_frame(delta_t as f32, 0); }
+        unsafe {
+            TIMING_MANAGER.post_frame(delta_t as f32, 0);
+        }
     }
 
     fn exiting(&mut self, window: &mut Window) {}

@@ -31,7 +31,7 @@ pub(crate) struct Atlas {
 pub(crate) enum YOrigin {
     Top,
     #[default]
-    Bottom
+    Bottom,
 }
 
 #[derive(Savable, Debug, Default)]
@@ -49,7 +49,7 @@ pub(crate) struct Glyph {
     pub(crate) unicode: u32,
     pub(crate) advance: f64,
     pub(crate) plane_bounds: Bounds,
-    pub(crate) atlas_bounds: Bounds
+    pub(crate) atlas_bounds: Bounds,
 }
 
 #[derive(Savable, Debug, Default)]
@@ -69,15 +69,25 @@ pub(crate) struct Kerning {
 
 impl Into<PreparedAtlasData> for AtlasData {
     fn into(self) -> PreparedAtlasData {
-        let mut glyphs = hashbrown::HashMap::with_capacity_and_hasher(self.glyphs.len(), U32IdentityHasher::default());
-        let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher> = hashbrown::HashMap::with_capacity_and_hasher(self.kerning.len(), U32IdentityHasher::default());
+        let mut glyphs = hashbrown::HashMap::with_capacity_and_hasher(
+            self.glyphs.len(),
+            U32IdentityHasher::default(),
+        );
+        let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher> =
+            hashbrown::HashMap::with_capacity_and_hasher(
+                self.kerning.len(),
+                U32IdentityHasher::default(),
+            );
 
         for glyph in self.glyphs {
             glyphs.insert(glyph.unicode, glyph);
         }
 
         for kern in self.kerning {
-            kerning.entry(kern.first).or_default().push((kern.second, kern.kerning));
+            kerning
+                .entry(kern.first)
+                .or_default()
+                .push((kern.second, kern.kerning));
         }
 
         glyphs.shrink_to_fit();
@@ -99,7 +109,9 @@ impl PreparedAtlasData {
 
     pub(crate) fn get_kerning(&self, first: char, second: char) -> Option<f64> {
         let kernings = self.kerning.get(&(first as u32))?;
-        let index = kernings.binary_search_by(|(c, _)| c.cmp(&(second as u32))).ok()?;
+        let index = kernings
+            .binary_search_by(|(c, _)| c.cmp(&(second as u32)))
+            .ok()?;
         Some(kernings[index].1)
     }
 }

@@ -1,5 +1,5 @@
-use proc_macro2::{Ident, Span};
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{parse_str, Expr};
 use ui_parsing::xml::{Entity, XmlValue};
@@ -16,8 +16,10 @@ pub fn ui(input: TokenStream) -> TokenStream {
 }
 
 fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
-    let new_ui_style: XmlValue = XmlValue::Code("mvengine_ui::styles::UiStyle::default()".to_string());
-    let new_attributes: XmlValue = XmlValue::Code("mvengine_ui::attributes::Attributes::new()".to_string());
+    let new_ui_style: XmlValue =
+        XmlValue::Code("mvengine_ui::styles::UiStyle::default()".to_string());
+    let new_attributes: XmlValue =
+        XmlValue::Code("mvengine_ui::attributes::Attributes::new()".to_string());
 
     let id = mvutils::utils::next_id("MVEngine::ui::proc_parse_entity").to_string();
     let attribs_ident = Ident::new(&format!("__attributes_{}__", id), Span::call_site());
@@ -30,7 +32,11 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     let attributes_code = xml_value_to_tknstream(attributes_xml);
 
     let mut attrib_tokens = quote! {};
-    for attrib in entity.attributes().iter().filter(|a| a.name() != "style".to_string() && a.name() != "attributes".to_string()) {
+    for attrib in entity
+        .attributes()
+        .iter()
+        .filter(|a| a.name() != "style".to_string() && a.name() != "attributes".to_string())
+    {
         let attrib_name = attrib.name();
         let attrib_value_xml = attrib.value();
         let attrib_value = match attrib_value_xml {
@@ -38,14 +44,14 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                 quote! {
                     mvengine_ui::attributes::AttributeValue::Str(#s.to_string())
                 }
-            },
+            }
             XmlValue::Entities(_) => unreachable!(),
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
                     mvengine_ui::attributes::AttributeValue::Code(Box::new(#parsed_code))
                 }
-            },
+            }
         };
 
         attrib_tokens.extend(quote! {
@@ -53,7 +59,10 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         });
     }
 
-    let elem_ident = Ident::new(&format!("__{}_{}__", name.to_lowercase(), id), Span::call_site());
+    let elem_ident = Ident::new(
+        &format!("__{}_{}__", name.to_lowercase(), id),
+        Span::call_site(),
+    );
     let name_ident = Ident::new(&name, Span::call_site());
 
     let inner = entity.inner().as_ref();
@@ -104,11 +113,15 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
 
 fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {
-        XmlValue::Str(s) => { todo!() }
+        XmlValue::Str(s) => {
+            todo!()
+        }
         XmlValue::Code(c) => {
             let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
             quote! { #parsed_code }
-        },
-        _ => { unreachable!() }
+        }
+        _ => {
+            unreachable!()
+        }
     }
 }

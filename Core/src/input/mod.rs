@@ -1,10 +1,10 @@
 use crate::input::raw::Input;
 use crate::input::InputAction::{Keyboard, Mouse};
-use mvutils::utils::Recover;
-use std::sync::{Arc, RwLock};
-use mvutils::unsafe_utils::{DangerousCell, Nullable, Unsafe};
 pub use consts::*;
+use mvutils::unsafe_utils::{DangerousCell, Nullable, Unsafe};
+use mvutils::utils::Recover;
 pub use raw::State;
+use std::sync::{Arc, RwLock};
 
 mod consts;
 pub mod raw;
@@ -29,10 +29,7 @@ impl InputCollector {
         self.default_processor.input()
     }
 
-    pub fn set_custom_processor(
-        &mut self,
-        custom_processor: fn(InputAction),
-    ) {
+    pub fn set_custom_processor(&mut self, custom_processor: fn(InputAction)) {
         unsafe {
             self.custom_processor = Some(custom_processor);
         }
@@ -168,4 +165,3 @@ impl InputProcessor for InputProcessorImpl {
         self.enabled
     }
 }
-

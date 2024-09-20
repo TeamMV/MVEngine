@@ -17,7 +17,7 @@ pub struct Vertex {
     transform: CanvasTransform,
     color: Vec4,
     texture_id: f32,
-    use_cam: f32
+    use_cam: f32,
 }
 
 impl Vertex {
@@ -26,15 +26,13 @@ impl Vertex {
             AttributeType::Float32x3,
             AttributeType::Float32x3,
             AttributeType::Float32x3,
-
             AttributeType::Float32x3,
             AttributeType::Float32x3,
             AttributeType::Float32x2,
             AttributeType::Float32x3,
-
             AttributeType::Float32x4,
             AttributeType::Float32,
-            AttributeType::Float32
+            AttributeType::Float32,
         ]
     }
 }
@@ -44,5 +42,5 @@ pub struct CanvasTransform {
     translation: Vec3,
     rotation: Vec3,
     scale: Vec2,
-    origin: Vec3
+    origin: Vec3,
 }

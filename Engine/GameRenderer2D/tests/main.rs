@@ -1,6 +1,10 @@
+use bytebuffer::ByteBuffer;
+use game_renderer_2d::font::{AtlasData, PreparedAtlasData};
+use game_renderer_2d::renderer2d::{GameRenderer2D, SamplerType, Shape};
 use log::LevelFilter;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
+use mvcore::color::RgbColor;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, ImageLayout};
@@ -11,14 +15,10 @@ use mvcore::render::backend::{Backend, Extent2D};
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
 use mvcore::render::ApplicationLoopCallbacks;
-use game_renderer_2d::renderer2d::{GameRenderer2D, SamplerType, Shape};
+use mvutils::save::Savable;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use std::sync::Arc;
-use bytebuffer::ByteBuffer;
-use mvutils::save::Savable;
-use mvcore::color::RgbColor;
-use game_renderer_2d::font::{AtlasData, PreparedAtlasData};
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -92,10 +92,14 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         let font_data_bytes = include_bytes!("data.font");
         let mut buffer = ByteBuffer::from_bytes(font_data_bytes);
-        let atlas_data = Arc::new(AtlasData::load(&mut buffer).unwrap_or_else(|err| {
-            log::error!("{err}");
-            panic!()
-        }).into());
+        let atlas_data = Arc::new(
+            AtlasData::load(&mut buffer)
+                .unwrap_or_else(|err| {
+                    log::error!("{err}");
+                    panic!()
+                })
+                .into(),
+        );
         drop(buffer);
 
         let sampler = Sampler::new(
@@ -109,7 +113,11 @@ impl ApplicationLoopCallbacks for AppLoop {
             },
         );
 
-        renderer2d.get_mut().set_texture(1, core_renderer.get().get_missing_texture(), SamplerType::Linear);
+        renderer2d.get_mut().set_texture(
+            1,
+            core_renderer.get().get_missing_texture(),
+            SamplerType::Linear,
+        );
 
         Self {
             sampler,
@@ -137,7 +145,9 @@ impl ApplicationLoopCallbacks for AppLoop {
                 unreachable!()
             };
 
-            self.renderer2d.get_mut().set_font(0, &texture.image(), self.atlas_data.clone());
+            self.renderer2d
+                .get_mut()
+                .set_font(0, &texture.image(), self.atlas_data.clone());
         }
     }
 

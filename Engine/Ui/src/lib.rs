@@ -1,11 +1,11 @@
-use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use crate::elements::{UiElement, UiElementStub};
+use mvcore::input::raw::Input;
+use mvcore::input::{InputAction, InputProcessor, KeyboardAction, MouseAction};
 use mvutils::once::{CreateOnce, Lazy};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Recover;
-use mvcore::input::{InputAction, InputProcessor, KeyboardAction, MouseAction};
-use mvcore::input::raw::Input;
-use crate::elements::{UiElement, UiElementStub};
+use std::ops::Deref;
+use std::sync::{Arc, RwLock};
 
 pub mod anim;
 pub mod attributes;
@@ -14,27 +14,24 @@ pub mod ease;
 pub mod elements;
 pub mod parse;
 pub mod prelude;
+pub mod shapes;
 pub mod styles;
 pub mod timing;
-pub mod utils;
-pub mod shapes;
 pub mod uix;
+pub mod utils;
 
-pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> = Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
+pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
+    Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
 
 pub struct Ui {
     input: CreateOnce<Arc<DangerousCell<Input>>>,
     enabled: bool,
-    root_elems: Vec<Arc<parking_lot::RwLock<UiElement>>>
+    root_elems: Vec<Arc<parking_lot::RwLock<UiElement>>>,
 }
 
 impl Ui {
     fn new() -> Self {
-        unsafe {
-            if UI.created() {
-
-            }
-        }
+        unsafe { if UI.created() {} }
 
         Self {
             input: CreateOnce::new(),
@@ -63,16 +60,19 @@ impl Ui {
         match action {
             InputAction::Keyboard(k) => unsafe {
                 UI.get_mut().keyboard_change(k);
-            }
+            },
             InputAction::Mouse(m) => unsafe {
                 UI.get_mut().mouse_change(m);
-            }
+            },
         }
     }
 }
 
 impl InputProcessor for Ui {
-    fn new(input: Arc<DangerousCell<Input>>) -> Self where Self: Sized {
+    fn new(input: Arc<DangerousCell<Input>>) -> Self
+    where
+        Self: Sized,
+    {
         unimplemented!()
     }
 
@@ -95,7 +95,6 @@ impl InputProcessor for Ui {
 
     fn keyboard_change(&mut self, action: KeyboardAction) {
         let input = self.input.get_mut();
-
 
         unsafe {
             for root in Unsafe::cast_static(&self.root_elems) {

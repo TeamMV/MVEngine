@@ -35,11 +35,22 @@ macro_rules! fast_partial_ord {
     };
 }
 
-pub fn resolve_color<F, Format: ColorFormat>(res: &Resolve<Color<Format>>, def: Color<Format>, state: &UiElementState, f: F) -> Color<Format> where F: Fn(&UiStyle) -> &Resolve<Color<Format>>, Format::ComponentType: PartialOrd<Format::ComponentType> {
+pub fn resolve_color<F, Format: ColorFormat>(
+    res: &Resolve<Color<Format>>,
+    def: Color<Format>,
+    state: &UiElementState,
+    f: F,
+) -> Color<Format>
+where
+    F: Fn(&UiStyle) -> &Resolve<Color<Format>>,
+    Format::ComponentType: PartialOrd<Format::ComponentType>,
+{
     let resolved = res.resolve(state.ctx.dpi, state.parent.clone(), f);
     let mut ret = def;
     if resolved.is_none() {
-        if res.is_none() { ret = Format::from_rgb(RgbColor::transparent()); }
+        if res.is_none() {
+            ret = Format::from_rgb(RgbColor::transparent());
+        }
     } else {
         ret = resolved.unwrap();
     }
@@ -71,7 +82,7 @@ impl AnyType {
 impl Clone for AnyType {
     fn clone(&self) -> Self {
         Self {
-            pointer: self.pointer
+            pointer: self.pointer,
         }
     }
 }

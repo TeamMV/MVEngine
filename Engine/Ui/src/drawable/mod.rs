@@ -1,8 +1,8 @@
 pub mod color;
 
-use mve2d::renderer2d::GameRenderer2D;
 use crate::drawable::color::ColorDrawable;
 use crate::styles::{Dimension, Location};
+use mve2d::renderer2d::GameRenderer2D;
 
 pub enum Drawable {
     Color(ColorDrawable),

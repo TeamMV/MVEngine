@@ -1,8 +1,8 @@
-use std::fmt::Display;
 use crate::elements::UiElement;
-use parking_lot::RwLock;
-use std::sync::Arc;
 use mvutils::state::State;
+use parking_lot::RwLock;
+use std::fmt::Display;
+use std::sync::Arc;
 
 pub enum Child {
     String(String),

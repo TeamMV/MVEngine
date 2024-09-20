@@ -1,11 +1,10 @@
-
-use crate::elements::{UiElement, UiElementState, UiElementStub};
 use crate::blanked_partial_ord;
+use crate::elements::{UiElement, UiElementState, UiElementStub};
 use mvcore::color::{Color, ColorFormat, RgbColor};
+use mvutils::enum_val_ref;
 use mvutils::save::Savable;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{PClamp, TetrahedronOp};
-use mvutils::enum_val_ref;
 use num_traits::Num;
 use parking_lot::RwLock;
 use std::cmp::Ordering;
@@ -78,7 +77,7 @@ pub enum Origin {
     BottomRight,
     Center,
     Custom(i32, i32),
-    Eval(fn(i32, i32, i32, i32) -> (i32, i32))
+    Eval(fn(i32, i32, i32, i32) -> (i32, i32)),
 }
 
 impl Origin {
@@ -107,7 +106,12 @@ impl Origin {
             Origin::Center => x - width / 2,
             Origin::Custom(cx, _) => x - cx,
             Origin::Eval(f) => {
-                let res = f(state.bounding_x, state.bounding_y, state.bounding_width, state.bounding_height);
+                let res = f(
+                    state.bounding_x,
+                    state.bounding_y,
+                    state.bounding_width,
+                    state.bounding_height,
+                );
                 x - res.0
             }
         }
@@ -122,7 +126,12 @@ impl Origin {
             Origin::Center => y - height / 2,
             Origin::Custom(_, cy) => y - cy,
             Origin::Eval(f) => {
-                let res = f(state.bounding_x, state.bounding_y, state.bounding_width, state.bounding_height);
+                let res = f(
+                    state.bounding_x,
+                    state.bounding_y,
+                    state.bounding_width,
+                    state.bounding_height,
+                );
                 y - res.1
             }
         }
@@ -169,7 +178,7 @@ pub struct TextStyle {
     pub stretch: Resolve<Dimension<f32>>,
     pub font: Resolve<u16>,
     pub fit: Resolve<TextFit>,
-    pub color: Resolve<RgbColor>
+    pub color: Resolve<RgbColor>,
 }
 
 blanked_partial_ord!(TextStyle);
@@ -212,15 +221,12 @@ impl TransformStyle {
 #[derive(Clone)]
 pub struct VectorField<T: PartialOrd + Clone + 'static> {
     pub x: Resolve<T>,
-    pub y: Resolve<T>
+    pub y: Resolve<T>,
 }
 
 impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn splat(t: Resolve<T>) -> Self {
-        Self {
-            x: t.clone(),
-            y: t,
-        }
+        Self { x: t.clone(), y: t }
     }
 
     pub fn set(&mut self, t: Resolve<T>) {
@@ -228,25 +234,40 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
         self.y = t;
     }
 
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> (Option<T>, Option<T>)
+    pub fn resolve<F>(
+        &self,
+        dpi: f32,
+        parent: Option<Arc<RwLock<UiElement>>>,
+        map: F,
+    ) -> (Option<T>, Option<T>)
     where
-        F: Fn(&UiStyle) -> &Self
+        F: Fn(&UiStyle) -> &Self,
     {
         let x_res = self.x.resolve(dpi, parent.clone(), |s| &map(s).x);
         let y_res = self.y.resolve(dpi, parent, |s| &map(s).y);
         (x_res, y_res)
     }
 
-    pub fn resolve_with_default<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F, def: (T, T)) -> (T, T)
+    pub fn resolve_with_default<F>(
+        &self,
+        dpi: f32,
+        parent: Option<Arc<RwLock<UiElement>>>,
+        map: F,
+        def: (T, T),
+    ) -> (T, T)
     where
-        F: Fn(&UiStyle) -> &Self
+        F: Fn(&UiStyle) -> &Self,
     {
         let x_res = self.x.resolve(dpi, parent.clone(), |s| &map(s).x);
         let y_res = self.y.resolve(dpi, parent, |s| &map(s).y);
 
         let mut res = def;
-        if x_res.is_some() { res.0 = x_res.unwrap() }
-        if y_res.is_some() { res.1 = y_res.unwrap() }
+        if x_res.is_some() {
+            res.0 = x_res.unwrap()
+        }
+        if y_res.is_some() {
+            res.1 = y_res.unwrap()
+        }
         res
     }
 }
@@ -265,7 +286,7 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 
     fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
     where
-        F: Fn(&UiStyle) -> &Self
+        F: Fn(&UiStyle) -> &Self,
     {
         let value = self.value.resolve(dpi, parent.clone(), |s| &map(s).value);
         let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
@@ -552,12 +573,7 @@ pub enum Resolve<T: PartialOrd + Clone + 'static> {
 }
 
 impl<T: PartialOrd + Clone + 'static> Resolve<T> {
-    pub fn resolve<F>(
-        &self,
-        dpi: f32,
-        parent: Option<Arc<RwLock<UiElement>>>,
-        map: F,
-    ) -> Option<T>
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -765,46 +781,144 @@ impl Interpolator<UiStyle> for UiStyle {
     where
         F: Fn(&UiStyle) -> &Self,
     {
-        self.x.interpolate(&start.x, &end.x, percent, elem, |s| &s.x);
-        self.y.interpolate(&start.y, &end.y, percent, elem, |s| &s.y);
-        self.width.interpolate(&start.width, &end.width, percent, elem, |s| &s.width);
-        self.height.interpolate(&start.height, &end.height, percent, elem, |s| &s.height);
-        self.padding.left.interpolate(&start.padding.left, &end.padding.left, percent, elem, |s| { &s.padding.left });
-        self.padding.right.interpolate(&start.padding.right, &end.padding.right, percent, elem, |s| { &s.padding.right });
-        self.padding.top.interpolate(&start.padding.top, &end.padding.top, percent, elem, |s| &s.padding.top);
-        self.padding.bottom.interpolate(&start.padding.bottom, &end.padding.bottom, percent, elem, |s| { &s.padding.bottom });
+        self.x
+            .interpolate(&start.x, &end.x, percent, elem, |s| &s.x);
+        self.y
+            .interpolate(&start.y, &end.y, percent, elem, |s| &s.y);
+        self.width
+            .interpolate(&start.width, &end.width, percent, elem, |s| &s.width);
+        self.height
+            .interpolate(&start.height, &end.height, percent, elem, |s| &s.height);
+        self.padding
+            .left
+            .interpolate(&start.padding.left, &end.padding.left, percent, elem, |s| {
+                &s.padding.left
+            });
+        self.padding.right.interpolate(
+            &start.padding.right,
+            &end.padding.right,
+            percent,
+            elem,
+            |s| &s.padding.right,
+        );
+        self.padding
+            .top
+            .interpolate(&start.padding.top, &end.padding.top, percent, elem, |s| {
+                &s.padding.top
+            });
+        self.padding.bottom.interpolate(
+            &start.padding.bottom,
+            &end.padding.bottom,
+            percent,
+            elem,
+            |s| &s.padding.bottom,
+        );
 
-        self.margin.left.interpolate(&start.margin.left, &end.margin.left, percent, elem, |s| &s.margin.left);
-        self.margin.right.interpolate(&start.margin.right, &end.margin.right, percent, elem, |s| { &s.margin.right });
-        self.margin.top.interpolate(&start.margin.top, &end.margin.top, percent, elem, |s| &s.margin.top);
-        self.margin.bottom.interpolate(&start.margin.bottom, &end.margin.bottom, percent, elem, |s| { &s.margin.bottom });
+        self.margin
+            .left
+            .interpolate(&start.margin.left, &end.margin.left, percent, elem, |s| {
+                &s.margin.left
+            });
+        self.margin
+            .right
+            .interpolate(&start.margin.right, &end.margin.right, percent, elem, |s| {
+                &s.margin.right
+            });
+        self.margin
+            .top
+            .interpolate(&start.margin.top, &end.margin.top, percent, elem, |s| {
+                &s.margin.top
+            });
+        self.margin.bottom.interpolate(
+            &start.margin.bottom,
+            &end.margin.bottom,
+            percent,
+            elem,
+            |s| &s.margin.bottom,
+        );
 
         self.origin = (percent < 50f32).yn(start.origin.clone(), end.origin.clone());
         self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
         self.direction = (percent < 50f32).yn(start.direction.clone(), end.direction.clone());
         self.child_align = (percent < 50f32).yn(start.child_align.clone(), end.child_align.clone());
 
-        self.text.size.interpolate(&start.text.size, &end.text.size, percent, elem, |s| { &s.text.size });
-        self.text.stretch.interpolate(&start.text.stretch, &end.text.stretch, percent, elem, |s| { &s.text.stretch });
-        self.text.skew.interpolate(&start.text.skew, &end.text.skew, percent, elem, |s| { &s.text.skew });
-        self.text.kerning.interpolate(&start.text.kerning, &end.text.kerning, percent, elem, |s| { &s.text.kerning });
-        self.text.color.interpolate(&start.text.color, &end.text.color, percent, elem, |s| { &s.text.color });
+        self.text
+            .size
+            .interpolate(&start.text.size, &end.text.size, percent, elem, |s| {
+                &s.text.size
+            });
+        self.text
+            .stretch
+            .interpolate(&start.text.stretch, &end.text.stretch, percent, elem, |s| {
+                &s.text.stretch
+            });
+        self.text
+            .skew
+            .interpolate(&start.text.skew, &end.text.skew, percent, elem, |s| {
+                &s.text.skew
+            });
+        self.text
+            .kerning
+            .interpolate(&start.text.kerning, &end.text.kerning, percent, elem, |s| {
+                &s.text.kerning
+            });
+        self.text
+            .color
+            .interpolate(&start.text.color, &end.text.color, percent, elem, |s| {
+                &s.text.color
+            });
         self.text.fit = (percent < 50f32).yn(start.text.fit.clone(), end.text.fit.clone());
         self.text.font = (percent < 50f32).yn(start.text.font.clone(), end.text.font.clone());
 
-        self.transform.translate.x.interpolate(&start.transform.translate.x, &end.transform.translate.x, percent, elem, |s| &f(s).transform.translate.x);
-        self.transform.translate.y.interpolate(&start.transform.translate.y, &end.transform.translate.y, percent, elem, |s| &f(s).transform.translate.y);
-        self.transform.scale.x.interpolate(&start.transform.scale.x, &end.transform.scale.x, percent, elem, |s| &f(s).transform.scale.x);
-        self.transform.scale.y.interpolate(&start.transform.scale.y, &end.transform.scale.y, percent, elem, |s| &f(s).transform.scale.y);
-        self.transform.rotate.interpolate(&start.transform.rotate, &end.transform.rotate, percent, elem, |s| &f(s).transform.rotate);
-        self.transform.origin = (percent > 50.0).yn(end.transform.origin.clone(), start.transform.origin.clone());
-
+        self.transform.translate.x.interpolate(
+            &start.transform.translate.x,
+            &end.transform.translate.x,
+            percent,
+            elem,
+            |s| &f(s).transform.translate.x,
+        );
+        self.transform.translate.y.interpolate(
+            &start.transform.translate.y,
+            &end.transform.translate.y,
+            percent,
+            elem,
+            |s| &f(s).transform.translate.y,
+        );
+        self.transform.scale.x.interpolate(
+            &start.transform.scale.x,
+            &end.transform.scale.x,
+            percent,
+            elem,
+            |s| &f(s).transform.scale.x,
+        );
+        self.transform.scale.y.interpolate(
+            &start.transform.scale.y,
+            &end.transform.scale.y,
+            percent,
+            elem,
+            |s| &f(s).transform.scale.y,
+        );
+        self.transform.rotate.interpolate(
+            &start.transform.rotate,
+            &end.transform.rotate,
+            percent,
+            elem,
+            |s| &f(s).transform.rotate,
+        );
+        self.transform.origin =
+            (percent > 50.0).yn(end.transform.origin.clone(), start.transform.origin.clone());
     }
 }
 
 impl Interpolator<TextStyle> for TextStyle {
-    fn interpolate<F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &UiElement, f: F)
-    where
+    fn interpolate<F>(
+        &mut self,
+        start: &Self,
+        end: &TextStyle,
+        percent: f32,
+        elem: &UiElement,
+        f: F,
+    ) where
         F: Fn(&UiStyle) -> &Self,
     {
         self.fit = (percent < 50f32).yn(self.fit.clone(), end.fit.clone());
@@ -812,19 +926,29 @@ impl Interpolator<TextStyle> for TextStyle {
             .interpolate(&start.size, &end.size, percent, elem, |s| &s.text.size);
         self.font = (percent < 50f32).yn(self.font.clone(), end.font.clone());
         self.kerning
-            .interpolate(&start.kerning, &end.kerning, percent, elem, |s| &s.text.kerning);
+            .interpolate(&start.kerning, &end.kerning, percent, elem, |s| {
+                &s.text.kerning
+            });
         self.skew
             .interpolate(&start.skew, &end.skew, percent, elem, |s| &s.text.skew);
         self.stretch
-            .interpolate(&start.stretch, &end.stretch, percent, elem, |s| &s.text.stretch);
+            .interpolate(&start.stretch, &end.stretch, percent, elem, |s| {
+                &s.text.stretch
+            });
     }
 }
 
 impl<T: Interpolator<T> + Num + Clone + Debug + PartialOrd + 'static> Interpolator<Dimension<T>>
     for Dimension<T>
 {
-    fn interpolate<F>(&mut self, start: &Self, end: &Dimension<T>, percent: f32, elem: &UiElement, f: F)
-    where
+    fn interpolate<F>(
+        &mut self,
+        start: &Self,
+        end: &Dimension<T>,
+        percent: f32,
+        elem: &UiElement,
+        f: F,
+    ) where
         F: Fn(&UiStyle) -> &Self,
     {
         self.width
@@ -848,16 +972,21 @@ impl<T: Interpolator<T> + Num + Clone + Debug + PartialOrd + 'static> Interpolat
     }
 }
 
-impl<Fmt: ColorFormat + 'static> Interpolator<Color<Fmt>> for Color<Fmt> where Fmt::ComponentType: Interpolator<Fmt::ComponentType> + PartialOrd<Fmt::ComponentType> {
+impl<Fmt: ColorFormat + 'static> Interpolator<Color<Fmt>> for Color<Fmt>
+where
+    Fmt::ComponentType: Interpolator<Fmt::ComponentType> + PartialOrd<Fmt::ComponentType>,
+{
     fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
     where
-        F: Fn(&UiStyle) -> &Self
+        F: Fn(&UiStyle) -> &Self,
     {
         let comp = self.components_mut();
         let start_comp = start.components();
         let end_comp = end.components();
         for i in 0..comp.len() {
-            comp[i].interpolate(&start_comp[i], &end_comp[i], percent, elem, |s| &f(s).components()[i]);
+            comp[i].interpolate(&start_comp[i], &end_comp[i], percent, elem, |s| {
+                &f(s).components()[i]
+            });
         }
     }
 }
@@ -893,31 +1022,31 @@ impl ResCon {
 
 #[derive(Clone, Copy)]
 pub enum Unit {
-    Px(i32),         // px
-    MM(f32),         // mm
-    CM(f32),         // cm
-    M(f32),          // m
-    In(f32),         // in
-    Twip(f32),       // twip
-    Mil(f32),        // mil
-    Point(f32),      // pt
-    Pica(f32),       // pica
-    Foot(f32),       // ft
-    Yard(f32),       // yd
-    Link(f32),       // lk
-    Rod(f32),        // rd
-    Chain(f32),      // ch
-    Line(f32),       // ln
-    BarleyCorn(f32), // bc
-    Nail(f32),       // nl
-    Finger(f32),     // fg
-    Stick(f32),      // sk
-    Palm(f32),       // pm
-    Shaftment(f32),  // sf
-    Span(f32),       // sp
-    Quarter(f32),    // qr
-    Pace(f32),       // pc
-    BeardFortnight(f32) //bf
+    Px(i32),             // px
+    MM(f32),             // mm
+    CM(f32),             // cm
+    M(f32),              // m
+    In(f32),             // in
+    Twip(f32),           // twip
+    Mil(f32),            // mil
+    Point(f32),          // pt
+    Pica(f32),           // pica
+    Foot(f32),           // ft
+    Yard(f32),           // yd
+    Link(f32),           // lk
+    Rod(f32),            // rd
+    Chain(f32),          // ch
+    Line(f32),           // ln
+    BarleyCorn(f32),     // bc
+    Nail(f32),           // nl
+    Finger(f32),         // fg
+    Stick(f32),          // sk
+    Palm(f32),           // pm
+    Shaftment(f32),      // sf
+    Span(f32),           // sp
+    Quarter(f32),        // qr
+    Pace(f32),           // pc
+    BeardFortnight(f32), //bf
 }
 
 impl Unit {

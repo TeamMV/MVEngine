@@ -1,12 +1,12 @@
-use mve2d::renderer2d::GameRenderer2D;
 use crate::attributes::Attributes;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::styles::{Dimension, UiStyle};
+use mve2d::renderer2d::GameRenderer2D;
 
 pub struct Div {
     attributes: Attributes,
     style: UiStyle,
-    state: UiElementState
+    state: UiElementState,
 }
 
 impl UiElementCallbacks for Div {
@@ -22,7 +22,7 @@ impl UiElementCallbacks for Div {
 impl UiElementStub for Div {
     fn new(attributes: Attributes, style: UiStyle) -> Self
     where
-        Self: Sized
+        Self: Sized,
     {
         Self {
             attributes,

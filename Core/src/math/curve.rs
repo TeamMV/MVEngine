@@ -6,7 +6,7 @@ const BEZIER_PRECISION: usize = 100;
 #[derive(Clone)]
 pub struct SimpleBezierCurve {
     pub grade: usize,
-    compiled: [f64; BEZIER_PRECISION]
+    compiled: [f64; BEZIER_PRECISION],
 }
 
 impl SimpleBezierCurve {
@@ -32,7 +32,10 @@ impl SimpleBezierCurve {
         let mut res = 0.0;
         for (idx, i) in (0..n).enumerate() {
             let i64 = i as f64;
-            res += ((n.fact() as f64 / (i.fact() * (n - i).fact()) as f64) * pos.powf(i64) * (1.0 - pos).powf(n64 - i64)) * points[idx]
+            res += ((n.fact() as f64 / (i.fact() * (n - i).fact()) as f64)
+                * pos.powf(i64)
+                * (1.0 - pos).powf(n64 - i64))
+                * points[idx]
         }
         res
     }

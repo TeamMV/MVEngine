@@ -1,9 +1,9 @@
 use crate::drawable::DrawableCallbacks;
 use crate::styles::{Dimension, Location};
-use mvutils::utils::{Map, PClamp, Percentage};
-use num_traits::AsPrimitive;
 use mvcore::color::{ColorFormat, RgbColor};
 use mve2d::renderer2d::GameRenderer2D;
+use mvutils::utils::{Map, PClamp, Percentage};
+use num_traits::AsPrimitive;
 
 pub struct ColorDrawable {
     pub color: RgbColor,

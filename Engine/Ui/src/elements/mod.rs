@@ -1,28 +1,31 @@
+pub mod blank;
 pub mod child;
-pub mod lmao;
 pub mod events;
 pub mod implementations;
-pub mod blank;
+pub mod lmao;
 
 pub use implementations::*;
 
-use crate::resolve;
 use crate::attributes::Attributes;
 use crate::ease::Easing;
+use crate::elements::blank::Blank;
 use crate::elements::child::Child;
-use crate::styles::{ChildAlign, Dimension, Direction, Interpolator, Origin, Point, Position, ResCon, Resolve, TextFit, UiStyle, UiValue};
+use crate::elements::events::UiEvents;
+use crate::elements::lmao::LmaoElement;
+use crate::resolve;
+use crate::styles::{
+    ChildAlign, Dimension, Direction, Interpolator, Origin, Point, Position, ResCon, Resolve,
+    TextFit, UiStyle, UiValue,
+};
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+use crate::uix::{DynamicUi, UiCompoundElement};
+use mve2d::renderer2d::GameRenderer2D;
+use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use mvutils::once::CreateOnce;
-use mve2d::renderer2d::GameRenderer2D;
-use crate::elements::blank::Blank;
-use crate::elements::events::UiEvents;
-use crate::elements::lmao::LmaoElement;
-use crate::uix::{DynamicUi, UiCompoundElement};
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
@@ -83,7 +86,7 @@ pub enum UiElement {
     Blank(Blank),
     Compound(DangerousCell<Box<dyn UiCompoundElement>>),
     Lmao(LmaoElement),
-    Div(Div)
+    Div(Div),
 }
 
 macro_rules! ui_element_fn {
@@ -119,7 +122,7 @@ impl UiElementCallbacks for UiElement {
 impl UiElementStub for UiElement {
     fn new(attributes: Attributes, style: UiStyle) -> Self
     where
-        Self: Sized
+        Self: Sized,
     {
         unimplemented!("To instantiate an UiElement, use the struct's constructor!")
     }
@@ -338,16 +341,29 @@ impl UiElementState {
         };
 
         width = match &style.width {
-            Resolve::UiValue(val) => val.resolve(state.ctx.dpi, state.parent.clone(), |s| &s.width.get_value()).unwrap_or(width),
-            Resolve::LayoutField(lay) => lay.apply(width, binding, |s| &s.width.get_field())
+            Resolve::UiValue(val) => val
+                .resolve(state.ctx.dpi, state.parent.clone(), |s| {
+                    &s.width.get_value()
+                })
+                .unwrap_or(width),
+            Resolve::LayoutField(lay) => lay.apply(width, binding, |s| &s.width.get_field()),
         };
 
         height = match &style.height {
-            Resolve::UiValue(val) => val.resolve(state.ctx.dpi, state.parent.clone(), |s| &s.height.get_value()).unwrap_or(height),
-            Resolve::LayoutField(lay) => lay.apply(height, binding, |s| &s.height.get_field())
+            Resolve::UiValue(val) => val
+                .resolve(state.ctx.dpi, state.parent.clone(), |s| {
+                    &s.height.get_value()
+                })
+                .unwrap_or(height),
+            Resolve::LayoutField(lay) => lay.apply(height, binding, |s| &s.height.get_field()),
         };
 
-        let (scale_x, scale_y) = style.transform.scale.resolve_with_default(state.ctx.dpi, state.parent.clone(), |s| &s.transform.scale, (1.0, 1.0));
+        let (scale_x, scale_y) = style.transform.scale.resolve_with_default(
+            state.ctx.dpi,
+            state.parent.clone(),
+            |s| &s.transform.scale,
+            (1.0, 1.0),
+        );
 
         let non_trans_width = width;
         let non_trans_height = height;
@@ -400,14 +416,12 @@ impl UiElementState {
                 println!("{scale_y}");
                 state.bounding_y -= state.bounding_height;
             }
-            Origin::BottomLeft => {/*Nothing cuz already right scaling*/}
+            Origin::BottomLeft => { /*Nothing cuz already right scaling*/ }
             Origin::TopRight => {
                 state.bounding_x -= state.bounding_width;
                 state.bounding_y -= state.bounding_height;
             }
-            Origin::BottomRight => {
-                state.bounding_x -= state.bounding_width
-            }
+            Origin::BottomRight => state.bounding_x -= state.bounding_width,
             Origin::Center => {
                 state.bounding_x -= (state.bounding_width as f32 * 0.5) as i32;
                 state.bounding_y -= (state.bounding_height as f32 * 0.5) as i32;
@@ -421,7 +435,12 @@ impl UiElementState {
                 state.bounding_y -= (dy as f32 * (scale_y - 1.0)) as i32;
             }
             Origin::Eval(f) => {
-                let res = f(state.bounding_x, state.bounding_y, non_trans_width + margin[2] + margin[3], non_trans_height + margin[0] + margin[1]);
+                let res = f(
+                    state.bounding_x,
+                    state.bounding_y,
+                    non_trans_width + margin[2] + margin[3],
+                    non_trans_height + margin[0] + margin[1],
+                );
 
                 let dx = res.0 - state.bounding_x;
                 let dy = res.1 - state.bounding_y;
@@ -431,7 +450,12 @@ impl UiElementState {
             }
         }
 
-        let (trans_x, trans_y) = style.transform.translate.resolve_with_default(state.ctx.dpi, state.parent.clone(), |s| &s.transform.translate, (0, 0));
+        let (trans_x, trans_y) = style.transform.translate.resolve_with_default(
+            state.ctx.dpi,
+            state.parent.clone(),
+            |s| &s.transform.translate,
+            (0, 0),
+        );
         state.bounding_x += trans_x;
         state.bounding_y += trans_y;
 
@@ -474,8 +498,9 @@ impl UiElementState {
 
                 match direction {
                     Direction::Vertical => {
-                        stat.bounding_y = child_origin.get_actual_y(y_off, stat.bounding_height, state)
-                            + state.content_y;
+                        stat.bounding_y =
+                            child_origin.get_actual_y(y_off, stat.bounding_height, state)
+                                + state.content_y;
                         stat.bounding_x = child_origin.get_actual_x(
                             match child_align {
                                 ChildAlign::Start => state.content_x,
@@ -497,12 +522,13 @@ impl UiElementState {
                                 }
                             },
                             stat.bounding_width,
-                            state
+                            state,
                         );
                     }
                     Direction::Horizontal => {
                         stat.bounding_x =
-                            child_origin.get_actual_x(x_off, stat.bounding_width, state) + state.content_x;
+                            child_origin.get_actual_x(x_off, stat.bounding_width, state)
+                                + state.content_x;
                         stat.bounding_y = child_origin.get_actual_y(
                             match child_align {
                                 ChildAlign::Start => state.content_y,
@@ -526,7 +552,7 @@ impl UiElementState {
                                 }
                             },
                             stat.bounding_height,
-                            state
+                            state,
                         );
                     }
                 }
@@ -534,7 +560,9 @@ impl UiElementState {
                 let e_padding = e_style.padding.get(binding, |s| &s.padding); //t,b,l,r
                 let e_margin = e_style.margin.get(binding, |s| &s.margin);
 
-                stat.bounding_y = stat.bounding_y.min(state.bounding_y + state.bounding_height - stat.bounding_height);
+                stat.bounding_y = stat
+                    .bounding_y
+                    .min(state.bounding_y + state.bounding_height - stat.bounding_height);
 
                 stat.x = stat.bounding_x + e_margin[2];
                 stat.y = stat.bounding_y + e_margin[1];

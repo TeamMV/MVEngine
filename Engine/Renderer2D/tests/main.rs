@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use log::LevelFilter;
-use mvutils::unsafe_utils::DangerousCell;
-use mvutils::version::Version;
-use mvcore::render::ApplicationLoopCallbacks;
-use mvcore::render::backend::Backend;
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
+use mvcore::render::backend::Backend;
 use mvcore::render::renderer::Renderer;
 use mvcore::render::window::{Window, WindowCreateInfo};
+use mvcore::render::ApplicationLoopCallbacks;
 use mvcore::ToAD;
+use mvutils::unsafe_utils::DangerousCell;
+use mvutils::version::Version;
+use std::sync::Arc;
 
 pub fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -32,7 +32,7 @@ pub fn main() {
 
 pub struct AppLoop {
     device: Device,
-    core_renderer: Arc<DangerousCell<Renderer>>
+    core_renderer: Arc<DangerousCell<Renderer>>,
 }
 
 impl ApplicationLoopCallbacks for AppLoop {
@@ -53,23 +53,15 @@ impl ApplicationLoopCallbacks for AppLoop {
 
         Self {
             device,
-            core_renderer
+            core_renderer,
         }
     }
 
-    fn update(&mut self, window: &mut Window, delta_t: f64) {
+    fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
-    }
+    fn draw(&mut self, window: &mut Window, delta_t: f64) {}
 
-    fn draw(&mut self, window: &mut Window, delta_t: f64) {
+    fn exiting(&mut self, window: &mut Window) {}
 
-    }
-
-    fn exiting(&mut self, window: &mut Window) {
-
-    }
-
-    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
-
-    }
+    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {}
 }

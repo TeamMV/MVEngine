@@ -1,8 +1,8 @@
+use crate::styles::Dimension;
+use crate::utils::OptionGetMapOr;
 use mvcore::color::RgbColor;
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mve2d::renderer2d::GameRenderer2D;
-use crate::styles::Dimension;
-use crate::utils::OptionGetMapOr;
 
 pub enum Shape {
     Rect(Rect),
@@ -27,7 +27,7 @@ pub struct UiTransform {
 pub struct ShapeBase {
     pub transform: UiTransform,
     pub color: RgbColor,
-    pub texture: Option<ShapeTexture>
+    pub texture: Option<ShapeTexture>,
 }
 
 pub struct ShapeTexture {
@@ -38,7 +38,7 @@ pub struct ShapeTexture {
 
 pub struct Rect {
     base: ShapeBase,
-    dimension: Dimension<i32>
+    dimension: Dimension<i32>,
 }
 
 impl Rect {
@@ -46,7 +46,11 @@ impl Rect {
         renderer.add_shape(mve2d::renderer2d::Shape::Rectangle {
             position: self.base.transform.position,
             rotation: self.base.transform.rotation,
-            scale: self.base.transform.scale.mul_xy(self.dimension.width as f32, self.dimension.height as f32),
+            scale: self
+                .base
+                .transform
+                .scale
+                .mul_xy(self.dimension.width as f32, self.dimension.height as f32),
             tex_id: Some(self.base.texture.get_map_or(|t| t.id.clone(), 0).clone()),
             tex_coord: self.base.texture.get_map_or(|t| t.coords, Vec4::default()),
             color: self.base.color.as_vec4(),

@@ -1,12 +1,15 @@
+use crate::math::vec::Vec4;
+use num_traits::{Num, ToPrimitive};
 use std::cmp::Ordering;
 use std::ops::Div;
-use num_traits::{Num, ToPrimitive};
-use crate::math::vec::Vec4;
 
 pub type RgbColor = Color<RgbColorFormat>;
 pub type HsvColor = Color<HsvColorFormat>;
 
-pub trait ColorFormat where Self: Sized {
+pub trait ColorFormat
+where
+    Self: Sized,
+{
     type ComponentType: Copy;
 
     fn get_rgb(color: Color<Self>) -> RgbColor;
@@ -15,7 +18,7 @@ pub trait ColorFormat where Self: Sized {
 }
 
 pub struct Color<Fmt: ColorFormat> {
-    components: [Fmt::ComponentType; 4]
+    components: [Fmt::ComponentType; 4],
 }
 
 impl<T: ColorFormat> Clone for Color<T> {
@@ -28,9 +31,7 @@ impl<T: ColorFormat> Clone for Color<T> {
 
 impl<Fmt: ColorFormat> Color<Fmt> {
     pub fn new(components: [Fmt::ComponentType; 4]) -> Self {
-        Self {
-            components,
-        }
+        Self { components }
     }
 
     pub fn to_rgb(self) -> RgbColor {
@@ -50,21 +51,35 @@ impl<Fmt: ColorFormat> Color<Fmt> {
     }
 }
 
-impl<Fmt: ColorFormat> PartialEq<Self> for Color<Fmt> where Fmt::ComponentType: PartialEq {
+impl<Fmt: ColorFormat> PartialEq<Self> for Color<Fmt>
+where
+    Fmt::ComponentType: PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         self.components.iter().eq(other.components.iter())
     }
 }
 
-impl<Fmt: ColorFormat> PartialOrd for Color<Fmt> where Fmt::ComponentType: PartialOrd {
+impl<Fmt: ColorFormat> PartialOrd for Color<Fmt>
+where
+    Fmt::ComponentType: PartialOrd,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.components.iter().partial_cmp(other.components.iter())
     }
 }
 
-impl<Fmt: ColorFormat> Color<Fmt> where Fmt::ComponentType: ToPrimitive {
+impl<Fmt: ColorFormat> Color<Fmt>
+where
+    Fmt::ComponentType: ToPrimitive,
+{
     pub fn as_vec4(&self) -> Vec4 {
-        Vec4::new(self.components[0].to_f32().unwrap() / 255.0, self.components[1].to_f32().unwrap() / 255.0, self.components[2].to_f32().unwrap() / 255.0, self.components[3].to_f32().unwrap() / 255.0)
+        Vec4::new(
+            self.components[0].to_f32().unwrap() / 255.0,
+            self.components[1].to_f32().unwrap() / 255.0,
+            self.components[2].to_f32().unwrap() / 255.0,
+            self.components[3].to_f32().unwrap() / 255.0,
+        )
     }
 }
 
