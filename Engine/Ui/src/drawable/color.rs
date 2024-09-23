@@ -1,9 +1,10 @@
-use crate::drawable::DrawableCallbacks;
+use crate::drawable::{DrawableCallbacks, UiDrawableTransformations};
 use crate::styles::{Dimension, Location};
 use mvcore::color::{ColorFormat, RgbColor};
 use mve2d::renderer2d::GameRenderer2D;
 use mvutils::utils::{Map, PClamp, Percentage};
 use num_traits::AsPrimitive;
+use crate::elements::UiElementState;
 
 pub struct ColorDrawable {
     pub color: RgbColor,
@@ -16,8 +17,21 @@ impl ColorDrawable {
 }
 
 impl DrawableCallbacks for ColorDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer: &mut GameRenderer2D) {
-        todo!("implement this")
+    fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
+        let origin = &computed.transforms.origin;
+        let x = computed.x;
+        let y = computed.y;
+
+        let width = computed.width;
+        let height = computed.height;
+
+        let ox = origin.get_actual_x(x, width, computed);
+        let oy = origin.get_actual_y(y, height, computed);
+
+        let rotation = computed.transforms.rotation + transformations.rotation;
+
+        let x = computed.x + computed.transforms.translation.width;
+        let y = computed.y + computed.transforms.translation.height;
     }
 }
 
@@ -54,38 +68,7 @@ impl GradientDrawable {
 }
 
 impl DrawableCallbacks for GradientDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer2d: &mut GameRenderer2D) {
-        match self.gradient_type {
-            GradientType::Linear(angle) => for marker in &self.markers {},
-            GradientType::Radial => {}
-        }
-    }
-}
-
-pub struct SimpleGradientDrawable {
-    pub start_color: RgbColor,
-    pub end_color: RgbColor,
-    pub markers: Vec<GradientMarker>,
-    pub gradient_type: GradientType,
-}
-
-impl SimpleGradientDrawable {
-    pub fn new(gradient_type: GradientType, start_color: RgbColor, end_color: RgbColor) -> Self {
-        Self {
-            start_color,
-            end_color,
-            markers: vec![],
-            gradient_type,
-        }
-    }
-
-    pub fn add_marker(&mut self, percentage: f32, color: RgbColor) {
-        self.markers.push(GradientMarker { color, percentage });
-    }
-}
-
-impl DrawableCallbacks for SimpleGradientDrawable {
-    fn draw(&mut self, location: Location<i32>, renderer: &mut GameRenderer2D) {
-        todo!("implement this")
+    fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
+        todo!()
     }
 }

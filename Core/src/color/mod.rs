@@ -1,3 +1,5 @@
+mod utils;
+
 use crate::math::vec::Vec4;
 use num_traits::{Num, ToPrimitive};
 use std::cmp::Ordering;

@@ -196,10 +196,10 @@ pub struct UiElementState {
 
 #[derive(Clone)]
 pub(crate) struct UiTransformations {
-    translation: Dimension<i32>,
-    rotation: f32,
-    scale: Dimension<f32>,
-    origin: Origin,
+    pub(crate) translation: Dimension<i32>,
+    pub(crate) rotation: f32,
+    pub(crate) scale: Dimension<f32>,
+    pub(crate) origin: Origin,
 }
 
 impl UiElementState {

@@ -51,6 +51,7 @@ bitflags.workspace = true
 parking_lot.workspace = true
 crossbeam-channel.workspace = true
 ahash.workspace = true
+rand.workspace = true
 
 # specific dependencies
 include_dir.workspace = true
