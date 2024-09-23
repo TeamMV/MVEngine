@@ -2,9 +2,9 @@ use mvutils::utils::Overlap;
 use rand::Rng;
 use crate::color::{Color, ColorFormat, HsvColor, RgbColor};
 
-pub struct C;
+pub struct Colors;
 
-impl C {
+impl Colors {
     /// generates one random color in the rgb color format
     pub fn random_rgb() -> RgbColor {
         let mut rng = rand::thread_rng();
@@ -34,8 +34,8 @@ impl C {
         let step = 360.0 / amt as f32;
 
         let mut colors = vec![];
-        for i in 0.0..amt as f32 {
-            let h = ((i * step) as i32 + start).overlap(0, 359);
+        for i in 0..amt {
+            let h = ((i as f32 * step) as i32 + start).overlap(0, 359);
             colors.push(HsvColor::new([h as f32, 1.0, lightness, 0.0]))
         }
         colors

@@ -648,6 +648,7 @@ impl<T: PartialOrd + Clone + 'static> From<LayoutField<T>> for Resolve<T> {
 #[derive(Clone, Default)]
 pub enum UiValue<T: Clone + 'static> {
     #[default]
+    NoExplicitValueInheritedOrDefaultUsed,
     None,
     Auto,
     Inherit,
@@ -698,13 +699,25 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
                     None
                 }
             }
+            UiValue::NoExplicitValueInheritedOrDefaultUsed => {
+                unsafe {
+                    if parent.is_some() {
+                        let cloned = parent.clone().unwrap();
+                        let p_guard = cloned.read();
+                        let parent_value = Unsafe::cast_static(map(p_guard.style()));
+                        drop(p_guard);
+                        return parent_value.resolve(dpi, parent.clone(), map);
+                    }
+                }
+                None
+            }
         }
     }
 }
 
 impl<T: Clone + 'static> UiValue<T> {
     pub fn is_set(&self) -> bool {
-        !matches!(self, UiValue::None | UiValue::Auto)
+        !matches!(self, UiValue::None | UiValue::Auto | UiValue::NoExplicitValueInheritedOrDefaultUsed)
     }
 }
 

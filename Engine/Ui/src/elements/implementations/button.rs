@@ -1,38 +1,34 @@
+use mve2d::renderer2d::GameRenderer2D;
 use crate::attributes::Attributes;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::styles::{Dimension, UiStyle};
-use mve2d::renderer2d::GameRenderer2D;
 
-pub struct Div {
-    attributes: Attributes,
-    style: UiStyle,
+pub struct Button {
     state: UiElementState,
+    style: UiStyle,
+    attributes: Attributes
 }
 
-impl UiElementCallbacks for Div {
-    fn init(&mut self) {
-        todo!()
-    }
-
+impl UiElementCallbacks for Button {
     fn draw(&mut self, renderer: &mut GameRenderer2D) {
         todo!()
     }
 }
 
-impl UiElementStub for Div {
+impl UiElementStub for Button {
     fn new(attributes: Attributes, style: UiStyle) -> Self
     where
-        Self: Sized,
+        Self: Sized
     {
         Self {
-            attributes,
-            style,
             state: UiElementState::new(),
+            style,
+            attributes,
         }
     }
 
     fn wrap(self) -> UiElement {
-        UiElement::Div(self)
+        UiElement::Button(self)
     }
 
     fn attributes(&self) -> &Attributes {

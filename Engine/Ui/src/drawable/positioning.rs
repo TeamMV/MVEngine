@@ -28,6 +28,17 @@ impl PaddedDrawable {
     }
 }
 
+impl DrawableCallbacks for PaddedDrawable {
+    fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
+        self.inner.draw(computed, transformations.modify(|t| {
+            t.translation.0 += self.paddings[1];
+            t.translation.1 += self.paddings[2];
+            t.shrink.0 += self.paddings[0];
+            t.shrink.1 += self.paddings[3];
+        }));
+    }
+}
+
 pub struct RotateDrawable {
     rotation: f32,
     inner: Box<UiDrawable>,

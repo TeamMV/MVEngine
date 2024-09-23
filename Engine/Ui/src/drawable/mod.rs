@@ -13,11 +13,12 @@ pub struct UiDrawableTransformations {
     translation: (i32, i32),
     size: DrawableSize,
     origin: Origin,
-    rotation: f32
+    rotation: f32,
+    shrink: (i32, i32)
 }
 
 impl UiDrawableTransformations {
-    pub(crate) fn modify<F>(&self, f: F) -> UiDrawableTransformations where F: FnMut(&mut UiDrawableTransformations) {
+    pub(crate) fn modify<F>(&self, mut f: F) -> UiDrawableTransformations where F: FnMut(&mut UiDrawableTransformations) {
         let mut cloned = self.clone();
         f(&mut cloned);
         cloned
@@ -31,6 +32,7 @@ impl Default for UiDrawableTransformations {
             size: DrawableSize::Scale((1.0, 1.0)),
             origin: Origin::Center,
             rotation: 0.0,
+            shrink: (0, 0),
         }
     }
 }
@@ -49,7 +51,7 @@ pub enum UiDrawable {
     Translate(TranslateDrawable),
     Layer(LayerDrawable)
 }
-g
+
 pub trait DrawableCallbacks {
     fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations);
 }

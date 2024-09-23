@@ -9,8 +9,6 @@ pub struct Blank {
 }
 
 impl UiElementCallbacks for Blank {
-    fn init(&mut self) {}
-
     fn draw(&mut self, _: &mut GameRenderer2D) {}
 }
 

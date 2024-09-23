@@ -26,11 +26,11 @@ use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use crate::elements::button::Button;
+use crate::elements::div::Div;
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
-    fn init(&mut self);
-
     fn draw(&mut self, renderer: &mut GameRenderer2D);
 }
 
@@ -86,6 +86,7 @@ pub enum UiElement {
     Blank(Blank),
     Lmao(LmaoElement),
     Div(Div),
+    Button(Button),
 }
 
 macro_rules! ui_element_fn {
@@ -107,10 +108,6 @@ macro_rules! ui_element_fn {
 }
 
 impl UiElementCallbacks for UiElement {
-    fn init(&mut self) {
-        ui_element_fn!(self, init());
-    }
-
     fn draw(&mut self, renderer: &mut GameRenderer2D) {
         ui_element_fn!(self, draw(renderer))
     }

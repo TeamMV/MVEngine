@@ -29,8 +29,6 @@ use std::sync::Arc;
 use uiproc::{ui, uix};
 
 pub mod test;
-
-use crate::test::MyComponent;
 use mvengine_ui::elements::Div;
 use mvengine_ui::uix::UiCompoundElement;
 
@@ -38,15 +36,6 @@ fn main() {
     let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
 
     let s = State::new("hello");
-
-    let mut e = ui!([s] => {
-            <Div id="outer" style={mystyle}>
-                <Text>{s}</Text>
-            </Div>
-        }
-    );
-
-    let mut ce = MyComponent::new();
 
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     let mut info = WindowCreateInfo::default();

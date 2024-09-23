@@ -40,15 +40,7 @@ impl DynamicUi {
     }
 
     pub fn check_children(&mut self) {
-        for child in self.cached.children_mut() {
-            if let Child::Element(e) = child {
-                let guard = e.write();
-                if let UiElement::Compound(compound) = guard {
-                    compound.get_mut().regenerate();
-                } else {
-                }
-            }
-        }
+        todo!()
     }
 }
 
