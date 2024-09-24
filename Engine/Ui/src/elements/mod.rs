@@ -9,7 +9,9 @@ pub use implementations::*;
 use crate::attributes::Attributes;
 use crate::ease::Easing;
 use crate::elements::blank::Blank;
+use crate::elements::button::Button;
 use crate::elements::child::Child;
+use crate::elements::div::Div;
 use crate::elements::events::UiEvents;
 use crate::elements::lmao::LmaoElement;
 use crate::resolve;
@@ -21,13 +23,15 @@ use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use crate::uix::{DynamicUi, UiCompoundElement};
 use mve2d::renderer2d::GameRenderer2D;
 use mvutils::once::CreateOnce;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use crate::elements::button::Button;
-use crate::elements::div::Div;
+use mvutils::ordefault::OrDefault;
+use mvcore::input;
+use mvcore::input::MouseAction;
+use mvcore::input::raw::Input;
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
@@ -189,6 +193,8 @@ pub struct UiElementState {
     pub last_style: Option<UiStyle>,
 
     pub transforms: UiTransformations,
+
+    pub(crate) base_style: UiStyle
 }
 
 #[derive(Clone)]
@@ -229,15 +235,18 @@ impl UiElementState {
                 scale: Dimension::new(0.0, 0.0),
                 origin: Default::default(),
             },
+            base_style: crate::styles::EMPTY_STYLE.clone(),
         }
     }
 
-    pub fn compute(elem: Arc<RwLock<UiElement>>, renderer: &mut GameRenderer2D) {
+    pub fn compute(elem: Arc<RwLock<UiElement>>, renderer: &mut GameRenderer2D, input: &Input) {
         let mut guard = elem.write();
         guard.state_mut().ctx.dpi = 20.0; //TODO: get dpi from renderer
 
-        let binding = unsafe { (&*guard as *const UiElement).as_ref().unwrap() };
+        let binding = unsafe { (&mut *guard as *mut UiElement).as_mut().unwrap() };
         let (_, style, state) = guard.components_mut();
+
+        state.events.mouse_change(MouseAction::Move(input.positions[0], input.positions[1]), binding, input);
 
         let direction = if style.direction.is_set() {
             resolve!(binding, direction)
@@ -279,6 +288,8 @@ impl UiElementState {
                 let mut guard = e.write();
                 let mut stat = guard.state_mut();
 
+                stat.base_style.merge_unset(&state.base_style);
+
                 if matches!(direction, Direction::Horizontal) {
                     stat.bounding_x = occupied_width;
                 } else {
@@ -287,7 +298,7 @@ impl UiElementState {
 
                 drop(guard);
 
-                UiElementState::compute(e.clone(), renderer);
+                UiElementState::compute(e.clone(), renderer, input);
 
                 let mut guard = e.write();
                 let mut stat = guard.state_mut();
@@ -305,10 +316,10 @@ impl UiElementState {
                 let text_fit = if style.text.fit.is_set() {
                     resolve!(binding, text.fit)
                 } else {
-                    if matches!(style.text.fit.get_value(), UiValue::None) {
-                        TextFit::ExpandParent
-                    } else {
+                    if style.text.fit.is_auto() {
                         TextFit::CropText
+                    } else {
+                        TextFit::ExpandParent
                     }
                 };
 

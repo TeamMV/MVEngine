@@ -1,4 +1,5 @@
 pub mod utils;
+mod parse;
 
 use crate::math::vec::Vec4;
 use num_traits::{Num, ToPrimitive};

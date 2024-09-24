@@ -161,7 +161,7 @@ impl ApplicationLoopCallbacks for Application {
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         let ren = self.renderer2d.get_mut();
-        UiElementState::compute(self.elem.clone(), ren);
+        UiElementState::compute(self.elem.clone(), ren, window.get_input().get());
 
         let inp = window.get_input();
         if inp.get().keys[Input::key_from_str("w")] {

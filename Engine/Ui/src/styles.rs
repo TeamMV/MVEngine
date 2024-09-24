@@ -12,6 +12,62 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 
+pub static DEFAULT_STYLE: UiStyle = UiStyle {
+    x: UiValue::None.to_field().to_resolve(),
+    y: UiValue::None.to_field().to_resolve(),
+    width: UiValue::Auto.to_field().to_resolve(),
+    height: UiValue::Auto.to_field().to_resolve(),
+    padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
+    margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
+    origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
+    position: UiValue::Just(Position::Relative).to_resolve(),
+    direction: UiValue::Just(Direction::Horizontal).to_resolve(),
+    child_align: UiValue::Just(ChildAlign::Start).to_resolve(),
+    text: TextStyle {
+        size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
+        kerning: UiValue::None.to_field().to_resolve(),
+        skew: UiValue::None.to_field().to_resolve(),
+        stretch: UiValue::None.to_field().to_resolve(),
+        font: UiValue::Just(0).to_field().to_resolve(),
+        fit: UiValue::Just(TextFit::ExpandParent).to_field().to_resolve(),
+        color: UiValue::Just(RgbColor::black()).to_resolve(),
+    },
+    transform: TransformStyle {
+        translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
+        scale: VectorField::splat(UiValue::Just(1.0).to_field().to_resolve()),
+        rotate: UiValue::Just(0.0).to_field().to_resolve(),
+        origin: UiValue::Just(Origin::Center).to_field().to_resolve(),
+    },
+};
+
+pub static EMPTY_STYLE: UiStyle = UiStyle {
+    x: UiValue::Unset.to_field().to_resolve(),
+    y: UiValue::Unset.to_field().to_resolve(),
+    width: UiValue::Unset.to_field().to_resolve(),
+    height: UiValue::Unset.to_field().to_resolve(),
+    padding: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
+    margin: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
+    origin: UiValue::Unset.to_resolve(),
+    position: UiValue::Unset.to_resolve(),
+    direction: UiValue::Unset.to_resolve(),
+    child_align: UiValue::Unset.to_resolve(),
+    text: TextStyle {
+        size: UiValue::Unset.to_field().to_resolve(),
+        kerning: UiValue::Unset.to_field().to_resolve(),
+        skew: UiValue::Unset.to_field().to_resolve(),
+        stretch: UiValue::Unset.to_field().to_resolve(),
+        font: UiValue::Unset.to_field().to_resolve(),
+        fit: UiValue::Unset.to_field().to_resolve(),
+        color: UiValue::Unset.to_resolve(),
+    },
+    transform: TransformStyle {
+        translate: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
+        scale: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
+        rotate: UiValue::Unset.to_field().to_resolve(),
+        origin: UiValue::Unset.to_field().to_resolve(),
+    },
+};
+
 #[macro_export]
 macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
@@ -23,7 +79,7 @@ macro_rules! resolve {
             }
             else {
                 log::error!("UiValue {:?} failed to resolve on element {:?}", stringify!($($style).*), $elem.attributes().id);
-                $crate::styles::UiStyle::default().$($style).*
+                DEFAULT_STYLE.$($style).*
                 .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }
@@ -64,6 +120,22 @@ pub struct UiStyle {
 
     pub text: TextStyle,
     pub transform: TransformStyle,
+}
+
+impl UiStyle {
+    pub fn merge_unset(&mut self, other: &UiStyle) {
+        self.x.merge_unset(&other.x);
+        self.y.merge_unset(&other.y);
+        self.width.merge_unset(&other.height);
+        self.padding.merge_unset(&other.padding);
+        self.margin.merge_unset(&other.margin);
+        self.origin.merge_unset(&other.origin);
+        self.position.merge_unset(&other.position);
+        self.direction.merge_unset(&other.direction);
+        self.child_align.merge_unset(&other.child_align);
+        self.text.merge_unset(&other.text);
+        self.transform.merge_unset(&other.transform);
+    }
 }
 
 blanked_partial_ord!(UiStyle);
@@ -197,6 +269,16 @@ impl TextStyle {
             color: UiValue::Auto.into(),
         }
     }
+
+    pub fn merge_unset(&mut self, other: &TextStyle) {
+        self.size.merge_unset(&other.size);
+        self.kerning.merge_unset(&other.kerning);
+        self.skew.merge_unset(&other.skew);
+        self.stretch.merge_unset(&other.stretch);
+        self.font.merge_unset(&other.font);
+        self.fit.merge_unset(&other.fit);
+        self.color.merge_unset(&other.color);
+    }
 }
 
 #[derive(Clone)]
@@ -215,6 +297,13 @@ impl TransformStyle {
             rotate: UiValue::Just(0.0).to_field().into(),
             origin: UiValue::Just(Origin::Center).into(),
         }
+    }
+
+    pub fn merge_unset(&mut self, other: &TransformStyle) {
+        self.translate.merge_unset(&other.translate);
+        self.scale.merge_unset(&other.scale);
+        self.rotate.merge_unset(&other.rotate);
+        self.origin.merge_unset(&other.origin);
     }
 }
 
@@ -269,6 +358,11 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
             res.1 = y_res.unwrap()
         }
         res
+    }
+
+    pub fn merge_unset(&mut self, other: &VectorField<T>) {
+        self.x.merge_unset(&other.x);
+        self.y.merge_unset(&other.y);
     }
 }
 
@@ -338,6 +432,10 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         return matches!(self.value, UiValue::Auto);
     }
 
+    pub fn is_unset(&self) -> bool {
+        return matches!(self.value, UiValue::Unset);
+    }
+
     pub fn is_min_set(&self) -> bool {
         return self.min.is_set();
     }
@@ -350,6 +448,10 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         return matches!(self.min, UiValue::Auto);
     }
 
+    pub fn is_min_unset(&self) -> bool {
+        return matches!(self.min, UiValue::Unset);
+    }
+
     pub fn is_max_set(&self) -> bool {
         return self.max.is_set();
     }
@@ -360,6 +462,10 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 
     pub fn is_max_auto(&self) -> bool {
         return matches!(self.max, UiValue::Auto);
+    }
+
+    pub fn is_max_unset(&self) -> bool {
+        return matches!(self.max, UiValue::Unset);
     }
 
     pub fn apply<F>(&self, value: T, elem: &UiElement, map: F) -> T
@@ -499,27 +605,27 @@ blanked_partial_ord!(SideStyle);
 impl SideStyle {
     pub fn all_i32(v: i32) -> Self {
         Self {
-            top: UiValue::Just(v).into(),
-            bottom: UiValue::Just(v).into(),
-            left: UiValue::Just(v).into(),
-            right: UiValue::Just(v).into(),
+            top: UiValue::Just(v).to_field().to_resolve(),
+            bottom: UiValue::Just(v).to_field().to_resolve(),
+            left: UiValue::Just(v).to_field().to_resolve(),
+            right: UiValue::Just(v).to_field().to_resolve(),
         }
     }
 
-    pub fn all(v: UiValue<i32>) -> Self {
+    pub fn all(v: Resolve<i32>) -> Self {
         Self {
-            top: v.clone().into(),
-            bottom: v.clone().into(),
-            left: v.clone().into(),
-            right: v.into(),
+            top: v.clone(),
+            bottom: v.clone(),
+            left: v.clone(),
+            right: v,
         }
     }
 
-    pub fn set(&mut self, v: UiValue<i32>) {
-        self.top = v.clone().into();
-        self.bottom = v.clone().into();
-        self.left = v.clone().into();
-        self.right = v.into();
+    pub fn set(&mut self, v: Resolve<i32>) {
+        self.top = v.clone();
+        self.bottom = v.clone();
+        self.left = v.clone();
+        self.right = v;
     }
 
     pub fn get<F>(&self, elem: &UiElement, map: F) -> [i32; 4]
@@ -563,6 +669,13 @@ impl SideStyle {
             self.right.is_auto().yn(5, 0)
         };
         [top, bottom, left, right]
+    }
+
+    pub fn merge_unset(&mut self, other: &SideStyle) {
+        self.bottom.merge_unset(&other.bottom);
+        self.top.merge_unset(&other.top);
+        self.left.merge_unset(&other.left);
+        self.right.merge_unset(&other.right);
     }
 }
 
@@ -631,6 +744,19 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
             Resolve::LayoutField(l) => l.is_none(),
         }
     }
+
+    pub fn is_unset(&self) -> bool {
+        match self {
+            Resolve::UiValue(v) => matches!(v, UiValue::Unset),
+            Resolve::LayoutField(l) => l.is_unset(),
+        }
+    }
+
+    pub fn merge_unset(&mut self, other: &Resolve<T>) {
+        if self.is_unset() {
+            *self = other.clone();
+        }
+    }
 }
 
 impl<T: PartialOrd + Clone + 'static> From<UiValue<T>> for Resolve<T> {
@@ -648,7 +774,7 @@ impl<T: PartialOrd + Clone + 'static> From<LayoutField<T>> for Resolve<T> {
 #[derive(Clone, Default)]
 pub enum UiValue<T: Clone + 'static> {
     #[default]
-    NoExplicitValueInheritedOrDefaultUsed,
+    Unset,
     None,
     Auto,
     Inherit,
@@ -660,6 +786,10 @@ pub enum UiValue<T: Clone + 'static> {
 impl<T: Clone + PartialOrd + 'static> UiValue<T> {
     pub fn to_field(self) -> LayoutField<T> {
         LayoutField::from(self)
+    }
+
+    pub fn to_resolve(self) -> Resolve<T> {
+        Resolve::UiValue(self)
     }
 
     pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
@@ -699,7 +829,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
                     None
                 }
             }
-            UiValue::NoExplicitValueInheritedOrDefaultUsed => {
+            UiValue::Unset => {
                 unsafe {
                     if parent.is_some() {
                         let cloned = parent.clone().unwrap();
@@ -717,7 +847,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
 
 impl<T: Clone + 'static> UiValue<T> {
     pub fn is_set(&self) -> bool {
-        !matches!(self, UiValue::None | UiValue::Auto | UiValue::NoExplicitValueInheritedOrDefaultUsed)
+        !matches!(self, UiValue::None | UiValue::Auto | UiValue::Unset)
     }
 }
 
@@ -1079,7 +1209,7 @@ impl Unit {
             Unit::Link(value) => ((value * 7.92) * dpi) as i32,
             Unit::Rod(value) => ((value * 198.0) * dpi) as i32,
             Unit::Chain(value) => ((value * 792.0) * dpi) as i32,
-            Unit::Line(value) => ((value * 0.792) * dpi) as i32,
+            Unit::Line(value) => ((value * (1.0 / 40.0)) * dpi) as i32,
             Unit::BarleyCorn(value) => ((value * 0.125) * dpi) as i32,
             Unit::Nail(value) => ((value * 0.25) * dpi) as i32,
             Unit::Finger(value) => ((value * 0.375) * dpi) as i32,
