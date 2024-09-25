@@ -1,47 +1,96 @@
-/*use mvengine_ui::elements::{Div, UiElement, UiElementStub};
+use mvengine_ui::elements::{UiElement, UiElementStub};
 use mvengine_ui::styles::UiStyle;
 use mvengine_ui::uix::{global_state, use_state, UiCompoundElement};
 use mvutils::state::State;
-use mvutils::{update, when};
+use mvutils::{lazy, update, when};
 use mvcore::color::utils::Colors;
 use mvengine_ui::attributes::{AttributeValue, Attributes};
-use mvengine_ui::uix::dom::{VElement, VNode};
+use mvengine_ui::elements::div::Div;
+use mvengine_ui::uix::dom::{VComponent, VElement, VNode};
 use uiproc::{ui, uix};
+
+pub fn run() {
+    let key = String::new();
+    let elem = {
+        let mut attributes = Attributes::new();
+        let mut style = UiStyle::default();
+        let mut elem = VElement::new(attributes, style, format!("{}_div1", key), |a, s| Div::new(a, s).wrap(), "Div".to_string());
+
+        elem.add_child({
+            let mut attributes = Attributes::new();
+            let mut style = UiStyle::default();
+            let mut elem = VElement::new(
+                attributes,
+                style,
+                format!("{}_text1", key),
+                |a, s| Div::new(a, s).wrap(), // pretend this is text because we dont have this component
+                "Text".to_string(),
+            );
+            VNode::Element(elem)
+        });
+        elem.add_child({
+            // TODO: make attributes and style either copy_from(&mut self, &Self), or clone
+            let mut attributes = Attributes::new();
+            let mut style = UiStyle::default();
+
+            let mut attributes2 = Attributes::new();
+            let mut style2 = UiStyle::default();
+
+            let mut elem = VComponent::new(attributes, style, Box::new(GeneratedComponent::new(attributes2, style2, format!("{}_generatedcomponent1", key))), format!("{}_generatedcomponent1", key), "GeneratedComponent".to_string());
+
+            VNode::Component(elem)
+        });
+
+        VNode::Element(elem)
+    };
+    //println!("{:?}", elem);
+    dbg!(&elem);
+
+    let elem = elem.expand();
+
+    println!("\n\n\n\nEXPANDED!\n\n\n\n");
+    //println!("{:?}", elem);
+    dbg!(&elem);
+}
 
 fn some_function(input: i32) -> u32 {
     input as u32 * 2
 }
 
+lazy! {
+    static STATE: State<i32> = State::new(10);
+}
+
 fn get_global_state() -> State<i32> {
-    todo!()
+    STATE.clone()
 }
 
-#[uix]
-pub fn MyComponent() -> UiElement {
-    let clicks = use_state::<i32>(0);
-    let global = global_state::<i32>(get_global_state());
-
-    when!([] => {
-        println!("Only runs on first component generation");
-    });
-
-    when!([clicks] => {
-        *global.write() = *clicks.read() * 2;
-    });
-
-    when!([global] => {
-        if *global.read() == 10 {
-            self.request_regenerate();
-        }
-    });
-
-    ui! {
-        <Div>
-            <Text>{{ format!("Clicked 2x{} times", *gloabal.read()) }}</Text>
-            <Button onclick={{ *clicks.write() += 1 }}>Click</Button>
-        </Div>
-    }
-}
+// #[uix]
+// pub fn MyComponent() -> UiElement {
+//     let clicks = use_state::<i32>(0);
+//     let global = global_state::<i32>(get_global_state());
+//
+//     when!([] => {
+//         println!("Only runs on first component generation");
+//     });
+//
+//     when!([clicks] => {
+//         *global.write() = *clicks.read() * 2;
+//     });
+//
+//     when!([global] => {
+//         if *global.read() == 10 {
+//             self.request_regenerate();
+//         }
+//     });
+//
+//     ui! {
+//         <Div>
+//             <Text>{{ format!("Clicked 2x{} times", *gloabal.read()) }}</Text>
+//             <Button onclick={{ *clicks.write() += 1 }}>Click</Button>
+//         </Div>
+//     }
+// }
 
 struct GeneratedComponent {
     key: String,
@@ -54,7 +103,7 @@ struct GeneratedComponent {
 }
 
 impl UiCompoundElement for GeneratedComponent {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(attributes: Attributes, style: UiStyle, key: String) -> Self
     where
         Self: Sized
     {
@@ -76,6 +125,7 @@ impl UiCompoundElement for GeneratedComponent {
         }
 
         Self {
+            key,
             attributes,
             style,
             empty,
@@ -128,7 +178,7 @@ impl UiCompoundElement for GeneratedComponent {
             let mut style = UiStyle::default();
             let onclick = {
                 let clicks = clicks.clone();
-                |_: &mut UiElement| *clicks.write() = 1
+                move |_: &mut UiElement| *clicks.write() = 1
             };
             attributes.with_attrib("onclick".to_string(), AttributeValue::Code(Box::new(onclick)));
             let mut elem = VElement::new(
@@ -173,4 +223,4 @@ impl UiCompoundElement for GeneratedComponent {
         self.attributes = attributes;
         self.request_regenerate();
     }
-}*/
+}

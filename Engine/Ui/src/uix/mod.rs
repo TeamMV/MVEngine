@@ -75,7 +75,7 @@ pub fn global_state<T>(init: State<T>) -> State<T> {
 }
 
 pub trait UiCompoundElement {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(attributes: Attributes, style: UiStyle, key: String) -> Self
     where
         Self: Sized;
 

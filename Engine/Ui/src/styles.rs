@@ -1,7 +1,7 @@
 use crate::blanked_partial_ord;
 use crate::elements::{UiElement, UiElementState, UiElementStub};
 use mvcore::color::{Color, ColorFormat, RgbColor};
-use mvutils::enum_val_ref;
+use mvutils::{enum_val_ref, lazy};
 use mvutils::save::Savable;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{PClamp, TetrahedronOp};
@@ -12,61 +12,63 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 
-pub static DEFAULT_STYLE: UiStyle = UiStyle {
-    x: UiValue::None.to_field().to_resolve(),
-    y: UiValue::None.to_field().to_resolve(),
-    width: UiValue::Auto.to_field().to_resolve(),
-    height: UiValue::Auto.to_field().to_resolve(),
-    padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
-    margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
-    origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
-    position: UiValue::Just(Position::Relative).to_resolve(),
-    direction: UiValue::Just(Direction::Horizontal).to_resolve(),
-    child_align: UiValue::Just(ChildAlign::Start).to_resolve(),
-    text: TextStyle {
-        size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
-        kerning: UiValue::None.to_field().to_resolve(),
-        skew: UiValue::None.to_field().to_resolve(),
-        stretch: UiValue::None.to_field().to_resolve(),
-        font: UiValue::Just(0).to_field().to_resolve(),
-        fit: UiValue::Just(TextFit::ExpandParent).to_field().to_resolve(),
-        color: UiValue::Just(RgbColor::black()).to_resolve(),
-    },
-    transform: TransformStyle {
-        translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
-        scale: VectorField::splat(UiValue::Just(1.0).to_field().to_resolve()),
-        rotate: UiValue::Just(0.0).to_field().to_resolve(),
-        origin: UiValue::Just(Origin::Center).to_field().to_resolve(),
-    },
-};
+lazy! {
+    pub static DEFAULT_STYLE: UiStyle = UiStyle {
+        x: UiValue::None.to_field().to_resolve(),
+        y: UiValue::None.to_field().to_resolve(),
+        width: UiValue::Auto.to_field().to_resolve(),
+        height: UiValue::Auto.to_field().to_resolve(),
+        padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
+        margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
+        origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
+        position: UiValue::Just(Position::Relative).to_resolve(),
+        direction: UiValue::Just(Direction::Horizontal).to_resolve(),
+        child_align: UiValue::Just(ChildAlign::Start).to_resolve(),
+        text: TextStyle {
+            size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
+            kerning: UiValue::None.to_field().to_resolve(),
+            skew: UiValue::None.to_field().to_resolve(),
+            stretch: UiValue::None.to_field().to_resolve(),
+            font: UiValue::Just(0).to_field().to_resolve(),
+            fit: UiValue::Just(TextFit::ExpandParent).to_field().to_resolve(),
+            color: UiValue::Just(RgbColor::black()).to_resolve(),
+        },
+        transform: TransformStyle {
+            translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
+            scale: VectorField::splat(UiValue::Just(1.0).to_field().to_resolve()),
+            rotate: UiValue::Just(0.0).to_field().to_resolve(),
+            origin: UiValue::Just(Origin::Center).to_field().to_resolve(),
+        },
+    };
 
-pub static EMPTY_STYLE: UiStyle = UiStyle {
-    x: UiValue::Unset.to_field().to_resolve(),
-    y: UiValue::Unset.to_field().to_resolve(),
-    width: UiValue::Unset.to_field().to_resolve(),
-    height: UiValue::Unset.to_field().to_resolve(),
-    padding: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
-    margin: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
-    origin: UiValue::Unset.to_resolve(),
-    position: UiValue::Unset.to_resolve(),
-    direction: UiValue::Unset.to_resolve(),
-    child_align: UiValue::Unset.to_resolve(),
-    text: TextStyle {
-        size: UiValue::Unset.to_field().to_resolve(),
-        kerning: UiValue::Unset.to_field().to_resolve(),
-        skew: UiValue::Unset.to_field().to_resolve(),
-        stretch: UiValue::Unset.to_field().to_resolve(),
-        font: UiValue::Unset.to_field().to_resolve(),
-        fit: UiValue::Unset.to_field().to_resolve(),
-        color: UiValue::Unset.to_resolve(),
-    },
-    transform: TransformStyle {
-        translate: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
-        scale: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
-        rotate: UiValue::Unset.to_field().to_resolve(),
-        origin: UiValue::Unset.to_field().to_resolve(),
-    },
-};
+    pub static EMPTY_STYLE: UiStyle = UiStyle {
+        x: UiValue::Unset.to_field().to_resolve(),
+        y: UiValue::Unset.to_field().to_resolve(),
+        width: UiValue::Unset.to_field().to_resolve(),
+        height: UiValue::Unset.to_field().to_resolve(),
+        padding: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
+        margin: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
+        origin: UiValue::Unset.to_resolve(),
+        position: UiValue::Unset.to_resolve(),
+        direction: UiValue::Unset.to_resolve(),
+        child_align: UiValue::Unset.to_resolve(),
+        text: TextStyle {
+            size: UiValue::Unset.to_field().to_resolve(),
+            kerning: UiValue::Unset.to_field().to_resolve(),
+            skew: UiValue::Unset.to_field().to_resolve(),
+            stretch: UiValue::Unset.to_field().to_resolve(),
+            font: UiValue::Unset.to_field().to_resolve(),
+            fit: UiValue::Unset.to_field().to_resolve(),
+            color: UiValue::Unset.to_resolve(),
+        },
+        transform: TransformStyle {
+            translate: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
+            scale: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
+            rotate: UiValue::Unset.to_field().to_resolve(),
+            origin: UiValue::Unset.to_field().to_resolve(),
+        },
+    };
+}
 
 #[macro_export]
 macro_rules! resolve {
@@ -79,7 +81,7 @@ macro_rules! resolve {
             }
             else {
                 log::error!("UiValue {:?} failed to resolve on element {:?}", stringify!($($style).*), $elem.attributes().id);
-                DEFAULT_STYLE.$($style).*
+                $crate::styles::DEFAULT_STYLE.$($style).*
                 .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }
@@ -121,6 +123,9 @@ pub struct UiStyle {
     pub text: TextStyle,
     pub transform: TransformStyle,
 }
+
+unsafe impl Sync for UiStyle {}
+unsafe impl Send for UiStyle {}
 
 impl UiStyle {
     pub fn merge_unset(&mut self, other: &UiStyle) {

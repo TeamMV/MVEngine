@@ -34,18 +34,19 @@ fn route_parser(col: &str) -> Result {
 }
 
 fn parse_hex_color(col: &str) -> Result {
-    match col.len() {
-        3 | 6 => {
-
-        }
-
-
-        _ => {}
-    }
+    // match col.len() {
+    //     3 | 6 => {
+    //
+    //     }
+    //
+    //
+    //     _ => {}
+    // }
+    todo!()
 }
 
 fn parse_rgb_color(col: &str) -> Result {
-
+    todo!()
 }
 
 enum Token {

@@ -20,10 +20,6 @@ pub struct LmaoElement {
 }
 
 impl UiElementCallbacks for LmaoElement {
-    fn init(&mut self) {
-        todo!()
-    }
-
     fn draw(&mut self, renderer: &mut GameRenderer2D) {
         let shape = Shape::Rectangle {
             position: Vec3::new(

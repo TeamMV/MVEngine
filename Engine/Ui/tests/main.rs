@@ -28,24 +28,25 @@ use std::process::exit;
 use std::sync::Arc;
 use uiproc::{ui, uix};
 
-pub mod test;
-use mvengine_ui::elements::Div;
 use mvengine_ui::uix::UiCompoundElement;
 
+mod test;
+
 fn main() {
-    let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
-
-    let s = State::new("hello");
-
-    mvlogger::init(std::io::stdout(), LevelFilter::Debug);
-    let mut info = WindowCreateInfo::default();
-    info.title = "UI test".to_string();
-    info.fps = 60;
-    info.ups = 20;
-    info.vsync = true;
-
-    let window = Window::new(info);
-    window.run::<Application>();
+    // let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
+    //
+    // let s = State::new("hello");
+    //
+    // mvlogger::init(std::io::stdout(), LevelFilter::Debug);
+    // let mut info = WindowCreateInfo::default();
+    // info.title = "UI test".to_string();
+    // info.fps = 60;
+    // info.ups = 20;
+    // info.vsync = true;
+    //
+    // let window = Window::new(info);
+    // window.run::<Application>();
+    test::run();
 }
 
 struct Application {

@@ -99,7 +99,7 @@ macro_rules! ui_element_fn {
             UiElement::Blank(e) => e.$fn_name(),
             UiElement::Lmao(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
-
+            _ => todo!(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -107,6 +107,7 @@ macro_rules! ui_element_fn {
             UiElement::Blank(e) => e.$fn_name($($args),*),
             UiElement::Lmao(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
+            _ => todo!(),
         }
     };
 }
