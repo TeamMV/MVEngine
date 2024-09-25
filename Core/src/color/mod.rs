@@ -1,5 +1,5 @@
 pub mod utils;
-mod parse;
+pub mod parse;
 
 use crate::math::vec::Vec4;
 use num_traits::{Num, ToPrimitive};
@@ -20,6 +20,7 @@ where
     fn from_rgb(color: RgbColor) -> Color<Self>;
 }
 
+#[derive(Debug)]
 pub struct Color<Fmt: ColorFormat> {
     components: [Fmt::ComponentType; 4],
 }
@@ -116,6 +117,7 @@ impl RgbColor {
     }
 }
 
+#[derive(Debug)]
 pub struct RgbColorFormat {}
 
 impl ColorFormat for RgbColorFormat {
@@ -136,7 +138,7 @@ impl ColorFormat for HsvColorFormat {
     type ComponentType = f32;
 
     fn get_rgb(color: Color<Self>) -> RgbColor {
-        let [h, s, v, _] = color.components;
+        let [h, s, v, a] = color.components;
 
         let c = v * s;
         let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
@@ -156,11 +158,11 @@ impl ColorFormat for HsvColorFormat {
         let g = ((g1 + m) * 255.0).round() as u8;
         let b = ((b1 + m) * 255.0).round() as u8;
 
-        RgbColor::new([r, g, b, 255])
+        RgbColor::new([r, g, b, (a * 255.0) as u8])
     }
 
     fn from_rgb(color: RgbColor) -> Color<Self> {
-        let [r, g, b, _] = color.components.map(|c| c as f32 / 255.0);
+        let [r, g, b, a] = color.components.map(|c| c as f32 / 255.0);
 
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);
@@ -181,6 +183,6 @@ impl ColorFormat for HsvColorFormat {
         let s = if max == 0.0 { 0.0 } else { delta / max };
         let v = max;
 
-        Color::new([h, s, v, 1.0])
+        Color::new([h, s, v, a])
     }
 }

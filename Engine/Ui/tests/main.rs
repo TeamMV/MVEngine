@@ -26,13 +26,25 @@ use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::process::exit;
 use std::sync::Arc;
+use mvcore::color::parse::parse_color;
 use uiproc::{ui, uix};
 
 use mvengine_ui::uix::UiCompoundElement;
 
 mod test;
 
+fn test_color(col: &str) {
+    let col = parse_color(col).unwrap();
+    println!("Color: {:?}", col);
+}
+
 fn main() {
+    test_color("#FFF");
+    test_color("blue");
+    test_color("0x0a3F1d");
+    test_color("rgb(255, 0, 50)");
+    test_color("hsla(120, 1, 0.5, 0.4)");
+
     // let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
     //
     // let s = State::new("hello");
@@ -46,7 +58,7 @@ fn main() {
     //
     // let window = Window::new(info);
     // window.run::<Application>();
-    test::run();
+    //test::run();
 }
 
 struct Application {
