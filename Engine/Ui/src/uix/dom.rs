@@ -80,8 +80,38 @@ impl VComponent {
         self.subtree.is_some()
     }
 
-    pub fn regenerate_subtree(&self) -> VNode {
-        todo!()
+    pub fn should_regenerate(&mut self) -> bool {
+        self.component.regenerate()
+    }
+
+    pub fn regenerate_subtree(&mut self) -> VNode {
+        let node = self.component.generate();
+        self.component.post_generate();
+        node
+    }
+
+    pub fn take_subtree(&mut self) -> Box<VNode> {
+        self.subtree.take().unwrap()
+    }
+
+    pub fn set_subtree(&mut self, subtree: Box<VNode>) {
+        self.subtree = Some(subtree);
+    }
+
+    pub fn update_attributes(&mut self, attributes: Attributes) {
+        // TODO: if attributes haven't changed, don't do anything
+        // if self.attributes == attributes { return; }
+        self.attributes = attributes;
+        // TODO: clone attributes to the custom component
+        // self.component.update_attributes(attributes);
+    }
+
+    pub fn update_style(&mut self, style: UiStyle) {
+        // TODO: if style hasn't changed, don't do anything
+        // if self.style == style { return; }
+        self.style = style;
+        // TODO: clone style to the custom component
+        // self.component.update_style(style);
     }
 
     pub fn into_subtree(mut self) -> VNode {
