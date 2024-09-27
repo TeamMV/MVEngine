@@ -45,10 +45,6 @@ fn main() {
     test_color("rgb(255, 0, 50)");
     test_color("hsla(120, 1, 0.5, 0.4)");
 
-    // let xml = r#"<tag1 attr={let a = 1; {}}><tag2 hello="world">hello world</tag2></tag1>"#;
-    //
-    // let s = State::new("hello");
-    //
     // mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     // let mut info = WindowCreateInfo::default();
     // info.title = "UI test".to_string();
