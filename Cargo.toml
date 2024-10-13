@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "Core",
+    "Core", "Engine/MeshLoader",
     "Engine/Mods", "Engine/Render2D",
 ]
 resolver = "2"
