@@ -19,19 +19,19 @@ impl ColorDrawable {
 impl DrawableCallbacks for ColorDrawable {
     fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
         let origin = &computed.transforms.origin;
-        let x = computed.x;
-        let y = computed.y;
+        let x = computed.rect.x;
+        let y = computed.rect.y;
 
-        let width = computed.width;
-        let height = computed.height;
+        let width = computed.rect.width;
+        let height = computed.rect.height;
 
         let ox = origin.get_actual_x(x, width, computed);
         let oy = origin.get_actual_y(y, height, computed);
 
         let rotation = computed.transforms.rotation + transformations.rotation;
 
-        let x = computed.x + computed.transforms.translation.width;
-        let y = computed.y + computed.transforms.translation.height;
+        let x = computed.rect.x + computed.transforms.translation.width;
+        let y = computed.rect.y + computed.transforms.translation.height;
     }
 }
 

@@ -184,10 +184,10 @@ impl Origin {
             Origin::Custom(cx, _) => x - cx,
             Origin::Eval(f) => {
                 let res = f(
-                    state.bounding_x,
-                    state.bounding_y,
-                    state.bounding_width,
-                    state.bounding_height,
+                    state.bounding_rect.x,
+                    state.bounding_rect.y,
+                    state.bounding_rect.width,
+                    state.bounding_rect.height,
                 );
                 x - res.0
             }
@@ -204,10 +204,10 @@ impl Origin {
             Origin::Custom(_, cy) => y - cy,
             Origin::Eval(f) => {
                 let res = f(
-                    state.bounding_x,
-                    state.bounding_y,
-                    state.bounding_width,
-                    state.bounding_height,
+                    state.bounding_rect.x,
+                    state.bounding_rect.y,
+                    state.bounding_rect.width,
+                    state.bounding_rect.height,
                 );
                 y - res.1
             }

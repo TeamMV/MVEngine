@@ -32,6 +32,7 @@ use mvutils::ordefault::OrDefault;
 use mvcore::input;
 use mvcore::input::MouseAction;
 use mvcore::input::raw::Input;
+use crate::graphics::Rect;
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
@@ -77,12 +78,7 @@ pub trait UiElementStub: UiElementCallbacks {
 
     fn inside(&self, x: i32, y: i32) -> bool {
         let state = self.state();
-        if x > state.x && x < state.x + state.width {
-            if y > state.y && y < state.y + state.height {
-                return true;
-            }
-        }
-        false
+        state.rect.inside(x, y)
     }
 }
 
@@ -173,18 +169,10 @@ pub struct UiElementState {
 
     pub children: Vec<Child>,
 
-    pub x: i32,
-    pub y: i32,
-    pub content_x: i32,
-    pub content_y: i32,
-    pub bounding_x: i32,
-    pub bounding_y: i32,
-    pub width: i32,
-    pub height: i32,
-    pub content_width: i32,
-    pub content_height: i32,
-    pub bounding_width: i32,
-    pub bounding_height: i32,
+    pub rect: Rect,
+    pub content_rect: Rect,
+    pub bounding_rect: Rect,
+
     pub margins: [i32; 4], //t,d,l,r
     pub paddings: [i32; 4],
 
@@ -212,18 +200,9 @@ impl UiElementState {
             ctx: ResCon { dpi: 0.0 },
             parent: None,
             children: vec![],
-            x: 0,
-            y: 0,
-            content_x: 0,
-            content_y: 0,
-            bounding_x: 0,
-            bounding_y: 0,
-            width: 0,
-            height: 0,
-            content_width: 0,
-            content_height: 0,
-            bounding_width: 0,
-            bounding_height: 0,
+            rect: Rect::default(),
+            content_rect: Rect::default(),
+            bounding_rect: Rect::default(),
             margins: [0; 4],
             paddings: [0; 4],
             events: UiEvents::create(),
@@ -292,9 +271,9 @@ impl UiElementState {
                 stat.base_style.merge_unset(&state.base_style);
 
                 if matches!(direction, Direction::Horizontal) {
-                    stat.bounding_x = occupied_width;
+                    stat.bounding_rect.x = occupied_width;
                 } else {
-                    stat.bounding_y = occupied_height - stat.margins[1];
+                    stat.bounding_rect.y = occupied_height - stat.margins[1];
                 }
 
                 drop(guard);
@@ -305,11 +284,11 @@ impl UiElementState {
                 let mut stat = guard.state_mut();
 
                 if matches!(direction, Direction::Horizontal) {
-                    occupied_width += stat.bounding_width;
-                    occupied_height = occupied_height.max(stat.bounding_height);
+                    occupied_width += stat.bounding_rect.width;
+                    occupied_height = occupied_height.max(stat.bounding_rect.height);
                 } else {
-                    occupied_width = occupied_width.max(stat.bounding_width);
-                    occupied_height += stat.bounding_height;
+                    occupied_width = occupied_width.max(stat.bounding_rect.width);
+                    occupied_height += stat.bounding_rect.height;
                 }
             } else {
                 let s = child.as_string();
@@ -383,12 +362,12 @@ impl UiElementState {
         state.margins.copy_from_slice(&margin);
         state.paddings.copy_from_slice(&padding);
 
-        state.content_width = width;
-        state.content_height = height;
-        state.width = width + padding[2] + padding[3];
-        state.height = height + padding[0] + padding[1];
-        state.bounding_width = state.width + margin[2] + margin[3];
-        state.bounding_height = state.height + margin[0] + margin[1];
+        state.content_rect.width = width;
+        state.content_rect.height = height;
+        state.rect.width = width + padding[2] + padding[3];
+        state.rect.height = height + padding[0] + padding[1];
+        state.bounding_rect.width = state.rect.width + margin[2] + margin[3];
+        state.bounding_rect.height = state.rect.height + margin[0] + margin[1];
 
         //TODO: check if bounding width/height is set correcetly
 
@@ -404,7 +383,7 @@ impl UiElementState {
                 } else {
                     0
                 };
-                state.bounding_x = origin.get_actual_x(x, state.content_width, state);
+                state.bounding_rect.x = origin.get_actual_x(x, state.content_rect.width, state);
             }
             if !style.y.is_auto() {
                 let y = if style.y.is_set() {
@@ -412,7 +391,7 @@ impl UiElementState {
                 } else {
                     0
                 };
-                state.bounding_y = origin.get_actual_y(y, state.content_height, state);
+                state.bounding_rect.y = origin.get_actual_y(y, state.content_rect.height, state);
             }
         }
 
@@ -420,39 +399,39 @@ impl UiElementState {
         match transform_origin {
             Origin::TopLeft => {
                 println!("{scale_y}");
-                state.bounding_y -= state.bounding_height;
+                state.bounding_rect.y -= state.bounding_rect.height;
             }
             Origin::BottomLeft => { /*Nothing cuz already right scaling*/ }
             Origin::TopRight => {
-                state.bounding_x -= state.bounding_width;
-                state.bounding_y -= state.bounding_height;
+                state.bounding_rect.x -= state.bounding_rect.width;
+                state.bounding_rect.y -= state.bounding_rect.height;
             }
-            Origin::BottomRight => state.bounding_x -= state.bounding_width,
+            Origin::BottomRight => state.bounding_rect.x -= state.bounding_rect.width,
             Origin::Center => {
-                state.bounding_x -= (state.bounding_width as f32 * 0.5) as i32;
-                state.bounding_y -= (state.bounding_height as f32 * 0.5) as i32;
+                state.bounding_rect.x -= (state.bounding_rect.width as f32 * 0.5) as i32;
+                state.bounding_rect.y -= (state.bounding_rect.height as f32 * 0.5) as i32;
             }
             Origin::Custom(cx, cy) => {
                 //TODO: test this chatgpt code
-                let dx = cx - state.bounding_x;
-                let dy = cy - state.bounding_y;
+                let dx = cx - state.bounding_rect.x;
+                let dy = cy - state.bounding_rect.y;
 
-                state.bounding_x -= (dx as f32 * (scale_x - 1.0)) as i32;
-                state.bounding_y -= (dy as f32 * (scale_y - 1.0)) as i32;
+                state.bounding_rect.x -= (dx as f32 * (scale_x - 1.0)) as i32;
+                state.bounding_rect.y -= (dy as f32 * (scale_y - 1.0)) as i32;
             }
             Origin::Eval(f) => {
                 let res = f(
-                    state.bounding_x,
-                    state.bounding_y,
+                    state.bounding_rect.x,
+                    state.bounding_rect.y,
                     non_trans_width + margin[2] + margin[3],
                     non_trans_height + margin[0] + margin[1],
                 );
 
-                let dx = res.0 - state.bounding_x;
-                let dy = res.1 - state.bounding_y;
+                let dx = res.0 - state.bounding_rect.x;
+                let dy = res.1 - state.bounding_rect.y;
 
-                state.bounding_x -= (dx as f32 * (scale_x - 1.0)) as i32;
-                state.bounding_y -= (dy as f32 * (scale_y - 1.0)) as i32;
+                state.bounding_rect.x -= (dx as f32 * (scale_x - 1.0)) as i32;
+                state.bounding_rect.y -= (dy as f32 * (scale_y - 1.0)) as i32;
             }
         }
 
@@ -462,13 +441,13 @@ impl UiElementState {
             |s| &s.transform.translate,
             (0, 0),
         );
-        state.bounding_x += trans_x;
-        state.bounding_y += trans_y;
+        state.bounding_rect.x += trans_x;
+        state.bounding_rect.y += trans_y;
 
-        state.x = state.bounding_x + margin[2];
-        state.y = state.bounding_y + margin[1];
-        state.content_x = state.x + padding[2];
-        state.content_y = state.y + padding[1];
+        state.rect.x = state.bounding_rect.x + margin[2];
+        state.rect.y = state.bounding_rect.y + margin[1];
+        state.content_rect.x = state.rect.x + padding[2];
+        state.content_rect.y = state.rect.y + padding[1];
 
         for e in state
             .children
@@ -493,8 +472,8 @@ impl UiElementState {
                 Position::Relative
             };
             if matches!(child_position, Position::Relative) {
-                let x_off = stat.x;
-                let y_off = stat.y;
+                let x_off = stat.rect.x;
+                let y_off = stat.rect.y;
 
                 let child_origin = if e_style.origin.is_set() {
                     resolve!(e_binding, origin)
@@ -504,60 +483,60 @@ impl UiElementState {
 
                 match direction {
                     Direction::Vertical => {
-                        stat.bounding_y =
-                            child_origin.get_actual_y(y_off, stat.bounding_height, state)
-                                + state.content_y;
-                        stat.bounding_x = child_origin.get_actual_x(
+                        stat.bounding_rect.y =
+                            child_origin.get_actual_y(y_off, stat.bounding_rect.height, state)
+                                + state.content_rect.y;
+                        stat.bounding_rect.x = child_origin.get_actual_x(
                             match child_align {
-                                ChildAlign::Start => state.content_x,
+                                ChildAlign::Start => state.content_rect.x,
                                 ChildAlign::End => {
-                                    state.content_x + state.content_width - stat.bounding_width
+                                    state.content_rect.x + state.content_rect.width - stat.bounding_rect.width
                                 }
                                 ChildAlign::Middle => {
-                                    state.content_x + state.content_width / 2
-                                        - stat.bounding_width / 2
+                                    state.content_rect.x + state.content_rect.width / 2
+                                        - stat.bounding_rect.width / 2
                                 }
-                                ChildAlign::OffsetStart(o) => state.content_x + o,
+                                ChildAlign::OffsetStart(o) => state.content_rect.x + o,
                                 ChildAlign::OffsetEnd(o) => {
-                                    state.content_x + state.content_width - stat.bounding_width - o
+                                    state.content_rect.x + state.content_rect.width - stat.bounding_rect.width - o
                                 }
                                 ChildAlign::OffsetMiddle(o) => {
-                                    state.content_x + state.content_width / 2
-                                        - stat.bounding_width / 2
+                                    state.content_rect.x + state.content_rect.width / 2
+                                        - stat.bounding_rect.width / 2
                                         + o
                                 }
                             },
-                            stat.bounding_width,
+                            stat.bounding_rect.width,
                             state,
                         );
                     }
                     Direction::Horizontal => {
-                        stat.bounding_x =
-                            child_origin.get_actual_x(x_off, stat.bounding_width, state)
-                                + state.content_x;
-                        stat.bounding_y = child_origin.get_actual_y(
+                        stat.bounding_rect.x =
+                            child_origin.get_actual_x(x_off, stat.bounding_rect.width, state)
+                                + state.content_rect.x;
+                        stat.bounding_rect.y = child_origin.get_actual_y(
                             match child_align {
-                                ChildAlign::Start => state.content_y,
+                                ChildAlign::Start => state.content_rect.y,
                                 ChildAlign::End => {
-                                    state.content_y + state.content_height - stat.bounding_height
+                                    state.content_rect.y + state.content_rect.height - stat.bounding_rect.height
                                 }
                                 ChildAlign::Middle => {
-                                    state.content_y + state.content_height / 2
-                                        - stat.content_height / 2
+                                    state.content_rect.y + state.content_rect.height / 2
+                                        - stat.content_rect.height / 2
                                 }
-                                ChildAlign::OffsetStart(o) => state.content_y + o,
+                                ChildAlign::OffsetStart(o) => state.content_rect.y + o,
                                 ChildAlign::OffsetEnd(o) => {
-                                    state.content_y + state.content_height
-                                        - stat.bounding_height
+                                    state.content_rect.y + state.content_rect.height
+                                        - stat.bounding_rect.height
                                         - o
                                 }
                                 ChildAlign::OffsetMiddle(o) => {
-                                    state.content_y + state.content_height / 2
-                                        - stat.bounding_height / 2
+                                    state.content_rect.y + state.content_rect.height / 2
+                                        - stat.bounding_rect.height / 2
                                         + o
                                 }
                             },
-                            stat.bounding_height,
+                            stat.bounding_rect.height,
                             state,
                         );
                     }
@@ -566,14 +545,14 @@ impl UiElementState {
                 let e_padding = e_style.padding.get(binding, |s| &s.padding); //t,b,l,r
                 let e_margin = e_style.margin.get(binding, |s| &s.margin);
 
-                stat.bounding_y = stat
-                    .bounding_y
-                    .min(state.bounding_y + state.bounding_height - stat.bounding_height);
+                stat.bounding_rect.y = stat
+                    .bounding_rect.y
+                    .min(state.bounding_rect.y + state.bounding_rect.height - stat.bounding_rect.height);
 
-                stat.x = stat.bounding_x + e_margin[2];
-                stat.y = stat.bounding_y + e_margin[1];
-                stat.content_x = stat.x + e_padding[2];
-                stat.content_y = stat.y + e_padding[1];
+                stat.rect.x = stat.bounding_rect.x + e_margin[2];
+                stat.rect.y = stat.bounding_rect.y + e_margin[1];
+                stat.content_rect.x = stat.rect.x + e_padding[2];
+                stat.content_rect.y = stat.rect.y + e_padding[1];
             }
         }
     }

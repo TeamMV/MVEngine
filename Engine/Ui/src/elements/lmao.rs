@@ -23,14 +23,14 @@ impl UiElementCallbacks for LmaoElement {
     fn draw(&mut self, renderer: &mut GameRenderer2D) {
         let shape = Shape::Rectangle {
             position: Vec3::new(
-                self.state.x as f32,
+                self.state.rect.x as f32,
                 renderer.get_extent().height as f32
-                    - self.state.y as f32
-                    - self.state.height as f32,
+                    - self.state.rect.y as f32
+                    - self.state.rect.height as f32,
                 0f32,
             ),
             rotation: Default::default(),
-            scale: Vec2::new(self.state.width as f32, self.state.height as f32),
+            scale: Vec2::new(self.state.rect.width as f32, self.state.rect.height as f32),
             tex_id: None,
             tex_coord: Default::default(),
             color: self.col.as_vec4(),
