@@ -1,89 +1,34 @@
+use std::fs::OpenOptions;
 use log::LevelFilter;
-use mvcore::asset::asset::AssetType;
-use mvcore::asset::manager::{AssetHandle, AssetManager};
-use mvcore::math::vec::Vec4;
-use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
-use mvcore::render::backend::Backend;
-use mvcore::render::window::{Window, WindowCreateInfo};
-use mvcore::render::ApplicationLoopCallbacks;
-use mvutils::version::Version;
-use std::sync::Arc;
+use mvcore::audio::Audio;
+use mvcore::audio::sound::SoundCreateInfo;
+use mvcore::math::vec::Vec3;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
     mvcore::err::setup();
 
-    let window = Window::new(WindowCreateInfo {
-        width: 800,
-        height: 600,
-        title: "TEST".to_string(),
-        fullscreen: false,
-        decorated: true,
-        resizable: false,
-        transparent: false,
-        theme: None,
-        vsync: false,
-        max_frames_in_flight: 1,
-        fps: 60,
-        ups: 20,
+    let audio = Audio::new(32).unwrap();
+    let file = OpenOptions::new().read(true).open("danger2b.wav").unwrap();
+    let reader = hound::WavReader::new(file).unwrap();
+    let spec = reader.spec();
+    let data = reader.into_samples::<i16>().fold(vec![], |mut acc, sample| {
+        if let Ok(sample) = sample {
+            let bytes = sample.to_be_bytes();
+            acc.push(bytes[0]);
+            acc.push(bytes[1]);
+        }
+        acc
     });
-
-    window.run::<AppLoop>();
-}
-
-struct AppLoop {
-    device: Device,
-    manager: Arc<AssetManager>,
-    handle: AssetHandle,
-}
-
-impl ApplicationLoopCallbacks for AppLoop {
-    fn new(window: &mut Window) -> Self {
-        let device = Device::new(
-            Backend::Vulkan,
-            MVDeviceCreateInfo {
-                app_name: "Test app".to_string(),
-                app_version: Version::new(0, 0, 1, 0),
-                engine_name: "MVEngine".to_string(),
-                engine_version: Version::new(0, 0, 1, 0),
-                device_extensions: Extensions::empty(),
-            },
-            &window.get_handle(),
-        );
-
-        let manager = AssetManager::new(device.clone(), 1);
-
-        let handle = manager.create_asset("texture.png", AssetType::Texture);
-
-        handle.load();
-
-        Self {
-            device,
-            manager,
-            handle,
-        }
-    }
-
-    fn update(&mut self, window: &mut Window, delta_t: f64) {}
-
-    fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        let texture = self.handle.get();
-        if texture.failed() {
-            //draw failed thing
-            println!("Failed")
-        } else if !texture.is_loaded() {
-            //draw loading thing
-            println!("loading")
-        } else {
-            let Some(texture) = texture.as_texture() else {
-                unreachable!()
-            };
-            //draw the texture ig
-            println!("loaded")
-        }
-    }
-
-    fn exiting(&mut self, window: &mut Window) {}
-
-    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {}
+    let mut sound = audio.create_sound(SoundCreateInfo {
+        data,
+        channels: spec.channels as u32,
+        sample_rate: spec.sample_rate,
+        looped: false,
+        volume: 10.0,
+        position: Vec3::new(1.0, 0.0, 1.0),
+    });
+    sound.play();
+    
+    loop {}
 }

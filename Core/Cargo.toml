@@ -59,6 +59,10 @@ openal.workspace = true
 image.workspace = true
 gltf.workspace = true
 
+# audio dependencies
+al-sys.workspace = true
+hound.workspace = true
+
 # rendering dependencies
 winit.workspace = true
 
