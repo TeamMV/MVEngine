@@ -1,4 +1,5 @@
-use crate::drawable::{DrawableCallbacks, UiDrawable, UiDrawableTransformations};
+use hashbrown::HashMap;
+use crate::drawable::{DrawableCallbacks, DrawableCreate, UiDrawable, UiDrawableTransformations};
 use crate::elements::UiElementState;
 
 pub struct LayerDrawable {
@@ -20,5 +21,11 @@ impl DrawableCallbacks for LayerDrawable {
         for d in &mut self.inner {
             d.draw(computed, transformations.clone());
         }
+    }
+}
+
+impl DrawableCreate for LayerDrawable {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String> {
+        Ok(UiDrawable::Layer(LayerDrawable { inner }))
     }
 }

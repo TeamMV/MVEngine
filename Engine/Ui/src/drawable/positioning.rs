@@ -1,6 +1,9 @@
-use crate::drawable::{DrawableCallbacks, UiDrawable, UiDrawableTransformations};
+use std::num::ParseIntError;
+use hashbrown::HashMap;
+use crate::drawable::{DrawableCallbacks, DrawableCreate, UiDrawable, UiDrawableTransformations};
 use crate::elements::UiElementState;
 use crate::styles::Origin;
+use crate::utils;
 
 pub struct PaddedDrawable {
     paddings: [i32; 4],
@@ -33,9 +36,24 @@ impl DrawableCallbacks for PaddedDrawable {
         self.inner.draw(computed, transformations.modify(|t| {
             t.translation.0 += self.paddings[1];
             t.translation.1 += self.paddings[2];
-            t.shrink.0 += self.paddings[0];
-            t.shrink.1 += self.paddings[3];
+            t.shrink.0 += self.paddings[0] + self.paddings[1];
+            t.shrink.1 += self.paddings[3] + self.paddings[2];
         }));
+    }
+}
+
+impl DrawableCreate for PaddedDrawable {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String> {
+        if inner.len() != 1 {
+            return Err(String::from("PaddedDrawable must have exactly one Drawable"));
+        }
+        let pad_str = attributes.get("padding");
+        let padding = if pad_str.is_none() {
+            [0; 4]
+        } else {
+            crate::parse::parse_4xi32(pad_str.unwrap())?
+        };
+        Ok(UiDrawable::Padded(PaddedDrawable::new(padding, inner.into_iter().next().unwrap())))
     }
 }
 
@@ -62,6 +80,27 @@ impl DrawableCallbacks for RotateDrawable {
     }
 }
 
+impl DrawableCreate for RotateDrawable {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String> {
+        if inner.len() != 1 {
+            return Err(String::from("RotateDrawable must have exactly one Drawable"));
+        }
+        let rot_str = attributes.get("rotation");
+        let rotation = if rot_str.is_none() {
+            0f32
+        } else {
+            crate::parse::parse_angle(rot_str.unwrap())?
+        };
+        let origin_str = attributes.get("origin");
+        let origin = if origin_str.is_none() {
+            None
+        } else {
+            Some(crate::parse::parse_origin(origin_str.unwrap())?)
+        };
+        Ok(UiDrawable::Rotate(RotateDrawable::new(rotation, origin, inner.into_iter().next().unwrap())))
+    }
+}
+
 pub struct TranslateDrawable {
     translation_x: i32,
     translation_y: i32,
@@ -80,5 +119,26 @@ impl DrawableCallbacks for TranslateDrawable {
             t.translation.0 += self.translation_x;
             t.translation.1 += self.translation_y;
         }));
+    }
+}
+
+impl DrawableCreate for TranslateDrawable {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String> {
+        if inner.len() != 1 {
+            return Err(String::from("TranslateDrawable must have exactly one Drawable"));
+        }
+        let tx_str = attributes.get("x");
+        let tx = if tx_str.is_none() {
+            0
+        } else {
+            tx_str.unwrap().parse::<i32>().map_err(ParseIntError::to_string)?
+        };
+        let ty_str = attributes.get("y");
+        let ty = if ty_str.is_none() {
+            0
+        } else {
+            ty_str.unwrap().parse::<i32>().map_err(ParseIntError::to_string)?
+        };
+        Ok(UiDrawable::Translate(TranslateDrawable::new(tx, ty, inner.into_iter().next().unwrap())))
     }
 }

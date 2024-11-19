@@ -162,7 +162,7 @@ impl VkSwapchain {
             indices.compute_queue_index.unwrap(),
         ];
 
-        // if graphics and present queue are the same which happens on some hardware uix images in exclusive sharing mode
+        // if geometry and present queue are the same which happens on some hardware uix images in exclusive sharing mode
         if indices.present_queue_index != indices.graphics_queue_index {
             vk_create_info.image_sharing_mode = ash::vk::SharingMode::CONCURRENT;
             vk_create_info.queue_family_index_count = 2;

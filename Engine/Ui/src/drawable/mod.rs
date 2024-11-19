@@ -1,9 +1,10 @@
 pub mod color;
-mod positioning;
-mod collection;
+pub mod positioning;
+pub mod collection;
 
+use hashbrown::HashMap;
 use crate::drawable::collection::LayerDrawable;
-use crate::drawable::color::{ColorDrawable, GradientDrawable};
+use crate::drawable::color::{ColorDrawable};
 use crate::drawable::positioning::{PaddedDrawable, RotateDrawable, TranslateDrawable};
 use crate::elements::UiElementState;
 use crate::styles::Origin;
@@ -46,7 +47,6 @@ enum DrawableSize {
 pub enum UiDrawable {
     Color(ColorDrawable),
     Padded(PaddedDrawable),
-    Gradient(GradientDrawable),
     Rotate(RotateDrawable),
     Translate(TranslateDrawable),
     Layer(LayerDrawable)
@@ -61,10 +61,13 @@ impl DrawableCallbacks for UiDrawable {
         match self {
             UiDrawable::Color(d) => d.draw(computed, transformations),
             UiDrawable::Padded(d) => d.draw(computed, transformations),
-            UiDrawable::Gradient(d) => d.draw(computed, transformations),
             UiDrawable::Rotate(d) => d.draw(computed, transformations),
             UiDrawable::Translate(d) => d.draw(computed, transformations),
             UiDrawable::Layer(d) => d.draw(computed, transformations),
         }
     }
+}
+
+pub trait DrawableCreate {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String>;
 }

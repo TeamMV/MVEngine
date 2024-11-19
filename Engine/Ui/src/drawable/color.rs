@@ -1,4 +1,6 @@
-use crate::drawable::{DrawableCallbacks, UiDrawableTransformations};
+use hashbrown::HashMap;
+use log::error;
+use crate::drawable::{DrawableCallbacks, DrawableCreate, UiDrawable, UiDrawableTransformations};
 use crate::styles::{Dimension, Location};
 use mvcore::color::{ColorFormat, RgbColor};
 use mve2d::renderer2d::GameRenderer2D;
@@ -19,56 +21,33 @@ impl ColorDrawable {
 impl DrawableCallbacks for ColorDrawable {
     fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
         let origin = &computed.transforms.origin;
-        let x = computed.rect.x;
-        let y = computed.rect.y;
+        let x = computed.rect.x();
+        let y = computed.rect.y();
 
-        let width = computed.rect.width;
-        let height = computed.rect.height;
+        let width = computed.rect.width();
+        let height = computed.rect.height();
 
         let ox = origin.get_actual_x(x, width, computed);
         let oy = origin.get_actual_y(y, height, computed);
 
         let rotation = computed.transforms.rotation + transformations.rotation;
 
-        let x = computed.rect.x + computed.transforms.translation.width;
-        let y = computed.rect.y + computed.transforms.translation.height;
+        let x = computed.rect.x() + computed.transforms.translation.width;
+        let y = computed.rect.y() + computed.transforms.translation.height;
     }
 }
 
-pub enum GradientType {
-    Linear(f32),
-    Radial,
-}
-
-pub(crate) struct GradientMarker {
-    pub(crate) color: RgbColor,
-    pub(crate) percentage: f32,
-}
-
-pub struct GradientDrawable {
-    pub start_color: RgbColor,
-    pub end_color: RgbColor,
-    pub markers: Vec<GradientMarker>,
-    pub gradient_type: GradientType,
-}
-
-impl GradientDrawable {
-    pub fn new(gradient_type: GradientType, start_color: RgbColor, end_color: RgbColor) -> Self {
-        Self {
-            start_color,
-            end_color,
-            markers: vec![],
-            gradient_type,
+impl DrawableCreate for ColorDrawable {
+    fn create(inner: Vec<UiDrawable>, attributes: HashMap<String, String>) -> Result<UiDrawable, String> {
+        if !inner.is_empty() {
+            error!("ColorDrawable cannot have inner Drawables!");
         }
-    }
-
-    pub fn add_marker(&mut self, marker: GradientMarker) {
-        self.markers.push(marker);
-    }
-}
-
-impl DrawableCallbacks for GradientDrawable {
-    fn draw(&mut self, computed: &UiElementState, transformations: UiDrawableTransformations) {
-        todo!()
+        let col_str = attributes.get("color").expect("Expected 'color' attribute on ColorDrawable");
+        let color = mvcore::color::parse::parse_color(col_str);
+        if color.is_err() {
+            return Err(color.unwrap_err().1);
+        }
+        let color = color.unwrap();
+        Ok(UiDrawable::Color(ColorDrawable::new(color)))
     }
 }

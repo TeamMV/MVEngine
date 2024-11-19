@@ -19,7 +19,7 @@ pub mod timing;
 pub mod uix;
 pub mod utils;
 pub mod theme;
-pub mod graphics;
+pub mod geometry;
 
 pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
     Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));

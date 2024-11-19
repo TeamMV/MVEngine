@@ -1,4 +1,4 @@
-use log::LevelFilter;
+use mvcore::color::parse::parse_color;
 use mvcore::color::RgbColor;
 use mvcore::input;
 use mvcore::input::raw::Input;
@@ -7,7 +7,7 @@ use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, ImageLayout};
 use mvcore::render::backend::Backend;
 use mvcore::render::renderer::Renderer;
-use mvcore::render::window::{Window, WindowCreateInfo};
+use mvcore::render::window::Window;
 use mvcore::render::ApplicationLoopCallbacks;
 use mve2d::renderer2d::{GameRenderer2D, Shape};
 use mvengine_ui::anim::complex::KeyframeAnimation;
@@ -16,18 +16,19 @@ use mvengine_ui::attributes::Attributes;
 use mvengine_ui::ease::{EasingGen, EasingMode};
 use mvengine_ui::elements::events::UiClickAction;
 use mvengine_ui::elements::lmao::LmaoElement;
-use mvengine_ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use mvengine_ui::elements::{ComputeUiElement, UiElement, UiElementCallbacks, UiElementStub};
 use mvengine_ui::styles::{Origin, Position, UiStyle, UiValue};
 use mvengine_ui::timing::TIMING_MANAGER;
 use mvengine_ui::{anim, modify_style, UI};
-use mvutils::state::State;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
 use parking_lot::RwLock;
-use std::process::exit;
 use std::sync::Arc;
-use mvcore::color::parse::parse_color;
-use uiproc::{ui, uix};
+use uiproc::drawable;
+
+use mvengine_ui::drawable::color::ColorDrawable;
+use mvengine_ui::drawable::collection::LayerDrawable;
+use mvengine_ui::drawable::positioning::{PaddedDrawable, RotateDrawable, TranslateDrawable};
 
 use mvengine_ui::uix::UiCompoundElement;
 
@@ -101,6 +102,20 @@ impl ApplicationLoopCallbacks for Application {
 
         let mut lmao = UiElement::Lmao(LmaoElement::new(Attributes::new(), style));
 
+        let d = drawable!(
+            <LayerDrawable>
+                <RotateDrawable rotation="45">
+                    <ColorDrawable color="red"/>
+                </RotateDrawable>
+            </LayerDrawable>
+        );
+
+        let s = style!(
+            buttons {
+                margin: 1, 3,4 5
+            }
+        );
+
         let animation = KeyframeAnimation::builder(anim_style_from.clone())
             .next_keyframe(
                 |s| {
@@ -170,7 +185,7 @@ impl ApplicationLoopCallbacks for Application {
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
         let ren = self.renderer2d.get_mut();
-        UiElementState::compute(self.elem.clone(), ren, window.get_input().get());
+        self.elem.compute(ren, window.get_input().get());
 
         let inp = window.get_input();
         if inp.get().keys[Input::key_from_str("w")] {
