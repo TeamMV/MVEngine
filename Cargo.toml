@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "Core",
-    "Engine/Mods", "Engine/Render2D",
+    "Engine/Mods", "Engine/Network", "Engine/Render2D",
 ]
 resolver = "2"
 
@@ -20,7 +20,6 @@ panic = "unwind"
 
 # mvteam dependencies
 mvutils = "1.0.2"
-mvsync = "1.1.4"
 mvlogger = "0.3.0"
 
 # general dependencies
