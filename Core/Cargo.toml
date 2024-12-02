@@ -60,7 +60,7 @@ image.workspace = true
 gltf.workspace = true
 
 # audio dependencies
-al-sys.workspace = true
+windows.workspace = true
 hound.workspace = true
 
 # rendering dependencies
