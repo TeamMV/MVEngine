@@ -143,6 +143,7 @@ impl Window {
 
     pub fn run<T: ApplicationLoopCallbacks>(mut self) {
         let mut app_loop = T::new(&mut self);
+        app_loop.post_init(&mut self);
 
         let mut time_f = SystemTime::now();
         let mut time_u = SystemTime::now();

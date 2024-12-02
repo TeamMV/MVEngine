@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::render::backend::device::Device;
 use crate::render::backend::vulkan::sampler::VkSampler;
 use mvcore_proc_macro::graphics_item;
@@ -31,9 +32,10 @@ pub struct MVSamplerCreateInfo {
     pub label: Option<String>,
 }
 
-#[graphics_item(ref)]
+#[graphics_item(clone)]
+#[derive(Clone)]
 pub enum Sampler {
-    Vulkan(VkSampler),
+    Vulkan(Arc<VkSampler>),
     #[cfg(target_os = "macos")]
     Metal,
     #[cfg(target_os = "windows")]
@@ -43,7 +45,7 @@ pub enum Sampler {
 impl Sampler {
     pub fn new(device: Device, create_info: MVSamplerCreateInfo) -> Self {
         match device {
-            Device::Vulkan(device) => Sampler::Vulkan(VkSampler::new(device, create_info.into())),
+            Device::Vulkan(device) => Sampler::Vulkan(VkSampler::new(device, create_info.into()).into()),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
