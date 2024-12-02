@@ -1,11 +1,11 @@
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 use std::process::exit;
 
 pub fn setup() {
     std::panic::set_hook(Box::new(panic));
 }
 
-fn panic(info: &PanicInfo) {
+fn panic(info: &PanicHookInfo) {
     let thread = std::thread::current()
         .name()
         .unwrap_or("unknown")

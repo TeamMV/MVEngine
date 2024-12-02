@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "Core",
-    "Engine/Mods", "Engine/Render2D",
+    "Engine/Mods", "Engine/Network", "Engine/Render2D",
 ]
 resolver = "2"
 
@@ -19,7 +19,7 @@ panic = "unwind"
 ## Global ##
 
 # mvteam dependencies
-mvutils = "0.6.1"
+mvutils = "1.0.2"
 mvsync = "1.2.0"
 mvlogger = "0.3.0"
 
@@ -28,7 +28,7 @@ bytebuffer = "2.2.0"
 itertools = "0.13.0"
 log = "0.4.20"
 num-traits = "0.2.17"
-hashbrown = "0.14.3"
+hashbrown = "0.15.1"
 bitflags = "2.5.0"
 parking_lot = "0.12.1"
 crossbeam-channel = "0.5.12"
@@ -64,7 +64,7 @@ gpu-alloc = "0.6.0"
 gpu-alloc-ash = "0.6.0"
 
 # metal dependencies
-metal = "0.29.0"
+metal = "0.30.0"
 objc = "0.2.7"
 
 # directx dependencies

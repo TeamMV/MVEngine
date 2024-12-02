@@ -809,17 +809,17 @@ impl Renderer2D {
 
                     for char in text.chars()
                     {
-                        if (char == '\t')
+                        if char == '\t'
                         {
                             x += 6.0 + space_advance * font_scale;
                             continue;
                         }
-                        else if (char == ' ')
+                        else if char == ' '
                         {
                             x += space_advance * font_scale;
                             continue;
                         }
-                        else if (char == '\n')
+                        else if char == '\n'
                         {
                             x = 0.0;
                             y -= font_scale * atlas.metrics.line_height;
