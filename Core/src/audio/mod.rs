@@ -81,10 +81,11 @@ impl Audio {
                 self.started = true;
 
                 let this = Unsafe::cast_mut_static(self);
+                let this2 = Unsafe::cast_mut_static(self);
 
                 let thread = thread::spawn(|| unsafe {
                     while this.alive.load(Ordering::Acquire) {
-                        let mixed = this.mixer.mix();
+                        let mixed = this.mixer.mix(this2);
                         match &mut this.implementation {
                             AudioImpl::NoOs => unreachable!(),
                             AudioImpl::Windows(win) => win.write_samples(mixed),
@@ -109,11 +110,14 @@ impl Audio {
     }
 
     pub fn play(&mut self, sound: Hearable, queue: bool) {
-        if queue && self.current_sources >= self.audio_sources {
-            //queue sound
+        if self.current_sources >= self.audio_sources {
+            if queue {
+                //queue sound
+            }
             return;
         }
 
+        self.current_sources += 1;
         self.mixer.play_sound(sound);
     }
 }
@@ -147,7 +151,7 @@ impl Mixer {
         self.playing.push(PlayingSound::new(sound))
     }
 
-    fn mix(&mut self) -> &[i16] {
+    fn mix(&mut self, audio: &mut Audio) -> &[i16] {
         self.mixed.fill(0);
 
         for playing in &mut self.playing {
@@ -166,7 +170,10 @@ impl Mixer {
             }
         }
 
+        let before = self.playing.len();
         self.playing.retain(|pl| pl.1 < pl.0.length());
+        let removed = before - self.playing.len();
+        audio.current_sources -= removed;
 
         &self.mixed
     }

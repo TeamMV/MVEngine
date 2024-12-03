@@ -41,9 +41,9 @@ fn main() {
     let sine_samples = adjust_volume(sine_samples, 0.5);
 
     let sound = SimpleSound::new(samples, wav.spec().sample_rate);
-    let sine = SimpleSound::new(sine_samples, wav.spec().sample_rate);
+    let sine = SimpleSound::new(sine_samples, sample_rate);
 
-    let mut audio = Audio::new(32);
+    let mut audio = Audio::new(2);
     audio.start();
 
 
