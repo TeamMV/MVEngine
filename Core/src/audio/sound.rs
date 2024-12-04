@@ -12,6 +12,10 @@ impl SimpleSound {
             sample_rate,
         }
     }
+
+    pub fn to_3d(self, pos: Vec3) -> ThreeDeeSound {
+        ThreeDeeSound::new(self, pos)
+    }
 }
 
 pub struct ThreeDeeSound {

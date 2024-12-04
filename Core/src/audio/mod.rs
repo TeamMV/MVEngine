@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::{sleep, JoinHandle};
 use std::time::Duration;
+use mvsync::clock::Clock;
 use mvutils::unsafe_utils::Unsafe;
 use crate::audio::backend::windows::WindowsAudio;
 use crate::audio::sound::{Hearable, SimpleSound};
@@ -83,17 +84,19 @@ impl Audio {
                 let this = Unsafe::cast_mut_static(self);
                 let this2 = Unsafe::cast_mut_static(self);
 
-                let thread = thread::spawn(|| unsafe {
+                let mut clock = Clock::new(44100);
+
+                let thread = thread::spawn(move || unsafe {
                     while this.alive.load(Ordering::Acquire) {
+                        clock.wait_sync();
+
                         let mixed = this.mixer.mix(this2);
                         match &mut this.implementation {
                             AudioImpl::NoOs => unreachable!(),
                             AudioImpl::Windows(win) => win.write_samples(mixed),
-                            AudioImpl::Linux(_) => {}
-                            AudioImpl::MacOs(_) => {}
-                        }
-
-                        sleep(Duration::from_millis(10));
+                            AudioImpl::Linux(_) => unimplemented!(),
+                            AudioImpl::MacOs(_) => unimplemented!()
+                        };
                     }
                 });
 
@@ -109,7 +112,15 @@ impl Audio {
         }
     }
 
-    pub fn play(&mut self, sound: Hearable, queue: bool) {
+    pub fn play(&mut self, sound: Arc<Hearable>, queue: bool) {
+        self.play_internal(sound, queue, false);
+    }
+
+    pub fn play_loop(&mut self, sound: Arc<Hearable>, queue: bool) {
+        self.play_internal(sound, queue, true);
+    }
+
+    fn play_internal(&mut self, sound: Arc<Hearable>, queue: bool, looping: bool) {
         if self.current_sources >= self.audio_sources {
             if queue {
                 //queue sound
@@ -118,15 +129,23 @@ impl Audio {
         }
 
         self.current_sources += 1;
-        self.mixer.play_sound(sound);
+        self.mixer.play_sound(sound, looping);
     }
 }
 
-struct PlayingSound(Hearable, usize);
+struct PlayingSound {
+    sound: Arc<Hearable>,
+    play_pos: usize,
+    looping: bool,
+}
 
 impl PlayingSound {
-    fn new(sound: Hearable) -> Self {
-        Self(sound, 0)
+    fn new(sound: Arc<Hearable>, looping: bool) -> Self {
+        Self {
+            sound,
+            play_pos: 0,
+            looping
+        }
     }
 }
 
@@ -147,31 +166,39 @@ impl Mixer {
         }
     }
 
-    fn play_sound(&mut self, sound: Hearable) {
-        self.playing.push(PlayingSound::new(sound))
+    fn play_sound(&mut self, sound: Arc<Hearable>, looping: bool) {
+        self.playing.push(PlayingSound::new(sound, looping));
     }
 
     fn mix(&mut self, audio: &mut Audio) -> &[i16] {
         self.mixed.fill(0);
 
         for playing in &mut self.playing {
-            let sound = &playing.0;
-            let mut position = playing.1;
-            for i in 0..self.mixed.len() / 2 {
-                if position >= sound.length() {
-                    continue;
-                }
+            let sound = &playing.sound;
 
-                let sample = sound.data()[position];
+            let mut position = playing.play_pos;
+            for i in 0..self.mixed.len() / 2 {
+                let sample = sound.data()[position % sound.length()];
                 self.mixed[i * 2] = self.mixed[i * 2].saturating_add(sample);
                 self.mixed[i * 2 + 1] = self.mixed[i * 2 + 1].saturating_add(sample);
                 position += 1;
-                playing.1 = position;
+                playing.play_pos = position;
             }
         }
 
         let before = self.playing.len();
-        self.playing.retain(|pl| pl.1 < pl.0.length());
+        self.playing.retain_mut(|playing| {
+            return true;
+            if playing.play_pos >= playing.sound.length() {
+                if playing.looping {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                true
+            }
+        });
         let removed = before - self.playing.len();
         audio.current_sources -= removed;
 
