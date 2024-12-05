@@ -1,85 +1,92 @@
-use crate::entity::Entity;
-use crate::system::{System, SystemBase, ThreadedSystem};
+use std::marker::PhantomData;
+use std::sync::Arc;
+use mvutils::unsafe_utils::DangerousCell;
+use mvutils::utils;
+use crate::mem::storage::{ComponentStorage, EntityType};
 
-pub mod entity;
 pub mod component;
-pub mod system;
+mod mem;
 
 pub struct ECS {
-    entities: Vec<Box<(dyn Entity + Send + Sync)>>,
-    joined_systems: Vec<Box<(dyn System + Send + Sync)>>,
-    threaded_systems: Vec<Box<(dyn System + Send + Sync)>>,
-    index_mapper: Vec<(bool, usize)>
+    pub(crate) storage: Arc<DangerousCell<ComponentStorage>>,
 }
 
 impl ECS {
     pub fn new() -> Self {
         Self {
-            entities: vec![],
-            joined_systems: vec![],
-            threaded_systems: vec![],
-            index_mapper: vec![],
+            storage: Arc::new(DangerousCell::new(ComponentStorage::new()))
         }
     }
 
-    pub fn insert_system<S: System + Send + Sync + 'static>(&mut self, mut sys: S) {
-        sys.init();
-
-        let mut base = sys.get_base_mut();
-        base.init(self, self.index_mapper.len());
-
-        if let SystemBase::Joined(ref j) = base {
-            self.joined_systems.push(Box::new(sys));
-            self.index_mapper.push((true, self.joined_systems.len() - 1));
-        } else {
-            self.threaded_systems.push(Box::new(sys));
-            self.index_mapper.push((false, self.threaded_systems.len() - 1));
-        }
-    }
-
-    pub fn insert_entity<E: Entity + Send + Sync + 'static>(&mut self, mut entity: E) {
-        entity.init();
-        self.entities.push(Box::new(entity));
-    }
-
-    pub fn system_at(&self, idx: usize) -> &Box<(dyn System + Send + Sync)> {
-        let full_idx = self.index_mapper[idx];
-        if full_idx.0 {
-            return &self.joined_systems[full_idx.1];
-        }
-        &self.threaded_systems[full_idx.1]
-    }
-
-    pub fn system_at_mut(&mut self, idx: usize) -> &mut Box<(dyn System + Send + Sync)> {
-        let full_idx = self.index_mapper[idx];
-        if full_idx.0 {
-            return &mut self.joined_systems[full_idx.1];
-        }
-        &mut self.threaded_systems[full_idx.1]
+    pub fn storage(&self) -> Arc<DangerousCell<ComponentStorage>> {
+        self.storage.clone()
     }
 }
 
-impl Behavior for ECS {
-    fn init(&mut self) {
-        self.entities.iter_mut().for_each(|e| e.init());
-        self.joined_systems.iter_mut().for_each(|e| e.init());
+pub struct Entity<C> {
+    phantom: PhantomData<C>,
+    ty: EntityType,
+    storage: Arc<DangerousCell<ComponentStorage>>,
+}
+
+impl<C> Entity<C> {
+    fn new_internal(storage: Arc<DangerousCell<ComponentStorage>>) -> Self {
+        Self {
+            phantom: PhantomData::default(),
+            ty: utils::next_id("MVEngine::ecs::entity"),
+            storage,
+        }
     }
 
-    fn update(&mut self) {
-        for en in self.entities.iter_mut() {
-            en.update();
+    pub fn get_component<T: Sized + 'static>(&self) -> Option<&T> {
+        let mut st = self.storage.get_mut();
+        st.get_component::<T>(self.ty)
+    }
 
-            for sys in self.joined_systems.iter_mut() {
-                if sys.entity_valid(en.get_base()) {
-                    sys.check_entity(en);
-                }
+    pub fn get_component_mut<T: Sized + 'static>(&mut self) -> Option<&mut T> {
+        let mut st = self.storage.get_mut();
+        st.get_component_mut::<T>(self.ty)
+    }
+}
+
+macro_rules! impl_entity_tuples {
+    () => {};
+    ($first:ident $($rest:ident)*) => {
+        impl_entity_tuples!($($rest)*);
+
+        impl<$first: Sized + Default + 'static, $($rest: Sized + Default + 'static),*> Entity<($first, $($rest),*)> {
+            pub fn new(storage: Arc<DangerousCell<ComponentStorage>>) -> Self {
+                let mut this = Self::new_internal(storage);
+
+                #[allow(non_snake_case)]
+                let ($first, $($rest),*) = ($first::default(), $($rest::default()),*);
+
+                this.storage.get_mut().set_component(this.ty, $first);
+                $( this.storage.get_mut().set_component(this.ty, $rest); )*
+
+                this
             }
         }
-    }
+
+        impl<$first: Sized + Default + 'static + Clone, $($rest: Sized + Default + 'static + Clone),*> Clone for Entity<($first, $($rest),*)> {
+            fn clone(&self) -> Self {
+                let component = self.get_component::<$first>().unwrap();
+
+                let mut new = Self::new(self.storage.clone());
+
+                let mut new_component = new.get_component_mut::<$first>().unwrap();
+                component.clone_into(&mut new_component);
+
+                $(
+                    let mut component = self.get_component::<$rest>().unwrap();
+                    let mut new_component = new.get_component_mut::<$rest>().unwrap();
+                    component.clone_into(&mut new_component);
+                )*
+
+                new
+            }
+        }
+    };
 }
 
-pub trait Behavior {
-    fn init(&mut self);
-
-    fn update(&mut self);
-}
+impl_entity_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15);
