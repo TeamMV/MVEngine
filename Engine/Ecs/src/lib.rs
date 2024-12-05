@@ -4,8 +4,8 @@ use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils;
 use crate::mem::storage::{ComponentStorage, EntityType};
 
-pub mod component;
 mod mem;
+pub mod system;
 
 pub struct ECS {
     pub(crate) storage: Arc<DangerousCell<ComponentStorage>>,
@@ -50,7 +50,8 @@ impl<C> Entity<C> {
 }
 
 macro_rules! impl_entity_tuples {
-    () => {};
+    ($first:ident) => {};
+
     ($first:ident $($rest:ident)*) => {
         impl_entity_tuples!($($rest)*);
 
@@ -90,3 +91,29 @@ macro_rules! impl_entity_tuples {
 }
 
 impl_entity_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15);
+
+impl<C: Sized + Default + 'static> Entity<(C,)> {
+    pub fn new(storage: Arc<DangerousCell<ComponentStorage>>) -> Self {
+        let mut this = Self::new_internal(storage);
+
+        #[allow(non_snake_case)]
+        let (c) = (C::default());
+
+        this.storage.get_mut().set_component(this.ty, c);
+
+        this
+    }
+}
+
+impl<C: Sized + Clone + Default + 'static> Clone for Entity<(C,)> {
+    fn clone(&self) -> Self {
+        let component = self.get_component::<C>().unwrap();
+
+        let mut new = Self::new(self.storage.clone());
+
+        let mut new_component = new.get_component_mut::<C>().unwrap();
+        *new_component = component.clone();
+
+        new
+    }
+}

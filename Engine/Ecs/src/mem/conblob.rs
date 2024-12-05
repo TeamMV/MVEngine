@@ -71,4 +71,32 @@ impl ContinuousBlob {
         }
         None
     }
+
+    pub fn get_all<T: Sized + 'static>(&self) -> Vec<&T> {
+        let mut out = Vec::with_capacity(self.len);
+        unsafe {
+            for i in 0..self.len {
+                let added = self.data.add(i * self.layout.size());
+                let typed = added as *mut T;
+                if typed.as_ref().is_some() {
+                    out.push(typed.as_ref().unwrap());
+                }
+            }
+        }
+        out
+    }
+
+    pub fn get_all_mut<T: Sized + 'static>(&mut self) -> Vec<&mut T> {
+        let mut out = Vec::with_capacity(self.len);
+        unsafe {
+            for i in 0..self.len {
+                let added = self.data.add(i * self.layout.size());
+                let typed = added as *mut T;
+                if typed.as_mut().is_some() {
+                    out.push(typed.as_mut().unwrap());
+                }
+            }
+        }
+        out
+    }
 }

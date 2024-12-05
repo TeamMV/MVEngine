@@ -49,4 +49,20 @@ impl ComponentStorage {
             self.entity_components.insert(entity, idx);
         }
     }
+
+    pub fn get_all_components<T: Sized + 'static>(&self) -> Option<Vec<&T>> {
+        if let Some(blob) = self.components.get(&TypeId::of::<T>()) {
+            let f = blob.get_all::<T>();
+            return Some(f);
+        }
+        None
+    }
+
+    pub fn get_all_components_mut<T: Sized + 'static>(&mut self) -> Option<Vec<&mut T>> {
+        if let Some(blob) = self.components.get_mut(&TypeId::of::<T>()) {
+            let f = blob.get_all_mut::<T>();
+            return Some(f);
+        }
+        None
+    }
 }
