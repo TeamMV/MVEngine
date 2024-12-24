@@ -1,48 +1,8 @@
-use std::iter::Zip;
-use crate::mem::storage::ComponentStorage;
+use crate::mem::storage::{ComponentStorage, EntityType};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::marker::PhantomData;
+use std::mem;
 use std::sync::Arc;
-
-pub struct Components<T: Sized + 'static> {
-    data: Option<Vec<&'static T>>,
-    index: usize,
-}
-
-pub struct ComponentsMut<T: Sized + 'static> {
-    data: Option<Vec<&'static mut T>>,
-    index: usize,
-}
-
-impl<T: Sized + 'static> Iterator for Components<T> {
-    type Item = &'static T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ref data) = self.data {
-            if self.index < data.len() {
-                let item = data[self.index];
-                self.index += 1;
-                return Some(item);
-            }
-        }
-        None
-    }
-}
-
-impl<T: Sized + 'static> Iterator for ComponentsMut<T> {
-    type Item = &'static mut T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ref mut data) = self.data {
-            if self.index < data.len() {
-                let item = unsafe { &mut *(&mut *data[self.index] as *mut T) };
-                self.index += 1;
-                return Some(item);
-            }
-        }
-        None
-    }
-}
 
 pub struct System<C> {
     phantom: PhantomData<C>,
@@ -56,170 +16,152 @@ impl<C> System<C> {
             storage,
         }
     }
+}
 
-    fn iter_single<T: Sized + 'static>(&self) -> Components<T> {
-        let tmp: Arc<DangerousCell<ComponentStorage>> = self.storage.clone();
-        let st = unsafe {
-            Unsafe::cast_static(tmp.get())
-        };
-        let fetched: Option<Vec<&T>> = st.get_all_components::<T>();
+pub struct Components<'a, C> {
+    phantom: PhantomData<&'a C>,
+    data: Vec<(EntityType, &'a C)>,
+    index: usize,
+}
+
+pub struct ComponentsMut<'a, C> {
+    phantom: PhantomData<&'a mut C>,
+    data: Vec<(EntityType, &'a mut C)>,
+    index: usize,
+}
+
+impl<'a, C> Iterator for Components<'a, C> {
+    type Item = (EntityType, &'a C);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.data.len() {
+            let (entity, component) = &self.data[self.index];
+            self.index += 1;
+            Some((*entity, component))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, C> Iterator for ComponentsMut<'a, C> {
+    type Item = (EntityType, &'a mut C);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.data.len() {
+            let (entity, component) = &mut self.data[self.index];
+            self.index += 1;
+            unsafe { Some((*entity, mem::transmute::<_, &'a mut C>(component))) }
+        } else {
+            None
+        }
+    }
+}
+
+impl<C: Sized + 'static> System<(C,)> {
+    pub fn iter(&self) -> Components<'_, C> {
+        let data = self.storage.get().get_components1::<C>().unwrap_or_default();
         Components {
-            data: fetched,
+            data,
             index: 0,
+            phantom: PhantomData,
         }
     }
 
-    fn iter_mut_single<T: Sized + 'static>(&mut self) -> ComponentsMut<T> {
-        let tmp: Arc<DangerousCell<ComponentStorage>> = self.storage.clone();
-        let st = unsafe {
-            Unsafe::cast_mut_static(tmp.get_mut())
-        };
-        let fetched: Option<Vec<&mut T>> = st.get_all_components_mut::<T>();
+    pub fn iter_mut(&mut self) -> ComponentsMut<'_, C> {
+        let data = self.storage.get_mut().get_components1_mut::<C>().unwrap_or_default();
         ComponentsMut {
-            data: fetched,
+            data,
             index: 0,
+            phantom: PhantomData,
         }
     }
 }
 
 macro_rules! impl_system_tuples {
-    ($first:ident=$struct_name:ident=$struct_name_mut:ident) => {};
-
-
-    ($first:ident=$struct_name:ident=$struct_name_mut:ident $($rest:ident=$rest_struct_name:ident=$rest_struct_name_mut:ident)*) => {
-        impl_system_tuples!($($rest=$rest_struct_name=$rest_struct_name_mut)*);
-
-        pub struct $struct_name<$first: Sized + 'static, $($rest: Sized + 'static),*> {
-            $first: Components<$first>,
-            $(
-                $rest: Components<$rest>,
-            )*
+    ($($name:ident)*, $method:ident, $method_mut:ident, $iterator:ident, $iterator_mut:ident) => {
+        pub struct $iterator<'a, $($name: Sized + 'static),*> {
+            data: Vec<(EntityType, $(&'a $name),*)>,
+            index: usize,
+            _marker: PhantomData<&'a ($($name),*)>,
         }
 
-        pub struct $struct_name_mut<$first: Sized + 'static, $($rest: Sized + 'static),*> {
-            $first: ComponentsMut<$first>,
-            $(
-                $rest: ComponentsMut<$rest>,
-            )*
+        pub struct $iterator_mut<'a, $($name: Sized + 'static),*> {
+            data: Vec<(EntityType, $(&'a mut $name),*)>,
+            index: usize,
+            _marker: PhantomData<&'a mut ($($name),*)>,
         }
 
-        impl<$first: Sized + 'static, $($rest: Sized + 'static),*> Iterator for $struct_name<$first, $($rest),*> {
-            type Item = (&'static $first, $(&'static $rest),*);
+        impl<'a, $($name: Sized + 'static),*> Iterator for $iterator<'a, $($name),*> {
+            type Item = (EntityType, $(&'a $name),*);
 
             fn next(&mut self) -> Option<Self::Item> {
-                let $first = self.$first.next();
-                $(
-                    let $rest = self.$rest.next();
-                )*
-                if $first.is_none() { return None; }
-
-                Some(
-                    ($first.unwrap(), $($rest.unwrap()),*)
-                )
+                if self.index < self.data.len() {
+                    let (entity, $($name),*) = &self.data[self.index];
+                    self.index += 1;
+                    Some((*entity, $($name),*))
+                } else {
+                    None
+                }
             }
         }
 
-        impl<$first: Sized + 'static, $($rest: Sized + 'static),*> Iterator for $struct_name_mut<$first, $($rest),*> {
-            type Item = (&'static mut $first, $(&'static mut $rest),*);
+        impl<'a, $($name: Sized + 'static),*> Iterator for $iterator_mut<'a, $($name),*> {
+            type Item = (EntityType, $(&'a mut $name),*);
 
             fn next(&mut self) -> Option<Self::Item> {
-                let $first = self.$first.next();
-                $(
-                    let $rest = self.$rest.next();
-                )*
-                if $first.is_none() { return None; }
-
-                Some(
-                    ($first.unwrap(), $($rest.unwrap()),*)
-                )
+                if self.index < self.data.len() {
+                    let (entity, $($name),*) = &mut self.data[self.index];
+                    self.index += 1;
+                    unsafe { Some((*entity, $(mem::transmute::<_, &mut $name>($name)),*)) }
+                } else {
+                    None
+                }
             }
         }
 
-        impl<$first: Sized + 'static, $($rest: Sized + 'static),*> System<($first, $($rest),*)> {
-            pub fn iter(&self) -> $struct_name<$first, $($rest),*> {
-                $struct_name {
-                    $first: self.iter_single::<$first>(),
-                    $(
-                        $rest: self.iter_single::<$rest>(),
-                    )*
+        impl<$($name: Sized + 'static),*> System<($($name),*)> {
+            pub fn iter(&self) -> $iterator<'_, $($name),*> {
+                let data = self
+                    .storage
+                    .get()
+                    .$method::<$($name),*>()
+                    .unwrap_or_default();
+                $iterator {
+                    data,
+                    index: 0,
+                    _marker: PhantomData,
                 }
             }
 
-            pub fn iter_mut(&mut self) -> $struct_name_mut<$first, $($rest),*> {
-                $struct_name_mut {
-                    $first: self.iter_mut_single::<$first>(),
-                    $(
-                        $rest: self.iter_mut_single::<$rest>(),
-                    )*
+            pub fn iter_mut(&mut self) -> $iterator_mut<'_, $($name),*> {
+                let data = self
+                    .storage
+                    .get_mut()
+                    .$method_mut::<$($name),*>()
+                    .unwrap_or_default();
+                $iterator_mut {
+                    data,
+                    index: 0,
+                    _marker: PhantomData,
                 }
             }
         }
     };
 }
 
-impl_system_tuples!(
-    C15=Components15=ComponentsMut15
-    C14=Components14=ComponentsMut14
-    C13=Components13=ComponentsMut13
-    C12=Components12=ComponentsMut12
-    C11=Components11=ComponentsMut11
-    C10=Components10=ComponentsMut10
-    C9=Components9=ComponentsMut9
-    C8=Components8=ComponentsMut8
-    C7=Components7=ComponentsMut7
-    C6=Components6=ComponentsMut6
-    C5=Components5=ComponentsMut5
-    C4=Components4=ComponentsMut4
-    C3=Components3=ComponentsMut3
-    C2=Components2=ComponentsMut2
-    C1=Components1=ComponentsMut1
-);
-
-pub struct Components1<C1: Sized + 'static> {
-    C1: Components<C1>,
-}
-
-pub struct ComponentsMut1<C1: Sized + 'static> {
-    C1: ComponentsMut<C1>,
-}
-
-impl<C1: Sized + 'static> Iterator for Components1<C1> {
-    type Item = (&'static C1);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let C1 = self.C1.next();
-        if C1.is_none() { return None; }
-
-        Some(
-            (C1.unwrap())
-        )
-    }
-}
-impl<C1: Sized + 'static> Iterator for ComponentsMut1
-<C1> {
-    type Item = (&'static mut C1);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let C1 = self.C1.next();
-        if C1.is_none() { return None; }
-
-        Some(
-            (C1.unwrap())
-        )
-    }
-}
-impl<C1: Sized + 'static> System<(C1,)> {
-    pub fn iter(&self) -> Components1<C1> {
-        Components1 {
-            C1: self.iter_single::<C1>(),
-        }
-    }
-
-    pub fn iter_mut(&mut self) -> ComponentsMut1
-    <C1> {
-        ComponentsMut1
-        {
-            C1: self.iter_mut_single::<C1>(),
-        }
-    }
-}
+//impl_system_tuples!(C1, get_components1, get_components1_mut, Components1, Components1Mut);
+impl_system_tuples!(C1 C2, get_components2, get_components2_mut, Components2, Components2Mut);
+impl_system_tuples!(C1 C2 C3, get_components3, get_components3_mut, Components3, Components3Mut);
+impl_system_tuples!(C1 C2 C3 C4, get_components4, get_components4_mut, Components4, Components4Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5, get_components5, get_components5_mut, Components5, Components5Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6, get_components6, get_components6_mut, Components6, Components6Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7, get_components7, get_components7_mut, Components7, Components7Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8, get_components8, get_components8_mut, Components8, Components8Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9, get_components9, get_components9_mut, Components9, Components9Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10, get_components10, get_components10_mut, Components10, Components10Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11, get_components11, get_components11_mut, Components11, Components11Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12, get_components12, get_components12_mut, Components12, Components12Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13, get_components13, get_components13_mut, Components13, Components13Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14, get_components14, get_components14_mut, Components14, Components14Mut);
+impl_system_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15, get_components15, get_components15_mut, Components15, Components15Mut);

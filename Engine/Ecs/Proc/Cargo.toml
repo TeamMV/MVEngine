@@ -1,0 +1,25 @@
+[package]
+name = "mvengine-ecs-proc-macro"
+version = "1.0.0"
+edition = "2021"
+license-file = "LICENSE"
+rust-version = "1.75.0"
+authors = [
+    "Julian Hohenhausen"
+]
+repository = "https://github.com/TeamMV/MVEngine"
+keywords = [
+    "ecs",
+    "mvteam",
+    "mvengine"
+]
+description = "Procedural macros for MVEngine Ecs"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.29"
+syn = { version = "2.0.22", features = ["full"] }
+proc-macro2 = "1.0"
+mvutils.workspace = true

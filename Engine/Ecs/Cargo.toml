@@ -10,6 +10,7 @@ harness = false
 
 [dependencies]
 mvcore = { path = "../../Core" }
+ecsproc = { path = "Proc", package = "mvengine-ecs-proc-macro" }
 mvutils.workspace = true
 mvlogger.workspace = true
 hashbrown.workspace = true

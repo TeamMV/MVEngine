@@ -23,12 +23,13 @@ fn main() {
     let health2 = player2.get_component_mut::<Health>().unwrap();
     health2.health = 5f32;
 
-    let mut block = Entity::<(Transform,)>::new(ecs.storage());
+    let mut block1 = Entity::<(Transform,)>::new(ecs.storage());
+    let trns1 = block1.get_component_mut::<Transform>().unwrap();
+    trns1.pos = Vec3::splat(1.0);
 
-    println!("Health2: {}", health2.health);
 
     let my_system = System::<(Transform, Health)>::new(ecs.storage());
-    for (trans, health) in my_system.iter() {
-        println!("Health component: {} - Transform component: {:?}", health.health, trans.pos);
+    for (en, transform, health) in my_system.iter() {
+        println!("entity: {en}: trns: {:?}, health: {}", transform.pos, health.health);
     }
 }
