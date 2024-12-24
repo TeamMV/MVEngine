@@ -5,8 +5,8 @@ use std::alloc::Layout;
 use std::any::TypeId;
 use mvutils::unsafe_utils::Unsafe;
 use ecsproc::generate_get_components;
+use crate::entity::EntityType;
 
-pub(crate) type EntityType = u64;
 pub(crate) type ComponentIdx = u64;
 
 pub struct ComponentStorage {

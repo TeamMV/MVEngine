@@ -1,16 +1,15 @@
-use crate::mem::storage::{ComponentStorage, EntityType};
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use crate::EcsStorage;
 use std::marker::PhantomData;
 use std::mem;
-use std::sync::Arc;
+use crate::entity::EntityType;
 
 pub struct System<C> {
     phantom: PhantomData<C>,
-    storage: Arc<DangerousCell<ComponentStorage>>,
+    storage: EcsStorage,
 }
 
 impl<C> System<C> {
-    pub fn new(storage: Arc<DangerousCell<ComponentStorage>>) -> Self {
+    pub fn new(storage: EcsStorage) -> Self {
         Self {
             phantom: PhantomData::default(),
             storage,
