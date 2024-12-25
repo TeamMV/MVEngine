@@ -10,13 +10,24 @@ use crate::mem::storage::ComponentStorage;
 pub type EntityType = u64;
 
 pub trait EntityBehavior {
-    fn new(storage: EcsStorage) -> Self;
+    fn new(storage: EcsStorage) -> Self where Self: Sized;
     fn start(&mut self, entity: EntityType);
     fn update(&mut self, entity: EntityType);
 }
 
 #[derive(Clone)]
 pub struct NoBehavior;
+
+impl EntityBehavior for NoBehavior {
+    fn new(storage: EcsStorage) -> Self
+    where
+        Self: Sized
+    { Self {} }
+
+    fn start(&mut self, entity: EntityType) {}
+
+    fn update(&mut self, entity: EntityType) {}
+}
 
 #[derive(Clone)]
 pub struct LocalComponent<C: Sized + 'static> {
@@ -30,7 +41,7 @@ impl<C: Sized + 'static> LocalComponent<C> {
     }
 
     pub fn aquire(&mut self, entity: EntityType) {
-        let c = self.storage.get().get_component::<C>(entity).expect("Entity does not have component X!");
+        let c = self.storage.get().get_component::<C>(entity).expect("Entity does not have component X, but it was aquired from LocalComponent!");
         unsafe { self.component = Some(Unsafe::cast_static(c)) }
     }
 }
@@ -49,13 +60,11 @@ impl<C> DerefMut for LocalComponent<C> {
     }
 }
 
-pub type StaticEntity<C> = Entity<NoBehavior, C>;
-
 pub struct Entity<B, C> {
     phantom: PhantomData<C>,
-    ty: EntityType,
+    pub(crate) ty: EntityType,
     storage: EcsStorage,
-    behavior: Option<B>
+    pub(crate) behavior: Option<B>
 }
 
 impl<B, C> Entity<B, C> {
@@ -91,16 +100,13 @@ impl<B: EntityBehavior, C> Entity<B, C> {
             behavior.update(self.ty);
         }
     }
-}
 
-impl<C> Entity<NoBehavior, C> {
-    fn new_internal(storage: EcsStorage, behavior: Option<NoBehavior>) -> Self {
-        Self {
-            phantom: PhantomData::default(),
-            ty: utils::next_id("MVEngine::ecs::entity"),
-            storage,
-            behavior,
-        }
+    pub fn get_behavior(&self) -> &B {
+        self.behavior.as_ref().unwrap()
+    }
+
+    pub fn get_behavior_mut(&mut self) -> &mut B {
+        &mut *self.behavior.as_mut().unwrap()
     }
 }
 
@@ -124,40 +130,7 @@ macro_rules! impl_entity_tuples {
             }
         }
 
-        impl<$first: Sized + Default + 'static, $($rest: Sized + Default + 'static),*> Entity<NoBehavior, ($first, $($rest),*)> {
-            pub fn new(storage: EcsStorage) -> Self {
-                let mut this = Self::new_internal(storage, None);
-
-                #[allow(non_snake_case)]
-                let ($first, $($rest),*) = ($first::default(), $($rest::default()),*);
-
-                this.storage.get_mut().set_component(this.ty, $first);
-                $( this.storage.get_mut().set_component(this.ty, $rest); )*
-
-                this
-            }
-        }
-
         impl<B: EntityBehavior + Clone, $first: Sized + Default + 'static + Clone, $($rest: Sized + Default + 'static + Clone),*> Clone for Entity<B, ($first, $($rest),*)> {
-            fn clone(&self) -> Self {
-                let component = self.get_component::<$first>().unwrap();
-
-                let mut new = Self::new(self.storage.clone());
-
-                let mut new_component = new.get_component_mut::<$first>().unwrap();
-                component.clone_into(&mut new_component);
-
-                $(
-                    let mut component = self.get_component::<$rest>().unwrap();
-                    let mut new_component = new.get_component_mut::<$rest>().unwrap();
-                    component.clone_into(&mut new_component);
-                )*
-
-                new
-            }
-        }
-
-        impl<$first: Sized + Default + 'static + Clone, $($rest: Sized + Default + 'static + Clone),*> Clone for Entity<NoBehavior, ($first, $($rest),*)> {
             fn clone(&self) -> Self {
                 let component = self.get_component::<$first>().unwrap();
 
@@ -193,33 +166,7 @@ impl<B: EntityBehavior, C: Sized + Default + 'static> Entity<B, (C,)> {
     }
 }
 
-impl<C: Sized + Default + 'static> Entity<NoBehavior, (C,)> {
-    pub fn new(storage: EcsStorage) -> Self {
-        let mut this = Self::new_internal(storage, None);
-
-        #[allow(non_snake_case)]
-        let (c) = (C::default());
-
-        this.storage.get_mut().set_component(this.ty, c);
-
-        this
-    }
-}
-
 impl<B: EntityBehavior + Clone, C: Sized + Clone + Default + 'static> Clone for Entity<B, (C,)> {
-    fn clone(&self) -> Self {
-        let component = self.get_component::<C>().unwrap();
-
-        let mut new = Self::new(self.storage.clone());
-
-        let mut new_component = new.get_component_mut::<C>().unwrap();
-        *new_component = component.clone();
-
-        new
-    }
-}
-
-impl<C: Sized + Clone + Default + 'static> Clone for Entity<NoBehavior, (C,)> {
     fn clone(&self) -> Self {
         let component = self.get_component::<C>().unwrap();
 

@@ -1,7 +1,6 @@
-use mvutils::unsafe_utils::UnsafeRef;
 use mvcore::math::vec::Vec3;
+use mvengine_ecs::entity::{Entity, EntityBehavior, EntityType, LocalComponent};
 use mvengine_ecs::{EcsStorage, ECS};
-use mvengine_ecs::entity::{Entity, EntityBehavior, EntityType, LocalComponent, NoBehavior, StaticEntity};
 use mvengine_ecs::system::System;
 
 #[derive(Default, Clone)]
@@ -31,6 +30,7 @@ impl EntityBehavior for PlayerBehavior {
     fn start(&mut self, entity: EntityType) {
         self.health.aquire(entity);
         self.transform.aquire(entity);
+        println!("Starting...");
     }
 
     fn update(&mut self, entity: EntityType) {
@@ -39,17 +39,17 @@ impl EntityBehavior for PlayerBehavior {
 }
 
 fn main() {
-    let ecs = ECS::new();
+    let mut ecs = ECS::new();
+    let world = ecs.world_mut();
+    world.create_entity(|s| Entity::<PlayerBehavior, (Health, Transform)>::new(s));
+    world.start();
 
-    let mut player1 = Entity::<PlayerBehavior, (Health, Transform)>::new(ecs.storage());
-    let mut player2 = player1.clone();
-    let mut block1 = StaticEntity::<(Transform,)>::new(ecs.storage());
+    for _ in 0..5 {
+        world.update();
+    }
 
-    player1.start();
-    player1.update();
-
-    let my_system = System::<(Transform, Health)>::new(ecs.storage());
-    for (en, transform, health) in my_system.iter() {
-        println!("entity: {en}: trns: {:?}, health: {}", transform.pos, health.health);
+    let system = System::<(Health,)>::new(ecs.storage());
+    for (en, health) in system.iter() {
+        println!("Entity: {en}: health: {}", health.health);
     }
 }

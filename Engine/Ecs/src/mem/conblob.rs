@@ -1,5 +1,7 @@
 use std::alloc::Layout;
+use std::mem;
 use std::ops::Index;
+use std::ptr::Pointee;
 use hashbrown::Equivalent;
 
 pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
@@ -95,6 +97,19 @@ impl ContinuousBlob {
                 if typed.as_mut().is_some() {
                     out.push(typed.as_mut().unwrap());
                 }
+            }
+        }
+        out
+    }
+
+    pub fn get_all_traits_mut<T: ?Sized>(&mut self, meta: &<T as Pointee>::Metadata) -> Vec<&mut T> {
+        let mut out = Vec::with_capacity(self.len);
+        unsafe {
+            for i in 0..self.len {
+                let added = self.data.add(i * self.layout.size()).as_mut().unwrap();
+                let typed = std::ptr::from_raw_parts_mut(added, *meta) as *mut T;
+                //let typed: &mut T = mem::transmute::<&mut u8, &mut T>(added);
+                out.push(typed.as_mut().unwrap());
             }
         }
         out
