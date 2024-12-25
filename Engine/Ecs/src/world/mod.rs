@@ -26,17 +26,6 @@ impl World {
         }
     }
 
-    pub fn start(&mut self) {
-        for (behavior_blob, meta) in self.behaviors.values_mut() {
-            let mut behaviors = behavior_blob.get_all_traits_mut::<dyn EntityBehavior>(meta);
-            for (idx, behavior) in behaviors.iter_mut().enumerate() {
-                if let Some(en_ty) = self.behavior_indices_rev.get(&(idx as u64)) {
-                    behavior.start(*en_ty);
-                }
-            }
-        }
-    }
-
     pub fn update(&mut self) {
         for (behavior_blob, meta) in self.behaviors.values_mut() {
             let mut behaviors = behavior_blob.get_all_traits_mut::<dyn EntityBehavior>(meta);
@@ -54,7 +43,7 @@ impl World {
         let entity_ty = entity.ty;
         let b = entity.behavior;
         if b.is_some() {
-            let b = b.unwrap();
+            let mut b = b.unwrap();
             let idx = if let Some((cb, _)) = self.behaviors.get_mut(&type_id) {
                 cb.push_next(b)?
             } else {
@@ -64,8 +53,10 @@ impl World {
                 self.behaviors.insert(type_id, (cb, meta));
                 idx
             };
+            let br = self.behaviors.get_mut(&type_id).unwrap().0.get_mut::<B>(idx).unwrap();
             self.behavior_indices.insert(entity_ty, idx);
             self.behavior_indices_rev.insert(idx as u64, entity_ty);
+            br.start(entity_ty);
         }
 
         Some(())

@@ -42,7 +42,6 @@ fn main() {
     let mut ecs = ECS::new();
     let world = ecs.world_mut();
     world.create_entity(|s| Entity::<PlayerBehavior, (Health, Transform)>::new(s));
-    world.start();
 
     for _ in 0..5 {
         world.update();
