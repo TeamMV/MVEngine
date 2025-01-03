@@ -82,7 +82,7 @@ impl ApplicationLoopCallbacks for AppLoop {
             0,
         )));
 
-        let manager = AssetManager::new(device.clone(), 1);
+        let manager = AssetManager::new(device.clone(), 1, 1);
 
         let handle = manager.create_asset("texture.png", AssetType::Texture);
         let atlas_handle = manager.create_asset("atlas.png", AssetType::Texture);
@@ -151,7 +151,13 @@ impl ApplicationLoopCallbacks for AppLoop {
         }
     }
 
-    fn draw(&mut self, window: &mut Window, delta_t: f64) {
+    fn update(&mut self, _window: &mut Window, _delta_t: f64) {
+
+    }
+
+    fn draw(&mut self, _window: &mut Window, delta_t: f64) {
+        self.manager.poll_queue(0);
+
         self.timer += delta_t as f32;
         self.quad_rotation += delta_t as f32 * 90.0;
 

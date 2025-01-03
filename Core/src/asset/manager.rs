@@ -1,11 +1,14 @@
-use ahash::AHasher;
+use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::task::Wake;
 use std::thread::JoinHandle;
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use hashbrown::HashMap;
+use mvsync::block::Signal;
 use mvutils::hashers::U64IdentityHasher;
 use parking_lot::{Mutex, RwLock};
 
@@ -13,37 +16,44 @@ use crate::asset::asset::{Asset, AssetType, InnerAsset};
 use crate::asset::importer::AssetLoader;
 use crate::render::backend::device::Device;
 
+pub type AssetCallback = Arc<dyn Fn(AssetHandle, u32)>;
+
+struct AssetHandleInner {
+    path: String,
+    counter: Mutex<AtomicU64>,
+    progress: AtomicBool,
+}
+
 #[derive(Clone)]
 pub struct AssetHandle {
     manager: Arc<AssetManager>,
-    path: Arc<String>,
+    signal: Arc<Signal>,
+    inner: Arc<AssetHandleInner>,
     handle: u64,
     global: bool,
-    counter: Arc<Mutex<AtomicU64>>,
 }
 
 impl AssetHandle {
-    pub fn load(&self) {
-        if self.global {
-            return;
-        }
-        if self.counter.lock().fetch_add(1, Ordering::AcqRel) == 0 {
-            self.manager.push(AssetTask::Load(self.clone()));
-        }
-    }
-
-    pub fn unload(&self) {
-        if self.global {
-            return;
-        }
-        if self.counter.lock().fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.manager.push(AssetTask::Unload(self.clone()));
+    pub fn load<F: Fn(AssetHandle, u32) + 'static>(&self, callback: F) {
+        if self.global { return; }
+        if self.inner.counter.lock().fetch_add(1, Ordering::AcqRel) == 0 {
+            self.inner.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Load(self.clone(), Arc::new(callback)));
         }
     }
 
-    pub fn reload(&self) {
-        if self.counter.lock().load(Ordering::Acquire) > 0 {
-            self.manager.push(AssetTask::Load(self.clone()));
+    pub fn unload<F: Fn(AssetHandle, u32) + 'static>(&self, callback: F) {
+        if self.global { return; }
+        if self.inner.counter.lock().fetch_sub(1, Ordering::AcqRel) == 1 {
+            self.inner.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Unload(self.clone(), Arc::new(callback)));
+        }
+    }
+
+    pub fn reload<F: Fn(AssetHandle, u32) + 'static>(&self, callback: F) {
+        if self.inner.counter.lock().load(Ordering::Acquire) > 0 {
+            self.inner.progress.store(true, Ordering::Release);
+            self.manager.push(AssetTask::Load(self.clone(), Arc::new(callback)));
         }
     }
 
@@ -55,6 +65,16 @@ impl AssetHandle {
         self.global || self.manager.is_asset_loaded(self)
     }
 
+    pub fn wait(&self) {
+        while !self.signal.ready() && self.inner.progress.load(Ordering::Acquire) {
+            self.signal.wait();
+        }
+    }
+
+    pub async fn wait_async(&self) {
+        self.signal.wait_async().await
+    }
+
     pub fn get(&self) -> Arc<Asset> {
         self.manager.get(self)
     }
@@ -64,13 +84,13 @@ impl AssetHandle {
     }
 
     pub fn get_path(&self) -> &str {
-        &self.path
+        &self.inner.path
     }
 }
 
 impl PartialEq for AssetHandle {
     fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
+        self.inner.path == other.inner.path
     }
 }
 
@@ -82,59 +102,92 @@ impl Hash for AssetHandle {
     }
 }
 
+unsafe impl Send for AssetHandle {}
+unsafe impl Sync for AssetHandle {}
+
 pub struct AssetManager {
     asset_map: RwLock<HashMap<AssetHandle, Arc<Asset>, U64IdentityHasher>>,
     threads: Vec<(JoinHandle<()>, Sender<AssetTask>)>,
     index: AtomicU64,
     queued: Arc<AtomicU64>,
     loader: AssetLoader,
+    queue: Arc<Mutex<Vec<VecDeque<(AssetCallback, AssetHandle)>>>>,
 }
 
 impl AssetManager {
-    pub fn new(device: Device, thread_count: u64) -> Arc<Self> {
+    pub fn new(device: Device, thread_count: u64, queue_count: u32) -> Arc<Self> {
         assert!(thread_count > 0, "Asset manager thread count cannot be 0!");
-        let mut threads = Vec::with_capacity(thread_count as usize);
         let queued = Arc::new(AtomicU64::new(0));
+
+        let mut queues = Vec::with_capacity(queue_count as usize);
+        for i in 0..queue_count {
+            queues.push(VecDeque::new())
+        }
+
+        let queue = Arc::new(Mutex::new(queues));
+
+        let manager = Arc::new(Self {
+            asset_map: RwLock::new(HashMap::with_hasher(U64IdentityHasher::default())),
+            threads: Vec::with_capacity(thread_count as usize),
+            index: AtomicU64::new(0),
+            queued: queued.clone(),
+            loader: AssetLoader::new(device),
+            queue: queue.clone(),
+        });
+
+        #[allow(invalid_reference_casting)]
+        let threads = unsafe { &mut *(&manager.threads as *const _ as *mut Vec<(JoinHandle<()>, Sender<AssetTask>)>) };
+
         for _ in 0..thread_count {
             let (sender, receiver) = unbounded();
             let queued = queued.clone();
-            let thread = std::thread::spawn(|| Self::loader_thread(receiver, queued));
+            let queue = queue.clone();
+            let manager = manager.clone();
+            let thread = std::thread::spawn(move || Self::loader_thread(receiver, manager));
             threads.push((thread, sender));
         }
 
-        Self {
-            asset_map: RwLock::new(HashMap::with_hasher(U64IdentityHasher::default())),
-            threads,
-            index: AtomicU64::new(0),
-            queued,
-            loader: AssetLoader::new(device),
-        }
-        .into()
+        manager
     }
 
     #[allow(invalid_reference_casting)]
-    fn loader_thread(receiver: Receiver<AssetTask>, queued: Arc<AtomicU64>) {
+    fn loader_thread(receiver: Receiver<AssetTask>, manager: Arc<AssetManager>) {
         while let Ok(task) = receiver.recv() {
             match task {
-                AssetTask::Load(handle) => {
+                AssetTask::Load(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.load();
-                    queued.fetch_sub(1, Ordering::AcqRel);
+                    manager.queued.fetch_sub(1, Ordering::AcqRel);
+                    handle.inner.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
+                    for queue in manager.queue.lock().iter_mut() {
+                        queue.push_back((callback.clone(), handle.clone()))
+                    }
                 }
-                AssetTask::Unload(handle) => {
+                AssetTask::Unload(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.unload();
-                    queued.fetch_sub(1, Ordering::AcqRel);
+                    manager.queued.fetch_sub(1, Ordering::AcqRel);
+                    handle.inner.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
+                    for queue in manager.queue.lock().iter_mut() {
+                        queue.push_back((callback.clone(), handle.clone()))
+                    }
                 }
-                AssetTask::Reload(handle) => {
+                AssetTask::Reload(handle, callback) => {
                     let asset = handle.get();
                     unsafe { &mut *(&*asset as *const Asset as *mut Asset) }.reload();
-                    queued.fetch_sub(1, Ordering::AcqRel);
+                    manager.queued.fetch_sub(1, Ordering::AcqRel);
+                    handle.inner.progress.store(false, Ordering::Release);
+                    handle.signal.clone().wake();
+                    for queue in manager.queue.lock().iter_mut() {
+                        queue.push_back((callback.clone(), handle.clone()))
+                    }
                 }
                 AssetTask::Close => {
-                    queued.fetch_sub(1, Ordering::AcqRel);
-                    break;
-                }
+                    manager.queued.fetch_sub(1, Ordering::AcqRel);
+                    break
+                },
             }
         }
     }
@@ -158,10 +211,14 @@ impl AssetManager {
         let handle = hasher.finish();
         let handle = AssetHandle {
             manager: self.clone(),
-            path: Arc::new(path.to_string()),
+            signal: Arc::new(Signal::new()),
+            inner: Arc::new(AssetHandleInner {
+                path: path.to_string(),
+                counter: AtomicU64::new(0).into(),
+                progress: AtomicBool::new(false),
+            }),
             handle,
             global,
-            counter: Arc::new(AtomicU64::new(0).into()),
         };
         let asset = Asset {
             inner: InnerAsset::Unloaded,
@@ -170,7 +227,7 @@ impl AssetManager {
         };
         self.asset_map.write().insert(handle.clone(), asset.into());
         if global {
-            self.push(AssetTask::Load(handle.clone()));
+            self.push(AssetTask::Load(handle.clone(), Arc::new(|_, _| {})));
         }
         handle
     }
@@ -195,7 +252,7 @@ impl AssetManager {
             .unwrap_or_default()
     }
 
-    fn push(&self, task: AssetTask) {
+    fn push(self: &Arc<AssetManager>, task: AssetTask) {
         let index = self.index.load(Ordering::Acquire);
         self.index
             .store((index + 1) % self.threads.len() as u64, Ordering::Release);
@@ -208,10 +265,10 @@ impl AssetManager {
             let (sender, receiver) = unbounded();
             sender.send(task.0).expect("Failed to send upon creation");
             let queued = self.queued.clone();
-            let thread = std::thread::spawn(|| Self::loader_thread(receiver, queued));
-            let _unsafe_mut = unsafe {
-                &mut *(&self.threads as *const _ as *mut Vec<(JoinHandle<()>, Sender<AssetTask>)>)
-            };
+            let queue = self.queue.clone();
+            let manager = self.clone();
+            let thread = std::thread::spawn(|| Self::loader_thread(receiver, manager));
+            let _unsafe_mut = unsafe { &mut *(&self.threads as *const _ as *mut Vec<(JoinHandle<()>, Sender<AssetTask>)>) };
             _unsafe_mut[index as usize] = (thread, sender);
         }
     }
@@ -223,13 +280,40 @@ impl AssetManager {
     pub fn get_loader(&self) -> AssetLoader {
         self.loader.clone()
     }
+
+    pub fn queue_count(&self) -> u32 {
+        self.queue.lock().len() as u32
+    }
+
+    pub fn set_queue_count(&self, queue_count: u32) {
+        let mut queues = self.queue.lock();
+        if queue_count as usize == queues.len() { return; }
+        queues.clear();
+        for i in 0..queue_count {
+            queues.push(VecDeque::new())
+        }
+    }
+
+    pub fn poll_queue(&self, index: u32) {
+        let mut queues = self.queue.lock();
+        if index as usize >= queues.len() { return; }
+        for (task, handle) in queues[index as usize].drain(..) {
+            task(handle, index);
+        }
+    }
 }
 
 impl Drop for AssetManager {
     fn drop(&mut self) {
-        for (handle, _) in self.asset_map.read().iter() {
-            if handle.global || handle.counter.lock().load(Ordering::Acquire) > 0 {
-                self.push(AssetTask::Unload(handle.clone()));
+        for (handle, asset) in self.asset_map.read().iter() {
+            if handle.global || handle.inner.counter.lock().load(Ordering::Acquire) > 0 {
+                let index = self.index.load(Ordering::Acquire);
+                self.index.store((index + 1) % self.threads.len() as u64, Ordering::Release);
+                self.queued.fetch_add(1, Ordering::AcqRel);
+                if let Err(_) = self.threads[index as usize].1.send(AssetTask::Unload(handle.clone(), Arc::new(|_, _| {}))) {
+                    #[allow(invalid_reference_casting)]
+                    unsafe { &mut *(&**asset as *const Asset as *mut Asset) }.unload();
+                }
             }
         }
         for (_, sender) in &self.threads {
@@ -242,11 +326,15 @@ impl Drop for AssetManager {
     }
 }
 
+unsafe impl Send for AssetManager {}
+unsafe impl Sync for AssetManager {}
+
 enum AssetTask {
-    Load(AssetHandle),
-    Unload(AssetHandle),
-    Reload(AssetHandle),
+    Load(AssetHandle, AssetCallback),
+    Unload(AssetHandle, AssetCallback),
+    Reload(AssetHandle, AssetCallback),
     Close,
 }
 
 unsafe impl Send for AssetTask {}
+unsafe impl Sync for AssetTask {}

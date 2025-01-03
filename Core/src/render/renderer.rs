@@ -11,7 +11,6 @@ use crate::render::backend::image::{
 use crate::render::backend::shader::{MVShaderCreateInfo, Shader};
 use crate::render::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, SwapchainError};
 use crate::render::backend::Extent2D;
-use crate::render::texture::Texture;
 use crate::render::window::Window;
 use mvutils::remake::Remake;
 use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};

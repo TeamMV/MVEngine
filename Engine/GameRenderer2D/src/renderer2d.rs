@@ -17,14 +17,14 @@ use mvcore::render::backend::image::{
     MVImageCreateInfo,
 };
 use mvcore::render::backend::pipeline::{
-    AttributeType, Compute, CullMode, Graphics, MVComputePipelineCreateInfo,
+    AttributeType,  CullMode, Graphics,
     MVGraphicsPipelineCreateInfo, Pipeline, Topology,
 };
 use mvcore::render::backend::sampler::{
     Filter, MVSamplerCreateInfo, MipmapMode, Sampler, SamplerAddressMode,
 };
 use mvcore::render::backend::shader::ShaderStage;
-use mvcore::render::backend::{Extent2D, Extent3D};
+use mvcore::render::backend::Extent2D;
 use mvcore::render::camera::OrthographicCamera;
 use mvcore::render::mesh::Mesh;
 use mvcore::render::renderer::Renderer;
