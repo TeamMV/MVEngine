@@ -1,15 +1,15 @@
 use crate::attributes::Attributes;
 use crate::elements::child::Child;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
-use mve2d::renderer2d::GameRenderer2D;
 
 pub struct Blank {
     children: Vec<Child>,
 }
 
 impl UiElementCallbacks for Blank {
-    fn draw(&mut self, _: &mut GameRenderer2D) {}
+    fn draw(&mut self, ctx: &mut DrawContext2D) {}
 }
 
 impl UiElementStub for Blank {

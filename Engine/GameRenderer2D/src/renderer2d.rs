@@ -1,4 +1,4 @@
-use crate::font::{AtlasData, PreparedAtlasData};
+use mvcore::render::font::{AtlasData, PreparedAtlasData};
 use bytebuffer::ByteBuffer;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};

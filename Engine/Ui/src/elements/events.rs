@@ -61,7 +61,7 @@ impl UiEvents {
                         elem,
                         action: UiMoveAction::Moving,
                         pos: Point::new(max, may),
-                        pos_rel: Point::new(max - state.rect.x, may - state.rect.y),
+                        pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                     };
 
                     listener(UiMoveEvent::<'_> { base });
@@ -76,7 +76,7 @@ impl UiEvents {
                                 elem,
                                 action: UiHoverAction::Leave,
                                 pos: Point::new(max, may),
-                                pos_rel: Point::new(max - state.rect.x, may - state.rect.y),
+                                pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                             };
 
                             listener(UiHoverEvent::<'_> { base });
@@ -91,7 +91,7 @@ impl UiEvents {
                                 elem,
                                 action: UiHoverAction::Enter,
                                 pos: Point::new(max, may),
-                                pos_rel: Point::new(max - state.rect.x, may - state.rect.y),
+                                pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                             };
 
                             listener(UiHoverEvent::<'_> { base });
@@ -142,7 +142,7 @@ impl UiEvents {
                                 elem,
                                 action: action.clone(),
                                 pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x, my - state.rect.y),
+                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                             };
 
                             listener(UiScrollEvent::<'_> {
@@ -157,7 +157,7 @@ impl UiEvents {
                                 elem,
                                 action: UiMoveAction::Moving,
                                 pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x, my - state.rect.y),
+                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                             };
 
                             listener(UiMoveEvent::<'_> { base });
@@ -169,7 +169,7 @@ impl UiEvents {
                                 elem,
                                 action: UiClickAction::Click,
                                 pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x, my - state.rect.y),
+                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                             };
 
                             listener(UiClickEvent::<'_> { base, button: b });
@@ -181,7 +181,7 @@ impl UiEvents {
                                 elem,
                                 action: UiClickAction::Release,
                                 pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x, my - state.rect.y),
+                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                             };
 
                             listener(UiClickEvent::<'_> { base, button: b });

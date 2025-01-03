@@ -147,6 +147,31 @@ impl Rect {
         self.origin = origin;
         self.update();
     }
+
+    pub fn add_x(&mut self, x: i32) {
+        self.x += x;
+        self.update();
+    }
+
+    pub fn add_y(&mut self, y: i32) {
+        self.y += y;
+        self.update();
+    }
+
+    pub fn add_width(&mut self, width: i32) {
+        self.width += width;
+        self.update();
+    }
+
+    pub fn add_height(&mut self, height: i32) {
+        self.height += height;
+        self.update();
+    }
+
+    pub fn add_rotation(&mut self, rotation: f32) {
+        self.rotation += rotation;
+        self.update();
+    }
 }
 
 impl Default for Rect {

@@ -131,13 +131,13 @@ impl DrawableCreate for TranslateDrawable {
         let tx = if tx_str.is_none() {
             0
         } else {
-            tx_str.unwrap().parse::<i32>().map_err(ParseIntError::to_string)?
+            tx_str.unwrap().parse::<i32>().map_err(|p| p.to_string())?
         };
         let ty_str = attributes.get("y");
         let ty = if ty_str.is_none() {
             0
         } else {
-            ty_str.unwrap().parse::<i32>().map_err(ParseIntError::to_string)?
+            ty_str.unwrap().parse::<i32>().map_err(|p| p.to_string())?
         };
         Ok(UiDrawable::Translate(TranslateDrawable::new(tx, ty, inner.into_iter().next().unwrap())))
     }

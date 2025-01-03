@@ -10,37 +10,23 @@ pub struct CameraBuffer {
 }
 
 #[repr(C)]
-pub struct Vertex {
-    position: Vec3,
-    rotation: Vec3,
-    origin: Vec3,
-    transform: CanvasTransform,
-    color: Vec4,
-    texture_id: f32,
-    use_cam: f32,
+#[derive(Clone)]
+pub struct Transform {
+    pub translation: Vec2,
+    pub origin: Vec2,
+    pub scale: Vec2,
+    pub rotation: f32,
+    _align: u32,
 }
 
-impl Vertex {
-    pub fn get_attrib_desc() -> Vec<AttributeType> {
-        vec![
-            AttributeType::Float32x3,
-            AttributeType::Float32x3,
-            AttributeType::Float32x3,
-            AttributeType::Float32x3,
-            AttributeType::Float32x3,
-            AttributeType::Float32x2,
-            AttributeType::Float32x3,
-            AttributeType::Float32x4,
-            AttributeType::Float32,
-            AttributeType::Float32,
-        ]
+impl Transform {
+    pub fn new() -> Self {
+        Self {
+            translation: Vec2::default(),
+            origin: Vec2::default(),
+            scale: Vec2::splat(1.0),
+            rotation: 0.0,
+            _align: 0,
+        }
     }
-}
-
-#[repr(C)]
-pub struct CanvasTransform {
-    translation: Vec3,
-    rotation: Vec3,
-    scale: Vec2,
-    origin: Vec3,
 }

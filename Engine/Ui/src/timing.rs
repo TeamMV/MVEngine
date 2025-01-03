@@ -65,11 +65,11 @@ pub struct IterationTask {
     function: Box<dyn FnMut(&mut AnimationState, u32)>,
     state: AnimationState,
     current_iter: u32,
-    limit: u32,
+    limit: i32,
 }
 
 impl IterationTask {
-    pub fn new<F>(limit: u32, function: F, state: AnimationState) -> Self
+    pub fn new<F>(limit: i32, function: F, state: AnimationState) -> Self
     where
         F: FnMut(&mut AnimationState, u32) + 'static,
     {
@@ -84,7 +84,7 @@ impl IterationTask {
 
 impl TimingTask for IterationTask {
     fn is_done(&self) -> bool {
-        self.current_iter >= self.limit
+        self.limit > 0 && self.current_iter as i32 >= self.limit
     }
 
     fn iteration(&mut self, dt: f32, frame: u64) {
@@ -172,12 +172,12 @@ pub struct PeriodicTask {
     state: AnimationState,
     init_time: u128,
     delay: u32,
-    limit: u32,
+    limit: i32,
     current_iter: u32,
 }
 
 impl PeriodicTask {
-    pub fn new<F>(limit: u32, delay_ms: u32, function: F, state: AnimationState) -> Self
+    pub fn new<F>(limit: i32, delay_ms: u32, function: F, state: AnimationState) -> Self
     where
         F: FnMut(&mut AnimationState, u32) + 'static,
     {
@@ -194,7 +194,7 @@ impl PeriodicTask {
 
 impl TimingTask for PeriodicTask {
     fn is_done(&self) -> bool {
-        self.current_iter > self.limit
+        self.limit > 0 && self.current_iter as i32 > self.limit
     }
 
     fn iteration(&mut self, dt: f32, frame: u64) {

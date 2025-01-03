@@ -27,7 +27,6 @@ float median(float r, float g, float b)
 }
 
 void main() {
-
     if (blending < 0.0f)
     {
         // font

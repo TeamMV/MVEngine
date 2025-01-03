@@ -3,7 +3,6 @@ use log::error;
 use crate::drawable::{DrawableCallbacks, DrawableCreate, UiDrawable, UiDrawableTransformations};
 use crate::styles::{Dimension, Location};
 use mvcore::color::{ColorFormat, RgbColor};
-use mve2d::renderer2d::GameRenderer2D;
 use mvutils::utils::{Map, PClamp, Percentage};
 use num_traits::AsPrimitive;
 use crate::elements::UiElementState;

@@ -1,6 +1,6 @@
 use bytebuffer::ByteBuffer;
-use game_renderer_2d::font::{AtlasData, PreparedAtlasData};
-use game_renderer_2d::renderer2d::{GameRenderer2D, SamplerType, Shape};
+use mvcore::render::font::{AtlasData, PreparedAtlasData};
+use mvengine_game_render2d::renderer2d::{GameRenderer2D, SamplerType, Shape};
 use log::LevelFilter;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};

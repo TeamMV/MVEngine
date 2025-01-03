@@ -3,68 +3,68 @@ use mvutils::Savable;
 
 #[derive(Savable, Debug, Default)]
 pub struct AtlasData {
-    pub(crate) atlas: Atlas,
-    pub(crate) metrics: Metrics,
-    pub(crate) glyphs: Vec<Glyph>,
-    pub(crate) kerning: Vec<Kerning>,
+    pub atlas: Atlas,
+    pub metrics: Metrics,
+    pub glyphs: Vec<Glyph>,
+    pub kerning: Vec<Kerning>,
 }
 
 #[derive(Debug)]
 pub struct PreparedAtlasData {
-    pub(crate) atlas: Atlas,
-    pub(crate) metrics: Metrics,
-    pub(crate) glyphs: hashbrown::HashMap<u32, Glyph, U32IdentityHasher>,
-    pub(crate) kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher>,
+    pub atlas: Atlas,
+    pub metrics: Metrics,
+    pub glyphs: hashbrown::HashMap<u32, Glyph, U32IdentityHasher>,
+    pub kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher>,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) struct Atlas {
-    pub(crate) distance_range: f64,
-    pub(crate) distance_range_middle: f64,
-    pub(crate) size: f64,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    pub(crate) y_origin: YOrigin,
+pub struct Atlas {
+    pub distance_range: f64,
+    pub distance_range_middle: f64,
+    pub size: f64,
+    pub width: u32,
+    pub height: u32,
+    pub y_origin: YOrigin,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) enum YOrigin {
+pub enum YOrigin {
     Top,
     #[default]
     Bottom,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) struct Metrics {
-    pub(crate) em_size: f64,
-    pub(crate) line_height: f64,
-    pub(crate) ascender: f64,
-    pub(crate) descender: f64,
-    pub(crate) underline_y: f64,
-    pub(crate) underline_thickness: f64,
+pub struct Metrics {
+    pub em_size: f64,
+    pub line_height: f64,
+    pub ascender: f64,
+    pub descender: f64,
+    pub underline_y: f64,
+    pub underline_thickness: f64,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) struct Glyph {
-    pub(crate) unicode: u32,
-    pub(crate) advance: f64,
-    pub(crate) plane_bounds: Bounds,
-    pub(crate) atlas_bounds: Bounds,
+pub struct Glyph {
+    pub unicode: u32,
+    pub advance: f64,
+    pub plane_bounds: Bounds,
+    pub atlas_bounds: Bounds,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) struct Bounds {
-    pub(crate) left: f64,
-    pub(crate) bottom: f64,
-    pub(crate) right: f64,
-    pub(crate) top: f64,
+pub struct Bounds {
+    pub left: f64,
+    pub bottom: f64,
+    pub right: f64,
+    pub top: f64,
 }
 
 #[derive(Savable, Debug, Default)]
-pub(crate) struct Kerning {
-    pub(crate) first: u32,
-    pub(crate) second: u32,
-    pub(crate) kerning: f64,
+pub struct Kerning {
+    pub first: u32,
+    pub second: u32,
+    pub kerning: f64,
 }
 
 impl Into<PreparedAtlasData> for AtlasData {
@@ -103,11 +103,11 @@ impl Into<PreparedAtlasData> for AtlasData {
 }
 
 impl PreparedAtlasData {
-    pub(crate) fn find_glyph(&self, c: char) -> Option<&Glyph> {
+    pub fn find_glyph(&self, c: char) -> Option<&Glyph> {
         self.glyphs.get(&(c as u32))
     }
 
-    pub(crate) fn get_kerning(&self, first: char, second: char) -> Option<f64> {
+    pub fn get_kerning(&self, first: char, second: char) -> Option<f64> {
         let kernings = self.kerning.get(&(first as u32))?;
         let index = kernings
             .binary_search_by(|(c, _)| c.cmp(&(second as u32)))

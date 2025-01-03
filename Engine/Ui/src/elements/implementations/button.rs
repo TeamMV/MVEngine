@@ -1,6 +1,6 @@
-use mve2d::renderer2d::GameRenderer2D;
 use crate::attributes::Attributes;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
 pub struct Button {
@@ -10,7 +10,7 @@ pub struct Button {
 }
 
 impl UiElementCallbacks for Button {
-    fn draw(&mut self, renderer: &mut GameRenderer2D) {
+    fn draw(&mut self, ctx: &mut DrawContext2D) {
         todo!()
     }
 }

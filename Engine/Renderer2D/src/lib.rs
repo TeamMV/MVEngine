@@ -1,2 +1,2 @@
-mod gpu;
-mod renderer2d;
+pub mod gpu;
+pub mod renderer2d;

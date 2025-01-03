@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use mvcore::ToAD;
 use crate::attributes::Attributes;
 use crate::elements::UiElement;
 use crate::styles::UiStyle;
@@ -71,6 +72,7 @@ impl VComponent {
         if self.subtree.is_some() {
             return;
         }
+
         // TODO: make attributes and style either copy_from(&mut self, &Self), or clone
         // TODO: update styles and attributes, just in case
         self.subtree = Some(Box::new(self.component.generate()))

@@ -21,22 +21,21 @@ use crate::styles::{
 };
 use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use crate::uix::{DynamicUi, UiCompoundElement};
-use mve2d::renderer2d::GameRenderer2D;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use mvutils::ordefault::OrDefault;
 use mvcore::input;
 use mvcore::input::MouseAction;
 use mvcore::input::raw::Input;
 use crate::geometry::Rect;
+use crate::render::ctx::DrawContext2D;
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
-    fn draw(&mut self, renderer: &mut GameRenderer2D);
+    fn draw(&mut self, ctx: &mut DrawContext2D);
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -83,12 +82,12 @@ pub trait UiElementStub: UiElementCallbacks {
 }
 
 pub trait ComputeUiElement {
-    fn compute(&self, renderer: &mut GameRenderer2D, input: &Input);
+    fn compute(&self, input: &Input);
 }
 
 impl ComputeUiElement for Arc<RwLock<UiElement>> {
-    fn compute(&self, renderer: &mut GameRenderer2D, input: &Input) {
-        UiElementState::compute(self.clone(), renderer, input);
+    fn compute(&self, input: &Input) {
+        UiElementState::compute(self.clone(), input);
     }
 }
 
@@ -119,8 +118,8 @@ macro_rules! ui_element_fn {
 }
 
 impl UiElementCallbacks for UiElement {
-    fn draw(&mut self, renderer: &mut GameRenderer2D) {
-        ui_element_fn!(self, draw(renderer))
+    fn draw(&mut self, ctx: &mut DrawContext2D) {
+        ui_element_fn!(self, draw(ctx))
     }
 }
 
@@ -229,7 +228,7 @@ impl UiElementState {
         }
     }
 
-    pub fn compute(elem: Arc<RwLock<UiElement>>, renderer: &mut GameRenderer2D, input: &Input) {
+    pub fn compute(elem: Arc<RwLock<UiElement>>, input: &Input) {
         let mut guard = elem.write();
         guard.state_mut().ctx.dpi = 20.0; //TODO: get dpi from renderer
 
@@ -256,15 +255,15 @@ impl UiElementState {
             ChildAlign::Start
         };
 
-        let width_auto = style.width().is_auto();
-        let height_auto = style.height().is_auto();
+        let width_auto = style.width.is_auto();
+        let height_auto = style.height.is_auto();
 
-        let mut width = if style.width().is_set() {
+        let mut width = if style.width.is_set() {
             resolve!(binding, width)
         } else {
             0
         };
-        let mut height = if style.height().is_set() {
+        let mut height = if style.height.is_set() {
             resolve!(binding, height)
         } else {
             0
@@ -288,7 +287,7 @@ impl UiElementState {
 
                 drop(guard);
 
-                UiElementState::compute(e.clone(), renderer, input);
+                UiElementState::compute(e.clone(), input);
 
                 let mut guard = e.write();
                 let mut stat = guard.state_mut();
@@ -335,22 +334,22 @@ impl UiElementState {
             height = occupied_height;
         };
 
-        width = match &style.width() {
+        width = match &style.width {
             Resolve::UiValue(val) => val
                 .resolve(state.ctx.dpi, state.parent.clone(), |s| {
-                    &s.width().get_value()
+                    &s.width.get_value()
                 })
                 .unwrap_or(width),
-            Resolve::LayoutField(lay) => lay.apply(width, binding, |s| &s.width().get_field()),
+            Resolve::LayoutField(lay) => lay.apply(width, binding, |s| &s.width.get_field()),
         };
 
-        height = match &style.height() {
+        height = match &style.height {
             Resolve::UiValue(val) => val
                 .resolve(state.ctx.dpi, state.parent.clone(), |s| {
-                    &s.height().get_value()
+                    &s.height.get_value()
                 })
                 .unwrap_or(height),
-            Resolve::LayoutField(lay) => lay.apply(height, binding, |s| &s.height().get_field()),
+            Resolve::LayoutField(lay) => lay.apply(height, binding, |s| &s.height.get_field()),
         };
 
         let (scale_x, scale_y) = style.transform.scale.resolve_with_default(
@@ -387,16 +386,16 @@ impl UiElementState {
             Position::Relative
         };
         if matches!(position, Position::Absolute) {
-            if !style.x().is_auto() {
-                let x = if style.x().is_set() {
+            if !style.x.is_auto() {
+                let x = if style.x.is_set() {
                     resolve!(binding, x)
                 } else {
                     0
                 };
                 state.bounding_rect.set_x(origin.get_actual_x(x, state.content_rect.width(), state));
             }
-            if !style.y().is_auto() {
-                let y = if style.y().is_set() {
+            if !style.y.is_auto() {
+                let y = if style.y.is_set() {
                     resolve!(binding, y)
                 } else {
                     0
@@ -408,25 +407,25 @@ impl UiElementState {
         let transform_origin = resolve!(binding, transform.origin);
         match transform_origin {
             Origin::TopLeft => {
-                state.bounding_rect.y() -= state.bounding_rect.height();
+                state.bounding_rect.add_y(-state.bounding_rect.height());
             }
             Origin::BottomLeft => { /*Nothing cuz already right scaling*/ }
             Origin::TopRight => {
-                state.bounding_rect.x() -= state.bounding_rect.width();
-                state.bounding_rect.y() -= state.bounding_rect.height();
+                state.bounding_rect.add_x(-state.bounding_rect.width());
+                state.bounding_rect.add_y(-state.bounding_rect.height());
             }
-            Origin::BottomRight => state.bounding_rect.x() -= state.bounding_rect.width(),
+            Origin::BottomRight => state.bounding_rect.add_x(-state.bounding_rect.width()),
             Origin::Center => {
-                state.bounding_rect.x() -= (state.bounding_rect.width() as f32 * 0.5) as i32;
-                state.bounding_rect.y() -= (state.bounding_rect.height() as f32 * 0.5) as i32;
+                state.bounding_rect.add_x((-state.bounding_rect.width() as f32 * 0.5) as i32);
+                state.bounding_rect.add_y((-state.bounding_rect.height() as f32 * 0.5) as i32);
             }
             Origin::Custom(cx, cy) => {
                 //TODO: test this chatgpt code
                 let dx = cx - state.bounding_rect.x();
                 let dy = cy - state.bounding_rect.y();
 
-                state.bounding_rect.x() -= (dx as f32 * (scale_x - 1.0)) as i32;
-                state.bounding_rect.y() -= (dy as f32 * (scale_y - 1.0)) as i32;
+                state.bounding_rect.add_x(-(dx as f32 * (scale_x - 1.0)) as i32);
+                state.bounding_rect.add_y(-(dy as f32 * (scale_y - 1.0)) as i32);
             }
             Origin::Eval(f) => {
                 let res = f(
@@ -439,8 +438,8 @@ impl UiElementState {
                 let dx = res.0 - state.bounding_rect.x();
                 let dy = res.1 - state.bounding_rect.y();
 
-                state.bounding_rect.x() -= (dx as f32 * (scale_x - 1.0)) as i32;
-                state.bounding_rect.y() -= (dy as f32 * (scale_y - 1.0)) as i32;
+                state.bounding_rect.add_x(-(dx as f32 * (scale_x - 1.0)) as i32);
+                state.bounding_rect.add_y(-(dy as f32 * (scale_y - 1.0)) as i32);
             }
         }
 
@@ -450,8 +449,8 @@ impl UiElementState {
             |s| &s.transform.translate,
             (0, 0),
         );
-        state.bounding_rect.x() += trans_x;
-        state.bounding_rect.y() += trans_y;
+        state.bounding_rect.add_x(trans_x);
+        state.bounding_rect.add_y(trans_y);
 
         state.rect.set_x(state.bounding_rect.x() + margin[2]);
         state.rect.set_y(state.bounding_rect.y() + margin[1]);

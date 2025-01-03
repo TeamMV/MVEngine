@@ -349,4 +349,12 @@ impl Window {
     pub fn set_input_processor(&mut self, processor: fn(InputAction)) {
         self.input_collector.set_custom_processor(processor);
     }
+
+    pub fn fps(&self) -> u32 {
+        (1.0 / self.delta_t) as u32
+    }
+
+    pub fn ups(&self) -> u32 {
+        (1.0 / self.delta_u) as u32
+    }
 }

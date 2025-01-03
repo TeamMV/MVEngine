@@ -1,4 +1,4 @@
-use crate::elements::{UiElement, UiElementStub};
+use crate::elements::{UiElement, UiElementCallbacks, UiElementStub};
 use mvcore::input::raw::Input;
 use mvcore::input::{InputAction, InputProcessor, KeyboardAction, MouseAction};
 use mvutils::once::{CreateOnce, Lazy};
@@ -6,6 +6,7 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Recover;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
+use crate::render::ctx::DrawContext2D;
 
 pub mod anim;
 pub mod attributes;
@@ -20,6 +21,7 @@ pub mod uix;
 pub mod utils;
 pub mod theme;
 pub mod geometry;
+pub mod render;
 
 pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
     Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
@@ -55,6 +57,13 @@ impl Ui {
             let guard2 = elem.read();
             guard1.attributes().id != guard2.attributes().id
         })
+    }
+
+    pub fn draw(&mut self, ctx: &mut DrawContext2D) {
+        for arc in self.root_elems.iter_mut() {
+            let mut guard = arc.write();
+            guard.draw(ctx);
+        }
     }
 
     pub fn input_processor(action: InputAction) {

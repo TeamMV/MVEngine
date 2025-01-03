@@ -1,7 +1,7 @@
 use crate::attributes::Attributes;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
-use mve2d::renderer2d::GameRenderer2D;
 
 pub struct Div {
     attributes: Attributes,
@@ -10,7 +10,7 @@ pub struct Div {
 }
 
 impl UiElementCallbacks for Div {
-    fn draw(&mut self, renderer: &mut GameRenderer2D) {
+    fn draw(&mut self, ctx: &mut DrawContext2D) {
         todo!();
     }
 }
