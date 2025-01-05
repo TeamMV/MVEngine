@@ -1,11 +1,10 @@
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Wake;
 use std::thread::JoinHandle;
-
+use ahash::AHasher;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use hashbrown::HashMap;
 use mvsync::block::Signal;

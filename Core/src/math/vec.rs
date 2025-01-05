@@ -3,7 +3,7 @@ use std::simd::f32x4;
 
 use mvutils::unsafe_utils::Unsafe;
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct Vec2 {
     pub x: f32,
@@ -13,6 +13,10 @@ pub struct Vec2 {
 impl Vec2 {
     pub fn mul_xy(&self, x: f32, y: f32) -> Vec2 {
         Vec2::new(self.x * x, self.y * y)
+    }
+
+    pub fn as_i32_tuple(&self) -> (i32, i32) {
+        (self.x as i32, self.y as i32)
     }
 }
 

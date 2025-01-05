@@ -32,11 +32,13 @@ const INITIAL_BATCH_SIZE: u64 = 1000;
 const BATCH_GROWTH_FACTOR: f64 = 1.6180339887;
 const MAX_BATCH_SIZE: u64 = 1000000;
 
+#[derive(Clone)]
 pub enum SamplerType {
     Linear,
     Nearest,
 }
 
+#[derive(Clone)]
 pub struct InputTriangle {
     pub points: [(i32, i32); 3],
     pub z: f32,
@@ -47,6 +49,15 @@ pub struct InputTriangle {
     pub blending: f32,
     pub colors: [Vec4; 3],
     pub is_font: bool,
+}
+
+impl InputTriangle {
+    pub fn center(&self) -> (i32, i32) {
+        (
+            ((self.points[0].0 + self.points[1].0 + self.points[2].0) as f32 / 3.0) as i32,
+            ((self.points[0].1 + self.points[1].1 + self.points[2].1) as f32 / 3.0) as i32,
+        )
+    }
 }
 
 impl From<InputTriangle> for Triangle {

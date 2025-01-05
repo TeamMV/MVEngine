@@ -149,11 +149,15 @@ impl InputProcessor for InputProcessorImpl {
     fn keyboard_change(&mut self, action: KeyboardAction) {
         let mut input = self.input.get_mut();
         if let KeyboardAction::Press(key) = action {
-            input.keys[key] = true;
-            input.keystates[key] = State::JustPressed;
+            if key > 0 && key < input.keys.len() {
+                input.keys[key] = true;
+                input.keystates[key] = State::JustPressed;
+            }
         }
         if let KeyboardAction::Release(key) = action {
-            input.keystates[key] = State::JustReleased;
+            if key > 0 && key < input.keys.len() {
+                input.keystates[key] = State::JustReleased;
+            }
         }
     }
 

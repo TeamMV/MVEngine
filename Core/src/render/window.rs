@@ -358,4 +358,8 @@ impl Window {
     pub fn ups(&self) -> u32 {
         (1.0 / self.delta_u) as u32
     }
+
+    pub fn center(&self) -> (i32, i32) {
+        ((self.get_extent().width / 2) as i32, (self.get_extent().height / 2) as i32)
+    }
 }

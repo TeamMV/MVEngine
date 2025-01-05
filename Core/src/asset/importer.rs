@@ -1,7 +1,6 @@
 use image::{ColorType, DynamicImage};
 use std::fs::OpenOptions;
 use std::io::Read;
-use image::{ColorType, DynamicImage};
 use crate::asset::manager::AssetHandle;
 
 use crate::render::backend::buffer::MemoryProperties;

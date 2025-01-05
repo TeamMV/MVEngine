@@ -39,6 +39,7 @@ mvcore-proc-macro = { path = "Proc" }
 # mvteam dependencies
 mvutils.workspace = true
 mvlogger.workspace = true
+mvsync.workspace = true
 
 # general dependencies
 bytebuffer.workspace = true

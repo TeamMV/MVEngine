@@ -1,24 +1,33 @@
 pub mod ctx;
+pub mod triangle;
+pub mod rectangle;
+pub mod arc;
+pub mod shapes;
 
 use std::sync::Arc;
 use std::vec::IntoIter;
+use hashbrown::HashMap;
 use itertools::PutBackN;
+use mvutils::hashers::U64IdentityHasher;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::version::Version;
-use mvcore::render::backend::Backend;
+use mvcore::render::backend::{Backend, Extent2D};
 use mvcore::render::backend::device::{Device, Extensions, MVDeviceCreateInfo};
 use mvcore::render::backend::image::{AccessFlags, ImageLayout};
 use mvcore::render::backend::swapchain::SwapchainError;
 use mvcore::render::renderer::Renderer;
+use mvcore::render::texture::Texture;
 use mvcore::render::window::Window;
 use mvcore::ToAD;
-use mve2d::renderer2d::{InputTriangle, Renderer2D};
+use mve2d::renderer2d::{InputTriangle, Renderer2D, SamplerType};
 
 pub struct UiRenderer {
     device: Device,
     core_renderer: Arc<DangerousCell<Renderer>>,
     renderer2d: Arc<DangerousCell<Renderer2D>>,
-    last_z: f32
+    last_z: f32,
+    last_texture: u32,
+    used_textures: HashMap<u64, u32, U64IdentityHasher>
 }
 
 impl UiRenderer {
@@ -43,6 +52,8 @@ impl UiRenderer {
             core_renderer,
             renderer2d,
             last_z: 99.0,
+            last_texture: 0,
+            used_textures: HashMap::with_hasher(U64IdentityHasher::default()),
         }
     }
 
@@ -64,8 +75,22 @@ impl UiRenderer {
         self.renderer2d.get_mut().add_shape(triangle);
     }
 
+    pub fn set_texture(&mut self, texture: Arc<Texture>, sampler: SamplerType) -> u32 {
+        let id = texture.id();
+        if self.used_textures.contains_key(&id) {
+            return *self.used_textures.get(&id).unwrap();
+        }
+        let index = self.last_texture;
+        self.last_texture += 1;
+        self.renderer2d.get_mut().set_texture(index, &texture.image(), sampler);
+        self.used_textures.insert(id, index);
+        index
+    }
+
     pub fn draw(&mut self) -> Result<(), SwapchainError> {
         self.last_z = 99.0;
+        self.last_texture = 0;
+        self.used_textures.clear();
         let renderer2d = self.renderer2d.get_mut();
         let image_index = self.core_renderer.get_mut().begin_frame()?;
         let cmd = self.core_renderer.get_mut().get_current_command_buffer();
@@ -100,6 +125,10 @@ impl UiRenderer {
 
     pub fn get_device(&self) -> Device {
         self.device.clone()
+    }
+
+    pub fn get_extent(&self) -> Extent2D {
+        self.renderer2d.get().get_extent().clone()
     }
 }
 

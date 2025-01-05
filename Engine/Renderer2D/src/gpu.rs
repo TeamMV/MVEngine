@@ -1,4 +1,4 @@
-use mvcore::math::mat::Mat4;
+use mvcore::math::mat::{Mat2, Mat4};
 use mvcore::math::vec::{Vec2, Vec3, Vec4};
 use mvcore::render::backend::pipeline::AttributeType;
 
@@ -28,5 +28,19 @@ impl Transform {
             rotation: 0.0,
             _align: 0,
         }
+    }
+
+    pub fn apply_for_point(&self, point: (i32, i32)) -> (i32, i32) {
+        let translated_x = point.0 as f32 - self.origin.x;
+        let translated_y = point.1 as f32 - self.origin.y;
+        let scaled_x = translated_x * self.scale.x;
+        let scaled_y = translated_y * self.scale.y;
+        let cos_theta = self.rotation.cos();
+        let sin_theta = self.rotation.sin();
+        let rotated_x = scaled_x * cos_theta - scaled_y * sin_theta;
+        let rotated_y = scaled_x * sin_theta + scaled_y * cos_theta;
+        let translated_x = rotated_x + self.origin.x + self.translation.x;
+        let translated_y = rotated_y + self.origin.y + self.translation.y;
+        (translated_x as i32, translated_y as i32)
     }
 }

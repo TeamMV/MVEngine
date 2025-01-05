@@ -2,11 +2,25 @@ use std::f32::consts::FRAC_PI_2;
 use std::simd::{f32x16, f32x4};
 
 use crate::math::quat::Quat;
-use crate::math::vec::{Vec3, Vec4};
+use crate::math::vec::{Vec2, Vec3, Vec4};
 
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct Mat2(pub f32x4);
+
+impl Mat2 {
+    pub fn mul_vec(&self, vec: Vec2) -> Vec2 {
+        let m11 = self.0[0];
+        let m12 = self.0[1];
+        let m21 = self.0[2];
+        let m22 = self.0[3];
+
+        Vec2 {
+            x: m11 * vec.x + m12 * vec.y,
+            y: m21 * vec.x + m22 * vec.y,
+        }
+    }
+}
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Mat3 {

@@ -1,13 +1,159 @@
-use mvcore::color::{Color, ColorFormat, RgbColor, RgbColorFormat};
+use crate::render::arc::ArcCtx;
+use crate::render::rectangle::RectangleCtx;
+use crate::render::triangle::TriangleCtx;
+use crate::render::UiRenderer;
 use mvcore::render::backend::swapchain::SwapchainError;
+use mvcore::render::texture::{DrawTexture, Texture};
 use mve2d::gpu::Transform;
-use mve2d::renderer2d::InputTriangle;
-use crate::render::{UiRenderer, ZCoords};
+use mve2d::renderer2d::{InputTriangle, SamplerType};
+use std::sync::Arc;
+use mvcore::color::RgbColor;
 
-pub type DrawShape = Vec<InputTriangle>;
+#[derive(Clone)]
+pub struct DrawShape {
+    pub triangles: Vec<InputTriangle>,
+    pub textures: Vec<(Arc<Texture>, SamplerType)>
+}
+
+impl DrawShape {
+    pub fn apply_transformations(&mut self) {
+        for triangle in self.triangles.iter_mut() {
+            let transform = &triangle.transform;
+            let p1 = transform.apply_for_point(triangle.points[0]);
+            let p2 = transform.apply_for_point(triangle.points[1]);
+            let p3 = transform.apply_for_point(triangle.points[2]);
+            triangle.transform = Transform::new();
+            triangle.points = [p1, p2, p3];
+        }
+    }
+
+    pub fn combine(&mut self, other: &DrawShape) {
+        self.triangles.extend(other.triangles.iter().cloned());
+        self.textures.extend(other.textures.iter().cloned());
+    }
+
+    pub fn recenter(&mut self) {
+        let mut total_x = 0;
+        let mut total_y = 0;
+        for triangle in self.triangles.iter() {
+            let center = triangle.center();
+            total_x += center.0;
+            total_y += center.1;
+        }
+        let new_center = (total_x as f32 / self.triangles.len() as f32, total_y as f32 / self.triangles.len() as f32);
+        for triangle in self.triangles.iter_mut() {
+            triangle.transform.origin.x = new_center.0;
+            triangle.transform.origin.y = new_center.1;
+        }
+    }
+
+    pub fn set_transform(&mut self, transform: Transform) {
+        for triangle in self.triangles.iter_mut() {
+            triangle.transform = transform.clone();
+        }
+    }
+
+    pub fn modify_transform<F: FnMut(&mut Transform)>(&mut self, mut transformation: F) {
+        for triangle in self.triangles.iter_mut() {
+            transformation(&mut triangle.transform);
+        }
+    }
+
+    pub fn set_translate(&mut self, x: i32, y: i32) {
+        self.modify_transform(|t| {
+            t.translation.x = x as f32;
+            t.translation.y = y as f32;
+        });
+    }
+
+    pub fn set_scale(&mut self, x: i32, y: i32) {
+        self.modify_transform(|t| {
+            t.scale.x = x as f32;
+            t.scale.y = y as f32;
+        });
+    }
+
+    pub fn set_origin(&mut self, x: i32, y: i32) {
+        self.modify_transform(|t| {
+            t.origin.x = x as f32;
+            t.origin.y = y as f32;
+        });
+    }
+
+    pub fn set_rotation(&mut self, rot: f32) {
+        self.modify_transform(|t| {
+            t.rotation = rot.to_radians();
+        });
+    }
+
+    pub fn set_texture(&mut self, texture: TextureCtx) {
+        if let Some(tex) = texture.texture {
+            self.textures.clear();
+            self.textures.push((tex.get_texture(), texture.sampler.clone()));
+            let mut min_x = i32::MAX;
+            let mut max_x = i32::MIN;
+            let mut min_y = i32::MAX;
+            let mut max_y = i32::MIN;
+
+            for triangle in &self.triangles {
+                for &(x, y) in &triangle.points {
+                    if x < min_x {
+                        min_x = x;
+                    }
+                    if x > max_x {
+                        max_x = x;
+                    }
+                    if y < min_y {
+                        min_y = y;
+                    }
+                    if y > max_y {
+                        max_y = y;
+                    }
+                }
+            }
+
+            let width = (max_x - min_x) as f32;
+            let height = (max_y - min_y) as f32;
+
+            let uv_bounds = tex.get_uv();
+            let (uv_tl, uv_tr, uv_br, uv_bl) = (
+                uv_bounds[0], // Top-left
+                uv_bounds[1], // Top-right
+                uv_bounds[2], // Bottom-right
+                uv_bounds[3], // Bottom-left
+            );
+
+            for triangle in self.triangles.iter_mut() {
+                triangle.tex_id = Some(0);
+
+                let tex_coords = triangle.points.map(|(x, y)| {
+                    let normalized_u = (x as f32 - min_x as f32) / width;
+                    let normalized_v = (y as f32 - min_y as f32) / height;
+
+                    let u = uv_tl.0 + (uv_tr.0 - uv_tl.0) * normalized_u;
+                    let v = uv_tl.1 + (uv_bl.1 - uv_tl.1) * normalized_v;
+
+                    (u, v)
+                });
+
+                triangle.tex_coords = Some(tex_coords);
+            }
+        }
+    }
+
+    pub fn set_color(&mut self, color: RgbColor) {
+        for triangle in self.triangles.iter_mut() {
+            triangle.colors = [color.as_vec4(), color.as_vec4(), color.as_vec4()];
+        }
+    }
+}
 
 pub fn transform() -> TransformCtx {
     TransformCtx::new()
+}
+
+pub fn texture() -> TextureCtx {
+    TextureCtx::new()
 }
 
 pub fn triangle() -> TriangleCtx {
@@ -24,7 +170,8 @@ pub fn arc() -> ArcCtx {
 
 pub struct DrawContext2D {
     renderer: UiRenderer,
-    canvas_transform: Transform
+    canvas_transform: Transform,
+    custom_origin: bool,
 }
 
 impl DrawContext2D {
@@ -32,16 +179,31 @@ impl DrawContext2D {
         Self {
             renderer,
             canvas_transform: Transform::new(),
+            custom_origin: false,
         }
     }
 
     pub fn shape(&mut self, shape: DrawShape) {
-        for mut triangle in shape {
+        let mut ids = Vec::new();
+        for (texture, sampler) in shape.textures {
+            let id = self.renderer.set_texture(texture, sampler);
+            ids.push(id);
+        }
+
+        for mut triangle in shape.triangles {
             triangle.z = self.renderer.gen_z();
             triangle.canvas_transform = self.canvas_transform.clone();
+            if let Some(id) = triangle.tex_id {
+                triangle.tex_id = Some(ids.get(id as usize).map(|x| *x).unwrap_or(0) as u16)
+            }
 
             self.renderer.add_triangle(triangle);
         }
+    }
+
+    pub fn transform(&mut self, transform: TransformCtx) {
+        self.canvas_transform = transform.transform;
+        self.custom_origin = transform.origin_set;
     }
 
     pub fn draw(&mut self) -> Result<(), SwapchainError> {
@@ -50,8 +212,8 @@ impl DrawContext2D {
 }
 
 pub struct TransformCtx {
-    transform: Transform,
-    origin_set: bool,
+    pub(crate) transform: Transform,
+    pub(crate) origin_set: bool,
 }
 
 impl TransformCtx {
@@ -59,6 +221,13 @@ impl TransformCtx {
         Self {
             transform: Transform::new(),
             origin_set: false,
+        }
+    }
+
+    pub fn from_transform(transform: Transform, custom_origin: bool) -> Self {
+        Self {
+            transform,
+            origin_set: custom_origin,
         }
     }
 
@@ -85,278 +254,39 @@ impl TransformCtx {
         self.transform.scale.y = y;
         self
     }
+
+    pub fn get(&self) -> Transform {
+        self.transform.clone()
+    }
 }
 
-pub struct TriangleCtx {
-    points: Vec<(i32, i32, Option<RgbColor>)>,
-    global_color: RgbColor,
-    transform: Transform,
-    custom_origin: bool,
+pub struct TextureCtx {
+    pub(crate) texture: Option<DrawTexture>,
+    pub(crate) blending: f32,
+    pub(crate) sampler: SamplerType
 }
 
-impl TriangleCtx {
-    fn new() -> Self {
+impl TextureCtx {
+    pub fn new() -> Self {
         Self {
-            points: vec![],
-            global_color: RgbColor::white(),
-            transform: Transform::new(),
-            custom_origin: false,
-        }
-    }
-
-    pub fn point(mut self, xy: (i32, i32), color: Option<RgbColor>) -> Self {
-        self.points.push((xy.0, xy.1, color));
-        self
-    }
-
-    pub fn color(mut self, color: RgbColor) -> Self {
-        self.global_color = color;
-        self
-    }
-
-    pub fn transform(mut self, transform: TransformCtx) -> Self {
-        self.transform = transform.transform;
-        self.custom_origin = transform.origin_set;
-        self
-    }
-
-    pub fn create(mut self) -> DrawShape {
-        let mut iter = self.points.into_iter();
-        let p1 = iter.next().expect("Expected 3 points on a triangle");
-        let p2 = iter.next().expect("Expected 3 points on a triangle");
-        let p3 = iter.next().expect("Expected 3 points on a triangle");
-
-        let c1 = p1.2.unwrap_or(self.global_color.clone());
-        let c2 = p2.2.unwrap_or(self.global_color.clone());
-        let c3 = p3.2.unwrap_or(self.global_color.clone());
-
-        if !self.custom_origin {
-            self.transform.origin.x = (p1.0 + p2.0 + p3.0) as f32 / 3.0;
-            self.transform.origin.y = (p1.1 + p2.1 + p3.1) as f32 / 3.0;
-        }
-
-        let tri = InputTriangle {
-            points: [(p1.0, p1.1), (p2.0, p2.1), (p3.0, p3.1)],
-            z: 0.0,
-            transform: self.transform,
-            canvas_transform: Transform::new(),
-            tex_id: None,
-            tex_coords: None,
+            texture: None,
             blending: 0.0,
-            colors: [c1.as_vec4(), c2.as_vec4(), c3.as_vec4()],
-            is_font: false,
-        };
-
-        vec![tri]
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum RectPoint {
-    BottomLeft=0,
-    TopLeft=1,
-    BottomRight=2,
-    TopRight=3
-}
-
-impl RectPoint {
-    fn get_index(&self) -> usize {
-        *self as usize
-    }
-}
-
-pub struct RectangleCtx {
-    points: Vec<(i32, i32)>,
-    point_colors: Vec<Option<RgbColor>>,
-    global_color: RgbColor,
-    transform: Transform,
-    custom_origin: bool,
-}
-
-impl RectangleCtx {
-    fn new() -> Self {
-        Self {
-            points: vec![],
-            point_colors: [0; 4].map(|_| None).to_vec(),
-            global_color: RgbColor::white(),
-            transform: Transform::new(),
-            custom_origin: false,
+            sampler: SamplerType::Linear,
         }
     }
 
-    pub fn xywh(mut self, x: i32, y: i32, width: i32, height: i32) -> Self {
-        self.points.push((x, y));
-        self.points.push((x, y + height));
-        self.points.push((x + width, y + height));
-        self.points.push((x + width, y));
-
+    pub fn source(mut self, texture: Option<DrawTexture>) -> Self {
+        self.texture = texture;
         self
     }
 
-    pub fn xyxy(mut self, x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
-        self.points.push((x1, y1));
-        self.points.push((x1, y2));
-        self.points.push((x2, y2));
-        self.points.push((x2, y1));
-
+    pub fn blending(mut self, blending: f32) -> Self {
+        self.blending = blending;
         self
     }
 
-    pub fn point_color(mut self, point: RectPoint, color: Option<RgbColor>) -> Self {
-        self.point_colors[point.get_index()] = color;
+    pub fn sampler(mut self, sampler: SamplerType) -> Self {
+        self.sampler = sampler;
         self
-    }
-
-    pub fn color(mut self, color: RgbColor) -> Self {
-        self.global_color = color;
-        self
-    }
-
-    pub fn transform(mut self, transform: TransformCtx) -> Self {
-        self.transform = transform.transform;
-        self.custom_origin = transform.origin_set;
-        self
-    }
-
-    pub fn create(mut self) -> DrawShape {
-        let mut iter = self.points.into_iter();
-        let p1 = iter.next().expect("Expected 4 points on a rectangle");
-        let p2 = iter.next().expect("Expected 4 points on a rectangle");
-        let p3 = iter.next().expect("Expected 4 points on a rectangle");
-        let p4 = iter.next().expect("Expected 4 points on a rectangle");
-
-        let mut color_iter = self.point_colors.into_iter();
-        let c1 = color_iter.next().unwrap().unwrap_or(self.global_color.clone());
-        let c2 = color_iter.next().unwrap().unwrap_or(self.global_color.clone());
-        let c3 = color_iter.next().unwrap().unwrap_or(self.global_color.clone());
-        let c4 = color_iter.next().unwrap().unwrap_or(self.global_color.clone());
-
-        if !self.custom_origin {
-            self.transform.origin.x = (p1.0 + p3.0) as f32 * 0.5;
-            self.transform.origin.y = (p1.1 + p3.1) as f32 * 0.5;
-        }
-
-        let tri1 = InputTriangle {
-            points: [(p1.0, p1.1), (p2.0, p2.1), (p3.0, p3.1)],
-            z: 0.0,
-            transform: self.transform.clone(),
-            canvas_transform: Transform::new(),
-            tex_id: None,
-            tex_coords: None,
-            blending: 0.0,
-            colors: [c1.as_vec4(), c2.as_vec4(), c3.as_vec4()],
-            is_font: false,
-        };
-
-        let tri2 = InputTriangle {
-            points: [(p1.0, p1.1), (p3.0, p3.1), (p4.0, p4.1)],
-            z: 0.0,
-            transform: self.transform,
-            canvas_transform: Transform::new(),
-            tex_id: None,
-            tex_coords: None,
-            blending: 0.0,
-            colors: [c2.as_vec4(), c3.as_vec4(), c4.as_vec4()],
-            is_font: false,
-        };
-
-        vec![tri1, tri2]
-    }
-}
-
-pub enum ArcTriPoint {
-    Last,
-    Current,
-    Center
-}
-
-pub struct ArcCtx {
-    center: (i32, i32),
-    radius: i32,
-    triangle_count: u32,
-    angle: f32,
-    global_color: RgbColor,
-    transform: Transform,
-    custom_origin: bool,
-}
-
-impl ArcCtx {
-    fn new() -> Self {
-        Self {
-            center: (0, 0),
-            radius: 0,
-            triangle_count: 50,
-            angle: 90.0,
-            global_color: RgbColor::white(),
-            transform: Transform::new(),
-            custom_origin: false,
-        }
-    }
-
-    pub fn center(mut self, x: i32, y: i32) -> Self {
-        self.center = (x, y);
-        self
-    }
-
-    pub fn radius(mut self, radius: i32) -> Self {
-        self.radius = radius;
-        self
-    }
-
-    pub fn angle(mut self, angle: f32) -> Self {
-        self.angle = angle.to_radians();
-        self
-    }
-
-    pub fn triangle_count(mut self, count: u32) -> Self {
-        self.triangle_count = count;
-        self
-    }
-
-    pub fn color(mut self, color: RgbColor) -> Self {
-        self.global_color = color;
-        self
-    }
-
-    pub fn transform(mut self, transform: TransformCtx) -> Self {
-        self.transform = transform.transform;
-        self.custom_origin = transform.origin_set;
-        self
-    }
-
-    pub fn create(mut self) -> DrawShape {
-        if !self.custom_origin {
-            self.transform.origin.x = self.center.0 as f32;
-            self.transform.origin.y = self.center.1 as f32;
-        }
-
-        let mut tris = Vec::with_capacity(self.triangle_count as usize);
-
-        let rad = self.radius as f32;
-        let step_size = self.angle / self.triangle_count as f32;
-        let mut last_x = self.center.0 + self.radius;
-        let mut last_y = self.center.1;
-        for i in 1..self.triangle_count + 1 {
-            let current = i as f32 * step_size;
-            let x = (self.center.0 as f32 + current.cos() * rad) as i32;
-            let y = (self.center.1 as f32 + current.sin() * rad) as i32;
-
-            let tri = InputTriangle {
-                points: [(last_x, last_y), self.center, (x, y)],
-                z: 0.0,
-                transform: self.transform.clone(),
-                canvas_transform: Transform::new(),
-                tex_id: None,
-                tex_coords: None,
-                blending: 0.0,
-                colors: [self.global_color.as_vec4(), self.global_color.as_vec4(), self.global_color.as_vec4()],
-                is_font: false,
-            };
-            tris.push(tri);
-
-            last_x = x;
-            last_y = y;
-        }
-        tris
     }
 }

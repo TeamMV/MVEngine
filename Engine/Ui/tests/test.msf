@@ -1,0 +1,9 @@
+rect = rect[x100y100w100h100];
+
+semi_circle = arc[c[x200y350]r150a180tc36];
+>semi_circle;
+transform t[s[x1y2]];
+recenter;
+apply;
+combine rect;
+export;

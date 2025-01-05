@@ -1,6 +1,6 @@
 use num_traits::Float;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct SimpleRect {
     pub x: i32,
     pub y: i32,
