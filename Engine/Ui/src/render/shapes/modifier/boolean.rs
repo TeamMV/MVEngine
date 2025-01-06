@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use hashbrown::HashMap;
 use itertools::Itertools;
+use log::trace;
 use mvcore::math::vec::Vec2;
 use crate::render::ctx::DrawShape;
 use crate::render::shapes::Param;
@@ -40,6 +41,7 @@ pub fn union_polygons(a: &Polygon, b: &Polygon) -> Polygon {
 
 pub fn intersect_polygons(a: &Polygon, b: &Polygon) -> Polygon {
     let mut intersections = a.get_intersections(b);
+    trace!("intersections: {:?}", intersections);
     walk_polygon(a, b, &mut intersections, false).clone()
 }
 
@@ -48,21 +50,21 @@ fn distance(v1: Vec2, v2: Vec2) -> f32 {
 }
 
 fn is_point_on_line(pt: Vec2, line_v1: Vec2, line_v2: Vec2) -> bool {
-    (distance(line_v1, pt) + distance(line_v2, pt) - distance(line_v1, line_v2)).abs() < 0.01
+    (distance(line_v1, pt) + distance(line_v2, pt) - distance(line_v1, line_v2)).abs() < 0.001
 }
 
 fn find_next_vertex(current_vertex: Vec2, polygon: &Polygon) -> Vec2 {
     for i in 0..polygon.vertices.len() {
         let v = polygon.vertices[i];
         if v == current_vertex {
-            println!("got, index: {i}, amt: {}", polygon.vertices.len());
+            trace!("got, index: {i}, amt: {}", polygon.vertices.len());
             return polygon.vertices[(i + 1) % polygon.vertices.len()];
         }
     }
     for i in 0..polygon.vertices.len() {
         let start = polygon.vertices[i];
         let end = polygon.vertices[(i + 1) % polygon.vertices.len()];
-        println!("searching... start: {:?}, end: {:?}", start, end);
+        trace!("searching... start: {:?}, end: {:?}", start, end);
         if is_point_on_line(current_vertex, start, end) {
             return end;
         }
@@ -87,12 +89,12 @@ fn walk_polygon(subject: &Polygon, clipping: &Polygon, intersections: &mut Vec<I
         if intersections.len() > 0 {
             current_vertex = intersections[0].point;
         } else {
-            return clipping.clone();
+            return Polygon { vertices: vec![] };
         }
     }
-    let mut in_clip = !union;
+    let mut in_clip = !union ^ !clip_found;
 
-    if in_clip || union { resulting_polygon.vertices.push(current_vertex) }
+    if in_clip || union || !clip_found { resulting_polygon.vertices.push(current_vertex) }
 
     let mut counter = 1;
     loop {
@@ -101,7 +103,7 @@ fn walk_polygon(subject: &Polygon, clipping: &Polygon, intersections: &mut Vec<I
         } else {
             find_next_vertex(current_vertex, clipping)
         };
-        println!("current: {:?}, next: {:?}, inside: {in_clip}", current_vertex, next_vertex);
+        trace!("current: {:?}, next: {:?}, inside: {in_clip}", current_vertex, next_vertex);
         counter += 1;
 
         if let Some(intersection) = intersections
@@ -114,7 +116,7 @@ fn walk_polygon(subject: &Polygon, clipping: &Polygon, intersections: &mut Vec<I
             intersection.visited = true;
             current_vertex = intersection.point;
             in_clip = !in_clip;
-            println!("switched, got intersection: {:?}", intersection.point);
+            trace!("switched, got intersection: {:?}", intersection.point);
         } else {
             resulting_polygon.vertices.push(next_vertex);
             current_vertex = next_vertex;

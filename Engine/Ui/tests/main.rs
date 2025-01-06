@@ -25,7 +25,7 @@ use mvengine_ui::uix::UiCompoundElement;
 mod test;
 
 fn main() {
-    mvlogger::init(std::io::stdout(), LevelFilter::Debug);
+    mvlogger::init(std::io::stdout(), LevelFilter::Trace);
     let mut info = WindowCreateInfo::default();
     info.title = "UI test".to_string();
     info.fps = 60;
@@ -77,12 +77,51 @@ fn main() {
         ],
     };
 
-    let mut res = boolean::union_polygons(&subject, &clipping);
-    let mut out = String::new();
-    for v in res.vertices {
-        out.push_str(format!("({},{}),", v.x, v.y).as_str());
-    }
-    println!("{out}");
+    let polygon1 = Polygon {
+        vertices: vec![
+            Vec2::new(1.0, 1.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(2.0, 3.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(3.0, 2.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(4.0, 1.0),
+        ],
+    };
+
+    let polygon2 = Polygon {
+        vertices: vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.0, 5.0),
+            Vec2::new(5.0, 5.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(4.0, 1.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(3.0, 2.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(2.0, 3.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(5.0, 5.0),
+            Vec2::new(5.0, 0.0),
+        ],
+    };
+
+
+    println!("a: {:?}", subject);
+    println!("b: {:?}", clipping);
+
+    //let rect = ctx::rectangle().xywh(100, 100, 100, 100).create();
+    //let poly = &Polygon::detriangulate(&rect)[0];
+    //println!("detri: {:?}", poly);
+
+    let result = boolean::intersect_polygons(&polygon1, &polygon2);
+    println!("result: {:?}", result);
 
     //let window = Window::new(info);
     //window.run::<Application>();

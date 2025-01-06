@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter, Write};
 use hashbrown::HashMap;
 use itertools::Itertools;
 use mvcore::math::vec::Vec2;
@@ -65,7 +66,7 @@ fn lines_intersecting(
     YES
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Intersection {
     pub point: Vec2,
     pub visited: bool,
@@ -83,6 +84,16 @@ impl Intersection {
 #[derive(Clone)]
 pub struct Polygon {
     pub vertices: Vec<Vec2>
+}
+
+impl Debug for Intersection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pt = self.point;
+        f.write_char('(')?;
+        f.write_str(format!("{}, {}", pt.x, pt.y).as_str())?;
+        f.write_char(')')?;
+        Ok(())
+    }
 }
 
 impl Polygon {
@@ -220,20 +231,10 @@ impl Polygon {
         let boundary_edges = Self::find_boundary_edges(&edges);
 
         let mut polygons = Vec::new();
-        let mut remaining_edges = boundary_edges;
 
-        while !remaining_edges.is_empty() {
-            let polygon = Self::order_edges(remaining_edges.clone());
-            polygons.push(polygon.clone());
 
-            remaining_edges.retain(|edge| !polygon.contains(&edge.0) && !polygon.contains(&edge.1));
-        }
 
-        polygons.into_iter().map(|p| {
-            Polygon {
-                vertices: p.into_iter().map(|v| Vec2::new(v.0 as f32, v.1 as f32)).collect_vec(),
-            }
-        }).collect_vec()
+        polygons
     }
 
     fn collect_edges(shape: &DrawShape) -> HashMap<Edge, usize> {
@@ -257,26 +258,20 @@ impl Polygon {
             .filter_map(|(edge, &count)| if count == 1 { Some(*edge) } else { None })
             .collect()
     }
+}
 
-    fn order_edges(boundary_edges: Vec<Edge>) -> Vec<Point> {
-        let mut ordered_polygon = Vec::new();
-        let mut edge_map: HashMap<Point, Point> = HashMap::new();
-
-        for (start, end) in &boundary_edges {
-            edge_map.insert(*start, *end);
-        }
-
-        let mut start_point = boundary_edges[0].0;
-        ordered_polygon.push(start_point);
-
-        while let Some(&next_point) = edge_map.get(&start_point) {
-            ordered_polygon.push(next_point);
-            start_point = next_point;
-            if start_point == ordered_polygon[0] {
-                break;
+impl Debug for Polygon {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let len = self.vertices.len();
+        for i in 0..len {
+            let vec = self.vertices[i];
+            f.write_char('(')?;
+            f.write_str(format!("{}, {}", vec.x, vec.y).as_str())?;
+            f.write_char(')')?;
+            if i != len - 1 {
+                f.write_str(", ")?
             }
         }
-
-        ordered_polygon
+        Ok(())
     }
 }
