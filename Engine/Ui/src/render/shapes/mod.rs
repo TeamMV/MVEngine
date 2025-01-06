@@ -5,6 +5,7 @@ pub mod lexer;
 pub mod shape_gen;
 pub mod polygon;
 pub mod modifier;
+mod geometry;
 
 type Ast = Vec<Command>;
 

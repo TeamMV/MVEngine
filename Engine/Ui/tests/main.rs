@@ -18,6 +18,7 @@ use mvengine_ui::render::shapes::modifier::boolean;
 use mvengine_ui::render::shapes::polygon::Polygon;
 use mvengine_ui::render::shapes::shape_gen::ShapeGenerator;
 use mvengine_ui::render::shapes::ShapeParser;
+use mvengine_ui::styles::Interpolator;
 use mvengine_ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 
 use mvengine_ui::uix::UiCompoundElement;
@@ -112,19 +113,12 @@ fn main() {
         ],
     };
 
-
-    println!("a: {:?}", subject);
-    println!("b: {:?}", clipping);
-
     //let rect = ctx::rectangle().xywh(100, 100, 100, 100).create();
     //let poly = &Polygon::detriangulate(&rect)[0];
     //println!("detri: {:?}", poly);
 
-    let result = boolean::intersect_polygons(&polygon1, &polygon2);
-    println!("result: {:?}", result);
-
-    //let window = Window::new(info);
-    //window.run::<Application>();
+    let window = Window::new(info);
+    window.run::<Application>();
 }
 
 struct Application {
@@ -133,7 +127,7 @@ struct Application {
     rot: f32,
     img: AssetHandle,
     texture: Option<DrawTexture>,
-    house: Option<DrawShape>
+    shape: Option<DrawShape>
 }
 
 impl ApplicationLoopCallbacks for Application {
@@ -153,24 +147,75 @@ impl ApplicationLoopCallbacks for Application {
         //    }, AnimationState::value(window)), None);
         //}
 
-        Self { manager, ctx, rot: 0.0, img, texture: None, house: None }
+        Self { manager, ctx, rot: 0.0, img, texture: None, shape: None }
     }
 
     fn post_init(&mut self, window: &mut Window) {
         self.texture = Some(DrawTexture::Texture(Arc::new(self.img.get().as_texture().unwrap())));
 
-        let ast = ShapeParser::parse(include_str!("test.msf")).unwrap();
-        let mut shape = ShapeGenerator::generate(ast).unwrap();
+        //let ast = ShapeParser::parse(include_str!("test.msf")).unwrap();
+        //let mut shape = ShapeGenerator::generate(ast).unwrap();
 
-        shape.set_texture(ctx::texture().source(self.texture.clone()));
+        let tri1 = ctx::triangle().point((100, 200), None).point((400, 200), None).point((300, 300), None).create();
+        let mut circle1 = ctx::arc()
+            .center(300, 300)
+            .radius(100)
+            .angle(360.0)
+            .triangle_count(50)
+            .create();
 
-        self.house = Some(shape);
+        let mut circle2 = ctx::arc()
+            .center(200, 300)
+            .radius(100)
+            .angle(360.0)
+            .triangle_count(50)
+            .create();
+
+        let rect = ctx::rectangle()
+            .xyxy(200, 100, 350, 350)
+            .create();
+
+
+        let mut shape = boolean::compute_intersect(&circle1, &circle2).unwrap();
+
+        println!("shape: {:?}", shape);
+
+        shape.set_color(RgbColor::blue());
+
+        self.shape = Some(shape);
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        self.ctx.shape(self.house.clone().unwrap());
+        let mut tri1 = ctx::triangle().point((100, 200), None).point((400, 200), None).point((300, 300), None).create();
+        tri1.set_color(RgbColor::red());
+
+        let mut circle1 = ctx::arc()
+            .center(300, 300)
+            .radius(100)
+            .angle(360.0)
+            .triangle_count(50)
+            .create();
+        circle1.set_color(RgbColor::yellow().alpha(127));
+
+        let mut circle2 = ctx::arc()
+            .center(200, 300)
+            .radius(100)
+            .angle(360.0)
+            .triangle_count(50)
+            .create();
+        circle2.set_color(RgbColor::red().alpha(127));
+
+        let rect = ctx::rectangle()
+            .xyxy(200, 100, 350, 350)
+            .color(RgbColor::yellow().alpha(127))
+            .create();
+
+
+        self.ctx.shape(circle1);
+        self.ctx.shape(circle2);
+        self.ctx.shape(self.shape.clone().unwrap());
 
         if let Err(e) = self.ctx.draw() {
             error!("{:?}", e);

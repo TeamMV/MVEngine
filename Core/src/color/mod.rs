@@ -53,6 +53,11 @@ impl<Fmt: ColorFormat> Color<Fmt> {
     pub fn components_mut(&mut self) -> &mut [Fmt::ComponentType] {
         &mut self.components
     }
+
+    pub fn alpha(mut self, alpha: Fmt::ComponentType) -> Self {
+        self.components[3] = alpha;
+        self
+    }
 }
 
 impl<Fmt: ColorFormat> PartialEq<Self> for Color<Fmt>

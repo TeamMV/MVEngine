@@ -58,6 +58,14 @@ impl InputTriangle {
             ((self.points[0].1 + self.points[1].1 + self.points[2].1) as f32 / 3.0) as i32,
         )
     }
+
+    pub fn vec2s(&self) -> [Vec2; 3] {
+        [
+            Vec2::new(self.points[0].0 as f32, self.points[0].1 as f32),
+            Vec2::new(self.points[1].0 as f32, self.points[1].1 as f32),
+            Vec2::new(self.points[2].0 as f32, self.points[2].1 as f32),
+        ]
+    }
 }
 
 impl From<InputTriangle> for Triangle {
@@ -471,7 +479,7 @@ impl Renderer2D {
         self.triangles.clear();
     }
 
-    pub fn add_shape(&mut self, triangle: InputTriangle) {
+    pub fn add_shape(&mut self, mut triangle: InputTriangle) {
         if self.triangles.capacity() == self.triangles.len() {
             if self.triangles.len() as u64 == MAX_BATCH_SIZE {
                 log::error!("Renderer2D: Maximum triangle draw limit exceeded");
@@ -502,6 +510,9 @@ impl Renderer2D {
                 self.sets[i].update_buffer(0, &self.buffers[i], 0, self.buffers[i].get_size())
             }
         }
+
+        let pts = triangle.points.map(|(x, y)| (x, self.extent.height as i32 - y));
+        triangle.points = pts;
 
         self.triangles.push(triangle.into());
     }

@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter, Write};
 use crate::render::arc::ArcCtx;
 use crate::render::rectangle::RectangleCtx;
 use crate::render::triangle::TriangleCtx;
@@ -13,6 +14,17 @@ use mvcore::color::RgbColor;
 pub struct DrawShape {
     pub triangles: Vec<InputTriangle>,
     pub textures: Vec<(Arc<Texture>, SamplerType)>
+}
+
+impl Debug for DrawShape {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("{\n")?;
+        for triangle in &self.triangles {
+            triangle.vec2s().fmt(f)?;
+            f.write_char('\n')?;
+        }
+        f.write_char('}')
+    }
 }
 
 impl DrawShape {

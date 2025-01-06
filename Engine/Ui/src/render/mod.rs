@@ -59,7 +59,7 @@ impl UiRenderer {
 
     pub(crate) fn gen_z(&mut self) -> f32 {
         let z = self.last_z;
-        self.last_z -= 0.0001;
+        self.last_z -= 0.001;
         z
     }
 

@@ -1,11 +1,28 @@
 use std::cmp::Ordering;
-use hashbrown::HashMap;
-use itertools::Itertools;
-use log::trace;
-use mvcore::math::vec::Vec2;
 use crate::render::ctx::DrawShape;
-use crate::render::shapes::Param;
-use crate::render::shapes::polygon::{Intersection, Polygon};
+use crate::render::shapes::{geometry, Param};
+use hashbrown::{HashMap, HashSet};
+use itertools::Itertools;
+use log::warn;
+use mvcore::math::vec::Vec2;
+use crate::render::ctx;
+
+trait Dedup<T: PartialEq + Clone> {
+    fn clear_duplicates(&mut self);
+}
+
+impl<T: PartialEq + Clone> Dedup<T> for Vec<T> {
+    fn clear_duplicates(&mut self) {
+        let mut already_seen = Vec::with_capacity(self.len());
+        self.retain(|item| match already_seen.contains(item) {
+            true => false,
+            _ => {
+                already_seen.push(item.clone());
+                true
+            }
+        })
+    }
+}
 
 pub(crate) fn compute(input: &DrawShape, params: Vec<Param>, shapes: &HashMap<String, DrawShape>) -> Result<DrawShape, String> {
     let mode = params[0].as_str();
@@ -23,116 +40,108 @@ pub(crate) fn compute(input: &DrawShape, params: Vec<Param>, shapes: &HashMap<St
 }
 
 fn compute_union(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, String> {
-    let polygons_a = Polygon::detriangulate(input);
-    let polygons_b = Polygon::detriangulate(other);
-    for pa in polygons_a.iter() {
-        for pb in polygons_b.iter() {
-            let out = union_polygons(pa, pb);
-        }
-    }
-
-    Err("idk".to_string())
-}
-
-pub fn union_polygons(a: &Polygon, b: &Polygon) -> Polygon {
-    let mut intersections = a.get_intersections(b);
-    walk_polygon(a, b, &mut intersections, true).clone()
-}
-
-pub fn intersect_polygons(a: &Polygon, b: &Polygon) -> Polygon {
-    let mut intersections = a.get_intersections(b);
-    trace!("intersections: {:?}", intersections);
-    walk_polygon(a, b, &mut intersections, false).clone()
-}
-
-fn distance(v1: Vec2, v2: Vec2) -> f32 {
-    ((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)).sqrt()
-}
-
-fn is_point_on_line(pt: Vec2, line_v1: Vec2, line_v2: Vec2) -> bool {
-    (distance(line_v1, pt) + distance(line_v2, pt) - distance(line_v1, line_v2)).abs() < 0.001
-}
-
-fn find_next_vertex(current_vertex: Vec2, polygon: &Polygon) -> Vec2 {
-    for i in 0..polygon.vertices.len() {
-        let v = polygon.vertices[i];
-        if v == current_vertex {
-            trace!("got, index: {i}, amt: {}", polygon.vertices.len());
-            return polygon.vertices[(i + 1) % polygon.vertices.len()];
-        }
-    }
-    for i in 0..polygon.vertices.len() {
-        let start = polygon.vertices[i];
-        let end = polygon.vertices[(i + 1) % polygon.vertices.len()];
-        trace!("searching... start: {:?}, end: {:?}", start, end);
-        if is_point_on_line(current_vertex, start, end) {
-            return end;
-        }
-    }
-    current_vertex
-}
-
-fn walk_polygon(subject: &Polygon, clipping: &Polygon, intersections: &mut Vec<Intersection>, union: bool) -> Polygon {
-    let mut resulting_polygon = Polygon { vertices: vec![] };
-    let mut current_vertex = subject.vertices[0];
-    let mut vertex_count = 0;
-    let mut clip_found = false;
-    while vertex_count < subject.vertices.len() {
-        if clipping.point_inside(current_vertex) ^ union {
-            clip_found = true;
-            break;
-        }
-        current_vertex = subject.vertices[vertex_count];
-        vertex_count += 1;
-    }
-    if !clip_found && !union {
-        if intersections.len() > 0 {
-            current_vertex = intersections[0].point;
-        } else {
-            return Polygon { vertices: vec![] };
-        }
-    }
-    let mut in_clip = !union ^ !clip_found;
-
-    if in_clip || union || !clip_found { resulting_polygon.vertices.push(current_vertex) }
-
-    let mut counter = 1;
-    loop {
-        let next_vertex = if in_clip ^ union {
-            find_next_vertex(current_vertex, subject)
-        } else {
-            find_next_vertex(current_vertex, clipping)
-        };
-        trace!("current: {:?}, next: {:?}, inside: {in_clip}", current_vertex, next_vertex);
-        counter += 1;
-
-        if let Some(intersection) = intersections
-            .iter_mut()
-            .filter(|i| !i.visited && is_point_on_line(i.point, current_vertex, next_vertex) && i.point != current_vertex)
-            .sorted_by(|i1, i2| distance(i1.point, current_vertex).partial_cmp(&distance(i2.point, current_vertex)).unwrap_or(Ordering::Equal))
-            .next()
-        {
-            resulting_polygon.vertices.push(intersection.point);
-            intersection.visited = true;
-            current_vertex = intersection.point;
-            in_clip = !in_clip;
-            trace!("switched, got intersection: {:?}", intersection.point);
-        } else {
-            resulting_polygon.vertices.push(next_vertex);
-            current_vertex = next_vertex;
-        }
-
-        if resulting_polygon.vertices.len() > 3 && current_vertex == resulting_polygon.vertices[0] || counter > 20 {
-            break;
-        }
-    }
-    resulting_polygon.vertices.dedup();
-    resulting_polygon
-}
-
-
-fn compute_intersect(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, String> {
     todo!()
+}
+
+pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<DrawShape, String> {
+    let mut end_shape = DrawShape { triangles: vec![], textures: vec![] };
+
+    for input_triangle in &input.triangles {
+        let input_vertices = input_triangle.vec2s();
+        for clipping_triangle in &clipping.triangles {
+            let clipping_vertices = clipping_triangle.vec2s();
+            if let Some(mut intersection_points) = geometry::get_triangle_intersections(&input_vertices, &clipping_vertices) {
+                let mut res_vertices = Vec::with_capacity(intersection_points.len() + 6);
+                res_vertices.extend_from_slice(&input_vertices);
+                res_vertices.extend_from_slice(&clipping_vertices);
+
+                res_vertices.retain(|vertex| {
+                    geometry::is_point_in_triangle(&input_vertices, *vertex) &&
+                    geometry::is_point_in_triangle(&clipping_vertices, *vertex)
+                });
+
+                res_vertices.clear_duplicates();
+
+                res_vertices.extend(intersection_points);
+                if res_vertices.len() == 4 {
+                    let centroid = Vec2::new(
+                        res_vertices.iter().map(|v| v.x).sum::<f32>() / res_vertices.len() as f32,
+                        res_vertices.iter().map(|v| v.y).sum::<f32>() / res_vertices.len() as f32,
+                    );
+
+                    res_vertices.sort_by(|a, b| {
+                        let angle_a = (a.y - centroid.y).atan2(a.x - centroid.x);
+                        let angle_b = (b.y - centroid.y).atan2(b.x - centroid.x);
+                        angle_a.partial_cmp(&angle_b).unwrap()
+                    });
+
+                    for i in 1..3 {
+                        let tri = ctx::triangle()
+                            .point((res_vertices[0].x as i32, res_vertices[0].y as i32), None)
+                            .point((res_vertices[i].x as i32, res_vertices[i].y as i32), None)
+                            .point((res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32), None)
+                            .create();
+                        end_shape.combine(&tri);
+                    }
+                } else if res_vertices.len() == 3 {
+                    let tri = ctx::triangle()
+                        .point((res_vertices[0].x as i32, res_vertices[0].y as i32), None)
+                        .point((res_vertices[1].x as i32, res_vertices[1].y as i32), None)
+                        .point((res_vertices[2].x as i32, res_vertices[2].y as i32), None)
+                        .create();
+                    end_shape.combine(&tri);
+                } else if res_vertices.len() == 5 {
+                    let centroid = Vec2::new(
+                        res_vertices.iter().map(|v| v.x).sum::<f32>() / res_vertices.len() as f32,
+                        res_vertices.iter().map(|v| v.y).sum::<f32>() / res_vertices.len() as f32,
+                    );
+
+                    res_vertices.sort_by(|a, b| {
+                        let angle_a = (a.y - centroid.y).atan2(a.x - centroid.x);
+                        let angle_b = (b.y - centroid.y).atan2(b.x - centroid.x);
+                        angle_a.partial_cmp(&angle_b).unwrap()
+                    });
+
+                    for i in 1..4 {
+                        let tri = ctx::triangle()
+                            .point((res_vertices[0].x as i32, res_vertices[0].y as i32), None)
+                            .point((res_vertices[i].x as i32, res_vertices[i].y as i32), None)
+                            .point((res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32), None)
+                            .create();
+                        end_shape.combine(&tri);
+                    }
+                } else {
+                    warn!("Illegal amount of vertices ({}) left for triangulation!", res_vertices.len());
+                }
+            } else {
+                if geometry::is_point_in_triangle(&clipping_vertices, input_vertices[0]) &&
+                    geometry::is_point_in_triangle(&clipping_vertices, input_vertices[1]) &&
+                    geometry::is_point_in_triangle(&clipping_vertices, input_vertices[2]) {
+
+                    let tri = ctx::triangle()
+                        .point((input_vertices[0].x as i32, input_vertices[0].y as i32), None)
+                        .point((input_vertices[1].x as i32, input_vertices[1].y as i32), None)
+                        .point((input_vertices[2].x as i32, input_vertices[2].y as i32), None)
+                        .create();
+                    end_shape.combine(&tri);
+                } else if geometry::is_point_in_triangle(&input_vertices, clipping_vertices[0]) &&
+                    geometry::is_point_in_triangle(&input_vertices, clipping_vertices[1]) &&
+                    geometry::is_point_in_triangle(&input_vertices, clipping_vertices[2]) {
+
+                    println!("still addded");
+
+                    let tri = ctx::triangle()
+                        .point((clipping_vertices[0].x as i32, clipping_vertices[0].y as i32), None)
+                        .point((clipping_vertices[1].x as i32, clipping_vertices[1].y as i32), None)
+                        .point((clipping_vertices[2].x as i32, clipping_vertices[2].y as i32), None)
+                        .create();
+                    end_shape.combine(&tri);
+                }
+            }
+        }
+    }
+
+    Ok(end_shape)
 }
 
 fn compute_difference(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, String> {

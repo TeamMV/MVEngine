@@ -4,67 +4,10 @@ use itertools::Itertools;
 use mvcore::math::vec::Vec2;
 use crate::geometry::SimpleRect;
 use crate::render::ctx::DrawShape;
+use crate::render::shapes::geometry;
 
 type Point = (i32, i32);
 type Edge = (Point, Point);
-
-const NO: i32 = 0;
-const YES: i32 = 1;
-const COLLINEAR: i32 = 2;
-
-fn lines_intersecting(
-    v1x1: f32,
-    v1y1: f32,
-    v1x2: f32,
-    v1y2: f32,
-    v2x1: f32,
-    v2y1: f32,
-    v2x2: f32,
-    v2y2: f32,
-) -> i32 {
-    let mut d1: f32;
-    let mut d2: f32;
-    let a1: f32;
-    let b1: f32;
-    let c1: f32;
-    let a2: f32;
-    let b2: f32;
-    let c2: f32;
-
-    a1 = v1y2 - v1y1;
-    b1 = v1x1 - v1x2;
-    c1 = (v1x2 * v1y1) - (v1x1 * v1y2);
-
-    d1 = (a1 * v2x1) + (b1 * v2y1) + c1;
-    d2 = (a1 * v2x2) + (b1 * v2y2) + c1;
-
-    if d1 > 0.0 && d2 > 0.0 {
-        return NO;
-    }
-    if d1 < 0.0 && d2 < 0.0 {
-        return NO;
-    }
-
-    a2 = v2y2 - v2y1;
-    b2 = v2x1 - v2x2;
-    c2 = (v2x2 * v2y1) - (v2x1 * v2y2);
-
-    d1 = (a2 * v1x1) + (b2 * v1y1) + c2;
-    d2 = (a2 * v1x2) + (b2 * v1y2) + c2;
-
-    if d1 > 0.0 && d2 > 0.0 {
-        return NO;
-    }
-    if d1 < 0.0 && d2 < 0.0 {
-        return NO;
-    }
-
-    if (a1 * b2) - (a2 * b1) == 0.0 {
-        return COLLINEAR;
-    }
-
-    YES
-}
 
 #[derive(Clone)]
 pub struct Intersection {
@@ -133,14 +76,14 @@ impl Polygon {
             let start = self.vertices[i];
             let end = if i + 1 < self.vertices.len() { self.vertices[i + 1] } else { self.vertices[0] };
 
-            let result = Self::are_intersecting(Vec2::new(ray_start.0 as f32, ray_start.1 as f32), pt, start, end);
+            let result = geometry::lines_intersection(Vec2::new(ray_start.0 as f32, ray_start.1 as f32), pt, start, end);
             if let Some(intersection) = result {
                 intersections += 1;
                 if self.vertices.iter().any(|v| *v == intersection) {
                     if let Some((_, other_start)) = seen.iter().find(|(i, _)| *i == intersection) {
                         let verify_line_start = *other_start;
                         let verify_line_end = if start == intersection { end } else { start };
-                        if let None = Self::are_intersecting(verify_line_start, verify_line_end, Vec2::new(ray_start.0 as f32, ray_start.1 as f32), pt) {
+                        if let None = geometry::lines_intersection(verify_line_start, verify_line_end, Vec2::new(ray_start.0 as f32, ray_start.1 as f32), pt) {
                             intersections -= 1;
                         }
                         intersections -= 1;
@@ -151,55 +94,6 @@ impl Polygon {
             }
         }
         intersections & 1 == 1
-    }
-
-    pub fn are_intersecting(v1: Vec2, v2: Vec2, v3: Vec2, v4: Vec2) -> Option<Vec2> {
-        let denom = (v1.x - v2.x) * (v3.y - v4.y) - (v1.y - v2.y) * (v3.x - v4.x);
-        if denom == 0.0 {
-            return None;
-        }
-
-        let t = ((v1.x - v3.x) * (v3.y - v4.y) - (v1.y - v3.y) * (v3.x - v4.x)) / denom;
-        let u = ((v1.x - v3.x) * (v1.y - v2.y) - (v1.y - v3.y) * (v1.x - v2.x)) / denom;
-
-        if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
-            let x = v1.x + t * (v2.x - v1.x);
-            let y = v1.y + t * (v2.y - v1.y);
-            Some(Vec2::new(x, y))
-        } else {
-            None
-        }
-    }
-
-    pub fn get_intersections(&self, other: &Polygon) -> Vec<Intersection> {
-        let mut intersections = Vec::new();
-
-        for i in 0..self.vertices.len() {
-            let v1 = self.vertices[i];
-            let v2 = if i + 1 < self.vertices.len() { self.vertices[i + 1] } else { self.vertices[0] };
-
-            for j in 0..other.vertices.len() {
-                let v3 = other.vertices[j];
-                let v4 = if j + 1 < other.vertices.len() { other.vertices[j + 1] } else { other.vertices[0] };
-
-                if let Some(intersection) = Self::are_intersecting(v1, v2, v3, v4) {
-                    if !intersections.iter().any(|i: &Intersection| i.point == intersection) {
-                        intersections.push(Intersection::new(intersection));
-                    }
-                }
-                //if other.point_inside(v1) {
-                //    if !intersections.iter().any(|i| i.point == v1) {
-                //        intersections.push(Intersection::new(v1));
-                //    }
-                //}
-                //if self.point_inside(v3) {
-                //    if !intersections.iter().any(|i| i.point == v3) {
-                //        intersections.push(Intersection::new(v3));
-                //    }
-                //}
-            }
-        }
-        intersections
     }
 
     pub fn calculate_centroid(&self) -> Vec2 {
@@ -232,7 +126,7 @@ impl Polygon {
 
         let mut polygons = Vec::new();
 
-
+        todo!();
 
         polygons
     }

@@ -1,9 +1,10 @@
+use std::fmt::{Debug, Formatter, Write};
 use std::ops::{Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
 
 use mvutils::unsafe_utils::Unsafe;
 
-#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct Vec2 {
     pub x: f32,
@@ -27,6 +28,14 @@ impl Vec2 {
 
     pub fn splat(val: f32) -> Self {
         Self { x: val, y: val }
+    }
+}
+
+impl Debug for Vec2 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_char('(')?;
+        f.write_str(format!("{}, {}", self.x, self.y).as_str())?;
+        f.write_char(')')
     }
 }
 
