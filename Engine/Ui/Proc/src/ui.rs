@@ -88,7 +88,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Code(Box::new(#parsed_code)))
+                    #elem_ident.state_mut().children.push({#parsed_code}.to_child());
                 }
             }
         }

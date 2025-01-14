@@ -1,9 +1,9 @@
-rect = rect[x100y100w100h100];
-
+rect = rect[x50y400w300h100];
 semi_circle = arc[c[x200y350]r150a180tc36];
 >semi_circle;
 transform t[s[x1y2]];
 recenter;
 apply;
-combine rect;
+modifier Boolean intersect rect;
+modifier Bevel b[x10y15];
 export;

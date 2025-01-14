@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::sync::Arc;
 use log::{error, LevelFilter};
+use mvutils::state::State;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
 use mvcore::color::parse::parse_color;
@@ -22,6 +23,7 @@ use mvengine_ui::styles::Interpolator;
 use mvengine_ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 
 use mvengine_ui::uix::UiCompoundElement;
+use uiproc::ui;
 
 mod test;
 
@@ -153,32 +155,16 @@ impl ApplicationLoopCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
         self.texture = Some(DrawTexture::Texture(Arc::new(self.img.get().as_texture().unwrap())));
 
-        //let ast = ShapeParser::parse(include_str!("test.msf")).unwrap();
-        //let mut shape = ShapeGenerator::generate(ast).unwrap();
+        let ast = ShapeParser::parse(include_str!("test.msf")).unwrap();
+        let mut shape = ShapeGenerator::generate(ast).unwrap();
 
-        let tri1 = ctx::triangle().point((100, 200), None).point((400, 200), None).point((300, 300), None).create();
-        let mut circle1 = ctx::arc()
-            .center(300, 300)
-            .radius(100)
-            .angle(360.0)
-            .triangle_count(50)
-            .create();
+        //let mut shape = boolean::compute_intersect(&circle1, &rect).unwrap();
 
-        let mut circle2 = ctx::arc()
-            .center(200, 300)
-            .radius(100)
-            .angle(360.0)
-            .triangle_count(50)
-            .create();
+        let health = State::new("1".to_string());
 
-        let rect = ctx::rectangle()
-            .xyxy(200, 100, 350, 350)
-            .create();
-
-
-        let mut shape = boolean::compute_intersect(&circle1, &circle2).unwrap();
-
-        println!("shape: {:?}", shape);
+        let main_page = ui! {
+            <Text>{{health.map(|s| format!("Current Health: {s}"))}}</Text>
+        };
 
         shape.set_color(RgbColor::blue());
 
@@ -188,33 +174,6 @@ impl ApplicationLoopCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        let mut tri1 = ctx::triangle().point((100, 200), None).point((400, 200), None).point((300, 300), None).create();
-        tri1.set_color(RgbColor::red());
-
-        let mut circle1 = ctx::arc()
-            .center(300, 300)
-            .radius(100)
-            .angle(360.0)
-            .triangle_count(50)
-            .create();
-        circle1.set_color(RgbColor::yellow().alpha(127));
-
-        let mut circle2 = ctx::arc()
-            .center(200, 300)
-            .radius(100)
-            .angle(360.0)
-            .triangle_count(50)
-            .create();
-        circle2.set_color(RgbColor::red().alpha(127));
-
-        let rect = ctx::rectangle()
-            .xyxy(200, 100, 350, 350)
-            .color(RgbColor::yellow().alpha(127))
-            .create();
-
-
-        self.ctx.shape(circle1);
-        self.ctx.shape(circle2);
         self.ctx.shape(self.shape.clone().unwrap());
 
         if let Err(e) = self.ctx.draw() {

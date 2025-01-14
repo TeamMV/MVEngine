@@ -121,6 +121,8 @@ pub struct Renderer2D {
 
     max_textures: u32,
     max_fonts: u32,
+
+    do_sort_z: bool
 }
 
 impl Renderer2D {
@@ -395,6 +397,7 @@ impl Renderer2D {
             font_data: hashbrown::HashMap::with_hasher(U32IdentityHasher::default()),
             max_textures,
             max_fonts,
+            do_sort_z: false,
         }
     }
 
@@ -436,11 +439,13 @@ impl Renderer2D {
         let geometry_framebuffer = &self.geometry_framebuffers[current_frame as usize];
 
         if !self.triangles.is_empty() {
-            self.triangles.sort_unstable_by(|a, b| {
-                b.z
-                    .partial_cmp(&a.z)
-                    .unwrap_or(Ordering::Equal)
-            });
+            if self.do_sort_z {
+                self.triangles.sort_unstable_by(|a, b| {
+                    b.z
+                        .partial_cmp(&a.z)
+                        .unwrap_or(Ordering::Equal)
+                });
+            }
             let bytes = unsafe {
                 std::slice::from_raw_parts(
                     self.triangles.as_ptr() as *const u8,
@@ -758,5 +763,13 @@ impl Renderer2D {
                 label: Some("Renderer2D Triangle Pipeline".to_string()),
             },
         );
+    }
+
+    pub fn does_sort_z(&self) -> bool {
+        self.do_sort_z
+    }
+
+    pub fn sort_z(&mut self, do_sort_z: bool) {
+        self.do_sort_z = do_sort_z;
     }
 }

@@ -1,15 +1,16 @@
 use crate::blanked_partial_ord;
 use crate::elements::{UiElement, UiElementState, UiElementStub};
 use mvcore::color::{Color, ColorFormat, RgbColor};
-use mvutils::{enum_val_ref, lazy};
+use mvcore::render::texture::Texture;
 use mvutils::save::Savable;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::{PClamp, TetrahedronOp};
+use mvutils::{enum_val_ref, lazy};
 use num_traits::Num;
 use parking_lot::RwLock;
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::Add;
+use std::ops::{Add, Deref, DerefMut};
 use std::sync::Arc;
 
 lazy! {
@@ -24,6 +25,16 @@ lazy! {
         position: UiValue::Just(Position::Relative).to_resolve(),
         direction: UiValue::Just(Direction::Horizontal).to_resolve(),
         child_align: UiValue::Just(ChildAlign::Start).to_resolve(),
+        background: ShapeStyle {
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
+            color: UiValue::Just(RgbColor::white()).to_resolve(),
+            texture: UiValue::None.to_resolve(),
+        },
+        border: ShapeStyle {
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
+            color: UiValue::Just(RgbColor::black()).to_resolve(),
+            texture: UiValue::None.to_resolve(),
+        },
         text: TextStyle {
             size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
             kerning: UiValue::None.to_field().to_resolve(),
@@ -52,6 +63,16 @@ lazy! {
         position: UiValue::Unset.to_resolve(),
         direction: UiValue::Unset.to_resolve(),
         child_align: UiValue::Unset.to_resolve(),
+        background: ShapeStyle {
+            resource: UiValue::Unset.to_resolve(),
+            color: UiValue::Unset.to_resolve(),
+            texture: UiValue::Unset.to_resolve(),
+        },
+        border: ShapeStyle {
+            resource: UiValue::Unset.to_resolve(),
+            color: UiValue::Unset.to_resolve(),
+            texture: UiValue::Unset.to_resolve(),
+        },
         text: TextStyle {
             size: UiValue::Unset.to_field().to_resolve(),
             kerning: UiValue::Unset.to_field().to_resolve(),
@@ -119,6 +140,8 @@ pub struct UiStyle {
     pub position: Resolve<Position>,
     pub direction: Resolve<Direction>,
     pub child_align: Resolve<ChildAlign>,
+    pub background: ShapeStyle,
+    pub border: ShapeStyle,
 
     pub text: TextStyle,
     pub transform: TransformStyle,
@@ -138,6 +161,8 @@ impl UiStyle {
         self.position.merge_unset(&other.position);
         self.direction.merge_unset(&other.direction);
         self.child_align.merge_unset(&other.child_align);
+        self.background.merge_unset(&other.background);
+        self.border.merge_unset(&other.border);
         self.text.merge_unset(&other.text);
         self.transform.merge_unset(&other.transform);
     }
@@ -684,6 +709,36 @@ impl SideStyle {
     }
 }
 
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum BackgroundRes {
+    #[default]
+    Color,
+    Texture
+}
+
+#[derive(Clone)]
+pub struct ShapeStyle {
+    pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
+    pub color: Resolve<RgbColor>,
+    pub texture: Resolve<BasicInterpolatable<Arc<Texture>>>
+}
+
+impl ShapeStyle {
+    pub fn initial() -> Self {
+        Self {
+            resource: BackgroundRes::Color.into(),
+            color: RgbColor::white().into(),
+            texture: UiValue::None.to_resolve(),
+        }
+    }
+
+    pub fn merge_unset(&mut self, other: &ShapeStyle) {
+        self.resource.merge_unset(&other.resource);
+        self.color.merge_unset(&other.color);
+        self.texture.merge_unset(&other.texture);
+    }
+}
+
 #[derive(Clone)]
 pub enum Resolve<T: PartialOrd + Clone + 'static> {
     UiValue(UiValue<T>),
@@ -872,6 +927,64 @@ pub trait Interpolator<T: PartialOrd + Clone + 'static> {
         F: Fn(&UiStyle) -> &Self;
 }
 
+#[derive(Clone)]
+pub struct BasicInterpolatable<T: Clone + 'static> {
+    t: T
+}
+
+impl<T> PartialEq<Self> for BasicInterpolatable<T> {
+    fn eq(&self, other: &Self) -> bool {
+        false //Like you would never ever use this, it is just required ._.
+    }
+}
+
+impl<T> PartialOrd for BasicInterpolatable<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        None
+    }
+}
+
+impl<T: Clone + 'static> From<T> for BasicInterpolatable<T> {
+    fn from(value: T) -> Self {
+        BasicInterpolatable { t: value }
+    }
+}
+
+impl<T: Clone + 'static> BasicInterpolatable<T> {
+    pub const fn new(t: T) -> Self {
+        Self {
+            t,
+        }
+    }
+}
+
+impl<T: Clone + 'static> Interpolator<T> for BasicInterpolatable<T> {
+    fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
+    where
+        F: Fn(&UiStyle) -> &Self
+    {
+        if percent > 50.0 {
+            end.clone_into(self);
+        } else {
+            start.clone_into(self);
+        }
+    }
+}
+
+impl<T> Deref for BasicInterpolatable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.t
+    }
+}
+
+impl<T> DerefMut for BasicInterpolatable<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.t
+    }
+}
+
 macro_rules! impl_interpolator_primitives {
     ($($t:ty,)*) => {
         $(
@@ -989,6 +1102,14 @@ impl Interpolator<UiStyle> for UiStyle {
         self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
         self.direction = (percent < 50f32).yn(start.direction.clone(), end.direction.clone());
         self.child_align = (percent < 50f32).yn(start.child_align.clone(), end.child_align.clone());
+
+        self.background.resource.interpolate(&start.background.resource, &end.background.resource, percent, elem, |s| &s.background.resource);
+        self.background.color.interpolate(&start.background.color, &end.background.color, percent, elem, |s| &s.background.color);
+        self.background.texture.interpolate(&start.background.texture, &end.background.texture, percent, elem, |s| &s.background.texture);
+
+        self.border.resource.interpolate(&start.border.resource, &end.border.resource, percent, elem, |s| &s.border.resource);
+        self.border.color.interpolate(&start.border.color, &end.border.color, percent, elem, |s| &s.border.color);
+        self.border.texture.interpolate(&start.border.texture, &end.border.texture, percent, elem, |s| &s.border.texture);
 
         self.text
             .size
@@ -1152,6 +1273,8 @@ impl Default for UiStyle {
             position: UiValue::Just(Position::Relative).into(),
             direction: UiValue::Auto.into(),
             child_align: UiValue::Auto.into(),
+            background: ShapeStyle::initial(),
+            border: ShapeStyle::initial(),
             text: TextStyle::initial(),
             transform: TransformStyle::initial(),
         }

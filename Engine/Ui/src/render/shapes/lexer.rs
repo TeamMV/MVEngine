@@ -158,6 +158,18 @@ impl Iterator for TokenStream<'_> {
             if n.is_none() { return None }
             next = n.unwrap();
         }
+        if next == '#' {
+            while next != '\n' {
+                let n = self.chars.next();
+                if n.is_none() { return None }
+                next = n.unwrap();
+            }
+            while next.is_whitespace() {
+                let n = self.chars.next();
+                if n.is_none() { return None }
+                next = n.unwrap();
+            }
+        }
 
         match next {
             '=' => Some(Token::Equals),

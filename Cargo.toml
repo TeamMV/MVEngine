@@ -22,7 +22,7 @@ panic = "unwind"
 ## Global ##
 
 # mvteam dependencies
-mvutils = "1.1.3"
+mvutils = "1.1.5"
 mvsync = "1.1.4"
 mvlogger = "0.3.0"
 

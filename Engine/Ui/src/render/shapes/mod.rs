@@ -22,7 +22,7 @@ enum Assignment {
     Clone(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Param {
     Str(String),
     Struct(ParsedStruct)

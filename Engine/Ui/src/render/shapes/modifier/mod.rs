@@ -1,4 +1,5 @@
 pub mod boolean;
+mod bevel;
 
 use hashbrown::HashMap;
 use mvutils::lazy;

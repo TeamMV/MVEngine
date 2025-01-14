@@ -3,6 +3,7 @@ pub mod child;
 pub mod events;
 pub mod implementations;
 pub mod lmao;
+mod components;
 
 pub use implementations::*;
 

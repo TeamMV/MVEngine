@@ -1,3 +1,4 @@
+use std::thread::current;
 use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
 use mvcore::math::vec::Vec2;
@@ -5,6 +6,7 @@ use mve2d::gpu::Transform;
 use crate::render::ctx;
 use crate::render::ctx::{triangle, DrawShape};
 use crate::render::shapes::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
+use crate::render::shapes::modifier::boolean;
 
 fn parse_vec2(parsed_struct: &ParsedStruct) -> Result<Vec2, String> {
     let mut vec2 = Vec2::new(0.0, 0.0);
@@ -261,6 +263,7 @@ pub struct ShapeGenerator;
 impl ShapeGenerator {
     pub fn generate(ast: Ast) -> Result<DrawShape, String> {
         let mut vars: HashMap<String, DrawShape> = HashMap::new();
+        let vars2 = unsafe { Unsafe::cast_static(&vars) };
         let mut current_selection = String::new();
 
         for command in ast {
@@ -323,6 +326,20 @@ impl ShapeGenerator {
                         "export" => {
                             let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
                             return Ok(current.clone());
+                        }
+                        "modifier" => {
+                            let modifier = params.get(0).ok_or("modifier needs one modifier name argument".to_string())?;
+                            if let Param::Str(name) = modifier {
+                                let mod_params = params.get(1..).unwrap_or_default().to_vec();
+                                let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                                match name.as_str() {
+                                    "Boolean" => unsafe {
+                                        let res = boolean::compute(current, mod_params, vars2)?;
+                                        vars.insert(current_selection.clone(), res);
+                                    }
+                                    _ => return Err(format!("Modifier {name} is not defined!"))
+                                }
+                            }
                         }
                         _ => return Err(format!("Function {function} is not defined!"))
                     }

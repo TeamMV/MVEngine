@@ -13,7 +13,8 @@ use mvcore::color::RgbColor;
 #[derive(Clone)]
 pub struct DrawShape {
     pub triangles: Vec<InputTriangle>,
-    pub textures: Vec<(Arc<Texture>, SamplerType)>
+    pub textures: Vec<(Arc<Texture>, SamplerType)>,
+    pub extent: (i32, i32)
 }
 
 impl Debug for DrawShape {
@@ -37,6 +38,34 @@ impl DrawShape {
             triangle.transform = Transform::new();
             triangle.points = [p1, p2, p3];
         }
+    }
+
+    pub fn compute_extent(&mut self) {
+        let mut min_x = i32::MAX;
+        let mut max_x = i32::MIN;
+        let mut min_y = i32::MAX;
+        let mut max_y = i32::MIN;
+
+        for triangle in &self.triangles {
+            for &(x, y) in &triangle.points {
+                if x < min_x {
+                    min_x = x;
+                }
+                if x > max_x {
+                    max_x = x;
+                }
+                if y < min_y {
+                    min_y = y;
+                }
+                if y > max_y {
+                    max_y = y;
+                }
+            }
+        }
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+        self.extent = (width, height);
     }
 
     pub fn combine(&mut self, other: &DrawShape) {
