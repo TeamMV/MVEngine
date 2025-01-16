@@ -44,7 +44,7 @@ fn compute_union(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, Stri
 }
 
 pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<DrawShape, String> {
-    let mut end_shape = DrawShape { triangles: vec![], textures: vec![] };
+    let mut end_shape = DrawShape { triangles: vec![], textures: vec![], extent: (0, 0) };
 
     for input_triangle in &input.triangles {
         let input_vertices = input_triangle.vec2s();

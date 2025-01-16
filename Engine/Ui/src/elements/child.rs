@@ -37,7 +37,7 @@ impl Child {
         }
     }
 
-    pub fn as_state(&self) -> &State<String> {
+    pub fn as_state(&self) -> &MappedState<String, String> {
         match self {
             Child::State(s) => s,
             _ => unreachable!(),
@@ -49,7 +49,13 @@ pub trait ToChild {
     fn to_child(self) -> Child;
 }
 
-impl<T: ToString> ToChild for T {
+impl ToChild for String {
+    fn to_child(self) -> Child {
+        Child::String(self)
+    }
+}
+
+impl ToChild for &str {
     fn to_child(self) -> Child {
         Child::String(self.to_string())
     }

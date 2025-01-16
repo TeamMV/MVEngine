@@ -1,6 +1,7 @@
 mod ui;
 mod uix;
 mod drawable;
+mod r;
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -18,4 +19,9 @@ pub fn uix(attrib: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn drawable(input: TokenStream) -> TokenStream {
     drawable::drawable(input)
+}
+
+#[proc_macro]
+pub fn r(input: TokenStream) -> TokenStream {
+    r::r(input)
 }

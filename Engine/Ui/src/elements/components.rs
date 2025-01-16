@@ -5,21 +5,27 @@ use crate::styles::{BackgroundRes, Resolve, UiStyle};
 use mvutils::state::State;
 use mvcore::render::texture::DrawTexture;
 use crate::elements::{UiElement, UiElementStub};
-use crate::{resolve, styles};
+use crate::{get_shape, resolve, styles};
+use crate::context::UiContext;
 use crate::render::ctx;
-use crate::utils::resolve_color;
+use crate::res::err::{UiResErr, ResType, UiResult};
 
 pub struct ElementBody {
+    context: UiContext,
     background_shape: DrawShape,
     border_shape: DrawShape,
 }
 
 impl ElementBody {
-    pub fn new(background_shape: DrawShape, border_shape: DrawShape) -> Self {
-        Self {
+    pub fn new(context: UiContext, background_shape: usize, border_shape: usize) -> UiResult<Self> {
+        let res = context.resources;
+        let background_shape = get_shape!(res.background_shape).clone();
+        let border_shape = get_shape!(res.border_shape).clone();
+        Ok(Self {
+            context: context.clone(),
             background_shape,
             border_shape,
-        }
+        })
     }
 
     pub fn draw(&mut self, elem: &UiElement, ctx: &mut DrawContext2D) {
@@ -30,7 +36,8 @@ impl ElementBody {
         let (bgsw, bgsh) = self.background_shape.extent;
         let bg_scale_x = bounds.width() as f32 / bgsw as f32;
         let bg_scale_y = bounds.height() as f32 / bgsh as f32;
-        let bg_res = resolve!(elem, background.resource).deref();
+        let tmp = resolve!(elem, background.resource);
+        let bg_res = tmp.deref();
         let mut bg_empty = false;
         match bg_res {
             BackgroundRes::Color => {
@@ -54,7 +61,8 @@ impl ElementBody {
         let (bdsw, bdsd) = self.border_shape.extent;
         let bd_scale_x = bounds.width() as f32 / bdsw as f32;
         let bd_scale_y = bounds.height() as f32 / bdsd as f32;
-        let bd_res = resolve!(elem, border.resource).deref();
+        let tmp = resolve!(elem, border.resource);
+        let bd_res = tmp.deref();
         let mut bd_empty = false;
         match bd_res {
             BackgroundRes::Color => {

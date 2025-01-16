@@ -1,5 +1,6 @@
 use crate::attributes::Attributes;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::elements::components::ElementBody;
 use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
@@ -7,6 +8,7 @@ pub struct Div {
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
+    body: ElementBody
 }
 
 impl UiElementCallbacks for Div {
@@ -24,6 +26,7 @@ impl UiElementStub for Div {
             attributes,
             style,
             state: UiElementState::new(),
+            body: todo!(),
         }
     }
 

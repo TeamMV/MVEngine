@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::sync::Arc;
 use log::{error, LevelFilter};
@@ -24,8 +25,10 @@ use mvengine_ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 
 use mvengine_ui::uix::UiCompoundElement;
 use uiproc::ui;
+use crate::r::R;
 
 mod test;
+mod r;
 
 fn main() {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -34,90 +37,6 @@ fn main() {
     info.fps = 60;
     info.ups = 20;
     info.vsync = true;
-
-    let subject = Polygon {
-        vertices: vec![
-            Vec2::new(2.0, 0.5),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(4.0, 1.0),
-            Vec2::new(6.0, 2.0),
-            Vec2::new(5.0, 4.0),
-            Vec2::new(7.0, 5.0),
-            Vec2::new(4.0, 7.0),
-            Vec2::new(2.0, 6.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(2.0, 2.0),
-        ],
-    };
-
-    let clipping = Polygon {
-        vertices: vec![
-            Vec2::new(1.0, 1.0),   // Point 1
-            Vec2::new(4.0, 1.0),   // Point 2
-            Vec2::new(5.0, 3.0),   // Point 3
-            Vec2::new(3.0, 4.0),   // Point 4
-            Vec2::new(6.0, 6.0),   // Point 5
-            Vec2::new(4.5, 7.0),   // Point 6
-            Vec2::new(2.0, 6.0),   // Point 7
-            Vec2::new(0.5, 4.0),   // Point 8
-            Vec2::new(0.5, 2.0),   // Point 9
-        ],
-    };
-
-    let a = Polygon {
-        vertices: vec![
-            Vec2::new(1.0, 1.0),   // Point 1
-            Vec2::new(3.0, 1.0),   // Point 2
-            Vec2::new(3.0, 2.0),   // Point 3
-        ],
-    };
-
-    let b = Polygon {
-        vertices: vec![
-            Vec2::new(1.5, 2.0),   // Point 1
-            Vec2::new(2.5, 0.5),   // Point 2
-            Vec2::new(2.5, 2.0),   // Point 3
-        ],
-    };
-
-    let polygon1 = Polygon {
-        vertices: vec![
-            Vec2::new(1.0, 1.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(4.0, 4.0),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(2.0, 3.0),
-            Vec2::new(2.0, 2.0),
-            Vec2::new(3.0, 2.0),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(4.0, 4.0),
-            Vec2::new(4.0, 1.0),
-        ],
-    };
-
-    let polygon2 = Polygon {
-        vertices: vec![
-            Vec2::new(0.0, 0.0),
-            Vec2::new(0.0, 5.0),
-            Vec2::new(5.0, 5.0),
-            Vec2::new(4.0, 4.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(1.0, 1.0),
-            Vec2::new(4.0, 1.0),
-            Vec2::new(4.0, 4.0),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(3.0, 2.0),
-            Vec2::new(2.0, 2.0),
-            Vec2::new(2.0, 3.0),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(5.0, 5.0),
-            Vec2::new(5.0, 0.0),
-        ],
-    };
-
-    //let rect = ctx::rectangle().xywh(100, 100, 100, 100).create();
-    //let poly = &Polygon::detriangulate(&rect)[0];
-    //println!("detri: {:?}", poly);
 
     let window = Window::new(info);
     window.run::<Application>();
@@ -155,7 +74,7 @@ impl ApplicationLoopCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
         self.texture = Some(DrawTexture::Texture(Arc::new(self.img.get().as_texture().unwrap())));
 
-        let ast = ShapeParser::parse(include_str!("test.msf")).unwrap();
+        let ast = ShapeParser::parse(include_str!("res/shapes/test.msf")).unwrap();
         let mut shape = ShapeGenerator::generate(ast).unwrap();
 
         //let mut shape = boolean::compute_intersect(&circle1, &rect).unwrap();

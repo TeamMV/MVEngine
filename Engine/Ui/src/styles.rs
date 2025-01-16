@@ -726,8 +726,8 @@ pub struct ShapeStyle {
 impl ShapeStyle {
     pub fn initial() -> Self {
         Self {
-            resource: BackgroundRes::Color.into(),
-            color: RgbColor::white().into(),
+            resource: UiValue::Just(BackgroundRes::Color.into()).to_resolve(),
+            color: UiValue::Just(RgbColor::white().into()).to_resolve(),
             texture: UiValue::None.to_resolve(),
         }
     }
@@ -932,13 +932,13 @@ pub struct BasicInterpolatable<T: Clone + 'static> {
     t: T
 }
 
-impl<T> PartialEq<Self> for BasicInterpolatable<T> {
+impl<T: Clone> PartialEq<Self> for BasicInterpolatable<T> {
     fn eq(&self, other: &Self) -> bool {
         false //Like you would never ever use this, it is just required ._.
     }
 }
 
-impl<T> PartialOrd for BasicInterpolatable<T> {
+impl<T: Clone> PartialOrd for BasicInterpolatable<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         None
     }
@@ -958,7 +958,7 @@ impl<T: Clone + 'static> BasicInterpolatable<T> {
     }
 }
 
-impl<T: Clone + 'static> Interpolator<T> for BasicInterpolatable<T> {
+impl<T: Clone + 'static> Interpolator<BasicInterpolatable<T>> for BasicInterpolatable<T> {
     fn interpolate<F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &UiElement, f: F)
     where
         F: Fn(&UiStyle) -> &Self
@@ -971,7 +971,7 @@ impl<T: Clone + 'static> Interpolator<T> for BasicInterpolatable<T> {
     }
 }
 
-impl<T> Deref for BasicInterpolatable<T> {
+impl<T: Clone> Deref for BasicInterpolatable<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -979,7 +979,7 @@ impl<T> Deref for BasicInterpolatable<T> {
     }
 }
 
-impl<T> DerefMut for BasicInterpolatable<T> {
+impl<T: Clone> DerefMut for BasicInterpolatable<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.t
     }

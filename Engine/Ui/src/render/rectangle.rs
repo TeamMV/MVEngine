@@ -145,6 +145,7 @@ impl RectangleCtx {
         DrawShape {
             triangles: vec![tri1, tri2],
             textures,
+            extent: (0, 0),
         }
     }
 }

@@ -106,6 +106,7 @@ impl TriangleCtx {
         DrawShape {
             triangles: vec![tri],
             textures,
+            extent: (0, 0),
         }
     }
 }

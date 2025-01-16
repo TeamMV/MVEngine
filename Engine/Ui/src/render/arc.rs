@@ -135,6 +135,7 @@ impl ArcCtx {
         DrawShape {
             triangles: tris,
             textures,
+            extent: (0, 0),
         }
     }
 }

@@ -22,6 +22,8 @@ pub mod utils;
 pub mod theme;
 pub mod geometry;
 pub mod render;
+pub mod res;
+pub mod context;
 
 pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
     Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
