@@ -2,7 +2,10 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use mvutils::unsafe_utils::DangerousCell;
 use mvcore::color::RgbColor;
+use mvcore::render::backend::device::Device;
+use mvcore::render::texture::Texture;
 use mvcore::ToAD;
+use crate::render::adaptive::AdaptiveShape;
 use crate::render::ctx::DrawShape;
 
 #[derive(Clone)]
@@ -36,8 +39,11 @@ impl DerefMut for UiContext {
 }
 
 pub trait UiResources {
+    fn initialize(&self, device: Device);
     fn resolve_color(&self, id: usize) -> Option<&RgbColor>;
     fn resolve_shape(&self, id: usize) -> Option<&DrawShape>;
+    fn resolve_adaptive(&self, id: usize) -> Option<&AdaptiveShape>;
+    fn resolve_texture(&self, id: usize) -> Option<&Texture>;
 }
 
 pub struct InnerContext {

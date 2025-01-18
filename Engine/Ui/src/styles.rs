@@ -1,5 +1,6 @@
 use crate::blanked_partial_ord;
 use crate::elements::{UiElement, UiElementState, UiElementStub};
+use crate::res::MVR;
 use mvcore::color::{Color, ColorFormat, RgbColor};
 use mvcore::render::texture::Texture;
 use mvutils::save::Savable;
@@ -29,11 +30,13 @@ lazy! {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::white()).to_resolve(),
             texture: UiValue::None.to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
         },
         border: ShapeStyle {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::black()).to_resolve(),
             texture: UiValue::None.to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
         },
         text: TextStyle {
             size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
@@ -67,11 +70,13 @@ lazy! {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
+            shape: UiValue::Unset.to_resolve(),
         },
         border: ShapeStyle {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
+            shape: UiValue::Unset.to_resolve(),
         },
         text: TextStyle {
             size: UiValue::Unset.to_field().to_resolve(),
@@ -716,11 +721,24 @@ pub enum BackgroundRes {
     Texture
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum UiShape {
+    Shape(usize),
+    Adaptive(usize)
+}
+
+impl Default for UiShape {
+    fn default() -> Self {
+        Self::Shape(MVR.shape.rect)
+    }
+}
+
 #[derive(Clone)]
 pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
-    pub texture: Resolve<BasicInterpolatable<Arc<Texture>>>
+    pub texture: Resolve<BasicInterpolatable<Arc<Texture>>>,
+    pub shape: Resolve<BasicInterpolatable<UiShape>>
 }
 
 impl ShapeStyle {
@@ -729,6 +747,7 @@ impl ShapeStyle {
             resource: UiValue::Just(BackgroundRes::Color.into()).to_resolve(),
             color: UiValue::Just(RgbColor::white().into()).to_resolve(),
             texture: UiValue::None.to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
         }
     }
 

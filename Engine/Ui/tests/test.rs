@@ -1,4 +1,4 @@
-use mvengine_ui::elements::{UiElement, UiElementStub};
+/*use mvengine_ui::elements::{UiElement, UiElementStub};
 use mvengine_ui::styles::UiStyle;
 use mvengine_ui::uix::{global_state, use_state, UiCompoundElement};
 use mvutils::state::State;
@@ -223,4 +223,4 @@ impl UiCompoundElement for GeneratedComponent {
         self.attributes = attributes;
         self.request_regenerate();
     }
-}
+}*/

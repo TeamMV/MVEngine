@@ -127,6 +127,29 @@ impl DrawShape {
         });
     }
 
+    pub fn translated(mut self, x: i32, y: i32) -> Self {
+        self.modify_transform(|t| {
+            t.translation.x = x as f32;
+            t.translation.y = y as f32;
+        });
+        self
+    }
+
+    pub fn rotated(mut self, r: f32) -> Self {
+        self.modify_transform(|t| {
+            t.rotation = r;
+        });
+        self
+    }
+
+    pub fn scaled(mut self, x: i32, y: i32) -> Self {
+        self.modify_transform(|t| {
+            t.scale.x = x as f32;
+            t.scale.y = y as f32;
+        });
+        self
+    }
+
     pub fn set_texture(&mut self, texture: TextureCtx) {
         if let Some(tex) = texture.texture {
             self.textures.clear();

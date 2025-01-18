@@ -1,5 +1,4 @@
 use uiproc::r;
-use std::any::TypeId;
 
 r! {
     <resources structName="R" cdir="./res/">

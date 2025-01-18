@@ -1,10 +1,12 @@
 use crate::attributes::Attributes;
+use crate::context::UiContext;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::elements::components::ElementBody;
 use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
 pub struct Div {
+    context: UiContext,
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
@@ -18,15 +20,16 @@ impl UiElementCallbacks for Div {
 }
 
 impl UiElementStub for Div {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized,
     {
         Self {
+            context: context.clone(),
             attributes,
             style,
             state: UiElementState::new(),
-            body: todo!(),
+            body: ElementBody::new(context),
         }
     }
 

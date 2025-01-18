@@ -1,0 +1,33 @@
+bl = rect[x0y0w3h3];
+>bl;
+export bl;
+
+tl = rect[x0y97w3h3];
+>tl;
+export tl;
+
+tr = rect[x97y97w3h3];
+>tr;
+export tr;
+
+br = rect[x97y0w3h3];
+>br;
+export br;
+
+l = rect[x0y3w3h94];
+>l;
+export l;
+
+t = rect[x3y97w94h3];
+>t;
+export t;
+
+r = rect[x97y3w3h94];
+>r;
+export r;
+
+b = rect[x3y0w94h3];
+>b;
+export b;
+
+export;

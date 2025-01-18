@@ -3,6 +3,7 @@ use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
 use mvcore::math::vec::Vec2;
 use mve2d::gpu::Transform;
+use crate::render::adaptive::AdaptiveShape;
 use crate::render::ctx;
 use crate::render::ctx::{triangle, DrawShape};
 use crate::render::shapes::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
@@ -324,8 +325,120 @@ impl ShapeGenerator {
                             }
                         }
                         "export" => {
+                            let all_param = Param::Str("all".to_string());
+                            let first = params.get(0).unwrap_or(&all_param);
+                            if let Param::Str(export) = first {
+
+                            }
                             let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
                             return Ok(current.clone());
+                        }
+                        "modifier" => {
+                            let modifier = params.get(0).ok_or("modifier needs one modifier name argument".to_string())?;
+                            if let Param::Str(name) = modifier {
+                                let mod_params = params.get(1..).unwrap_or_default().to_vec();
+                                let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                                match name.as_str() {
+                                    "Boolean" => unsafe {
+                                        let res = boolean::compute(current, mod_params, vars2)?;
+                                        vars.insert(current_selection.clone(), res);
+                                    }
+                                    _ => return Err(format!("Modifier {name} is not defined!"))
+                                }
+                            }
+                        }
+                        _ => return Err(format!("Function {function} is not defined!"))
+                    }
+                }
+            }
+        }
+
+        Err("No shape exported".to_string())
+    }
+
+    pub fn generate_adaptive(ast: Ast) -> Result<AdaptiveShape, String> {
+        let mut vars: HashMap<String, DrawShape> = HashMap::new();
+        let vars2 = unsafe { Unsafe::cast_static(&vars) };
+        let mut current_selection = String::new();
+
+        let mut parts = [0; 9].map(|_| None);
+
+        for command in ast {
+            match command {
+                Command::Assign(name, assignment) => {
+                    match assignment {
+                        Assignment::New(parsed_struct) => {
+                            let prim_name = &parsed_struct.name;
+                            let shape = match prim_name.as_str() {
+                                "tri" => gen_tri(parsed_struct)?,
+                                "rect" => gen_rect(parsed_struct)?,
+                                "arc" => gen_arc(parsed_struct)?,
+                                _ => return Err(format!("Unknown primitve {prim_name}. Did you mean [tri, rect, arc]?").to_string())
+                            };
+                            vars.insert(name, shape);
+                        }
+                        Assignment::Clone(other) => {
+                            if let Some(shape) = vars.get(&other).cloned() {
+                                vars.insert(name, shape);
+                            } else {
+                                return Err(format!("{other} is not defined!"));
+                            }
+                        }
+                    }
+                }
+                Command::Select(name) => {
+                    if let Some(_) = vars.get_mut(&name) {
+                        current_selection = name;
+                    } else {
+                        return Err(format!("{name} is not defined!"));
+                    }
+                }
+                Command::Call(function, params) => {
+                    match function.as_ref() {
+                        "transform" => {
+                            let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                            let first = params.get(0).ok_or("tranform needs one transformation struct".to_string())?;
+                            if let Param::Struct(parsed_struct) = first {
+                                let transform = parse_transform(parsed_struct)?;
+                                current.set_transform(transform);
+                            }
+                        }
+                        "apply" => {
+                            let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                            current.apply_transformations();
+                        }
+                        "recenter" => {
+                            let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                            current.recenter();
+                        }
+                        "combine" => {
+                            let first = params.get(0).ok_or("combine needs one other shape".to_string())?;
+                            if let Param::Str(other) = first {
+                                let other_shape = vars.get(other).ok_or(format!("{other} is not defined!"))?;
+                                let other_shape = unsafe { Unsafe::cast_static(other_shape) };
+                                let current = vars.get_mut(&current_selection).ok_or("No shape selected".to_string())?;
+                                current.combine(other_shape);
+                            }
+                        }
+                        "export" => {
+                            let all_param = Param::Str("finish".to_string());
+                            let first = params.get(0).unwrap_or(&all_param);
+                            if let Param::Str(export) = first {
+                                let current = vars.get(&current_selection).ok_or("No shape selected".to_string())?;
+                                match export.as_str() {
+                                    "all" => return Ok(AdaptiveShape::from_arr(parts)),
+                                    "bl" | "bottom_left" => parts[0] = Some(current.clone()),
+                                    "tl" | "top_left" => parts[2] = Some(current.clone()),
+                                    "tr" | "top_right" => parts[4] = Some(current.clone()),
+                                    "br" | "bottom_right" => parts[6] = Some(current.clone()),
+                                    "l" | "left" => parts[1] = Some(current.clone()),
+                                    "t" | "top" => parts[3] = Some(current.clone()),
+                                    "r" | "right" => parts[5] = Some(current.clone()),
+                                    "b" | "bottom" => parts[7] = Some(current.clone()),
+                                    "c" | "center" => parts[8] = Some(current.clone()),
+                                    _ => return Err(format!("Invalid export: {export}"))
+                                }
+                            }
                         }
                         "modifier" => {
                             let modifier = params.get(0).ok_or("modifier needs one modifier name argument".to_string())?;

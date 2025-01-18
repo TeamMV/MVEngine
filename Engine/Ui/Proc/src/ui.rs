@@ -102,8 +102,8 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             #attrib_tokens
 
             let __attribs_ref__ = &mut #attribs_ident;
-
-            let mut #elem_ident = #name_ident::new(#attribs_ident, #style_code);
+            let __context__ = mvengine_ui::ui().context();
+            let mut #elem_ident = #name_ident::new(__context__, #attribs_ident, #style_code);
             #inner_code;
             #elem_ident.wrap()
         }

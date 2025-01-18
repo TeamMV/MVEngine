@@ -6,6 +6,7 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Recover;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
+use crate::context::{UiContext, UiResources};
 use crate::render::ctx::DrawContext2D;
 
 pub mod anim;
@@ -25,10 +26,19 @@ pub mod render;
 pub mod res;
 pub mod context;
 
-pub static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
+pub(crate) static mut UI: Lazy<Arc<DangerousCell<Ui>>> =
     Lazy::new(|| Arc::new(DangerousCell::new(Ui::new())));
 
+pub fn ui() -> &'static Ui {
+    unsafe { UI.get() }
+}
+
+pub fn ui_mut() -> &'static mut Ui {
+    unsafe { UI.get_mut() }
+}
+
 pub struct Ui {
+    context: CreateOnce<UiContext>,
     input: CreateOnce<Arc<DangerousCell<Input>>>,
     enabled: bool,
     root_elems: Vec<Arc<parking_lot::RwLock<UiElement>>>,
@@ -39,14 +49,23 @@ impl Ui {
         unsafe { if UI.created() {} }
 
         Self {
+            context: CreateOnce::new(),
             input: CreateOnce::new(),
             enabled: true,
             root_elems: vec![],
         }
     }
 
+    pub fn init(&mut self, resources: &'static dyn UiResources) {
+        self.context.create(|| UiContext::new(resources));
+    }
+
     pub fn init_input(&mut self, input: Arc<DangerousCell<Input>>) {
         self.input.create(move || input);
+    }
+
+    pub fn context(&self) -> UiContext {
+        self.context.clone()
     }
 
     pub fn add_root(&mut self, elem: Arc<parking_lot::RwLock<UiElement>>) {

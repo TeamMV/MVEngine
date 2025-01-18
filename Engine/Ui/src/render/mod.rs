@@ -3,6 +3,7 @@ pub mod triangle;
 pub mod rectangle;
 pub mod arc;
 pub mod shapes;
+pub mod adaptive;
 
 use std::sync::Arc;
 use std::vec::IntoIter;

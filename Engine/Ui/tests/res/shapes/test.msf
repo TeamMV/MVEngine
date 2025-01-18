@@ -4,6 +4,5 @@ semi_circle = arc[c[x200y350]r150a180tc36];
 transform t[s[x1y2]];
 recenter;
 apply;
-modifier Boolean intersect rect;
-modifier Bevel b[x10y15];
+combine rect;
 export;

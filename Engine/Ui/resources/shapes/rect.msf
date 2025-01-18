@@ -1,0 +1,3 @@
+r = rect[x0y0w100h100];
+>r;
+export;

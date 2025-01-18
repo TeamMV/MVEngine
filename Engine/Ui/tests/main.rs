@@ -1,7 +1,9 @@
 use std::any::TypeId;
 use std::cmp::Ordering;
+use std::ops::Deref;
 use std::sync::Arc;
 use log::{error, LevelFilter};
+use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use mvcore::asset::asset::AssetType;
 use mvcore::asset::manager::{AssetHandle, AssetManager};
@@ -22,9 +24,11 @@ use mvengine_ui::render::shapes::shape_gen::ShapeGenerator;
 use mvengine_ui::render::shapes::ShapeParser;
 use mvengine_ui::styles::Interpolator;
 use mvengine_ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
-
+use mvengine_ui::elements::implementations::div::Div;
+use mvengine_ui::{ui, ui_mut, Ui};
 use mvengine_ui::uix::UiCompoundElement;
 use uiproc::ui;
+use mvengine_ui::elements::child::ToChild;
 use crate::r::R;
 
 mod test;
@@ -46,9 +50,6 @@ struct Application {
     manager: Arc<AssetManager>,
     ctx: DrawContext2D,
     rot: f32,
-    img: AssetHandle,
-    texture: Option<DrawTexture>,
-    shape: Option<DrawShape>
 }
 
 impl ApplicationLoopCallbacks for Application {
@@ -56,45 +57,29 @@ impl ApplicationLoopCallbacks for Application {
         let renderer = UiRenderer::new(window, "TestApp".to_string());
         let manager = AssetManager::new(renderer.get_device(), 1, 1);
         let mut ctx = DrawContext2D::new(renderer);
-
-        let img = manager.create_asset("C:/Users/v22ju/Desktop/coding/rust/MVEngine/Engine/Ui/tests/img.png", AssetType::Texture);
-        img.load(|asset, idk| {});
-        img.wait();
-
-        println!("loaded, valid: {}", img.is_valid());
         //unsafe {
         //    TIMING_MANAGER.request(PeriodicTask::new(-1, 1000, |win, _| {
         //        println!("FPS: {}", win.get_value().try_get::<Window>().unwrap().fps());
         //    }, AnimationState::value(window)), None);
         //}
 
-        Self { manager, ctx, rot: 0.0, img, texture: None, shape: None }
+        Self { manager, ctx, rot: 0.0 }
     }
 
     fn post_init(&mut self, window: &mut Window) {
-        self.texture = Some(DrawTexture::Texture(Arc::new(self.img.get().as_texture().unwrap())));
+        window.set_input_processor(Ui::input_processor);
 
-        let ast = ShapeParser::parse(include_str!("res/shapes/test.msf")).unwrap();
-        let mut shape = ShapeGenerator::generate(ast).unwrap();
-
-        //let mut shape = boolean::compute_intersect(&circle1, &rect).unwrap();
+        ui_mut().init(R.deref().deref());
 
         let health = State::new("1".to_string());
-
         let main_page = ui! {
-            <Text>{{health.map(|s| format!("Current Health: {s}"))}}</Text>
+            <Div>{{health.map(|s| format!("Current Health: {s}"))}}</Div>
         };
-
-        shape.set_color(RgbColor::blue());
-
-        self.shape = Some(shape);
     }
 
     fn update(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        self.ctx.shape(self.shape.clone().unwrap());
-
         if let Err(e) = self.ctx.draw() {
             error!("{:?}", e);
         }

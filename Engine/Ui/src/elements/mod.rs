@@ -2,8 +2,7 @@ pub mod blank;
 pub mod child;
 pub mod events;
 pub mod implementations;
-pub mod lmao;
-mod components;
+pub mod components;
 
 pub use implementations::*;
 
@@ -14,7 +13,6 @@ use crate::elements::button::Button;
 use crate::elements::child::Child;
 use crate::elements::div::Div;
 use crate::elements::events::UiEvents;
-use crate::elements::lmao::LmaoElement;
 use crate::resolve;
 use crate::styles::{
     ChildAlign, Dimension, Direction, Interpolator, Origin, Point, Position, ResCon, Resolve,
@@ -31,6 +29,7 @@ use std::sync::Arc;
 use mvcore::input;
 use mvcore::input::MouseAction;
 use mvcore::input::raw::Input;
+use crate::context::UiContext;
 use crate::geometry::Rect;
 use crate::render::ctx::DrawContext2D;
 //use crate::elements::events::UiEvents;
@@ -40,7 +39,7 @@ pub trait UiElementCallbacks {
 }
 
 pub trait UiElementStub: UiElementCallbacks {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized;
 
@@ -94,7 +93,6 @@ impl ComputeUiElement for Arc<RwLock<UiElement>> {
 
 pub enum UiElement {
     Blank(Blank),
-    Lmao(LmaoElement),
     Div(Div),
     Button(Button),
 }
@@ -103,7 +101,6 @@ macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident()) => {
         match $this {
             UiElement::Blank(e) => e.$fn_name(),
-            UiElement::Lmao(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
             _ => todo!(),
         }
@@ -111,7 +108,6 @@ macro_rules! ui_element_fn {
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
         match $this {
             UiElement::Blank(e) => e.$fn_name($($args),*),
-            UiElement::Lmao(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
             _ => todo!(),
         }
@@ -125,7 +121,7 @@ impl UiElementCallbacks for UiElement {
 }
 
 impl UiElementStub for UiElement {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized,
     {

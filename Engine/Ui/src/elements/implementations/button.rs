@@ -1,4 +1,5 @@
 use crate::attributes::Attributes;
+use crate::context::UiContext;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::elements::components::ElementBody;
 use crate::render::ctx::DrawContext2D;
@@ -18,7 +19,7 @@ impl UiElementCallbacks for Button {
 }
 
 impl UiElementStub for Button {
-    fn new(attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized
     {
