@@ -1,10 +1,11 @@
+use std::any::TypeId;
 use crate::blanked_partial_ord;
 use crate::elements::{UiElement, UiElementState, UiElementStub};
 use crate::res::MVR;
 use mvcore::color::{Color, ColorFormat, RgbColor};
 use mvcore::render::texture::Texture;
 use mvutils::save::Savable;
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{PClamp, TetrahedronOp};
 use mvutils::{enum_val_ref, lazy};
 use num_traits::Num;
@@ -12,12 +13,13 @@ use parking_lot::RwLock;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut};
+use std::rc::Rc;
 use std::sync::Arc;
 
 lazy! {
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
-        x: UiValue::None.to_field().to_resolve(),
-        y: UiValue::None.to_field().to_resolve(),
+        x: UiValue::Just(0).to_field().to_resolve(),
+        y: UiValue::Just(0).to_field().to_resolve(),
         width: UiValue::Auto.to_field().to_resolve(),
         height: UiValue::Auto.to_field().to_resolve(),
         padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
@@ -101,14 +103,12 @@ macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
         {
             let s = &$elem.style().$($style).*;
-            let v: Option<_> = s.resolve($elem.state().ctx.dpi, $elem.state().parent.clone(), |s| {&s.$($style).*});
-            if let Some(v) = v {
-                v
-            }
-            else {
+            let v: ResolveResult<_> = s.resolve($elem.state().ctx.dpi, $elem.state().parent.clone(), |s| {&s.$($style).*});
+            if v.is_use_default() {
                 $crate::styles::DEFAULT_STYLE.$($style).*
                 .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
-                .expect("Default style could not be resolved")
+            } else {
+                v
             }
         }
     };
@@ -360,9 +360,9 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn resolve<F>(
         &self,
         dpi: f32,
-        parent: Option<Arc<RwLock<UiElement>>>,
+        parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
-    ) -> (Option<T>, Option<T>)
+    ) -> (ResolveResult<T>, ResolveResult<T>)
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -374,7 +374,7 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn resolve_with_default<F>(
         &self,
         dpi: f32,
-        parent: Option<Arc<RwLock<UiElement>>>,
+        parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
         def: (T, T),
     ) -> (T, T)
@@ -385,10 +385,10 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
         let y_res = self.y.resolve(dpi, parent, |s| &map(s).y);
 
         let mut res = def;
-        if x_res.is_some() {
+        if x_res.is_set() {
             res.0 = x_res.unwrap()
         }
-        if y_res.is_some() {
+        if y_res.is_set() {
             res.1 = y_res.unwrap()
         }
         res
@@ -412,7 +412,7 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         Resolve::LayoutField(self)
     }
 
-    fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
+    fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -420,26 +420,26 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
         let max = self.max.resolve(dpi, parent, |s| &map(s).max);
 
-        if value.is_none() {
-            return None;
+        if !value.is_set() {
+            return value;
         }
 
         let mut emin = None;
         let mut emax = None;
 
-        if min.is_none() {
+        if min.is_set() {
+            emin = Some(min.unwrap());
+        } else {
             emin = Some(value.clone().unwrap());
-        } else {
-            emin = min;
         }
 
-        if max.is_none() {
+        if max.is_set() {
+            emax = Some(max.unwrap());
+        } else {
             emax = Some(value.clone().unwrap());
-        } else {
-            emax = max;
         }
 
-        Some(value.unwrap().p_clamp(emin.unwrap(), emax.unwrap()))
+        ResolveResult::Value(value.unwrap().p_clamp(emin.unwrap(), emax.unwrap()))
     }
 }
 
@@ -519,14 +519,14 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 
         let mut ret = value;
 
-        if min.is_some() {
+        if min.is_set() {
             let min = min.unwrap();
             if ret < min {
                 ret = min;
             }
         }
 
-        if max.is_some() {
+        if max.is_set() {
             let max = max.unwrap();
             if ret > max {
                 ret = max;
@@ -765,7 +765,7 @@ pub enum Resolve<T: PartialOrd + Clone + 'static> {
 }
 
 impl<T: PartialOrd + Clone + 'static> Resolve<T> {
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -857,9 +857,79 @@ pub enum UiValue<T: Clone + 'static> {
     None,
     Auto,
     Inherit,
-    Clone(Arc<UiElement>),
     Just(T),
     Measurement(Unit),
+    Percent(f32)
+}
+
+pub enum ResolveResult<T> {
+    Value(T),
+    Auto,
+    None,
+    UseDefault,
+    Percent(f32)
+}
+
+impl<T: Clone> Clone for ResolveResult<T> {
+    fn clone(&self) -> Self {
+        match self {
+            ResolveResult::Value(clone) => ResolveResult::Value(clone.clone()),
+            ResolveResult::Auto => ResolveResult::Auto,
+            ResolveResult::None => ResolveResult::None,
+            ResolveResult::UseDefault => ResolveResult::UseDefault,
+            ResolveResult::Percent(p) => ResolveResult::Percent(*p)
+        }
+    }
+}
+
+impl<T> ResolveResult<T> {
+    pub fn unwrap(self) -> T {
+        match self {
+            Self::Value(t) => t,
+            _ => panic!("Unwrapped empty UiValueResult!")
+        }
+    }
+
+    pub fn unwrap_or(self, or: T) -> T {
+        match self {
+            Self::Value(t) => t,
+            _ => or
+        }
+    }
+
+    pub fn is_set(&self) -> bool {
+        matches!(self, ResolveResult::Value(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, ResolveResult::None)
+    }
+
+    pub fn is_auto(&self) -> bool {
+        matches!(self, ResolveResult::Auto)
+    }
+
+    pub fn is_use_default(&self) -> bool {
+        matches!(self, ResolveResult::UseDefault)
+    }
+}
+
+impl ResolveResult<i32> {
+    pub fn compute_percent(&self, parent: i32) -> i32 {
+        match self {
+            ResolveResult::Percent(p) => (*p * parent as f32) as i32,
+            _ => parent
+        }
+    }
+}
+
+impl ResolveResult<f32> {
+    pub fn compute_percent(&self, parent: f32) -> f32 {
+        match self {
+            ResolveResult::Percent(p) => *p * parent,
+            _ => parent
+        }
+    }
 }
 
 impl<T: Clone + PartialOrd + 'static> UiValue<T> {
@@ -871,55 +941,57 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
         Resolve::UiValue(self)
     }
 
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<UiElement>>>, map: F) -> Option<T>
+    pub fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
         match self {
-            UiValue::None => None,
-            UiValue::Auto => None,
+            UiValue::None => ResolveResult::None,
+            UiValue::Auto => ResolveResult::Auto,
             UiValue::Inherit => {
-                let lock = parent.clone().unwrap_or_else(no_parent);
-                let guard = lock.read();
+                if parent.is_none() { return ResolveResult::UseDefault; }
+                let lock = parent.clone().unwrap();
+                let guard = lock.get();
                 map(guard.style()).resolve(
                     dpi,
-                    Some(
-                        parent
-                            .unwrap_or_else(no_parent)
-                            .read()
-                            .state()
-                            .parent
-                            .clone()
-                            .unwrap_or_else(no_parent)
-                            .clone(),
-                    ),
+                    parent
+                        .unwrap()
+                        .get()
+                        .state()
+                        .parent
+                        .clone(),
                     map,
                 )
             }
-            UiValue::Clone(e) => map(e.style()).resolve(dpi, e.state().parent.clone(), map),
-            UiValue::Just(v) => Some(v.clone()),
+            UiValue::Just(v) => ResolveResult::Value(v.clone()),
             UiValue::Measurement(u) => {
-                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<i32>() {
+                if TypeId::of::<T>() == TypeId::of::<i32>() {
                     unsafe {
                         let a = u.as_px(dpi);
-                        Some(Unsafe::cast_ref::<i32, T>(&a).clone())
+                        ResolveResult::Value(Unsafe::cast_ref::<i32, T>(&a).clone())
+                    }
+                } else if TypeId::of::<T>() == TypeId::of::<f32>() {
+                    unsafe {
+                        let a = u.as_px(dpi) as f32;
+                        ResolveResult::Value(Unsafe::cast_ref::<f32, T>(&a).clone())
                     }
                 } else {
-                    None
+                    ResolveResult::UseDefault
                 }
             }
             UiValue::Unset => {
                 unsafe {
                     if parent.is_some() {
                         let cloned = parent.clone().unwrap();
-                        let p_guard = cloned.read();
+                        let p_guard = cloned.get();
                         let parent_value = Unsafe::cast_static(map(p_guard.style()));
                         drop(p_guard);
                         return parent_value.resolve(dpi, parent.clone(), map);
                     }
                 }
-                None
+                ResolveResult::UseDefault
             }
+            UiValue::Percent(p) => ResolveResult::Percent(*p),
         }
     }
 }

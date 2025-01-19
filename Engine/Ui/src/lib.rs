@@ -5,6 +5,7 @@ use mvutils::once::{CreateOnce, Lazy};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Recover;
 use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use crate::context::{UiContext, UiResources};
 use crate::render::ctx::DrawContext2D;
@@ -41,7 +42,7 @@ pub struct Ui {
     context: CreateOnce<UiContext>,
     input: CreateOnce<Arc<DangerousCell<Input>>>,
     enabled: bool,
-    root_elems: Vec<Arc<parking_lot::RwLock<UiElement>>>,
+    root_elems: Vec<Rc<DangerousCell<UiElement>>>,
 }
 
 impl Ui {
@@ -68,35 +69,35 @@ impl Ui {
         self.context.clone()
     }
 
-    pub fn add_root(&mut self, elem: Arc<parking_lot::RwLock<UiElement>>) {
+    pub fn add_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
         self.root_elems.push(elem);
     }
 
-    pub fn remove_root(&mut self, elem: Arc<parking_lot::RwLock<UiElement>>) {
+    pub fn remove_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
         self.root_elems.retain(|e| {
-            let guard1 = e.read();
-            let guard2 = elem.read();
+            let guard1 = e.get();
+            let guard2 = elem.get();
             guard1.attributes().id != guard2.attributes().id
         })
     }
 
     pub fn compute_styles(&mut self) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.write();
+            let mut guard = arc.get_mut();
             guard.compute_styles();
         }
     }
 
     pub fn draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.write();
+            let mut guard = arc.get_mut();
             guard.draw(ctx);
         }
     }
 
     pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.write();
+            let mut guard = arc.get_mut();
             guard.compute_styles();
             guard.draw(ctx);
         }
@@ -131,7 +132,7 @@ impl InputProcessor for Ui {
 
         unsafe {
             for root in Unsafe::cast_static(&self.root_elems) {
-                let mut guard = root.write();
+                let mut guard = root.get_mut();
                 let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
                 let mut events = &mut guard.state_mut().events;
                 events.mouse_change(action, &mut *guard_ref, &*input);
@@ -144,7 +145,7 @@ impl InputProcessor for Ui {
 
         unsafe {
             for root in Unsafe::cast_static(&self.root_elems) {
-                let mut guard = root.write();
+                let mut guard = root.get_mut();
                 let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
                 let mut events = &mut guard.state_mut().events;
                 events.keyboard_change(action, &mut *guard_ref, &*input);

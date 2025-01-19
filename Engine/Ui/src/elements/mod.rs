@@ -7,28 +7,25 @@ pub mod components;
 pub use implementations::*;
 
 use crate::attributes::Attributes;
-use crate::ease::Easing;
+use crate::context::UiContext;
 use crate::elements::blank::Blank;
 use crate::elements::button::Button;
 use crate::elements::child::{Child, ToChild};
 use crate::elements::div::Div;
 use crate::elements::events::UiEvents;
-use crate::resolve;
-use crate::styles::{ChildAlign, Dimension, Direction, Interpolator, Origin, Point, Position, ResCon, Resolve, TextFit, UiStyle, UiValue, DEFAULT_STYLE};
-use crate::timing::{AnimationState, DurationTask, TIMING_MANAGER};
-use crate::uix::{DynamicUi, UiCompoundElement};
-use mvutils::once::CreateOnce;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
-use mvutils::utils::{Recover, RwArc, TetrahedronOp};
-use parking_lot::RwLock;
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
-use mvcore::input;
-use mvcore::input::MouseAction;
-use mvcore::input::raw::Input;
-use crate::context::UiContext;
 use crate::geometry::Rect;
 use crate::render::ctx::DrawContext2D;
+use crate::resolve;
+use crate::styles::{ChildAlign, Dimension, Direction, Interpolator, Origin, Position, ResCon, UiStyle, DEFAULT_STYLE};
+use crate::uix::UiCompoundElement;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use mvutils::utils::{Recover, TetrahedronOp};
+use parking_lot::RwLock;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
+use std::sync::Arc;
+use itertools::Itertools;
+use crate::styles::ResolveResult;
 //use crate::elements::events::UiEvents;
 
 pub trait UiElementCallbacks {
@@ -88,23 +85,26 @@ pub trait UiElementStub: UiElementCallbacks {
         let padding = style.padding.get(self, |s| &s.padding); //t, b, l, r
         let margin = style.margin.get(self, |s| &s.margin);    //0, 1, 2, 3
 
-        let direction = if style.direction.is_auto() {
+        let direction = resolve!(self, direction);
+        let direction = if !direction.is_set() {
             Direction::Horizontal
         } else {
-            resolve!(self, direction)
+            direction.unwrap()
         };
 
         let mut computed_size = Self::compute_children_size(state, &direction);
 
-        let width = if style.width.is_auto() {
+        let width = resolve!(self, width);
+        let width = if !width.is_set() {
             computed_size.0 + padding[2] + padding[3]
         } else {
-            resolve!(self, width)
+            width.unwrap()
         };
-        let height = if style.height.is_auto() {
+        let height = resolve!(self, height);
+        let height = if !height.is_set() {
             computed_size.1 + padding[0] + padding[1]
         } else {
-            resolve!(self, height)
+            height.unwrap()
         };
 
         state.rect.set_width(width);
@@ -114,29 +114,33 @@ pub trait UiElementStub: UiElementCallbacks {
         state.content_rect.set_width(width - padding[2] - padding[3]);
         state.content_rect.set_height(height - padding[0] - padding[1]);
 
-        let position = if style.position.is_auto() {
+        let position = resolve!(self, position);
+        let position = if !position.is_set() {
             Position::Relative
         } else {
-            resolve!(self, position)
+            position.unwrap()
         };
 
-        let origin = if style.origin.is_auto() {
+        let origin = resolve!(self, origin);
+        let origin = if !origin.is_set() {
             Origin::BottomLeft
         } else {
-            resolve!(self, origin)
+            origin.unwrap()
         };
 
         if let Position::Absolute = position {
-            let x = if style.x.is_auto() {
+            let x = resolve!(self, x);
+            let x = if !x.is_set() {
                 0
             } else {
-                resolve!(self, x)
+                x.unwrap()
             };
 
-            let y = if style.y.is_auto() {
+            let y = resolve!(self, y);
+            let y = if !y.is_set() {
                 0
             } else {
-                resolve!(self, y)
+                y.unwrap()
             };
 
             state.bounding_rect.set_x(origin.get_actual_x(x, width, state));
@@ -148,10 +152,11 @@ pub trait UiElementStub: UiElementCallbacks {
         state.content_rect.set_x(state.rect.x() + padding[2]);
         state.content_rect.set_y(state.rect.y() + padding[1]);
 
-        let child_align = if style.child_align.is_auto() {
+        let child_align = resolve!(self, child_align);
+        let child_align = if !child_align.is_set() {
             ChildAlign::Start
         } else {
-            resolve!(self, child_align)
+            child_align.unwrap()
         };
 
         let (mut used_width, mut used_height) = (0, 0);
@@ -161,19 +166,21 @@ pub trait UiElementStub: UiElementCallbacks {
                 _ => None
             }
         }) {
-            let mut child_guard = child_elem.write();
+            let mut child_guard = child_elem.get_mut();
             let child_binding = unsafe { Unsafe::cast_mut_static(child_guard.deref_mut()) };
             let (_, child_style, child_state) = child_binding.components_mut();
 
-            let child_pos = if child_style.position.is_auto() {
+            let child_pos = resolve!(child_guard, position);
+            let child_pos = if !child_pos.is_set() {
                 Position::Relative
             } else {
-                resolve!(child_guard, position)
+                child_pos.unwrap()
             };
-            let child_origin = if child_style.origin.is_auto() {
+            let child_origin = resolve!(child_guard, origin);
+            let child_origin = if !child_origin.is_set() {
                 Origin::BottomLeft
             } else {
-                resolve!(child_guard, origin)
+                child_origin.unwrap()
             };
 
             if let Position::Relative = child_pos {
@@ -235,7 +242,7 @@ pub trait UiElementStub: UiElementCallbacks {
             match child {
                 Child::String(_) => {}
                 Child::Element(e) => {
-                    let mut guard = e.write();
+                    let mut guard = e.get_mut();
                     guard.compute_styles();
                     let bounding = &guard.state().bounding_rect;
                     match direction {
@@ -254,6 +261,40 @@ pub trait UiElementStub: UiElementCallbacks {
         }
         (w, h)
     }
+
+    fn find_element_by_id(&self, id: &str) -> Option<Rc<DangerousCell<UiElement>>> {
+        for child in &self.state().children {
+            if let Child::Element(e) = child {
+                let guard = e.get();
+                if guard.attributes().id.as_ref().is_some_and(|i| i.as_str() == id) {
+                    drop(guard);
+                    return Some(e.clone());
+                }
+                if let Some(e2) = guard.find_element_by_id(id) {
+                    return Some(e2);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn find_elements_by_class(&self, class: &str) -> Vec<Rc<DangerousCell<UiElement>>> {
+        let mut res = vec![];
+
+        for child in &self.state().children {
+            if let Child::Element(e) = child {
+                let guard = e.get();
+                if guard.attributes().classes.contains(&class.to_string()) {
+                    res.push(e.clone())
+                }
+                let res2 = guard.find_elements_by_class(class);
+                res.extend(res2);
+            }
+        }
+
+        res
+    }
 }
 
 #[derive(Clone)]
@@ -265,7 +306,7 @@ pub enum UiElement {
 
 impl ToChild for UiElement {
     fn to_child(self) -> Child {
-        Child::Element(Arc::new(RwLock::new(self)))
+        Child::Element(Rc::new(DangerousCell::new(self)))
     }
 }
 
@@ -343,7 +384,7 @@ impl UiElementStub for UiElement {
 
 pub struct UiElementState {
     pub ctx: ResCon,
-    pub parent: Option<Arc<RwLock<UiElement>>>,
+    pub parent: Option<Rc<DangerousCell<UiElement>>>,
 
     pub children: Vec<Child>,
 

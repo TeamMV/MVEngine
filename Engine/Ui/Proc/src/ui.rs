@@ -66,13 +66,14 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     let name_ident = Ident::new(&name, Span::call_site());
 
     let inner = entity.inner().as_ref();
-    let inner_code = if inner.is_some() {
-        let inner_xml = inner.unwrap();
+    let inner_code = if let Some(inner_xml) = inner {
         match inner_xml {
             XmlValue::Str(s) => {
                 quote! {
-                    __attribs_ref__.with_inner(mvengine_ui::attributes::AttributeValue::Str(#s.to_string()));
-                    #elem_ident.state_mut().children.push(mvengine_ui::elements::child::Child::String(#s.to_string()))
+                    let mut elem_state = #elem_ident.get_mut();
+                    elem_state.state_mut().children.push(
+                        mvengine_ui::elements::child::Child::String(#s.to_string())
+                    );
                 }
             }
             XmlValue::Entities(e) => {
@@ -80,7 +81,17 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                 for en in e {
                     let ts = parse_entity(en);
                     en_qt.extend(quote! {
-                        #elem_ident.state_mut().children.push(mvengine_ui::elements::child::Child::Element(std::sync::Arc::new(parking_lot::RwLock::new(#ts))));
+                        {
+                            let child = #ts;
+                            let cloned_elem = #elem_ident.clone();
+                            let mut child_state = child.get_mut();
+                            child_state.state_mut().parent = Some(cloned_elem);
+                            drop(child_state);
+                            let mut elem_state = #elem_ident.get_mut();
+                            elem_state.state_mut().children.push(
+                                mvengine_ui::elements::child::Child::Element(child)
+                            );
+                        }
                     });
                 }
                 en_qt
@@ -88,7 +99,9 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    #elem_ident.state_mut().children.push({#parsed_code}.to_child());
+                    let mut elem_state = #elem_ident.get_mut();
+                    elem_state.state_mut().children.push({#parsed_code}.to_child());
+                    drop(elem_state);
                 }
             }
         }
@@ -103,13 +116,16 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
 
             let __attribs_ref__ = &mut #attribs_ident;
             let __context__ = mvengine_ui::ui().context();
-            let mut #elem_ident = #name_ident::new(__context__, #attribs_ident, #style_code);
-            #inner_code;
-            #elem_ident.wrap()
+            let #elem_ident = std::rc::Rc::new(mvutils::unsafe_utils::DangerousCell::new(
+                #name_ident::new(__context__, #attribs_ident, #style_code).wrap()
+            ));
+            #inner_code
+            #elem_ident
         }
     };
     q
 }
+
 
 fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {

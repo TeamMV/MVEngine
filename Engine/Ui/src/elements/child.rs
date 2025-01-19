@@ -2,12 +2,14 @@ use crate::elements::UiElement;
 use mvutils::state::{MappedState, State};
 use parking_lot::RwLock;
 use std::fmt::Display;
+use std::rc::Rc;
 use std::sync::Arc;
+use mvutils::unsafe_utils::DangerousCell;
 
 #[derive(Clone)]
 pub enum Child {
     String(String),
-    Element(Arc<RwLock<UiElement>>),
+    Element(Rc<DangerousCell<UiElement>>),
     State(MappedState<String, String>),
 }
 
@@ -31,7 +33,7 @@ impl Child {
         }
     }
 
-    pub fn as_element(&self) -> Arc<RwLock<UiElement>> {
+    pub fn as_element(&self) -> Rc<DangerousCell<UiElement>> {
         match self {
             Child::Element(e) => e.clone(),
             _ => unreachable!(),

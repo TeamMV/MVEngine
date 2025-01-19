@@ -36,16 +36,16 @@ impl UiEvents {
         let state = elem.state();
         let state = unsafe { Unsafe::cast_static(state) };
 
-        let mut free = true;
+        let mut used = false;
         for child in &state.children {
             match child {
                 Child::Element(e) => unsafe {
-                    let mut child_guard = e.write();
+                    let mut child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
                     let mut child_events = Unsafe::cast_mut_static(child_events);
                     let res = child_events.mouse_change(action, (&mut *child_guard), input);
-                    if free {
-                        free = res;
+                    if res {
+                        used = res;
                     }
                 },
                 _ => {}
@@ -105,7 +105,7 @@ impl UiEvents {
             _ => {}
         }
 
-        if free {
+        if !used {
             if elem.inside(mx, my) {
                 match action {
                     MouseAction::Wheel(dx, dy) => {
@@ -196,11 +196,13 @@ impl UiEvents {
                     }
                 }
 
-                return false;
+                return true;
             }
+        } else {
+            return true;
         }
 
-        true
+        false
     }
 
     pub(crate) fn keyboard_change(

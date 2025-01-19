@@ -33,7 +33,7 @@ impl UiElementCallbacks for Div {
             match children {
                 Child::String(_) => {}
                 Child::Element(e) => {
-                    let mut guard = e.write();
+                    let mut guard = e.get_mut();
                     guard.draw(ctx);
                 }
                 Child::State(_) => {}

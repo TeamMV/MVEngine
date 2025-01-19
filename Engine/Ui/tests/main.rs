@@ -1,6 +1,7 @@
 use std::any::TypeId;
 use std::cmp::Ordering;
 use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::Arc;
 use log::{error, LevelFilter};
 use mvutils::once::CreateOnce;
@@ -98,29 +99,24 @@ impl ApplicationLoopCallbacks for Application {
         modify_style!(style4.background.resource = UiValue::Just(BackgroundRes::Texture.into()));
         modify_style!(style4.background.texture = UiValue::Just(R.mv.texture.test.into()));
 
+        let mut style5 = style4.clone();
+        modify_style!(style5.width = UiValue::Percent(2.0));
+
         let mut anim_style = style.clone();
         modify_style!(anim_style.background.color = UiValue::Just(RgbColor::magenta()));
 
-        let mut div = ui! {
-            <Div style={style.clone()}>
+        let div = ui! {
+            <Div style={style.clone()} id="parent">
                 <Div style={style2}/>
                 <Div style={style3}>
                     <Div style={style4.clone()}/>
-                    <Div style={style4.clone()}/>
-                    <Div style={style4}/>
+                    <Div style={style4} id="nested2"/>
+                    <Div style={style5}/>
                 </Div>
             </Div>
         };
 
-        div.state_mut().events.on_hover(move |e| {
-            if let UiHoverAction::Enter = e.base.action {
-                anim::animate_self(e.base.elem, &anim_style, 500, easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
-            } else {
-                anim::animate_self(e.base.elem, &style, 500, easing(EasingGen::linear(), EasingMode::In), FillMode::Keep, AnimationMode::KeepProgress);
-            }
-        });
-
-        ui.add_root(Arc::new(RwLock::new(div.wrap())));
+        ui.add_root(div);
 
         Self { manager, ctx }
     }

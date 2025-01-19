@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use crate::geometry::Rect;
 use crate::render::ctx::{DrawContext2D, DrawShape};
-use crate::styles::{BackgroundRes, Resolve, UiShape, UiStyle};
+use crate::styles::{BackgroundRes, Resolve, ResolveResult, UiShape, UiStyle};
 use mvutils::state::State;
 use mvcore::render::texture::DrawTexture;
 use crate::elements::{UiElement, UiElementStub};
@@ -31,8 +31,9 @@ impl<E: UiElementStub> ElementBody<E> {
         let res = self.context.resources;
         let style = elem.style();
 
-        if style.background.shape.is_set() || style.background.shape.is_auto() {
-            let resolved = resolve!(elem, background.shape);
+        let resolved = resolve!(elem, background.shape);
+        if resolved.is_set() {
+            let resolved = resolved.unwrap();
             match resolved.deref().clone() {
                 UiShape::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
@@ -49,8 +50,9 @@ impl<E: UiElementStub> ElementBody<E> {
             }
         }
 
-        if style.border.shape.is_set() || style.border.shape.is_auto() {
-            let resolved = resolve!(elem, border.shape);
+        let resolved = resolve!(elem, border.shape);
+        if resolved.is_set() {
+            let resolved = resolved.unwrap();
             match resolved.deref().clone() {
                 UiShape::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
@@ -78,20 +80,31 @@ impl<E: UiElementStub> ElementBody<E> {
         let bg_scale_x = bounds.width() as f32 / bgsw as f32;
         let bg_scale_y = bounds.height() as f32 / bgsh as f32;
         let tmp = resolve!(elem, background.resource);
-        let bg_res = tmp.deref();
+        if !tmp.is_set() { return; }
+        let bg_res = tmp.unwrap();
+        let bg_res = bg_res.deref();
         let mut bg_empty = false;
         match bg_res {
             BackgroundRes::Color => {
                 let color = resolve!(elem, background.color);
-                background_shape.set_color(color);
+                if color.is_set() {
+                    background_shape.set_color(color.unwrap());
+                } else {
+                    bg_empty = true;
+                }
             }
             BackgroundRes::Texture => {
                 if !style.background.texture.is_set() {
                     bg_empty = true;
                 } else {
-                    let tex = resolve!(elem, background.texture).deref().clone();
-                    if let Some(tex) = MVR.resolve_texture(tex) {
-                        background_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                    let tex = resolve!(elem, background.texture);
+                    if let ResolveResult::Value(tex) = tex {
+                        let tex = tex.deref().clone();
+                        if let Some(tex) = MVR.resolve_texture(tex) {
+                            background_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                        } else {
+                            bg_empty = true;
+                        }
                     } else {
                         bg_empty = true;
                     }
@@ -117,20 +130,31 @@ impl<E: UiElementStub> ElementBody<E> {
         let bd_scale_x = bounds.width() as f32 / bdsw as f32;
         let bd_scale_y = bounds.height() as f32 / bdsd as f32;
         let tmp = resolve!(elem, border.resource);
-        let bd_res = tmp.deref();
+        if !tmp.is_set() { return; }
+        let bd_res = tmp.unwrap();
+        let bd_res = bd_res.deref();
         let mut bd_empty = false;
         match bd_res {
             BackgroundRes::Color => {
-                let color = resolve!(elem, border.color);
-                border_shape.set_color(color);
+                let color = resolve!(elem, background.color);
+                if color.is_set() {
+                    border_shape.set_color(color.unwrap());
+                } else {
+                    bd_empty = true;
+                }
             }
             BackgroundRes::Texture => {
-                if !style.border.texture.is_set() {
+                if !style.background.texture.is_set() {
                     bd_empty = true;
                 } else {
-                    let tex = resolve!(elem, border.texture).deref().clone();
-                    if let Some(tex) = MVR.resolve_texture(tex) {
-                        border_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                    let tex = resolve!(elem, background.texture);
+                    if let ResolveResult::Value(tex) = tex {
+                        let tex = tex.deref().clone();
+                        if let Some(tex) = MVR.resolve_texture(tex) {
+                            border_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                        } else {
+                            bd_empty = true;
+                        }
                     } else {
                         bd_empty = true;
                     }
