@@ -80,9 +80,24 @@ impl Ui {
         })
     }
 
+    pub fn compute_styles(&mut self) {
+        for arc in self.root_elems.iter_mut() {
+            let mut guard = arc.write();
+            guard.compute_styles();
+        }
+    }
+
     pub fn draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
             let mut guard = arc.write();
+            guard.draw(ctx);
+        }
+    }
+
+    pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
+        for arc in self.root_elems.iter_mut() {
+            let mut guard = arc.write();
+            guard.compute_styles();
             guard.draw(ctx);
         }
     }

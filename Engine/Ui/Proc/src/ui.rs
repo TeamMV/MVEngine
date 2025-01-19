@@ -8,7 +8,7 @@ pub fn ui(input: TokenStream) -> TokenStream {
     let rsx_raw = input.to_string();
 
     if rsx_raw.trim().is_empty() {
-        return quote! { mvengine_ui::elements::blank::Blank::new(Attributes::new(), UiStyle::default()).wrap() }.into();
+        return quote! { mvengine_ui::elements::blank::Blank::new(ui().context(), Attributes::new(), UiStyle::default()).wrap() }.into();
     }
 
     let rsx = ui_parsing::xml::parse_rsx(rsx_raw).unwrap_or_else(|err| panic!("{}", err));

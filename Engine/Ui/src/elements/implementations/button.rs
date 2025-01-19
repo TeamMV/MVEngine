@@ -5,6 +5,7 @@ use crate::elements::components::ElementBody;
 use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
+#[derive(Clone)]
 pub struct Button {
     state: UiElementState,
     style: UiStyle,

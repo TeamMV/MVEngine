@@ -51,7 +51,7 @@ lazy! {
             translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
             scale: VectorField::splat(UiValue::Just(1.0).to_field().to_resolve()),
             rotate: UiValue::Just(0.0).to_field().to_resolve(),
-            origin: UiValue::Just(Origin::Center).to_field().to_resolve(),
+            origin: UiValue::Just(Origin::BottomLeft).to_field().to_resolve(),
         },
     };
 
@@ -106,7 +106,6 @@ macro_rules! resolve {
                 v
             }
             else {
-                log::error!("UiValue {:?} failed to resolve on element {:?}", stringify!($($style).*), $elem.attributes().id);
                 $crate::styles::DEFAULT_STYLE.$($style).*
                 .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
@@ -663,8 +662,9 @@ impl SideStyle {
         self.right = v;
     }
 
-    pub fn get<F>(&self, elem: &UiElement, map: F) -> [i32; 4]
+    pub fn get<E, F>(&self, elem: &E, map: F) -> [i32; 4]
     where
+        E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
     {
         let top = if self.top.is_set() {
@@ -737,7 +737,7 @@ impl Default for UiShape {
 pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
-    pub texture: Resolve<BasicInterpolatable<Arc<Texture>>>,
+    pub texture: Resolve<BasicInterpolatable<usize>>,
     pub shape: Resolve<BasicInterpolatable<UiShape>>
 }
 
@@ -1281,25 +1281,11 @@ where
 
 impl Default for UiStyle {
     fn default() -> Self {
-        Self {
-            x: UiValue::Just(0).to_field().into(),
-            y: UiValue::Just(0).to_field().into(),
-            width: UiValue::Auto.to_field().into(),
-            height: UiValue::Auto.to_field().into(),
-            padding: SideStyle::all_i32(0).into(),
-            margin: SideStyle::all_i32(0).into(),
-            origin: UiValue::Just(Origin::BottomLeft).into(),
-            position: UiValue::Just(Position::Relative).into(),
-            direction: UiValue::Auto.into(),
-            child_align: UiValue::Auto.into(),
-            background: ShapeStyle::initial(),
-            border: ShapeStyle::initial(),
-            text: TextStyle::initial(),
-            transform: TransformStyle::initial(),
-        }
+        DEFAULT_STYLE.clone()
     }
 }
 
+#[derive(Clone)]
 pub struct ResCon {
     pub dpi: f32,
 }

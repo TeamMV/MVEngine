@@ -426,7 +426,7 @@ impl ShapeGenerator {
                             if let Param::Str(export) = first {
                                 let current = vars.get(&current_selection).ok_or("No shape selected".to_string())?;
                                 match export.as_str() {
-                                    "all" => return Ok(AdaptiveShape::from_arr(parts)),
+                                    "finish" => return Ok(AdaptiveShape::from_arr(parts)),
                                     "bl" | "bottom_left" => parts[0] = Some(current.clone()),
                                     "tl" | "top_left" => parts[2] = Some(current.clone()),
                                     "tr" | "top_right" => parts[4] = Some(current.clone()),

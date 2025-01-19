@@ -110,4 +110,50 @@ impl AssetLoader {
 
         Ok(Texture::new(image, handle))
     }
+
+    pub(crate) fn include_texture(&self, data: &[u8], handle: AssetHandle) -> Result<Texture, &'static str> {
+        let image = image::load_from_memory(data).map_err(|_| "Cannot load image")?;
+
+        let image = match image.color() {
+            ColorType::L8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::La8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::Rgb8 => DynamicImage::ImageRgba8(image.to_rgba8()),
+            ColorType::Rgba8 => image,
+            ColorType::L16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::La16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::Rgb16 => DynamicImage::ImageRgba16(image.to_rgba16()),
+            ColorType::Rgba16 => image,
+            ColorType::Rgb32F => DynamicImage::ImageRgba32F(image.to_rgba32f()),
+            ColorType::Rgba32F => image,
+            _ => image,
+        };
+
+        // TODO: check if this was an issue in the shader, remove this if it was
+        //let image = image.fliph();
+
+        let width = image.width();
+        let height = image.height();
+        let format = image.color();
+        let data = image.into_bytes();
+
+        let image = Image::new(
+            self.device.clone(),
+            MVImageCreateInfo {
+                size: Extent2D { width, height },
+                format: format.into(),
+                usage: ImageUsage::TRANSFER_DST | ImageUsage::SAMPLED | ImageUsage::STORAGE,
+                memory_properties: MemoryProperties::DEVICE_LOCAL,
+                aspect: ImageAspect::COLOR,
+                tiling: ImageTiling::Optimal,
+                layer_count: 1,
+                image_type: ImageType::Image2D,
+                cubemap: false,
+                memory_usage_flags: gpu_alloc::UsageFlags::FAST_DEVICE_ACCESS,
+                data: Some(data),
+                label: Some("included".to_string()),
+            },
+        );
+
+        Ok(Texture::new(image, handle))
+    }
 }

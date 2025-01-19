@@ -4,6 +4,7 @@ use parking_lot::RwLock;
 use std::fmt::Display;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum Child {
     String(String),
     Element(Arc<RwLock<UiElement>>),

@@ -39,7 +39,6 @@ impl DerefMut for UiContext {
 }
 
 pub trait UiResources {
-    fn initialize(&self, device: Device);
     fn resolve_color(&self, id: usize) -> Option<&RgbColor>;
     fn resolve_shape(&self, id: usize) -> Option<&DrawShape>;
     fn resolve_adaptive(&self, id: usize) -> Option<&AdaptiveShape>;

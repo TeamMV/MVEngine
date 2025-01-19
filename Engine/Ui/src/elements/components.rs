@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::ops::Deref;
 use crate::geometry::Rect;
 use crate::render::ctx::{DrawContext2D, DrawShape};
@@ -6,23 +7,27 @@ use mvutils::state::State;
 use mvcore::render::texture::DrawTexture;
 use crate::elements::{UiElement, UiElementStub};
 use crate::{get_adaptive, get_shape, resolve, styles};
-use crate::context::UiContext;
+use crate::context::{UiContext, UiResources};
 use crate::render::adaptive::AdaptiveShape;
 use crate::render::ctx;
 use crate::res::err::{UiResErr, ResType, UiResult};
+use crate::res::MVR;
 
-pub struct ElementBody {
+#[derive(Clone)]
+pub struct ElementBody<E: UiElementStub> {
     context: UiContext,
+    _phantom: PhantomData<E>
 }
 
-impl ElementBody {
+impl<E: UiElementStub> ElementBody<E> {
     pub fn new(context: UiContext) -> Self {
         Self {
             context: context.clone(),
+            _phantom: PhantomData::default(),
         }
     }
 
-    pub fn draw(&mut self, elem: &UiElement, ctx: &mut DrawContext2D) {
+    pub fn draw(&mut self, elem: &E, ctx: &mut DrawContext2D) {
         let res = self.context.resources;
         let style = elem.style();
 
@@ -63,12 +68,12 @@ impl ElementBody {
         }
     }
 
-    fn draw_background_shape(mut background_shape: DrawShape, elem: &UiElement, ctx: &mut DrawContext2D) {
+    fn draw_background_shape(mut background_shape: DrawShape, elem: &E, ctx: &mut DrawContext2D) {
         let state = elem.state();
         let style = elem.style();
         let bounds = &state.rect;
 
-
+        background_shape.compute_extent();
         let (bgsw, bgsh) = background_shape.extent;
         let bg_scale_x = bounds.width() as f32 / bgsw as f32;
         let bg_scale_y = bounds.height() as f32 / bgsh as f32;
@@ -85,17 +90,25 @@ impl ElementBody {
                     bg_empty = true;
                 } else {
                     let tex = resolve!(elem, background.texture).deref().clone();
-                    background_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex))));
+                    if let Some(tex) = MVR.resolve_texture(tex) {
+                        background_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                    } else {
+                        bg_empty = true;
+                    }
                 }
             }
         }
         if !bg_empty {
-            background_shape.set_scale(bg_scale_x as i32, bg_scale_y as i32);
-            ctx.shape(background_shape.clone());
+            background_shape.set_translate(state.rect.x(), state.rect.y());
+            background_shape.apply_transformations();
+            background_shape.set_origin(state.rect.x(), state.rect.y());
+            background_shape.set_scale(bg_scale_x, bg_scale_y);
+            background_shape.apply_transformations();
+            ctx.shape(background_shape);
         }
     }
 
-    fn draw_border_shape(mut border_shape: DrawShape, elem: &UiElement, ctx: &mut DrawContext2D) {
+    fn draw_border_shape(mut border_shape: DrawShape, elem: &E, ctx: &mut DrawContext2D) {
         let state = elem.state();
         let style = elem.style();
         let bounds = &state.rect;
@@ -116,17 +129,21 @@ impl ElementBody {
                     bd_empty = true;
                 } else {
                     let tex = resolve!(elem, border.texture).deref().clone();
-                    border_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex))));
+                    if let Some(tex) = MVR.resolve_texture(tex) {
+                        border_shape.set_texture(ctx::texture().source(Some(DrawTexture::Texture(tex.clone()))));
+                    } else {
+                        bd_empty = true;
+                    }
                 }
             }
         }
         if !bd_empty {
-            border_shape.set_scale(bd_scale_x as i32, bd_scale_y as i32);
-            ctx.shape(border_shape.clone());
+            border_shape.set_scale(bd_scale_x, bd_scale_y);
+            ctx.shape(border_shape);
         }
     }
 
-    fn draw_background_adaptive(bg_shape: &AdaptiveShape, elem: &UiElement, ctx: &mut DrawContext2D) {}
+    fn draw_background_adaptive(bg_shape: &AdaptiveShape, elem: &E, ctx: &mut DrawContext2D) {}
 
-    fn draw_border_adaptive(bd_shape: &AdaptiveShape, elem: &UiElement, ctx: &mut DrawContext2D) {}
+    fn draw_border_adaptive(bd_shape: &AdaptiveShape, elem: &E, ctx: &mut DrawContext2D) {}
 }

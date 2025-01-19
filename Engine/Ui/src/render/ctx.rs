@@ -13,7 +13,7 @@ use mvcore::color::RgbColor;
 #[derive(Clone)]
 pub struct DrawShape {
     pub triangles: Vec<InputTriangle>,
-    pub textures: Vec<(Arc<Texture>, SamplerType)>,
+    pub textures: Vec<(Texture, SamplerType)>,
     pub extent: (i32, i32)
 }
 
@@ -107,10 +107,10 @@ impl DrawShape {
         });
     }
 
-    pub fn set_scale(&mut self, x: i32, y: i32) {
+    pub fn set_scale(&mut self, x: f32, y: f32) {
         self.modify_transform(|t| {
-            t.scale.x = x as f32;
-            t.scale.y = y as f32;
+            t.scale.x = x;
+            t.scale.y = y;
         });
     }
 
@@ -142,10 +142,10 @@ impl DrawShape {
         self
     }
 
-    pub fn scaled(mut self, x: i32, y: i32) -> Self {
+    pub fn scaled(mut self, x: f32, y: f32) -> Self {
         self.modify_transform(|t| {
-            t.scale.x = x as f32;
-            t.scale.y = y as f32;
+            t.scale.x = x;
+            t.scale.y = y;
         });
         self
     }
@@ -250,7 +250,7 @@ impl DrawContext2D {
     pub fn shape(&mut self, shape: DrawShape) {
         let mut ids = Vec::new();
         for (texture, sampler) in shape.textures {
-            let id = self.renderer.set_texture(texture, sampler);
+            let id = self.renderer.set_texture(texture.clone(), sampler);
             ids.push(id);
         }
 
@@ -272,6 +272,10 @@ impl DrawContext2D {
 
     pub fn draw(&mut self) -> Result<(), SwapchainError> {
         self.renderer.draw()
+    }
+
+    pub fn renderer(&self) -> &UiRenderer {
+        &self.renderer
     }
 }
 

@@ -1,21 +1,44 @@
+use mvutils::unsafe_utils::Unsafe;
+use mvcore::color::RgbColor;
 use crate::attributes::Attributes;
 use crate::context::UiContext;
 use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::elements::child::Child;
 use crate::elements::components::ElementBody;
+use crate::render::ctx;
 use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
+#[derive(Clone)]
 pub struct Div {
     context: UiContext,
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
-    body: ElementBody
+    body: ElementBody<Div>
 }
 
 impl UiElementCallbacks for Div {
     fn draw(&mut self, ctx: &mut DrawContext2D) {
-        todo!();
+        let rect = &self.state.rect;
+        //println!("xywh: {},{},{},{}", rect.x(), rect.y(), rect.width(), rect.height());
+        let this = unsafe { Unsafe::cast_static(self) };
+        self.body.draw(this, ctx);
+        //ctx.shape(ctx::rectangle()
+        //    .xywh(rect.x(), rect.y(), rect.width(), rect.height())
+        //    .color(RgbColor::red().alpha(127))
+        //    .create()
+        //);
+        for children in &self.state.children {
+            match children {
+                Child::String(_) => {}
+                Child::Element(e) => {
+                    let mut guard = e.write();
+                    guard.draw(ctx);
+                }
+                Child::State(_) => {}
+            }
+        }
     }
 }
 

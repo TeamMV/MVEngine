@@ -195,6 +195,10 @@ impl AssetManager {
         self.create_asset_inner(path, ty, false)
     }
 
+    pub fn include_asset(self: &Arc<Self>, data: &'static [u8], ty: AssetType) -> AssetHandle {
+        self.include_asset_inner(data, ty, false)
+    }
+
     pub fn create_global_asset(self: &Arc<Self>, path: &str, ty: AssetType) -> AssetHandle {
         self.create_asset_inner(path, ty, true)
     }
@@ -221,6 +225,38 @@ impl AssetManager {
         };
         let asset = Asset {
             inner: InnerAsset::Unloaded,
+            ty,
+            handle: handle.clone(),
+        };
+        self.asset_map.write().insert(handle.clone(), asset.into());
+        if global {
+            self.push(AssetTask::Load(handle.clone(), Arc::new(|_, _| {})));
+        }
+        handle
+    }
+
+    fn include_asset_inner(
+        self: &Arc<Self>,
+        data: &'static [u8],
+        ty: AssetType,
+        global: bool,
+    ) -> AssetHandle {
+        let mut hasher = AHasher::default();
+        data.hash(&mut hasher);
+        let handle = hasher.finish();
+        let handle = AssetHandle {
+            manager: self.clone(),
+            signal: Arc::new(Signal::new()),
+            inner: Arc::new(AssetHandleInner {
+                path: "static".to_string(),
+                counter: AtomicU64::new(0).into(),
+                progress: AtomicBool::new(false),
+            }),
+            handle,
+            global,
+        };
+        let asset = Asset {
+            inner: InnerAsset::Included(data),
             ty,
             handle: handle.clone(),
         };

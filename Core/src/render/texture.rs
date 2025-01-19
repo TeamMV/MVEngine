@@ -19,7 +19,7 @@ impl Texture {
         }
     }
 
-    pub fn as_region(self: Arc<Self>, x: u32, y: u32, width: u32, height: u32) -> TextureRegion {
+    pub fn as_region(&self, x: u32, y: u32, width: u32, height: u32) -> TextureRegion {
         TextureRegion::new(
             self.clone(),
             x,
@@ -29,7 +29,7 @@ impl Texture {
         )
     }
 
-    pub fn as_full_region(self: Arc<Self>) -> TextureRegion {
+    pub fn as_full_region(&self) -> TextureRegion {
         TextureRegion {
             texture: self.clone(),
             x: 0.0,
@@ -56,7 +56,7 @@ impl PartialEq for Texture {
 
 #[derive(PartialEq, Clone)]
 pub struct TextureRegion {
-    texture: Arc<Texture>,
+    texture: Texture,
     x: f32,
     y: f32,
     width: f32,
@@ -64,7 +64,7 @@ pub struct TextureRegion {
 }
 
 impl TextureRegion {
-    pub fn new(texture: Arc<Texture>, x: u32, y: u32, width: u32, height: u32) -> Self {
+    pub fn new(texture: Texture, x: u32, y: u32, width: u32, height: u32) -> Self {
         let extent = texture.image.get_extent();
         let w = extent.width as f32;
         let h = extent.height as f32;
@@ -85,7 +85,7 @@ impl TextureRegion {
         Vec4::new(self.x, self.y, self.width, self.height)
     }
 
-    pub fn get_texture(&self) -> Arc<Texture> {
+    pub fn get_texture(&self) -> Texture {
         self.texture.clone()
     }
 
@@ -101,12 +101,12 @@ impl TextureRegion {
 
 #[derive(Clone)]
 pub enum DrawTexture {
-    Texture(Arc<Texture>),
+    Texture(Texture),
     Region(TextureRegion)
 }
 
 impl DrawTexture {
-    pub fn get_texture(&self) -> Arc<Texture> {
+    pub fn get_texture(&self) -> Texture {
         match self {
             DrawTexture::Texture(t) => t.clone(),
             DrawTexture::Region(r) => r.get_texture()

@@ -22,7 +22,7 @@ impl SimpleRect {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Rect {
     x: i32,
     y: i32,

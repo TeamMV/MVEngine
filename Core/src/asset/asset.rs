@@ -17,6 +17,7 @@ pub enum InnerAsset {
     Model(Model),
     Shader(Shader),
     Unloaded,
+    Included(&'static [u8]),
     Failed(Box<dyn Any + Send + 'static>),
 }
 
@@ -28,18 +29,30 @@ pub struct Asset {
 
 impl Asset {
     pub(crate) fn load(&mut self) {
-        std::thread::sleep(std::time::Duration::from_secs(3));
         if self.is_loaded() { return; }
         let loader = self.handle.get_manager().get_loader();
-        match self.ty {
-            AssetType::Texture => {
-                match loader.import_texture(self.handle.clone()) {
-                    Ok(texture) => self.inner = InnerAsset::Texture(texture),
-                    Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
+        if let InnerAsset::Included(data) = self.inner {
+            match self.ty {
+                AssetType::Texture => {
+                    match loader.include_texture(data, self.handle.clone()) {
+                        Ok(texture) => self.inner = InnerAsset::Texture(texture),
+                        Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
+                    }
                 }
+                AssetType::Model => {}
+                AssetType::Shader(kind) => {}
             }
-            AssetType::Model => {}
-            AssetType::Shader(kind) => {}
+        } else {
+            match self.ty {
+                AssetType::Texture => {
+                    match loader.import_texture(self.handle.clone()) {
+                        Ok(texture) => self.inner = InnerAsset::Texture(texture),
+                        Err(err) => self.inner = InnerAsset::Failed(Box::new(err)),
+                    }
+                }
+                AssetType::Model => {}
+                AssetType::Shader(kind) => {}
+            }
         }
     }
 
@@ -60,7 +73,7 @@ impl Asset {
     }
 
     pub fn is_loaded(&self) -> bool {
-        !matches!(self.inner, InnerAsset::Failed(_) | InnerAsset::Unloaded)
+        !matches!(self.inner, InnerAsset::Failed(_) | InnerAsset::Unloaded | InnerAsset::Included(_))
     }
 
     pub fn failed(&self) -> bool {

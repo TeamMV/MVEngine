@@ -13,7 +13,7 @@ pub type Result = core::result::Result<RgbColor, (ColorParseError, String)>;
 pub fn parse_color(col: &str) -> Result {
     match col {
         "white" => Ok(RgbColor::white()),
-        "back" => Ok(RgbColor::black()),
+        "black" => Ok(RgbColor::black()),
         "red" => Ok(RgbColor::red()),
         "green" => Ok(RgbColor::green()),
         "blue" => Ok(RgbColor::blue()),

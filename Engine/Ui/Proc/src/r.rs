@@ -125,7 +125,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine_ui::render::ctx::DrawShape",
         shapes,
         |lit| {
-            let path = &format!("{cdir}{lit}");
+            let path = get_src(cdir.as_str(), lit);
             quote! {
                 {
                     let ast = mvengine_ui::render::shapes::ShapeParser::parse(include_str!(#path)).unwrap();
@@ -143,7 +143,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine_ui::render::adaptive::AdaptiveShape",
         adaptives,
         |lit| {
-            let path = &format!("{cdir}{lit}");
+            let path = get_src(cdir.as_str(), lit);
             quote! {
                 {
                     let ast = mvengine_ui::render::shapes::ShapeParser::parse(include_str!(#path)).unwrap();
@@ -161,10 +161,11 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvcore::render::texture::Texture",
         textures,
         |lit| {
-            let path = &format!("{cdir}{lit}");
+            let path = get_src(cdir.as_str(), lit);
             quote! {
                 {
-                    let handle = manager.create_asset(#path, mvcore::asset::asset::AssetType::Texture);
+                    let handle = manager.include_asset(include_bytes!(#path), mvcore::asset::asset::AssetType::Texture);
+                    handle.load(|asset, idk| {});
                     handle.wait();
                     let asset = handle.get();
                     let tex = asset.as_texture().expect(&format!("Cannot load texture '{}'", #path));
@@ -177,7 +178,7 @@ pub fn r(input: TokenStream) -> TokenStream {
 
     let init_fn_ts = if !is_mv {
         quote! {
-            mvengine_ui::res::MVR._initialize(manager.clone());
+            mvengine_ui::res::MVR::_initialize(manager.clone());
             #r_ident.create(|| #r_ident {
                 #mv_gen_ts
                 #res_gens_ts
@@ -211,16 +212,17 @@ pub fn r(input: TokenStream) -> TokenStream {
         unsafe impl Sync for #r_ident {}
 
         impl #r_ident {
-            pub fn _initialize(&self, manager: std::sync::Arc<mvcore::asset::manager::AssetManager>) {
+            pub fn initialize(device: mvcore::render::backend::device::Device) {
+                let manager = mvcore::asset::manager::AssetManager::new(device, 1, 1);
+                Self::_initialize(manager);
+            }
+
+            pub fn _initialize(manager: std::sync::Arc<mvcore::asset::manager::AssetManager>) {
                 #init_fn_ts
             }
         }
 
         impl mvengine_ui::context::UiResources for #r_ident {
-            fn initialize(&self, device: mvcore::render::backend::device::Device) {
-                let manager = mvcore::asset::manager::AssetManager::new(device, 1, 1);
-                self._initialize(manager);
-            }
             #color_resolve_fn_ts
             #shape_resolve_fn_ts
             #adaptive_resolve_fn_ts
@@ -228,6 +230,13 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     };
     pm1.into()
+}
+
+fn get_src(cdir: &str, given: &str) -> String {
+    if given.starts_with(':') {
+        return given[1..].to_string();
+    }
+    format!("{cdir}{given}")
 }
 
 type TS = proc_macro2::TokenStream;

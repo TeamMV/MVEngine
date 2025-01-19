@@ -3,7 +3,8 @@ pub type UiResult<T> = Result<T, UiResErr>;
 pub enum ResType {
     Color,
     Shape,
-    Adaptive
+    Adaptive,
+    Texture
 }
 
 pub struct UiResErr {
@@ -38,5 +39,12 @@ macro_rules! get_shape {
 macro_rules! get_adaptive {
     ($res:ident, $name:ident) => {
         $res.resolve_adaptive($name).ok_or(UiResErr::new(stringify!($name), ResType::Adaptive))
+    };
+}
+
+#[macro_export]
+macro_rules! get_texture {
+    ($res:ident, $name:ident) => {
+        $res.resolve_texture($name).ok_or(UiResErr::new(stringify!($name), ResType::Texture))
     };
 }

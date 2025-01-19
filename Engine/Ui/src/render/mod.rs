@@ -76,7 +76,7 @@ impl UiRenderer {
         self.renderer2d.get_mut().add_shape(triangle);
     }
 
-    pub fn set_texture(&mut self, texture: Arc<Texture>, sampler: SamplerType) -> u32 {
+    pub fn set_texture(&mut self, texture: Texture, sampler: SamplerType) -> u32 {
         let id = texture.id();
         if self.used_textures.contains_key(&id) {
             return *self.used_textures.get(&id).unwrap();

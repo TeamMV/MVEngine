@@ -5,6 +5,7 @@ use crate::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementSt
 use crate::render::ctx::DrawContext2D;
 use crate::styles::{Dimension, UiStyle};
 
+#[derive(Clone)]
 pub struct Blank {
     children: Vec<Child>,
 }
