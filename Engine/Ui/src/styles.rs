@@ -662,47 +662,62 @@ impl SideStyle {
         self.right = v;
     }
 
-    pub fn get<E, F>(&self, elem: &E, map: F) -> [i32; 4]
+    pub fn get<E, F, PF>(&self, elem: &E, map: F, percent_map: PF) -> [i32; 4]
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
+        PF: Fn(&UiElementState) -> &[i32; 4] //t, b, l, r
     {
-        let top = if self.top.is_set() {
-            self.top
-                .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                    &map(s).top
-                })
-                .unwrap()
+        let parent = elem.state().parent.clone();
+
+        let top = self.top
+            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
+                &map(s).top
+            });
+        let top = if top.is_set() {
+            top.unwrap()
+        } else if top.is_percent() {
+            top.resolve_percent(parent.clone(), |s| percent_map(s)[0])
         } else {
             self.top.is_auto().yn(5, 0)
         };
-        let bottom = if self.bottom.is_set() {
-            self.bottom
-                .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                    &map(s).bottom
-                })
-                .unwrap()
+
+        let bottom = self.bottom
+            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
+                &map(s).bottom
+            });
+        let bottom = if bottom.is_set() {
+            bottom.unwrap()
+        } else if bottom.is_percent() {
+            bottom.resolve_percent(parent.clone(), |s| percent_map(s)[1])
         } else {
             self.bottom.is_auto().yn(5, 0)
         };
-        let left = if self.left.is_set() {
-            self.left
-                .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                    &map(s).left
-                })
-                .unwrap()
+
+        let left = self.left
+            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
+                &map(s).left
+            });
+        let left = if left.is_set() {
+            left.unwrap()
+        } else if left.is_percent() {
+            left.resolve_percent(parent.clone(), |s| percent_map(s)[2])
         } else {
             self.left.is_auto().yn(5, 0)
         };
-        let right = if self.right.is_set() {
-            self.right
-                .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                    &map(s).right
-                })
-                .unwrap()
+
+        let right = self.right
+            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
+                &map(s).right
+            });
+        let right = if right.is_set() {
+            right.unwrap()
+        } else if right.is_percent() {
+            right.resolve_percent(parent.clone(), |s| percent_map(s)[3])
         } else {
             self.right.is_auto().yn(5, 0)
         };
+
         [top, bottom, left, right]
     }
 
@@ -912,6 +927,10 @@ impl<T> ResolveResult<T> {
     pub fn is_use_default(&self) -> bool {
         matches!(self, ResolveResult::UseDefault)
     }
+
+    pub fn is_percent(&self) -> bool {
+        matches!(self, ResolveResult::Percent(_))
+    }
 }
 
 impl ResolveResult<i32> {
@@ -921,6 +940,16 @@ impl ResolveResult<i32> {
             _ => parent
         }
     }
+
+    pub fn resolve_percent<F>(&self, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> i32 where F: Fn(&UiElementState) -> i32 {
+        if let Some(parent) = maybe_parent {
+            let binding = parent.get();
+            let total = map(binding.state());
+            self.compute_percent(total)
+        } else {
+            0
+        }
+    }
 }
 
 impl ResolveResult<f32> {
@@ -928,6 +957,16 @@ impl ResolveResult<f32> {
         match self {
             ResolveResult::Percent(p) => *p * parent,
             _ => parent
+        }
+    }
+
+    pub fn resolve_percent<F>(&self, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> f32 where F: Fn(&UiElementState) -> f32 {
+        if let Some(parent) = maybe_parent {
+            let binding = parent.get();
+            let total = map(binding.state());
+            self.compute_percent(total)
+        } else {
+            0.0
         }
     }
 }

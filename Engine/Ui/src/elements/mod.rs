@@ -82,8 +82,10 @@ pub trait UiElementStub: UiElementCallbacks {
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
 
-        let padding = style.padding.get(self, |s| &s.padding); //t, b, l, r
-        let margin = style.margin.get(self, |s| &s.margin);    //0, 1, 2, 3
+
+        //TODO: Implement ResolveResult::Percent here and sidestyle and everywhere by using its compute_percent() method
+        let padding = style.padding.get(self, |s| &s.padding, |s| &s.paddings); //t, b, l, r
+        let margin = style.margin.get(self, |s| &s.margin, |s| &s.margins);    //0, 1, 2, 3
 
         let direction = resolve!(self, direction);
         let direction = if !direction.is_set() {
@@ -92,19 +94,27 @@ pub trait UiElementStub: UiElementCallbacks {
             direction.unwrap()
         };
 
+        let maybe_parent = state.parent.clone();
+
         let mut computed_size = Self::compute_children_size(state, &direction);
 
         let width = resolve!(self, width);
-        let width = if !width.is_set() {
-            computed_size.0 + padding[2] + padding[3]
-        } else {
+        let width = if width.is_set() {
             width.unwrap()
+        } else if width.is_percent() {
+            state.is_width_percent = true;
+            width.resolve_percent(maybe_parent.clone(), |s| s.rect.width())
+        } else {
+            computed_size.0 + padding[2] + padding[3]
         };
         let height = resolve!(self, height);
-        let height = if !height.is_set() {
-            computed_size.1 + padding[0] + padding[1]
-        } else {
+        let height = if height.is_set() {
             height.unwrap()
+        } else if height.is_percent() {
+            state.is_height_percent = true;
+            height.resolve_percent(maybe_parent.clone(), |s| s.rect.height())
+        } else {
+            computed_size.1 + padding[0] + padding[1]
         };
 
         state.rect.set_width(width);
@@ -130,17 +140,21 @@ pub trait UiElementStub: UiElementCallbacks {
 
         if let Position::Absolute = position {
             let x = resolve!(self, x);
-            let x = if !x.is_set() {
-                0
-            } else {
+            let x = if x.is_set() {
                 x.unwrap()
+            } else if x.is_percent() {
+                x.resolve_percent(maybe_parent.clone(), |s| s.rect.width())
+            } else {
+                0
             };
 
             let y = resolve!(self, y);
             let y = if !y.is_set() {
-                0
-            } else {
                 y.unwrap()
+            } else if y.is_percent() {
+                y.resolve_percent(maybe_parent.clone(), |s| s.rect.height())
+            } else {
+                0
             };
 
             state.bounding_rect.set_x(origin.get_actual_x(x, width, state));
@@ -220,8 +234,8 @@ pub trait UiElementStub: UiElementCallbacks {
                     }
                 };
 
-                let child_padding = child_style.padding.get(child_guard.deref(), |s| &s.padding);
-                let child_margin = child_style.margin.get(child_guard.deref(), |s| &s.margin);
+                let child_padding = child_style.padding.get(child_guard.deref(), |s| &s.padding, |s| &s.paddings);
+                let child_margin = child_style.margin.get(child_guard.deref(), |s| &s.margin, |s| &s.margins);
 
                 child_state.bounding_rect.set_x(x);
                 child_state.bounding_rect.set_y(y);
@@ -247,12 +261,20 @@ pub trait UiElementStub: UiElementCallbacks {
                     let bounding = &guard.state().bounding_rect;
                     match direction {
                         Direction::Vertical => {
-                            h += bounding.bounding.height;
-                            w = w.max(bounding.bounding.width);
+                            if !guard.state().is_height_percent {
+                                h += bounding.bounding.height;
+                            }
+                            if !guard.state().is_width_percent {
+                                w = w.max(bounding.bounding.width);
+                            }
                         }
                         Direction::Horizontal => {
-                            w += bounding.bounding.width;
-                            h = h.max(bounding.bounding.height);
+                            if !guard.state().is_width_percent {
+                                w += bounding.bounding.width;
+                            }
+                            if !guard.state().is_height_percent {
+                                h = h.max(bounding.bounding.height);
+                            }
                         }
                     }
                 }
@@ -403,6 +425,8 @@ pub struct UiElementState {
     pub transforms: UiTransformations,
 
     pub(crate) base_style: UiStyle,
+    pub(crate) is_width_percent: bool,
+    pub(crate) is_height_percent: bool,
 }
 
 #[derive(Clone)]
@@ -435,6 +459,8 @@ impl UiElementState {
                 origin: Default::default(),
             },
             base_style: crate::styles::EMPTY_STYLE.clone(),
+            is_width_percent: false,
+            is_height_percent: false,
         }
     }
 }
@@ -456,6 +482,8 @@ impl Clone for UiElementState {
             last_style: self.last_style.clone(),
             transforms: self.transforms.clone(),
             base_style: self.base_style.clone(),
+            is_width_percent: self.is_width_percent.clone(),
+            is_height_percent: self.is_height_percent.clone(),
         }
     }
 }

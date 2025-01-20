@@ -100,7 +100,7 @@ impl ApplicationLoopCallbacks for Application {
         modify_style!(style4.background.texture = UiValue::Just(R.mv.texture.test.into()));
 
         let mut style5 = style4.clone();
-        modify_style!(style5.width = UiValue::Percent(2.0));
+        modify_style!(style5.width = UiValue::Percent(0.5));
 
         let mut anim_style = style.clone();
         modify_style!(anim_style.background.color = UiValue::Just(RgbColor::magenta()));
