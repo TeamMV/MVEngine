@@ -1,31 +1,25 @@
-[workspace]
-members = [
-    "Core",
-    "Engine/Mods", "Engine/Network", "Engine/Render2D",
-]
-resolver = "2"
+[package]
+name = "mvengine"
+version = "0.1.0"
+edition = "2021"
 
-[profile.release]
-lto = true
-opt-level = 3
-strip = true
-debug = false
-debug-assertions = false
-codegen-units = 1
-panic = "unwind"
+[[test]]
+name = "test"
+path = "tests/main.rs"
+harness = false
 
-[workspace.dependencies]
-
-## Global ##
+[dependencies]
+# proc macros
+mvengine-proc-macro = { path = "./Proc", version = "1.0.0" }
 
 # mvteam dependencies
-mvutils = "1.0.2"
-mvsync = "1.2.0"
-mvlogger = "0.3.0"
+mvutils = "1.1.8"
+mvsync = "1.1.4"
+mvlogger = "0.4.0"
 
 # general dependencies
 bytebuffer = "2.2.0"
-itertools = "0.13.0"
+itertools = "0.14.0"
 log = "0.4.20"
 num-traits = "0.2.17"
 hashbrown = "0.15.1"
@@ -33,40 +27,12 @@ bitflags = "2.5.0"
 parking_lot = "0.12.1"
 crossbeam-channel = "0.5.12"
 ahash = "0.8.11"
-
-## MVCore ##
-
-# general
+rand = "0.9.0"
 include_dir = "0.7.3"
-shaderc = "0.8.3"
+
+# rendering
 openal = "0.2.2"
 image = "0.25.0"
-gltf = { version = "1.4.0", features = [
-    "KHR_lights_punctual",
-    "KHR_materials_emissive_strength",
-    "KHR_materials_ior",
-    "KHR_materials_pbrSpecularGlossiness",
-    "KHR_materials_specular",
-    "KHR_materials_transmission",
-    "KHR_materials_unlit",
-    "KHR_materials_variants",
-    "KHR_materials_volume",
-    "KHR_texture_transform",
-    "extensions",
-]}
-
-# rendering dependencies
-winit = "0.29.15"
-
-# vulkan dependencies
-ash = "0.37.3"
-gpu-alloc = "0.6.0"
-gpu-alloc-ash = "0.6.0"
-
-# metal dependencies
-metal = "0.30.0"
-objc = "0.2.7"
-
-# directx dependencies
-d3d12 = "22.0.0"
-winapi = "0.3.9"
+#winit = "0.30.8"
+gl = "0.14.0"
+servo-glutin = "0.15.0"

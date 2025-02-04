@@ -1,0 +1,22 @@
+[package]
+name = "mvengine-ui-parsing"
+version = "1.0.0"
+edition = "2021"
+license-file = "LICENSE"
+rust-version = "1.75.0"
+authors = [
+    "Maxim Savenkov",
+    "Julian Hohenhausen"
+]
+repository = "https://github.com/TeamMV/MVEngine"
+keywords = [
+    "ui",
+    "mvteam",
+    "mvengine"
+]
+categories = [
+    "parsing"
+]
+description = "Parsing for MVEngine Ui"
+
+[dependencies]
