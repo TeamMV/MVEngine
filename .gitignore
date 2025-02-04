@@ -1,3 +1,4 @@
+/target
+/Proc/target
+/Parsing/target
 .idea/
-Cargo.lock
-target/

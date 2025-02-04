@@ -1,0 +1,26 @@
+[package]
+name = "mvengine-proc-macro"
+version = "1.0.0"
+edition = "2021"
+license-file = "LICENSE"
+rust-version = "1.75.0"
+authors = [
+    "Julian Hohenhausen",
+    "Maxim Savenkov"
+]
+repository = "https://github.com/TeamMV/MVEngine"
+keywords = [
+    "mvteam",
+    "mvengine"
+]
+description = "Procedural macros for MVEngine"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.29"
+syn = { version = "2.0.22", features = ["full"] }
+proc-macro2 = "1.0"
+mvutils = "1.1.8"
+ui-parsing = {path = "../Parsing", package = "mvengine-ui-parsing"}
