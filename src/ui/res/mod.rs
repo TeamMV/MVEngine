@@ -1,7 +1,5 @@
 use mvengine_proc_macro::r;
 
-use crate as mvengine_ui;
-
 pub mod err;
 
 pub const CR: usize = usize::MAX / 2; //Custom Resources start

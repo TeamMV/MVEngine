@@ -1,7 +1,7 @@
-use crate::ecs::EcsStorage;
+use crate::game::ecs::EcsStorage;
 use std::marker::PhantomData;
 use std::mem;
-use crate::ecs::entity::EntityType;
+use crate::game::ecs::entity::EntityType;
 
 pub struct System<C> {
     phantom: PhantomData<C>,

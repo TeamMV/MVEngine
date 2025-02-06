@@ -4,8 +4,8 @@ use std::sync::Arc;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
 use mvutils::utils;
-use crate::ecs::{EcsStorage, ECS};
-use crate::ecs::mem::storage::ComponentStorage;
+use crate::game::ecs::{EcsStorage, ECS};
+use crate::game::ecs::mem::storage::ComponentStorage;
 
 pub type EntityType = u64;
 

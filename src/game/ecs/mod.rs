@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils;
-use crate::ecs::mem::storage::ComponentStorage;
-use crate::ecs::world::World;
+use crate::game::ecs::mem::storage::ComponentStorage;
+use crate::game::ecs::world::World;
 
 mod mem;
 pub mod system;

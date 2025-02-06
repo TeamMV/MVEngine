@@ -1,5 +1,6 @@
 use gl::types::{GLint, GLsizei, GLuint, GLuint64};
 use image::{GenericImageView, ImageError};
+use mvutils::utils::TetrahedronOp;
 use crate::rendering::bindless;
 
 #[derive(Clone)]
@@ -10,6 +11,10 @@ pub struct Texture {
 
 impl Texture {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ImageError> {
+        Self::from_bytes_sampled(bytes, false)
+    }
+    
+    pub fn from_bytes_sampled(bytes: &[u8], smooth: bool) -> Result<Self, ImageError> {
         let img = image::load_from_memory(bytes)?;
         let (width, height) = img.dimensions();
 
@@ -24,8 +29,8 @@ impl Texture {
 
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
 

@@ -94,15 +94,12 @@ dependencies = [
 [[package]]
 name = "mvengine-ui-parsing"
 version = "1.0.0"
-dependencies = [
- "mvutils",
-]
 
 [[package]]
 name = "mvutils"
-version = "1.1.6"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c25bbe96d8e75f996ffa85b47aac33fdcba29174c2bbb9d48a7518d6c450f752"
+checksum = "b8361c29495515061815f52034e4d1fd4962e8dec8cb9fbc4e56cc34d8693407"
 dependencies = [
  "bytebuffer",
  "hashbrown",

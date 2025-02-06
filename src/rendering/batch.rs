@@ -54,7 +54,7 @@ impl RenderBatch {
     pub(crate) fn push_triangle(&mut self, mut triangle: Triangle) {
         for (idx, vertex) in triangle.points.into_iter().enumerate() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
-            if r_vertex.has_texture == 1.0 {
+            if r_vertex.has_texture > 0.0 {
                 let req_id = vertex.texture;
                 if let Some(idx) = self.texture_data.iter().position(|id| *id == req_id) {
                     r_vertex.texture = idx as f32;
@@ -87,7 +87,7 @@ impl RenderBatch {
     pub(crate) fn push_quad(&mut self, mut quad: Quad) {
         for (idx, vertex) in quad.points.into_iter().enumerate() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
-            if r_vertex.has_texture == 1.0 {
+            if r_vertex.has_texture > 0.0 {
                 let req_id = vertex.texture;
                 if let Some(idx) = self.texture_data.iter().position(|id| *id == req_id) {
                     r_vertex.texture = idx as f32;
@@ -131,7 +131,7 @@ impl RenderBatch {
         let mut needed_tex = 0;
         let mut seen = Vec::new();
         for vertex in &triangle.points {
-            if vertex.has_texture == 1.0 {
+            if vertex.has_texture > 0.0 {
                 if !seen.contains(&vertex.texture) && !self.has_texture(vertex.texture) {
                     needed_tex += 1;
                     seen.push(vertex.texture);
@@ -152,7 +152,7 @@ impl RenderBatch {
         let mut needed_tex = 0;
         let mut seen = Vec::new();
         for vertex in &quad.points {
-            if vertex.has_texture == 1.0 {
+            if vertex.has_texture > 0.0 {
                 if !seen.contains(&vertex.texture) && !self.has_texture(vertex.texture) {
                     needed_tex += 1;
                     seen.push(vertex.texture);

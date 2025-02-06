@@ -13,4 +13,4 @@ pub mod math;
 pub mod rendering;
 pub mod color;
 pub mod input;
-pub mod ecs;
+pub mod game;

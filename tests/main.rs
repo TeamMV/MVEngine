@@ -2,7 +2,7 @@ use log::LevelFilter;
 use mvengine::color::RgbColor;
 use mvengine::input::consts::Key;
 use mvengine::input::registry::RawInput;
-use mvengine::math::vec::Vec2;
+use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::rendering::camera::OrthographicCamera;
 use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
@@ -13,7 +13,10 @@ use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, UninitializedWindow, Window, WindowCreateInfo};
 use mvutils::once::CreateOnce;
 use std::hash::Hash;
+use mvutils::utils::Time;
+use mvengine::rendering::text::Font;
 use mvengine::rendering::texture::Texture;
+use mvengine::ui::rendering::ctx;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -36,7 +39,9 @@ struct Application {
     invert_shader: CreateOnce<OpenGLPostProcessShader>,
     test_texture: CreateOnce<Texture>,
     test_texture2: CreateOnce<Texture>,
-    test_texture3: CreateOnce<Texture>
+    font_texture: CreateOnce<Texture>,
+    font: CreateOnce<Font>,
+    rot: f32
 }
 
 impl WindowCallbacks for Application {
@@ -50,7 +55,9 @@ impl WindowCallbacks for Application {
             invert_shader: CreateOnce::new(),
             test_texture: CreateOnce::new(),
             test_texture2: CreateOnce::new(),
-            test_texture3: CreateOnce::new(),
+            font_texture: CreateOnce::new(),
+            font: CreateOnce::new(),
+            rot: 0.0
         }
     }
 
@@ -73,6 +80,8 @@ impl WindowCallbacks for Application {
                 falloff: 3.0,
             });
 
+            renderer.set_ambient(Vec4::splat(1.0));
+
             let camera = OrthographicCamera::new(window.info().width, window.info().height);
             let mut shader = LightOpenGLShader::new();
             shader.make().unwrap();
@@ -89,7 +98,10 @@ impl WindowCallbacks for Application {
 
             let test_texture = Texture::from_bytes(include_bytes!("test.png")).expect("cannot red test texture!");
             let test_texture2 = Texture::from_bytes(include_bytes!("test2.png")).expect("cannot red test2 texture!");
-            let test_texture3 = Texture::from_bytes(include_bytes!("test3.png")).expect("cannot red test3 texture!");
+
+
+            let font_texture = Texture::from_bytes_sampled(include_bytes!("atlas.png"), true).expect("cannot red font texture!");
+            let font = Font::new(&font_texture, include_bytes!("data.font")).unwrap();
 
             self.renderer.create(|| renderer);
             self.camera.create(|| camera);
@@ -99,7 +111,8 @@ impl WindowCallbacks for Application {
             self.invert_shader.create(|| post_shader);
             self.test_texture.create(|| test_texture);
             self.test_texture2.create(|| test_texture2);
-            self.test_texture3.create(|| test_texture3);
+            self.font_texture.create(|| font_texture);
+            self.font.create(|| font);
         }
 
         let registry = window.input.action_registry_mut();
@@ -129,93 +142,16 @@ impl WindowCallbacks for Application {
             println!("save was triggered");
         }
 
-        let trns = Transform {
-            translation: Default::default(),
-            origin: Vec2::new(150.0, 150.0),
-            scale: Vec2::splat(1.0),
-            rotation: 0f32.to_radians(),
-        };
+        let trns = ctx::transform()
+            .translate(400, 350)
+            .rotate(self.rot)
+            .get();
 
-        self.controller.push_quad(Quad {
-            points: [
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (100.0, 100.0, 60.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (0.0, 0.0),
-                    texture: self.test_texture.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (100.0, 500.0, 60.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (1.0, 0.0),
-                    texture: self.test_texture.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (500.0, 500.0, 60.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (1.0, 1.0),
-                    texture: self.test_texture.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (500.0, 100.0, 60.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (0.0, 1.0),
-                    texture: self.test_texture.id,
-                    has_texture: 1.0,
-                }
-            ],
-        });
+        self.font.draw("Hello World!", 200.0, trns, 1.0, &RgbColor::red(), &mut self.controller);
 
+        self.controller.draw(window, &self.camera, &mut *self.renderer, &mut *self.shader);
 
-        self.controller.push_quad(Quad {
-            points: [
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (500.0, 100.0, 200.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (0.0, 0.0),
-                    texture: self.test_texture3.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (500.0, 400.0, 200.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (1.0, 0.0),
-                    texture: self.test_texture3.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns.clone(),
-                    pos: (700.0, 400.0, 200.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (1.0, 1.0),
-                    texture: self.test_texture3.id,
-                    has_texture: 1.0,
-                },
-                InputVertex {
-                    transform: trns,
-                    pos: (700.0, 100.0, 200.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (0.0, 1.0),
-                    texture: self.test_texture3.id,
-                    has_texture: 1.0,
-                }
-            ],
-        });
-
-        let target = self.controller.draw_to_target(window, &self.camera, &mut *self.renderer, &mut *self.shader);
-
-        self.post_render.set_target(target);
-        self.post_render.run_shader(&mut *self.invert_shader);
-        self.post_render.draw_to_screen();
+        self.rot += 1.0;
     }
 
     fn exiting(&mut self, window: &mut Window) {

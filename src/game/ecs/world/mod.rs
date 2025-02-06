@@ -3,9 +3,9 @@ use std::any::TypeId;
 use std::process::id;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
-use crate::ecs::EcsStorage;
-use crate::ecs::entity::{Entity, EntityBehavior, EntityType, NoBehavior};
-use crate::ecs::mem::conblob::ContinuousBlob;
+use crate::game::ecs::EcsStorage;
+use crate::game::ecs::entity::{Entity, EntityBehavior, EntityType, NoBehavior};
+use crate::game::ecs::mem::conblob::ContinuousBlob;
 
 pub struct World {
     storage: EcsStorage,

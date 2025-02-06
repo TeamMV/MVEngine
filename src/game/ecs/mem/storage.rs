@@ -1,11 +1,11 @@
-use crate::ecs::mem::conblob::ContinuousBlob;
+use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
 use mvutils::hashers::{U64IdentityHasher, UsizeIdentityHasher};
 use std::alloc::Layout;
 use std::any::TypeId;
 use mvutils::unsafe_utils::Unsafe;
 use mvengine_proc_macro::generate_get_components;
-use crate::ecs::entity::EntityType;
+use crate::game::ecs::entity::EntityType;
 
 pub(crate) type ComponentIdx = u64;
 

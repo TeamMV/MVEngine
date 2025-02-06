@@ -39,45 +39,26 @@ pub fn r(input: TokenStream) -> TokenStream {
     if let Some(inner) = rsx.inner() {
         if let XmlValue::Entities(children) = inner {
             for child in children {
+                macro_rules! branch {
+                    ($arr:ident, $fun:ident) => {
+                        {
+                            if let Some(inner2) = child.inner() {
+                                if let XmlValue::Entities(children2) = inner2 {
+                                    for entity in children2 {
+                                        $arr.push($fun(entity));
+                                    }
+                                }
+                            }
+                        }
+                    };
+                }
                 let name = child.name();
                 let ty = name.as_str();
                 match ty {
-                    "colors" => {
-                        if let Some(inner2) = child.inner() {
-                            if let XmlValue::Entities(children2) = inner2 {
-                                for entity in children2 {
-                                    colors.push(parse_color(entity));
-                                }
-                            }
-                        }
-                    },
-                    "shapes" => {
-                        if let Some(inner2) = child.inner() {
-                            if let XmlValue::Entities(children2) = inner2 {
-                                for entity in children2 {
-                                    shapes.push(parse_shape(entity));
-                                }
-                            }
-                        }
-                    },
-                    "adaptives" => {
-                        if let Some(inner2) = child.inner() {
-                            if let XmlValue::Entities(children2) = inner2 {
-                                for entity in children2 {
-                                    adaptives.push(parse_adaptive(entity));
-                                }
-                            }
-                        }
-                    },
-                    "textures" => {
-                        if let Some(inner2) = child.inner() {
-                            if let XmlValue::Entities(children2) = inner2 {
-                                for entity in children2 {
-                                    textures.push(parse_texture(entity));
-                                }
-                            }
-                        }
-                    },
+                    "colors" => branch!(colors, parse_color),
+                    "shapes" => branch!(shapes, parse_shape),
+                    "adaptives" => branch!(adaptives, parse_adaptive),
+                    "textures" => branch!(textures, parse_texture),
 
                     _ => panic!("Invalid resource type {ty}")
                 }
@@ -158,10 +139,13 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine::rendering::texture::Texture",
         textures,
         |lit| {
-            let path = get_src(cdir.as_str(), lit);
+            let (src, sampler) = lit.split_once('|').expect("Meta should always contain a colon");
+            let path = get_src(cdir.as_str(), src);
+            let is_pixelate = !include_str!("pool.txt").lines().any(|s| s.to_lowercase() == sampler.to_lowercase());
+
             quote! {
                 {
-                    let tex = mvengine::rendering::texture::Texture::from_bytes(include_bytes!(#path)).expect("Cannot load texture!");
+                    let tex = mvengine::rendering::texture::Texture::from_bytes_sampled(include_bytes!(#path), #is_pixelate).expect("Cannot load texture!");
                     tex
                 },
             }
@@ -374,7 +358,13 @@ fn parse_texture(entity: &Entity) -> (String, String){
         if let Some(name) = entity.get_attrib("name") {
             if let XmlValue::Str(val_s) = val {
                 if let XmlValue::Str(name_s) = name {
-                    return (name_s.clone(), val_s.clone());
+                    let mut sampler = format!("|nearest");
+                    if let Some(XmlValue::Str(sam)) = entity.get_attrib("sampler") {
+                        sampler = format!("|{sam}");
+                    }
+                    let mut cloned_val_s = val_s.clone();
+                    cloned_val_s.push_str(sampler.as_str());
+                    return (name_s.clone(), cloned_val_s);
                 }
             }
             panic!("Code blocks are not supported in texture!")

@@ -17,6 +17,7 @@ pub mod control;
 pub mod light;
 pub mod post;
 pub mod bindless;
+pub mod text;
 
 #[repr(C)]
 #[derive(Clone)]
