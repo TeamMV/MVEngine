@@ -133,6 +133,10 @@ impl OpenGLRenderer {
 
         Self {}
     }
+
+    pub fn clear() {
+        unsafe { gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT); }
+    }
 }
 
 impl PrimitiveRenderer for OpenGLRenderer {

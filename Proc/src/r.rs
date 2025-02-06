@@ -35,6 +35,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     let mut shapes: Vec<(String, String)> = vec![];
     let mut adaptives: Vec<(String, String)> = vec![];
     let mut textures: Vec<(String, String)> = vec![];
+    let mut fonts: Vec<(String, String)> = vec![];
 
     if let Some(inner) = rsx.inner() {
         if let XmlValue::Entities(children) = inner {
@@ -59,6 +60,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     "shapes" => branch!(shapes, parse_shape),
                     "adaptives" => branch!(adaptives, parse_adaptive),
                     "textures" => branch!(textures, parse_texture),
+                    "fonts" => branch!(fonts, parse_font),
 
                     _ => panic!("Invalid resource type {ty}")
                 }
@@ -151,6 +153,28 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
+    let (font_struct_ts, font_resolve_fn_ts) = extent_resource(
+        is_mv,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        "font",
+        "mvengine::rendering::text::Font",
+        fonts,
+        |lit| {
+            let (src, atlas) = lit.split_once('|').expect("Meta should always contain a colon");
+            let path = get_src(cdir.as_str(), src);
+            let atlas_path = get_src(cdir.as_str(), atlas);
+
+            quote! {
+                {
+                    let tex = mvengine::rendering::texture::Texture::from_bytes_sampled(include_bytes!(#atlas_path), true).expect("Cannot load texture!");
+                    let font = mvengine::rendering::text::Font::new(tex, include_bytes!(#path)).expect(format!("Cannot load font {}!", #path).as_str());
+                    font
+                },
+            }
+        }
+    );
 
 
     let init_fn_ts = if !is_mv {
@@ -184,6 +208,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         #shape_struct_ts
         #adaptive_struct_ts
         #texture_struct_ts
+        #font_struct_ts
 
         unsafe impl Send for #r_ident {}
         unsafe impl Sync for #r_ident {}
@@ -199,6 +224,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             #shape_resolve_fn_ts
             #adaptive_resolve_fn_ts
             #texture_resolve_fn_ts
+            #font_resolve_fn_ts
         }
     };
     pm1.into()
@@ -373,5 +399,28 @@ fn parse_texture(entity: &Entity) -> (String, String){
         }
     } else {
         panic!("Expected a 'src' attribute on texture!")
+    }
+}
+
+fn parse_font(entity: &Entity) -> (String, String){
+    if entity.name().as_str() != "font" {
+        panic!("Font resource must be named font, got {}!", entity.name());
+    }
+    if let Some(val) = entity.get_attrib("src") {
+        if let Some(name) = entity.get_attrib("name") {
+            if let XmlValue::Str(val_s) = val {
+                if let XmlValue::Str(name_s) = name {
+                    if let Some(XmlValue::Str(atlas)) = entity.get_attrib("atlas") {
+                        let lit = format!("{val_s}|{atlas}");
+                        return (name_s.clone(), lit);
+                    }
+                }
+            }
+            panic!("Code blocks are not supported in font!")
+        } else {
+            panic!("Expected a 'name' attribute on font!")
+        }
+    } else {
+        panic!("Expected a 'src' attribute on font!")
     }
 }

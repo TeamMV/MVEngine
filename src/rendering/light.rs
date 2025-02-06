@@ -108,6 +108,8 @@ impl LightOpenGLRenderer {
         gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, depth_texture, 0);
 
         gl::Enable(gl::DEPTH_TEST);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
         gl::Viewport(0, 0, window.info().width as GLsizei, window.info().height as GLsizei);
 
@@ -152,8 +154,6 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
 
             gl::DepthMask(gl::TRUE);
             gl::DepthFunc(gl::ALWAYS);
-
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
     }
 

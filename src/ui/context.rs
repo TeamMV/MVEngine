@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use mvutils::unsafe_utils::DangerousCell;
 use crate::color::RgbColor;
+use crate::rendering::text::Font;
 use crate::rendering::texture::Texture;
 use crate::ui::rendering::adaptive::AdaptiveShape;
 use crate::ui::rendering::ctx::DrawShape;
@@ -41,6 +42,7 @@ pub trait UiResources {
     fn resolve_shape(&self, id: usize) -> Option<&DrawShape>;
     fn resolve_adaptive(&self, id: usize) -> Option<&AdaptiveShape>;
     fn resolve_texture(&self, id: usize) -> Option<&Texture>;
+    fn resolve_font(&self, id: usize) -> Option<&Font>;
 }
 
 pub struct InnerContext {

@@ -8,7 +8,7 @@ use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
 use mvengine::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShader};
 use mvengine::rendering::shader::light::LightOpenGLShader;
-use mvengine::rendering::{InputVertex, Quad, Transform, Triangle, Vertex};
+use mvengine::rendering::{InputVertex, OpenGLRenderer, Quad, Transform, Triangle, Vertex};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, UninitializedWindow, Window, WindowCreateInfo};
 use mvutils::once::CreateOnce;
@@ -39,7 +39,6 @@ struct Application {
     invert_shader: CreateOnce<OpenGLPostProcessShader>,
     test_texture: CreateOnce<Texture>,
     test_texture2: CreateOnce<Texture>,
-    font_texture: CreateOnce<Texture>,
     font: CreateOnce<Font>,
     rot: f32
 }
@@ -55,7 +54,6 @@ impl WindowCallbacks for Application {
             invert_shader: CreateOnce::new(),
             test_texture: CreateOnce::new(),
             test_texture2: CreateOnce::new(),
-            font_texture: CreateOnce::new(),
             font: CreateOnce::new(),
             rot: 0.0
         }
@@ -101,7 +99,7 @@ impl WindowCallbacks for Application {
 
 
             let font_texture = Texture::from_bytes_sampled(include_bytes!("atlas.png"), true).expect("cannot red font texture!");
-            let font = Font::new(&font_texture, include_bytes!("data.font")).unwrap();
+            let font = Font::new(font_texture, include_bytes!("data.font")).unwrap();
 
             self.renderer.create(|| renderer);
             self.camera.create(|| camera);
@@ -111,7 +109,6 @@ impl WindowCallbacks for Application {
             self.invert_shader.create(|| post_shader);
             self.test_texture.create(|| test_texture);
             self.test_texture2.create(|| test_texture2);
-            self.font_texture.create(|| font_texture);
             self.font.create(|| font);
         }
 
@@ -147,8 +144,9 @@ impl WindowCallbacks for Application {
             .rotate(self.rot)
             .get();
 
-        self.font.draw("Hello World!", 200.0, trns, 1.0, &RgbColor::red(), &mut self.controller);
+        self.font.draw("-1", 200.0, trns, 1.0, &RgbColor::red(), &mut self.controller);
 
+        OpenGLRenderer::clear();
         self.controller.draw(window, &self.camera, &mut *self.renderer, &mut *self.shader);
 
         self.rot += 1.0;

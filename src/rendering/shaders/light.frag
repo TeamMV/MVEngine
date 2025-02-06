@@ -45,7 +45,7 @@ uniform int NUM_LIGHTS;
 uniform vec4 AMBIENT;
 
 float screenPxRange(vec2 texSize) {
-    const float pxRange = 2.0f;
+    const float pxRange = 10.0f;
 
     vec2 unitRange = vec2(pxRange) / vec2(texSize);
     vec2 screenTexSize = vec2(1.0) / fwidth(fUv);

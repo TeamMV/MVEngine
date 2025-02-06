@@ -2,6 +2,7 @@ use std::sync::Arc;
 use bytebuffer::ByteBuffer;
 use gl::types::GLuint;
 use hashbrown::HashMap;
+use itertools::Itertools;
 use mvutils::save::Savable;
 use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
@@ -15,18 +16,18 @@ pub mod font;
 
 #[derive(Clone)]
 pub struct Font {
-    texture: GLuint,
+    texture: Texture,
     atlas: Arc<PreparedAtlasData>
 }
 
 impl Font {
-    pub fn new(texture: &Texture, data_bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(texture: Texture, data_bytes: &[u8]) -> Result<Self, String> {
         let mut buffer = ByteBuffer::from_bytes(data_bytes);
         let atlas = AtlasData::load(&mut buffer)?;
         let arc: Arc<PreparedAtlasData> = Arc::new(atlas.into());
         drop(buffer);
         Ok(Self {
-            texture: texture.id,
+            texture,
             atlas: arc,
         })
     }
@@ -41,7 +42,9 @@ impl Font {
         let mut x = 0.0;
         let mut y = 0.0;
 
-        for char in text.chars() {
+        let reference = text.clone();
+
+        for (idx, char) in text.chars().enumerate() {
             if (char == '\t') {
                 x += 6.0 + space_advance * font_scale;
                 continue;
@@ -85,13 +88,15 @@ impl Font {
             scale.x = scale.x * font_scale as f32;
             scale.y = scale.y * font_scale as f32;
 
+            let y_offset: f32 = (bounds_plane.bottom) as f32 * scale.y;
+
             let vertex = |p: (f32, f32), uv: (f32, f32)| -> InputVertex {
                 InputVertex {
                     transform: transform.clone(),
-                    pos: ((p.0 + x as f32), (p.1 + y as f32), z),
+                    pos: ((p.0 + x as f32), (p.1 + y as f32) + y_offset, z),
                     color: color.as_vec4(),
                     uv: (uv.0, 1.0 - uv.1),
-                    texture: self.texture,
+                    texture: self.texture.id,
                     has_texture: 2.0,
                 }
             };
@@ -106,7 +111,10 @@ impl Font {
             };
             controller.push_quad(quad);
 
-            x += glyph.advance * font_scale;
+            let next = reference.chars().nth(idx).unwrap_or('i');
+            let kerning = atlas.get_kerning(char, next).unwrap_or_default();
+
+            x += (glyph.advance + kerning) * font_scale;
         }
     }
 }
