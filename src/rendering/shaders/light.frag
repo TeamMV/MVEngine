@@ -102,6 +102,8 @@ void main() {
         baseColor = fColor;
     }
 
+    if (baseColor.a == 0.0) discard;
+
     vec3 totalLighting = clamp(AMBIENT.rgb, 0.0, 1.0);
 
     for(int i = 0; i < NUM_LIGHTS; i++) {

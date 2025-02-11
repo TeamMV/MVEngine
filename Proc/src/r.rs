@@ -143,7 +143,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         |lit| {
             let (src, sampler) = lit.split_once('|').expect("Meta should always contain a colon");
             let path = get_src(cdir.as_str(), src);
-            let is_pixelate = !include_str!("pool.txt").lines().any(|s| s.to_lowercase() == sampler.to_lowercase());
+            let is_pixelate = "linear" == sampler.to_lowercase();
 
             quote! {
                 {
