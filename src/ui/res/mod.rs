@@ -5,6 +5,9 @@ pub mod err;
 pub const CR: usize = usize::MAX / 2; //Custom Resources start
 
 use crate as mvengine;
+use crate::math::vec::Vec4;
+use crate::rendering::texture::Texture;
+use crate::ui::context::UiResources;
 
 r! {
     <resources structName="MVR" cdir="./" superSecretTagWhichSpecifiesThisIsTheMVResourceStruct="andItsSuperSecretValue">
@@ -27,6 +30,39 @@ r! {
         </adaptives>
         <textures>
             <texture name="test" src="textures/img.png"/>
+            <texture name="missing" src="textures/missing.png"/>
         </textures>
+        <tilesets>
+            <tileset name="smiley" atlas="textures/test_tileset.png" width="128" height="128" count="16">
+                <fps value="24"/>
+            </tileset>
+        </tilesets>
+        <animations>
+            <animation name="smiley" tileset="smiley" range="..8" fps="12"/>
+        </animations>
     </resources>
+}
+
+pub trait OrMissingTexture<T> {
+    fn or_missing_texture(self) -> T;
+}
+
+impl OrMissingTexture<&Texture> for Option<&'static Texture> {
+    fn or_missing_texture(self) -> &'static Texture {
+        if let Some(val) = self {
+            val
+        } else {
+            MVR.resolve_texture(MVR.texture.missing).expect("Missing texture must exist")
+        }
+    }
+}
+
+impl OrMissingTexture<(&Texture, Vec4)> for Option<(&'static Texture, Vec4)> {
+    fn or_missing_texture(self) -> (&'static Texture, Vec4) {
+        if let Some(val) = self {
+            val
+        } else {
+            (MVR.resolve_texture(MVR.texture.missing).expect("Missing texture must exist"), Vec4::default_uv())
+        }
+    }
 }

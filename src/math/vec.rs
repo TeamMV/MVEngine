@@ -101,12 +101,30 @@ impl Vec4 {
         Self([x, y, z, w].into())
     }
 
+    pub fn default_uv() -> Self {
+        Self::new(0.0, 0.0, 1.0, 1.0)
+    }
+
     pub fn splat(val: f32) -> Self {
         Self([val; 4].into())
     }
 
     pub fn as_slice(&self) -> &[f32] {
         self.0.as_array()
+    }
+
+
+    /// Order of uv points:<br>
+    /// 2-3 <br>
+    /// | / | <br>
+    /// 1-4 <br>
+    pub fn as_uv(&self) -> [(f32, f32); 4] {
+        [
+            (self.x, self.y),
+            (self.x, self.y + self.w),
+            (self.x + self.z, self.y + self.w),
+            (self.x + self.z, self.y)
+        ]
     }
 }
 

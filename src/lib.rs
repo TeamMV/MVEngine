@@ -14,3 +14,4 @@ pub mod rendering;
 pub mod color;
 pub mod input;
 pub mod game;
+pub mod graphics;

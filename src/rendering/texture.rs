@@ -6,7 +6,8 @@ use crate::rendering::bindless;
 #[derive(Clone)]
 pub struct Texture {
     pub id: GLuint,
-    pub handle: GLuint64
+    pub handle: GLuint64,
+    pub dimensions: (u32, u32)
 }
 
 impl Texture {
@@ -51,7 +52,7 @@ impl Texture {
             handle = 0;//bindless::GetTextureHandleARB(texture_id);
         }
 
-        Ok(Self { id: texture_id, handle })
+        Ok(Self { id: texture_id, handle, dimensions: (width, height) })
     }
 
     pub fn get_uv(&self) -> [(f32, f32); 4] {

@@ -2,6 +2,9 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use mvutils::unsafe_utils::DangerousCell;
 use crate::color::RgbColor;
+use crate::graphics::animation::GlobalAnimation;
+use crate::graphics::tileset::TileSet;
+use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
 use crate::rendering::texture::Texture;
 use crate::ui::rendering::adaptive::AdaptiveShape;
@@ -43,6 +46,11 @@ pub trait UiResources {
     fn resolve_adaptive(&self, id: usize) -> Option<&AdaptiveShape>;
     fn resolve_texture(&self, id: usize) -> Option<&Texture>;
     fn resolve_font(&self, id: usize) -> Option<&Font>;
+    fn resolve_tile(&self, id: usize, index: usize) -> Option<(&Texture, Vec4)>;
+    fn resolve_tileset(&self, id: usize) -> Option<&TileSet>;
+    fn resolve_animation(&self, id: usize) -> Option<&GlobalAnimation>;
+
+    fn tick_all_animations(&self);
 }
 
 pub struct InnerContext {
