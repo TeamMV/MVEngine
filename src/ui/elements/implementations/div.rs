@@ -83,6 +83,10 @@ impl UiElementStub for Div {
         (&mut self.attributes, &mut self.style, &mut self.state)
     }
 
+    fn context(&self) -> &UiContext {
+        &self.context
+    }
+
     fn get_size(&self, s: &str) -> Dimension<i32> {
         todo!()
     }

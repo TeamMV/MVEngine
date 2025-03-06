@@ -3,6 +3,7 @@ use std::sync::Arc;
 use mvutils::unsafe_utils::DangerousCell;
 use crate::color::RgbColor;
 use crate::graphics::animation::GlobalAnimation;
+use crate::graphics::comp::CompositeSprite;
 use crate::graphics::tileset::TileSet;
 use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
@@ -49,6 +50,7 @@ pub trait UiResources {
     fn resolve_tile(&self, id: usize, index: usize) -> Option<(&Texture, Vec4)>;
     fn resolve_tileset(&self, id: usize) -> Option<&TileSet>;
     fn resolve_animation(&self, id: usize) -> Option<&GlobalAnimation>;
+    fn resolve_composite(&self, id: usize) -> Option<&CompositeSprite>;
 
     fn tick_all_animations(&self);
 }

@@ -263,6 +263,10 @@ impl DrawContext2D {
     pub fn renderer(&self) -> &UiRenderer {
         &self.renderer
     }
+
+    pub fn renderer_mut(&mut self) -> &mut UiRenderer {
+        &mut self.renderer
+    }
 }
 
 pub struct TransformCtx {

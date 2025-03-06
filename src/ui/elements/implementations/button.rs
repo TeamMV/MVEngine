@@ -6,7 +6,7 @@ use crate::ui::context::UiContext;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::components::{ElementBody, TextBody};
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::{Dimension, Interpolator, UiStyle, EMPTY_STYLE};
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
@@ -25,6 +25,7 @@ pub struct Button {
     initial_style: UiStyle,
     attributes: Attributes,
     body: ElementBody<Button>,
+    text_body: TextBody<Button>,
     hover_style: UiStyle,
     fade_time: u32,
     easing: Easing,
@@ -116,7 +117,7 @@ impl Button {
 impl UiElementCallbacks for Button {
     fn draw(&mut self, ctx: &mut DrawContext2D) {
 
-        //todo movie into ui action processor (for each element have a fn(action: RawInputEvent))
+        //todo move into ui action processor (for each element have a fn(action: RawInputEvent))
         //let (mx, my) = (input.positions[0], input.positions[1]);
         //if self.inside(mx, my) {
         //    if let State::Out = self.hover_state {
@@ -143,7 +144,9 @@ impl UiElementCallbacks for Button {
         self.body.draw(this, ctx, &self.context);
         for children in &self.state.children {
             match children {
-                Child::String(_) => {}
+                Child::String(s) => {
+                    self.text_body.draw(s, this, ctx, &self.context);
+                }
                 Child::Element(e) => {
                     let mut guard = e.get_mut();
                     guard.draw(ctx);
@@ -166,6 +169,7 @@ impl UiElementStub for Button {
             initial_style: style.clone(),
             attributes,
             body: ElementBody::new(),
+            text_body: TextBody::new(),
             hover_style: style,
             fade_time: 0,
             easing: easing(EasingGen::linear(), EasingMode::In),
@@ -207,6 +211,10 @@ impl UiElementStub for Button {
 
     fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState) {
         (&mut self.attributes, &mut self.style, &mut self.state)
+    }
+
+    fn context(&self) -> &UiContext {
+        &self.context
     }
 
     fn get_size(&self, s: &str) -> Dimension<i32> {

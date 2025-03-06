@@ -58,6 +58,10 @@ impl UiElementStub for Blank {
         unreachable!()
     }
 
+    fn context(&self) -> &UiContext {
+        unreachable!()
+    }
+
     fn add_child(&mut self, child: Child) {
         self.children.push(child);
     }

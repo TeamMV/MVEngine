@@ -8,18 +8,38 @@ pub fn ui(input: TokenStream) -> TokenStream {
     let rsx_raw = input.to_string();
 
     if rsx_raw.trim().is_empty() {
-        return quote! { mvengine_ui::elements::blank::Blank::new(ui().context(), Attributes::new(), UiStyle::default()).wrap() }.into();
+        return quote! { mvengine::ui::elements::blank::Blank::new(ui().context(), Attributes::new(), UiStyle::default()).wrap() }.into();
     }
 
     let rsx = ui_parsing::xml::parse_rsx(rsx_raw).unwrap_or_else(|err| panic!("{}", err));
-    parse_entity(&rsx).into()
+    if rsx.name() != "Ui" {
+        panic!("root tag must be the 'Ui' tag with a given context={{}} attribute expression");
+    }
+    if let Some(XmlValue::Code(context)) = rsx.get_attrib("context") {
+        let context: Expr = parse_str(context).expect("Invalid context expression");
+        if let Some(XmlValue::Entities(inner)) = rsx.inner() {
+            if let Some(first) = inner.first() {
+                let gen = parse_entity(first);
+                let mut ts = quote! {
+                    {
+                        let __context__ = #context;
+                        #gen
+                    }
+                };
+                return ts.into();
+            }
+        }
+        panic!("Expected some Ui-Elements inside of Ui")
+    } else {
+        panic!("root tag must be the 'Ui' tag with a given context={{}} attribute expression")
+    }
 }
 
 fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     let new_ui_style: XmlValue =
-        XmlValue::Code("mvengine_ui::styles::UiStyle::default()".to_string());
+        XmlValue::Code("mvengine::ui::styles::UiStyle::default()".to_string());
     let new_attributes: XmlValue =
-        XmlValue::Code("mvengine_ui::attributes::Attributes::new()".to_string());
+        XmlValue::Code("mvengine::ui::attributes::Attributes::new()".to_string());
 
     let id = mvutils::utils::next_id("MVEngine::ui::proc_parse_entity").to_string();
     let attribs_ident = Ident::new(&format!("__attributes_{}__", id), Span::call_site());
@@ -42,14 +62,14 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         let attrib_value = match attrib_value_xml {
             XmlValue::Str(s) => {
                 quote! {
-                    mvengine_ui::attributes::AttributeValue::Str(#s.to_string())
+                    mvengine::ui::attributes::AttributeValue::Str(#s.to_string())
                 }
             }
             XmlValue::Entities(_) => unreachable!(),
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    mvengine_ui::attributes::AttributeValue::Code(Box::new(#parsed_code))
+                    mvengine::ui::attributes::AttributeValue::Code(Box::new(#parsed_code))
                 }
             }
         };
@@ -72,7 +92,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                 quote! {
                     let mut elem_state = #elem_ident.get_mut();
                     elem_state.state_mut().children.push(
-                        mvengine_ui::elements::child::Child::String(#s.to_string())
+                        mvengine::ui::elements::child::Child::String(#s.to_string())
                     );
                 }
             }
@@ -89,7 +109,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                             drop(child_state);
                             let mut elem_state = #elem_ident.get_mut();
                             elem_state.state_mut().children.push(
-                                mvengine_ui::elements::child::Child::Element(child)
+                                mvengine::ui::elements::child::Child::Element(child)
                             );
                         }
                     });
@@ -115,9 +135,8 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             #attrib_tokens
 
             let __attribs_ref__ = &mut #attribs_ident;
-            let __context__ = mvengine_ui::ui().context();
             let #elem_ident = std::rc::Rc::new(mvutils::unsafe_utils::DangerousCell::new(
-                #name_ident::new(__context__, #attribs_ident, #style_code).wrap()
+                #name_ident::new(__context__.clone(), #attribs_ident, #style_code).wrap()
             ));
             #inner_code
             #elem_ident

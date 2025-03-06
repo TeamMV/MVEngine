@@ -8,18 +8,28 @@ use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
 use mvengine::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShader};
 use mvengine::rendering::shader::light::LightOpenGLShader;
-use mvengine::rendering::{InputVertex, OpenGLRenderer, Quad, Transform, Triangle, Vertex};
+use mvengine::rendering::text::Font;
+use mvengine::rendering::texture::Texture;
+use mvengine::rendering::OpenGLRenderer;
+use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, UninitializedWindow, Window, WindowCreateInfo};
 use mvutils::once::CreateOnce;
 use std::hash::Hash;
-use mvutils::utils::Time;
-use mvengine::rendering::text::Font;
-use mvengine::rendering::texture::Texture;
-use mvengine::ui::rendering::ctx;
+use std::ops::Deref;
+use mvengine::graphics::comp::parse::MRFParser;
+use mvengine::graphics::comp::rig::Rig;
+use mvengine::modify_style;
+use mvengine::ui::context::UiContext;
+use mvengine::ui::elements::button::Button;
+use mvengine::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementStub};
+use mvengine::ui::rendering::ctx::DrawContext2D;
+use mvengine::ui::styles::{UiStyle, UiValue, DEFAULT_STYLE};
+use mvengine_proc_macro::ui;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
+
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
     info.fps = 60;
@@ -40,7 +50,9 @@ struct Application {
     test_texture: CreateOnce<Texture>,
     test_texture2: CreateOnce<Texture>,
     font: CreateOnce<Font>,
-    rot: f32
+    rot: f32,
+    button: CreateOnce<Element>,
+    draw_ctx: CreateOnce<DrawContext2D>,
 }
 
 impl WindowCallbacks for Application {
@@ -55,7 +67,9 @@ impl WindowCallbacks for Application {
             test_texture: CreateOnce::new(),
             test_texture2: CreateOnce::new(),
             font: CreateOnce::new(),
-            rot: 0.0
+            rot: 0.0,
+            button: CreateOnce::new(),
+            draw_ctx: CreateOnce::new(),
         }
     }
 
@@ -110,6 +124,26 @@ impl WindowCallbacks for Application {
             self.test_texture.create(|| test_texture);
             self.test_texture2.create(|| test_texture2);
             self.font.create(|| font);
+
+            println!("1");
+            DEFAULT_STYLE.deref();
+            println!("2");
+            let a = DEFAULT_STYLE.created();
+            println!("{a}");
+            let mut style = UiStyle::default();
+            modify_style!(style.text.color = UiValue::Just(RgbColor::white()));
+            modify_style!(style.background.color = UiValue::Just(RgbColor::blue()));
+
+            let button = ui! {
+                <Ui context={window.ui().context()}>
+                    <Button style={style}>Hello</Button>
+                </Ui>
+            };
+            self.button.create(|| button);
+
+            let ui_renderer = UiRenderer::new(window);
+            let context = DrawContext2D::new(ui_renderer);
+            self.draw_ctx.create(|| context);
         }
 
         let registry = window.input.action_registry_mut();
@@ -144,7 +178,9 @@ impl WindowCallbacks for Application {
             .rotate(self.rot)
             .get();
 
-        self.font.draw("-1", 200.0, trns, 1.0, &RgbColor::red(), &mut self.controller);
+        let button = self.button.get_mut();
+        button.compute_styles();
+        button.draw(&mut self.draw_ctx);
 
         OpenGLRenderer::clear();
         self.controller.draw(window, &self.camera, &mut *self.renderer, &mut *self.shader);

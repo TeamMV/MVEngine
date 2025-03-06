@@ -1,9 +1,14 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
 use crate::ui::geometry::Rect;
-use crate::ui::styles::{BackgroundRes, Resolve, ResolveResult, UiShape, UiStyle};
+use crate::ui::styles::{BackgroundRes, Dimension, Resolve, ResolveResult, UiShape, UiStyle, DEFAULT_STYLE};
 use mvutils::state::State;
 use crate::{get_adaptive, get_shape, resolve};
+use crate::color::RgbColor;
+use crate::math::vec::Vec2;
+use crate::rendering::control::RenderController;
+use crate::rendering::{InputVertex, Quad, Transform};
+use crate::rendering::text::Font;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::rendering::adaptive::AdaptiveShape;
@@ -166,4 +171,62 @@ impl<E: UiElementStub> ElementBody<E> {
     fn draw_background_adaptive(bg_shape: &AdaptiveShape, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {}
 
     fn draw_border_adaptive(bd_shape: &AdaptiveShape, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {}
+}
+
+#[derive(Clone)]
+pub struct TextBody<E: UiElementStub> {
+    _phantom: PhantomData<E>
+}
+
+impl<E: UiElementStub> TextBody<E> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: PhantomData::default(),
+        }
+    }
+
+    pub fn draw(&self, text: &str, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
+        let font = resolve!(elem, text.font);
+        let font = font.unwrap_or(MVR.font.default);
+        if let Some(font) = context.resources.resolve_font(font) {
+            let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
+            let size = resolve!(elem, text.size).unwrap_or_default(&DEFAULT_STYLE.text.size);
+            let kerning = resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
+            let stretch = resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
+            let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
+            let shape = Self::create_shape(text, color, size, kerning, stretch, skew, font);
+            let state = elem.state();
+            let shape = shape.translated(state.content_rect.x(), state.content_rect.y());
+            ctx.shape(shape);
+        }
+    }
+
+    pub fn create_shape(s: &str, color: RgbColor, size: f32, kerning: f32, stretch: Dimension<f32>, skew: f32, font: &Font) -> DrawShape {
+        let width = font.get_width(s, size);
+        let l = s.len() as f32 - 1f32;
+        let width = width * stretch.width + skew * 2f32 + kerning * l;
+
+        let mut triangles = vec![];
+        let mut x = 0f32;
+        for (i, c) in s.char_indices() {
+            let data = font.get_char_data(c, size);
+            let vertex = InputVertex {
+                transform: Transform::new(),
+                pos: (x, 0.0, 0.0),
+                color: color.as_vec4(),
+                uv: (0.0, 0.0),
+                texture: 0,
+                has_texture: 2.0,
+            };
+            let mut quad = Quad::from_corner(vertex, data.uv, (data.width * stretch.width, size), |vertex, (x, y)| vertex.transform.translation = Vec2::new(x, y));
+            quad.points[0].transform.translation.x -= skew;
+            quad.points[2].transform.translation.x += skew;
+            triangles.extend(quad.triangles());
+            x += data.width * stretch.width + kerning + skew * 2f32;
+        }
+        DrawShape {
+            triangles,
+            extent: (width as i32, (size * stretch.height) as i32),
+        }
+    }
 }

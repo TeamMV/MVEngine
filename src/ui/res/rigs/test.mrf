@@ -1,0 +1,20 @@
+;Comment
+
+#PARTS
+static = 0
+center = 1
+
+#BOUNDS
+static = [100, 100]
+center = [100, 100]
+
+#ANIMATIONS
++rotate
+:pre
+center.origin = [50, 50]
+:keyframes
+>0
+center.rotation = 0
+>100
+center.rotation = 350
+hello

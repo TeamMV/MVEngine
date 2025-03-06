@@ -279,7 +279,7 @@ pub struct TextStyle {
     pub kerning: Resolve<f32>,
     pub skew: Resolve<f32>,
     pub stretch: Resolve<Dimension<f32>>,
-    pub font: Resolve<u16>,
+    pub font: Resolve<usize>,
     pub fit: Resolve<TextFit>,
     pub color: Resolve<RgbColor>,
 }
@@ -866,6 +866,21 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
             *self = other.clone();
         }
     }
+
+    pub fn resolve_just(&self) -> &T {
+        match self {
+            Resolve::UiValue(value) => match value {
+                UiValue::Just(j) => Some(j),
+                _ => None
+            }
+            Resolve::LayoutField(field) => {
+                match &field.value {
+                    UiValue::Just(j) => Some(j),
+                    _ => None
+                }
+            }
+        }.unwrap()
+    }
 }
 
 impl<T: PartialOrd + Clone + 'static> From<UiValue<T>> for Resolve<T> {
@@ -948,11 +963,30 @@ impl<T> ResolveResult<T> {
     }
 }
 
+impl<T: PartialOrd + Clone + 'static> ResolveResult<T> {
+    pub fn unwrap_or_default(self, default: &Resolve<T>) -> T {
+        match self {
+            Self::Value(t) => t,
+            _ => default.resolve_just().clone()
+        }
+    }
+}
+
 impl ResolveResult<i32> {
     pub fn compute_percent(&self, parent: i32) -> i32 {
         match self {
             ResolveResult::Percent(p) => (*p * parent as f32) as i32,
             _ => parent
+        }
+    }
+
+    pub fn unwrap_or_default_or_percentage<F>(self, default: &Resolve<i32>, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> i32 where F: Fn(&UiElementState) -> i32 {
+        if self.is_percent() {
+            return self.resolve_percent(maybe_parent, map);
+        }
+        match self {
+            Self::Value(t) => t,
+            _ => default.resolve_just().clone()
         }
     }
 
@@ -972,6 +1006,16 @@ impl ResolveResult<f32> {
         match self {
             ResolveResult::Percent(p) => *p * parent,
             _ => parent
+        }
+    }
+
+    pub fn unwrap_or_default_or_percentage<F>(self, default: &Resolve<f32>, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> f32 where F: Fn(&UiElementState) -> f32 {
+        if self.is_percent() {
+            return self.resolve_percent(maybe_parent, map);
+        }
+        match self {
+            Self::Value(t) => t,
+            _ => default.resolve_just().clone()
         }
     }
 

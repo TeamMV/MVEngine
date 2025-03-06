@@ -15,6 +15,13 @@ use crate::rendering::texture::Texture;
 pub mod font;
 
 #[derive(Clone)]
+pub struct CharData {
+    pub uv: Vec4,
+    pub width: f32,
+    pub size: f32
+}
+
+#[derive(Clone)]
 pub struct Font {
     texture: Texture,
     atlas: Arc<PreparedAtlasData>
@@ -31,6 +38,91 @@ impl Font {
             atlas: arc,
         })
     }
+
+    pub fn texture(&self) -> &Texture {
+        &self.texture
+    }
+
+    pub fn get_char_data(&self, char: char, size: f32) -> CharData {
+        let glyph = if let Some(glyph) = self.atlas.find_glyph(char) {
+            glyph
+        } else {
+            self.atlas.find_glyph('?').unwrap_or_else(|| {
+                log::error!("Font atlas missing 'missing character' glyph");
+                panic!()
+            })
+        };
+
+        let bounds_plane = &glyph.plane_bounds;
+        let bounds_atlas = &glyph.atlas_bounds;
+
+        let mut tex_coords = Vec4::new(
+            bounds_atlas.left as f32,
+            (self.atlas.atlas.height as f64 - bounds_atlas.top) as f32,
+            (bounds_atlas.right - bounds_atlas.left) as f32,
+            (bounds_atlas.top - bounds_atlas.bottom) as f32,
+        );
+
+        tex_coords.x /= self.atlas.atlas.width as f32;
+        tex_coords.y /= self.atlas.atlas.height as f32;
+        tex_coords.z /= self.atlas.atlas.width as f32;
+        tex_coords.w /= self.atlas.atlas.height as f32;
+
+        let mut font_scale = 1.0 / (self.atlas.metrics.ascender - self.atlas.metrics.descender);
+        font_scale *= size as f64 / self.atlas.metrics.line_height;
+
+        let mut scale = Vec2::new(
+            (bounds_plane.right - bounds_plane.left) as f32,
+            (bounds_plane.top - bounds_plane.bottom) as f32,
+        );
+        scale.x = scale.x * font_scale as f32;
+
+        CharData {
+            uv: tex_coords,
+            width: scale.y,
+            size,
+        }
+    }
+
+    pub fn get_width(&self, text: &str, height: f32) -> f32 {
+        let atlas = &self.atlas;
+
+        let mut font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
+        font_scale *= height as f64 / atlas.metrics.line_height;
+
+        let space_advance = atlas.find_glyph(' ').unwrap().advance;
+        let mut width = 0.0;
+
+        let mut chars = text.chars().peekable();
+
+        while let Some(char) = chars.next() {
+            if char == '\t' {
+                width += 6.0 + space_advance * font_scale;
+                continue;
+            } else if char == ' ' {
+                width += space_advance * font_scale;
+                continue;
+            } else if char == '\n' {
+                continue;
+            }
+
+            let glyph = if let Some(glyph) = atlas.find_glyph(char) {
+                glyph
+            } else {
+                atlas.find_glyph('?').unwrap_or_else(|| {
+                    log::error!("Font atlas missing 'missing character' glyph");
+                    panic!()
+                })
+            };
+
+            let kerning = chars.peek().map_or(0.0, |&next| atlas.get_kerning(char, next).unwrap_or_default());
+
+            width += (glyph.advance + kerning) * font_scale;
+        }
+
+        width as f32
+    }
+
 
     pub fn draw(&self, text: &str, height: f32, mut transform: Transform, z: f32, color: &RgbColor, controller: &mut RenderController) {
         let atlas = &self.atlas;

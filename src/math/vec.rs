@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter, Write};
-use std::ops::{Deref, DerefMut, Mul, MulAssign};
+use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
 
 use mvutils::unsafe_utils::Unsafe;
@@ -23,6 +23,13 @@ impl Vec2 {
 
     pub fn as_slice(&self) -> &[f32] {
         unsafe { std::slice::from_raw_parts(self as *const Vec2 as *const f32, 2) }
+    }
+}
+
+impl AddAssign for Vec2 {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
     }
 }
 
@@ -103,7 +110,7 @@ impl Vec4 {
 
     pub fn default_uv() -> Self {
         Self::new(0.0, 0.0, 1.0, 1.0)
-    }
+    } //xywh i think
 
     pub fn splat(val: f32) -> Self {
         Self([val; 4].into())

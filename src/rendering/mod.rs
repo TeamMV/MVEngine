@@ -20,7 +20,7 @@ pub mod bindless;
 pub mod text;
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Transform {
     pub translation: Vec2,
     pub origin: Vec2,
@@ -50,6 +50,12 @@ impl Transform {
         let translated_x = rotated_x + self.origin.x + self.translation.x;
         let translated_y = rotated_y + self.origin.y + self.translation.y;
         (translated_x as i32, translated_y as i32)
+    }
+
+    pub fn translate_self(mut self, dx: f32, dy: f32) -> Self {
+        self.translation.x += dx;
+        self.translation.y += dy;
+        self
     }
 }
 
@@ -112,6 +118,64 @@ impl Triangle {
 #[derive(Clone)]
 pub struct Quad {
     pub points: [InputVertex; 4],
+}
+
+impl Quad {
+    pub fn triangles(&self) -> [Triangle; 2] {
+        [
+            Triangle {
+                points: [self.points[0].clone(), self.points[1].clone(), self.points[2].clone()],
+            },
+            Triangle {
+                points: [self.points[2].clone(), self.points[3].clone(), self.points[0].clone()],
+            }
+        ]
+    }
+
+    pub fn from_corner<P>(mut bottom_left: InputVertex, uv: Vec4, size: (f32, f32), mut positioner: P) -> Self where P: FnMut(&mut InputVertex, (f32, f32)) {
+        let texture = bottom_left.texture;
+        let has_texture = bottom_left.has_texture;
+        let color= bottom_left.color;
+
+        let vertex = || -> InputVertex {
+            InputVertex {
+                transform: Transform::new(),
+                pos: (0.0, 0.0, 0.0),
+                color: color.clone(),
+                uv: (0.0, 0.0),
+                texture,
+                has_texture,
+            }
+        };
+
+        let x1 = bottom_left.pos.0;
+        let y1 = bottom_left.pos.1;
+        let x2 = x1 + size.0;
+        let y2 = y1 + size.1;
+
+        let mut tl = vertex();
+        let mut tr = vertex();
+        let mut br = vertex();
+
+        positioner(&mut bottom_left, (x1, y1));
+        positioner(&mut tl, (x1, y2));
+        positioner(&mut tr, (x2, y2));
+        positioner(&mut br, (x2, y1));
+
+        bottom_left.uv = (uv.x, uv.y);
+        tl.uv = (uv.x, uv.y + uv.z);
+        tr.uv = (uv.x + uv.z, uv.y + uv.w);
+        br.uv = (uv.x + uv.z, uv.y);
+
+        Self {
+            points: [
+                bottom_left,
+                tl,
+                tr,
+                br
+            ],
+        }
+    }
 }
 
 pub trait PrimitiveRenderer {

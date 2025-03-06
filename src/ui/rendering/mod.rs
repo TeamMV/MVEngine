@@ -67,6 +67,14 @@ impl UiRenderer {
     pub fn get_extent(&self) -> (u32, u32) {
         self.dimension
     }
+
+    pub fn controller(&self) -> &RenderController {
+        &self.controller
+    }
+
+    pub fn controller_mut(&mut self) -> &mut RenderController {
+        &mut self.controller
+    }
 }
 
 pub struct ZCoords {

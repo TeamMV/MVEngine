@@ -32,14 +32,25 @@ r! {
             <texture name="test" src="textures/img.png"/>
             <texture name="missing" src="textures/missing.png"/>
         </textures>
+        <fonts>
+            <font name="default" src="fonts/data.font" atlas="fonts/atlas.png"/>
+        </fonts>
         <tilesets>
             <tileset name="smiley" atlas="textures/test_tileset.png" width="128" height="128" count="16">
+                <entry name="happy" index="4"/>
                 <fps value="24"/>
             </tileset>
         </tilesets>
         <animations>
             <animation name="smiley" tileset="smiley" range="..8" fps="12"/>
         </animations>
+        <composites>
+            <composite name="test" rig="rigs/test.mrf">
+                <part res="animation.smiley"/>
+                <part res="tile.smiley.happy"/>
+                <part res="texture.test"/>
+            </composite>
+        </composites>
     </resources>
 }
 

@@ -46,7 +46,7 @@ impl Ui {
     }
 
     pub fn context(&self) -> UiContext {
-        self.context.clone()
+        self.context.deref().clone()
     }
 
     pub fn add_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {

@@ -23,8 +23,10 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::sync::Arc;
 use itertools::Itertools;
+use crate::rendering::text::Font;
 use crate::resolve;
 use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::res::MVR;
 use crate::ui::styles::ResolveResult;
 
 pub trait UiElementCallbacks {
@@ -54,6 +56,8 @@ pub trait UiElementStub: UiElementCallbacks {
 
     fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState);
 
+    fn context(&self) -> &UiContext;
+
     fn add_child(&mut self, child: Child) {
         self.state_mut().children.push(child);
     }
@@ -81,8 +85,6 @@ pub trait UiElementStub: UiElementCallbacks {
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
 
-
-        //TODO: Implement ResolveResult::Percent here and sidestyle and everywhere by using its compute_percent() method
         let padding = style.padding.get(self, |s| &s.padding, |s| &s.paddings); //t, b, l, r
         let margin = style.margin.get(self, |s| &s.margin, |s| &s.margins);    //0, 1, 2, 3
 
@@ -95,7 +97,16 @@ pub trait UiElementStub: UiElementCallbacks {
 
         let maybe_parent = state.parent.clone();
 
-        let mut computed_size = Self::compute_children_size(state, &direction);
+        let font = resolve!(self, text.font);
+        let font = font.unwrap_or(MVR.font.default);
+        let font = self.context().resources.resolve_font(font);
+
+        let size = resolve!(self, text.size).unwrap_or_default_or_percentage(&DEFAULT_STYLE.text.size, maybe_parent.clone(), |s| s.content_rect.height() as f32);
+        let kerning = resolve!(self, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
+        let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
+        let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
+
+        let mut computed_size = Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning);
 
         let width = resolve!(self, width);
         let width = if width.is_set() {
@@ -249,11 +260,18 @@ pub trait UiElementStub: UiElementCallbacks {
         }
     }
 
-    fn compute_children_size(state: &UiElementState, direction: &Direction) -> (i32, i32) where Self: Sized {
+    fn compute_children_size(state: &UiElementState, direction: &Direction, font: Option<&Font>, font_size: f32, font_stretch: Dimension<f32>, font_skew: f32, font_kerning: f32) -> (i32, i32) where Self: Sized {
         let (mut w, mut h) = (0, 0);
         for child in &state.children {
             match child {
-                Child::String(_) => {}
+                Child::String(s) => {
+                    if let Some(font) = font {
+                        let width = font.get_width(s, font_size);
+                        let l = s.len() as f32 - 1f32;
+                        let width = width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
+                        w += width as i32;
+                    }
+                }
                 Child::Element(e) => {
                     let mut guard = e.get_mut();
                     guard.compute_styles();
@@ -317,6 +335,8 @@ pub trait UiElementStub: UiElementCallbacks {
         res
     }
 }
+
+pub type Element = Rc<DangerousCell<UiElement>>;
 
 #[derive(Clone)]
 pub enum UiElement {
@@ -398,6 +418,10 @@ impl UiElementStub for UiElement {
 
     fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState) {
         ui_element_fn!(self, components_mut())
+    }
+
+    fn context(&self) -> &UiContext {
+        ui_element_fn!(self, context())
     }
 
     fn get_size(&self, s: &str) -> Dimension<i32> {
