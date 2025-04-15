@@ -1,21 +1,18 @@
-use std::ops::RangeBounds;
 use crate::graphics::tileset::{ClockingFramePump, LoopingRangeFramePump, Pump, TileSet};
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
+use std::ops::RangeBounds;
 
 pub struct GlobalAnimation<'a> {
     pump: ClockingFramePump<'a, LoopingRangeFramePump<'a>>,
-    last: (&'a Texture, Vec4)
+    last: (&'a Texture, Vec4),
 }
 
 impl<'a> GlobalAnimation<'a> {
     pub fn new(tile_set: &'a TileSet, range: impl RangeBounds<usize>, fps: u16) -> Self {
         let mut pump = tile_set.frames_loop_range(range).clocked(fps);
         let last = pump.pump();
-        Self {
-            pump,
-            last
-        }
+        Self { pump, last }
     }
 
     pub fn tick(&mut self) {

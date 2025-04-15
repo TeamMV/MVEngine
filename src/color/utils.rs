@@ -1,6 +1,6 @@
+use crate::color::{Color, ColorFormat, HsvColor, RgbColor};
 use mvutils::utils::Overlap;
 use rand::Rng;
-use crate::color::{Color, ColorFormat, HsvColor, RgbColor};
 
 pub struct Colors;
 

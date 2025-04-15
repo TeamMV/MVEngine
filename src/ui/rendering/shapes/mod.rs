@@ -1,11 +1,8 @@
-use hashbrown::HashMap;
 use crate::ui::rendering::shapes::lexer::{NumberLit, Token, TokenStream};
+use hashbrown::HashMap;
 
 pub mod lexer;
 pub mod shape_gen;
-pub mod polygon;
-pub mod modifier;
-mod geometry;
 
 type Ast = Vec<Command>;
 
@@ -13,33 +10,33 @@ type Ast = Vec<Command>;
 pub enum Command {
     Assign(String, Assignment),
     Call(String, Vec<Param>),
-    Select(String)
+    Select(String),
 }
 
 #[derive(Debug)]
 enum Assignment {
     New(ParsedStruct),
-    Clone(String)
+    Clone(String),
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum Param {
     Str(String),
-    Struct(ParsedStruct)
+    Struct(ParsedStruct),
 }
 
 impl Param {
     pub fn as_str(&self) -> &String {
         match self {
             Param::Str(s) => s,
-            Param::Struct(_) => unreachable!()
+            Param::Struct(_) => unreachable!(),
         }
     }
 
     pub fn as_struct(&self) -> &ParsedStruct {
         match self {
             Param::Str(_) => unreachable!(),
-            Param::Struct(s) => s
+            Param::Struct(s) => s,
         }
     }
 }
@@ -93,7 +90,7 @@ impl ShapeParser {
                                     //struct
                                     tokens.putback(Token::Identifier(param_ident));
                                     tokens.putback(Token::LBracket);
-                                    let parsed = Self::parse_struct(&mut tokens)?;;
+                                    let parsed = Self::parse_struct(&mut tokens)?;
                                     params.push(Param::Struct(parsed));
                                 } else {
                                     tokens.putback(next);
@@ -114,7 +111,7 @@ impl ShapeParser {
                     ast.push(Command::Select(ident));
                 }
                 Token::Error(e) => return Err(e),
-                _ => return Err(format!("Unexpected Token3: {:?}", token))
+                _ => return Err(format!("Unexpected Token3: {:?}", token)),
             }
         }
 
@@ -134,28 +131,30 @@ impl ShapeParser {
                     match value_next {
                         Token::Number(num) => {
                             parsed_struct.values.insert(name, StructValue::Number(num));
-                        },
+                        }
                         Token::LBracket => {
                             stream.putback(Token::Identifier(name.clone()));
                             stream.putback(Token::LBracket);
                             let inner_struct = Self::parse_struct(stream)?;
-                            parsed_struct.values.insert(name, StructValue::Struct(Box::new(inner_struct)));
-                        },
-                        _ => return Err(format!("Unexpected Token2: {:?}", value_next))
+                            parsed_struct
+                                .values
+                                .insert(name, StructValue::Struct(Box::new(inner_struct)));
+                        }
+                        _ => return Err(format!("Unexpected Token2: {:?}", value_next)),
                     }
-                },
+                }
                 Token::RBracket => return Ok(parsed_struct),
                 Token::Error(e) => return Err(e),
-                _ => return Err(format!("Unexpected Token1: {:?}", next))
+                _ => return Err(format!("Unexpected Token1: {:?}", next)),
             }
         }
     }
 }
 
 #[derive(Debug, Clone)]
-struct ParsedStruct {
+pub(crate) struct ParsedStruct {
     name: String,
-    values: HashMap<String, StructValue>
+    values: HashMap<String, StructValue>,
 }
 
 impl ParsedStruct {
@@ -170,5 +169,5 @@ impl ParsedStruct {
 #[derive(Debug, Clone)]
 pub(crate) enum StructValue {
     Number(NumberLit),
-    Struct(Box<ParsedStruct>)
+    Struct(Box<ParsedStruct>),
 }

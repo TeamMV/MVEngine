@@ -1,16 +1,18 @@
-use std::sync::Arc;
+use crate::color::RgbColor;
+use crate::math::vec::{Vec2, Vec4};
+use crate::rendering::control::RenderController;
+use crate::rendering::shader::OpenGLShader;
+use crate::rendering::text::font::{AtlasData, PreparedAtlasData};
+use crate::rendering::texture::Texture;
+use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, RenderContext, Transform, Vertex};
 use bytebuffer::ByteBuffer;
 use gl::types::GLuint;
 use hashbrown::HashMap;
 use itertools::Itertools;
 use mvutils::save::Savable;
-use crate::color::RgbColor;
-use crate::math::vec::{Vec2, Vec4};
-use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Transform, Vertex};
-use crate::rendering::control::RenderController;
-use crate::rendering::shader::OpenGLShader;
-use crate::rendering::text::font::{AtlasData, PreparedAtlasData};
-use crate::rendering::texture::Texture;
+use num_traits::Inv;
+use std::ops::DerefMut;
+use std::sync::Arc;
 
 pub mod font;
 
@@ -18,13 +20,14 @@ pub mod font;
 pub struct CharData {
     pub uv: Vec4,
     pub width: f32,
-    pub size: f32
+    pub size: f32,
+    pub y_off: f32
 }
 
 #[derive(Clone)]
 pub struct Font {
     texture: Texture,
-    atlas: Arc<PreparedAtlasData>
+    atlas: Arc<PreparedAtlasData>,
 }
 
 impl Font {
@@ -68,33 +71,52 @@ impl Font {
         tex_coords.z /= self.atlas.atlas.width as f32;
         tex_coords.w /= self.atlas.atlas.height as f32;
 
-        let mut font_scale = 1.0 / (self.atlas.metrics.ascender - self.atlas.metrics.descender);
-        font_scale *= size as f64 / self.atlas.metrics.line_height;
+        tex_coords.y = 1.0 - tex_coords.y;
+        tex_coords.z = tex_coords.z;
+
+        let font_scale = self.get_scale(size);
 
         let mut scale = Vec2::new(
             (bounds_plane.right - bounds_plane.left) as f32,
             (bounds_plane.top - bounds_plane.bottom) as f32,
         );
         scale.x = scale.x * font_scale as f32;
+        scale.y = scale.y * font_scale as f32;
 
         CharData {
             uv: tex_coords,
-            width: scale.y,
-            size,
+            width: scale.x,
+            size: scale.y,
+            y_off: bounds_plane.bottom as f32 * font_scale as f32,
         }
+    }
+
+    pub fn get_space_advance(&self, height: f32) -> f32 {
+        let scale = self.get_scale(height);
+        let space_advance = self.atlas.find_glyph(' ').unwrap().advance;
+        space_advance as f32 * scale as f32
+    }
+
+    pub fn get_scale(&self, height: f32) -> f64 {
+        let atlas = &self.atlas;
+        //let mut font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
+        //font_scale *= height as f64 / atlas.metrics.line_height;
+        //font_scale
+        height as f64 / atlas.metrics.line_height
     }
 
     pub fn get_width(&self, text: &str, height: f32) -> f32 {
         let atlas = &self.atlas;
 
-        let mut font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
-        font_scale *= height as f64 / atlas.metrics.line_height;
+        let font_scale = self.get_scale(height);
 
         let space_advance = atlas.find_glyph(' ').unwrap().advance;
         let mut width = 0.0;
 
         let mut chars = text.chars().peekable();
 
+        let reference = text.clone();
+        let mut idx = 0;
         while let Some(char) = chars.next() {
             if char == '\t' {
                 width += 6.0 + space_advance * font_scale;
@@ -115,20 +137,36 @@ impl Font {
                 })
             };
 
-            let kerning = chars.peek().map_or(0.0, |&next| atlas.get_kerning(char, next).unwrap_or_default());
+            let bounds_plane = &glyph.plane_bounds;
+            let mut scale = Vec2::new(
+                (bounds_plane.right - bounds_plane.left) as f32,
+                (bounds_plane.top - bounds_plane.bottom) as f32,
+            );
+            scale.x = scale.x * font_scale as f32;
+            scale.y = scale.y * font_scale as f32;
 
-            width += (glyph.advance + kerning) * font_scale;
+            let next = reference.chars().nth(idx + 1).unwrap_or('i');
+            let kerning = atlas.get_kerning(char, next).unwrap_or_default();
+
+            width += scale.x as f64 + kerning * font_scale;
+            idx += 1;
         }
 
         width as f32
     }
 
-
-    pub fn draw(&self, text: &str, height: f32, mut transform: Transform, z: f32, color: &RgbColor, controller: &mut RenderController) {
+    pub fn draw(
+        &self,
+        text: &str,
+        height: f32,
+        mut transform: Transform,
+        z: f32,
+        color: &RgbColor,
+        controller: &mut impl RenderContext,
+    ) {
         let atlas = &self.atlas;
 
-        let mut font_scale = 1.0 / (atlas.metrics.ascender - atlas.metrics.descender);
-        font_scale *= height as f64 / atlas.metrics.line_height;
+        let mut font_scale = self.get_scale(height);
         let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
 
         let mut x = 0.0;
@@ -198,10 +236,10 @@ impl Font {
                     vertex((0.0, 0.0), (tex_coords.x, tex_coords.y + tex_coords.w)),
                     vertex((0.0, scale.y), (tex_coords.x, tex_coords.y)),
                     vertex((scale.x, scale.y), (tex_coords.x + tex_coords.z, tex_coords.y)),
-                    vertex((scale.x, 0.0), (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w))
-                ]
+                    vertex((scale.x, 0.0), (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w)),
+                ],
             };
-            controller.push_quad(quad);
+            controller.controller().push_quad(quad);
 
             let next = reference.chars().nth(idx).unwrap_or('i');
             let kerning = atlas.get_kerning(char, next).unwrap_or_default();

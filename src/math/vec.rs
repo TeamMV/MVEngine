@@ -2,8 +2,8 @@ use std::fmt::{Debug, Formatter, Write};
 use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
 
-use mvutils::unsafe_utils::Unsafe;
 use crate::math::mat::Mat3;
+use mvutils::unsafe_utils::Unsafe;
 
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
 #[repr(C)]
@@ -120,7 +120,6 @@ impl Vec4 {
         self.0.as_array()
     }
 
-
     /// Order of uv points:<br>
     /// 2-3 <br>
     /// | / | <br>
@@ -130,7 +129,7 @@ impl Vec4 {
             (self.x, self.y),
             (self.x, self.y + self.w),
             (self.x + self.z, self.y + self.w),
-            (self.x + self.z, self.y)
+            (self.x + self.z, self.y),
         ]
     }
 }

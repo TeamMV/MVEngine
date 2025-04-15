@@ -1,10 +1,11 @@
+use crate::input::consts::MouseButton;
+use crate::input::{Input, KeyboardAction, MouseAction};
 use crate::ui::elements::child::Child;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::styles::Point;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
-use crate::input::{Input, KeyboardAction, MouseAction};
-use crate::input::consts::MouseButton;
+use crate::window::Window;
 
 const CLICK_LISTENER: u32 = 0;
 const SCROLL_LISTENER: u32 = 1;
@@ -32,6 +33,7 @@ impl UiEvents {
         action: MouseAction,
         elem: &mut UiElement,
         input: &Input,
+        window: &mut Window
     ) -> bool {
         let state = elem.state();
         let state = unsafe { Unsafe::cast_static(state) };
@@ -43,7 +45,7 @@ impl UiEvents {
                     let mut child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
                     let mut child_events = Unsafe::cast_mut_static(child_events);
-                    let res = child_events.mouse_change(action, (&mut *child_guard), input);
+                    let res = child_events.mouse_change(action, (&mut *child_guard), input, window);
                     if res {
                         used = res;
                     }
@@ -63,6 +65,7 @@ impl UiEvents {
                         pos: Point::new(max, may),
                         pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                         synthetic: false,
+                        window,
                     };
 
                     listener(UiMoveEvent::<'_> { base });
@@ -79,6 +82,7 @@ impl UiEvents {
                                 pos: Point::new(max, may),
                                 pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiHoverEvent::<'_> { base });
@@ -95,6 +99,7 @@ impl UiEvents {
                                 pos: Point::new(max, may),
                                 pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiHoverEvent::<'_> { base });
@@ -147,6 +152,7 @@ impl UiEvents {
                                 pos: Point::new(mx, my),
                                 pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiScrollEvent::<'_> {
@@ -163,6 +169,7 @@ impl UiEvents {
                                 pos: Point::new(mx, my),
                                 pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiMoveEvent::<'_> { base });
@@ -176,6 +183,7 @@ impl UiEvents {
                                 pos: Point::new(mx, my),
                                 pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiClickEvent::<'_> { base, button: b });
@@ -189,6 +197,7 @@ impl UiEvents {
                                 pos: Point::new(mx, my),
                                 pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
                                 synthetic: false,
+                                window,
                             };
 
                             listener(UiClickEvent::<'_> { base, button: b });
@@ -288,7 +297,8 @@ pub struct UiEventBase<'a, Action: Clone> {
     pub action: Action,
     pub pos: Point<i32>,
     pub pos_rel: Point<i32>,
-    pub synthetic: bool
+    pub synthetic: bool,
+    pub window: &'a mut Window
 }
 
 pub struct UiMouseEvents {

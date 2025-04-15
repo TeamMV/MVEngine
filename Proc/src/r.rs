@@ -108,14 +108,16 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "shape",
-        "mvengine::ui::rendering::ctx::DrawShape",
+        "mvengine::ui::geometry::shape::Shape",
         shapes,
         |lit| {
             let path = get_src(cdir.as_str(), lit);
             quote! {
                 {
                     let ast = mvengine::ui::rendering::shapes::ShapeParser::parse(include_str!(#path)).unwrap();
-                    mvengine::ui::rendering::shapes::shape_gen::ShapeGenerator::generate(ast).unwrap()
+                    let mut shape = mvengine::ui::rendering::shapes::shape_gen::ShapeGenerator::generate(ast).unwrap();
+                    shape.invalidate();
+                    shape
                 },
             }
         }

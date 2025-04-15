@@ -1,16 +1,18 @@
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use crate::game::ecs::mem::storage::ComponentStorage;
+use crate::game::ecs::{EcsStorage, ECS};
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
 use mvutils::utils;
-use crate::game::ecs::{EcsStorage, ECS};
-use crate::game::ecs::mem::storage::ComponentStorage;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 pub type EntityType = u64;
 
 pub trait EntityBehavior {
-    fn new(storage: EcsStorage) -> Self where Self: Sized;
+    fn new(storage: EcsStorage) -> Self
+    where
+        Self: Sized;
     fn start(&mut self, entity: EntityType);
     fn update(&mut self, entity: EntityType);
 }
@@ -21,8 +23,10 @@ pub struct NoBehavior;
 impl EntityBehavior for NoBehavior {
     fn new(storage: EcsStorage) -> Self
     where
-        Self: Sized
-    { Self {} }
+        Self: Sized,
+    {
+        Self {}
+    }
 
     fn start(&mut self, entity: EntityType) {}
 
@@ -32,16 +36,22 @@ impl EntityBehavior for NoBehavior {
 #[derive(Clone)]
 pub struct LocalComponent<C: Sized + 'static> {
     component: Option<&'static C>,
-    storage: EcsStorage
+    storage: EcsStorage,
 }
 
 impl<C: Sized + 'static> LocalComponent<C> {
     pub fn new(storage: EcsStorage) -> Self {
-        Self { component: None, storage }
+        Self {
+            component: None,
+            storage,
+        }
     }
 
     pub fn aquire(&mut self, entity: EntityType) {
-        let c = self.storage.get().get_component::<C>(entity).expect("Entity does not have component X, but it was aquired from LocalComponent!");
+        let c =
+            self.storage.get().get_component::<C>(entity).expect(
+                "Entity does not have component X, but it was aquired from LocalComponent!",
+            );
         unsafe { self.component = Some(Unsafe::cast_static(c)) }
     }
 }
@@ -56,7 +66,11 @@ impl<C> Deref for LocalComponent<C> {
 
 impl<C> DerefMut for LocalComponent<C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { (*self.component.as_ref().unwrap() as *const C as *mut C).as_mut().unwrap() }
+        unsafe {
+            (*self.component.as_ref().unwrap() as *const C as *mut C)
+                .as_mut()
+                .unwrap()
+        }
     }
 }
 
@@ -64,7 +78,7 @@ pub struct Entity<B, C> {
     phantom: PhantomData<C>,
     pub(crate) ty: EntityType,
     storage: EcsStorage,
-    pub(crate) behavior: Option<B>
+    pub(crate) behavior: Option<B>,
 }
 
 impl<B, C> Entity<B, C> {

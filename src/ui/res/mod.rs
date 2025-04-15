@@ -24,6 +24,7 @@ r! {
         </colors>
         <shapes>
             <shape name="rect" src="shapes/rect.msf"/>
+            <shape name="round_rect" src="shapes/round_rect.msf"/>
         </shapes>
         <adaptives>
             <adaptive name="void_rect" src="shapes/void_rect.msf"/>
@@ -63,7 +64,8 @@ impl OrMissingTexture<&Texture> for Option<&'static Texture> {
         if let Some(val) = self {
             val
         } else {
-            MVR.resolve_texture(MVR.texture.missing).expect("Missing texture must exist")
+            MVR.resolve_texture(MVR.texture.missing)
+                .expect("Missing texture must exist")
         }
     }
 }
@@ -73,7 +75,11 @@ impl OrMissingTexture<(&Texture, Vec4)> for Option<(&'static Texture, Vec4)> {
         if let Some(val) = self {
             val
         } else {
-            (MVR.resolve_texture(MVR.texture.missing).expect("Missing texture must exist"), Vec4::default_uv())
+            (
+                MVR.resolve_texture(MVR.texture.missing)
+                    .expect("Missing texture must exist"),
+                Vec4::default_uv(),
+            )
         }
     }
 }

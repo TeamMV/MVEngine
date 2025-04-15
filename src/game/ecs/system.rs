@@ -1,7 +1,7 @@
+use crate::game::ecs::entity::EntityType;
 use crate::game::ecs::EcsStorage;
 use std::marker::PhantomData;
 use std::mem;
-use crate::game::ecs::entity::EntityType;
 
 pub struct System<C> {
     phantom: PhantomData<C>,
@@ -59,7 +59,11 @@ impl<'a, C> Iterator for ComponentsMut<'a, C> {
 
 impl<C: Sized + 'static> System<(C,)> {
     pub fn iter(&self) -> Components<'_, C> {
-        let data = self.storage.get().get_components1::<C>().unwrap_or_default();
+        let data = self
+            .storage
+            .get()
+            .get_components1::<C>()
+            .unwrap_or_default();
         Components {
             data,
             index: 0,
@@ -68,7 +72,11 @@ impl<C: Sized + 'static> System<(C,)> {
     }
 
     pub fn iter_mut(&mut self) -> ComponentsMut<'_, C> {
-        let data = self.storage.get_mut().get_components1_mut::<C>().unwrap_or_default();
+        let data = self
+            .storage
+            .get_mut()
+            .get_components1_mut::<C>()
+            .unwrap_or_default();
         ComponentsMut {
             data,
             index: 0,

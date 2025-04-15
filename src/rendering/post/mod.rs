@@ -9,7 +9,10 @@ pub struct OpenGLPostProcessShader(OpenGLShader);
 
 impl OpenGLPostProcessShader {
     pub fn new(fragment_code: &'static str) -> Self {
-        Self(OpenGLShader::new(include_str!("shaders/screen.vert"), fragment_code))
+        Self(OpenGLShader::new(
+            include_str!("shaders/screen.vert"),
+            fragment_code,
+        ))
     }
 }
 
@@ -50,7 +53,7 @@ pub struct OpenGLPostProcessRenderer {
     screen_index_data: [u32; 6],
     screen_shader: OpenGLPostProcessShader,
     target: RenderTarget,
-    res: Vec2
+    res: Vec2,
 }
 
 impl OpenGLPostProcessRenderer {
@@ -61,7 +64,8 @@ impl OpenGLPostProcessRenderer {
             gl::GenBuffers(1, &mut vbo_id);
             gl::GenBuffers(1, &mut ibo_id);
 
-            let mut screen_shader = OpenGLPostProcessShader::new(include_str!("shaders/screen.frag"));
+            let mut screen_shader =
+                OpenGLPostProcessShader::new(include_str!("shaders/screen.frag"));
             screen_shader.make().expect("invalid mve shader");
             screen_shader.bind().expect("invalid mve shader");
 
@@ -69,14 +73,18 @@ impl OpenGLPostProcessRenderer {
                 vbo: vbo_id,
                 ibo: ibo_id,
                 screen_vertex_data: [
-                    -1.0, -1.0, 0.0, 0.0,
-                    1.0, -1.0, 1.0, 0.0,
-                    1.0, 1.0, 1.0, 1.0,
-                    -1.0, 1.0, 0.0, 1.0
+                    -1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 0.0,
+                    1.0,
                 ],
                 screen_index_data: [0, 1, 2, 2, 3, 0],
                 screen_shader,
-                target: RenderTarget { texture_1: 0, texture_2: 0, framebuffer: 0, renderbuffer: 0, depth_texture: 0 },
+                target: RenderTarget {
+                    texture_1: 0,
+                    texture_2: 0,
+                    framebuffer: 0,
+                    renderbuffer: 0,
+                    depth_texture: 0,
+                },
                 res: Vec2::new(width as f32, height as f32),
             }
         }
@@ -101,14 +109,30 @@ impl OpenGLPostProcessRenderer {
             shader.uniform_2fv("RES", &self.res);
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.target.framebuffer);
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.target.texture_2, 0);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                self.target.texture_2,
+                0,
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
 
-            gl::BufferData(gl::ARRAY_BUFFER, self.screen_vertex_data.len() as GLsizeiptr * 4, self.screen_vertex_data.as_ptr() as *const _, gl::DYNAMIC_DRAW);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, self.screen_index_data.len() as GLsizeiptr * 4, self.screen_index_data.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                self.screen_vertex_data.len() as GLsizeiptr * 4,
+                self.screen_vertex_data.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                self.screen_index_data.len() as GLsizeiptr * 4,
+                self.screen_index_data.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 4 * 4, 0 as *const c_void);
             gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 4 * 4, 8 as *const c_void);
@@ -146,8 +170,18 @@ impl OpenGLPostProcessRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
 
-            gl::BufferData(gl::ARRAY_BUFFER, self.screen_vertex_data.len() as GLsizeiptr * 4, self.screen_vertex_data.as_ptr() as *const _, gl::DYNAMIC_DRAW);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, self.screen_index_data.len() as GLsizeiptr * 4, self.screen_index_data.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                self.screen_vertex_data.len() as GLsizeiptr * 4,
+                self.screen_vertex_data.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                self.screen_index_data.len() as GLsizeiptr * 4,
+                self.screen_index_data.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 4 * 4, 0 as *const c_void);
             gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 4 * 4, 8 as *const c_void);

@@ -70,9 +70,17 @@ impl OpenGLShader {
                 .collect();
 
             let line_ptrs: Vec<*const i8> = lines.iter().map(|line| line.as_ptr()).collect();
-            let line_lengths: Vec<GLint> = lines.iter().map(|line| line.to_bytes().len() as GLint).collect();
+            let line_lengths: Vec<GLint> = lines
+                .iter()
+                .map(|line| line.to_bytes().len() as GLint)
+                .collect();
 
-            gl::ShaderSource(shader, line_ptrs.len() as GLsizei, line_ptrs.as_ptr(), line_lengths.as_ptr());
+            gl::ShaderSource(
+                shader,
+                line_ptrs.len() as GLsizei,
+                line_ptrs.as_ptr(),
+                line_lengths.as_ptr(),
+            );
             gl::CompileShader(shader);
 
             if Self::check_shader_compile_status(shader).is_err() {
@@ -135,7 +143,12 @@ impl OpenGLShader {
             gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut log_length);
 
             let mut log = Vec::with_capacity(log_length as usize);
-            gl::GetShaderInfoLog(shader, log_length, &mut log_length, log.as_mut_ptr() as *mut i8);
+            gl::GetShaderInfoLog(
+                shader,
+                log_length,
+                &mut log_length,
+                log.as_mut_ptr() as *mut i8,
+            );
 
             log.set_len(log_length as usize);
             String::from_utf8_lossy(&log).to_string()
@@ -159,7 +172,12 @@ impl OpenGLShader {
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut log_length);
 
             let mut log = Vec::with_capacity(log_length as usize);
-            gl::GetProgramInfoLog(program, log_length, &mut log_length, log.as_mut_ptr() as *mut i8);
+            gl::GetProgramInfoLog(
+                program,
+                log_length,
+                &mut log_length,
+                log.as_mut_ptr() as *mut i8,
+            );
 
             log.set_len(log_length as usize);
             String::from_utf8_lossy(&log).to_string()
@@ -179,7 +197,8 @@ impl OpenGLShader {
 
     pub fn uniform_1f(&self, name: &str, value: f32) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::Uniform1f(location, value);
             }
@@ -188,7 +207,8 @@ impl OpenGLShader {
 
     pub fn uniform_1i(&self, name: &str, value: i32) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::Uniform1i(location, value);
             }
@@ -196,7 +216,9 @@ impl OpenGLShader {
     }
 
     pub(crate) fn uniform_1fv(&self, name: &str, values: &[f32]) {
-        let location = unsafe { gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr()) };
+        let location = unsafe {
+            gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr())
+        };
         if location != -1 {
             unsafe {
                 gl::Uniform1fv(location, values.len() as i32, values.as_ptr());
@@ -206,7 +228,8 @@ impl OpenGLShader {
 
     pub fn uniform_2fv(&self, name: &str, value: &Vec2) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::Uniform2fv(location, 1, value.as_slice().as_ptr());
             }
@@ -215,7 +238,8 @@ impl OpenGLShader {
 
     pub fn uniform_3fv(&self, name: &str, value: &Vec3) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::Uniform3fv(location, 1, value.as_slice().as_ptr());
             }
@@ -224,7 +248,8 @@ impl OpenGLShader {
 
     pub fn uniform_4fv(&self, name: &str, value: &Vec4) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::Uniform4fv(location, 1, value.as_slice().as_ptr());
             }
@@ -233,7 +258,8 @@ impl OpenGLShader {
 
     pub fn uniform_matrix_2fv(&self, name: &str, value: &Mat2) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::UniformMatrix2fv(location, 1, gl::FALSE, value.as_slice().as_ptr());
             }
@@ -242,7 +268,8 @@ impl OpenGLShader {
 
     pub fn uniform_matrix_3fv(&self, name: &str, value: &Mat3) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::UniformMatrix3fv(location, 1, gl::FALSE, value.as_slice().as_ptr());
             }
@@ -251,7 +278,8 @@ impl OpenGLShader {
 
     pub fn uniform_matrix_4fv(&self, name: &str, value: &Mat4) {
         unsafe {
-            let location = gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+            let location =
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
             if location != -1 {
                 gl::UniformMatrix4fv(location, 1, gl::FALSE, value.as_slice().as_ptr());
             }

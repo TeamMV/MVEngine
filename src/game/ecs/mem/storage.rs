@@ -1,17 +1,18 @@
+use crate::game::ecs::entity::EntityType;
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
+use mvengine_proc_macro::generate_get_components;
 use mvutils::hashers::{U64IdentityHasher, UsizeIdentityHasher};
+use mvutils::unsafe_utils::Unsafe;
 use std::alloc::Layout;
 use std::any::TypeId;
-use mvutils::unsafe_utils::Unsafe;
-use mvengine_proc_macro::generate_get_components;
-use crate::game::ecs::entity::EntityType;
 
 pub(crate) type ComponentIdx = u64;
 
 pub struct ComponentStorage {
     components: HashMap<TypeId, ContinuousBlob>,
-    entity_components: HashMap<EntityType, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
+    entity_components:
+        HashMap<EntityType, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
 }
 
 impl ComponentStorage {

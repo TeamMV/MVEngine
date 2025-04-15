@@ -54,7 +54,7 @@ impl Mat4 {
                 x.x, x.y, x.z, x.w, y.x, y.y, y.z, y.w, z.x, z.y, z.z, z.w, position.x, position.y,
                 position.z, 1.0,
             ]
-                .into(),
+            .into(),
         )
     }
 
@@ -81,7 +81,7 @@ impl Mat4 {
                 -inv_depth * near,
                 1.0,
             ]
-                .into(),
+            .into(),
         )
     }
 
@@ -108,7 +108,7 @@ impl Mat4 {
                 -inv_depth * near,
                 0.0,
             ]
-                .into(),
+            .into(),
         )
     }
 

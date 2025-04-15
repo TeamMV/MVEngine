@@ -1,16 +1,17 @@
-use mvutils::utils::TetrahedronOp;
 use crate::color::RgbColor;
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
-use crate::rendering::{InputVertex, Transform, Triangle, Vertex};
-use crate::ui::rendering::ctx::{DrawShape, TextureCtx, TransformCtx};
+use crate::rendering::{InputVertex, Transform, Triangle};
+use crate::ui::geometry::shape::Shape;
+use crate::ui::rendering::ctx::{TextureCtx, TransformCtx};
+use mvutils::utils::TetrahedronOp;
 
 #[derive(Copy, Clone)]
 pub enum RectPoint {
-    BottomLeft=0,
-    TopLeft=1,
-    BottomRight=2,
-    TopRight=3
+    BottomLeft = 0,
+    TopLeft = 1,
+    BottomRight = 2,
+    TopRight = 3,
 }
 
 impl RectPoint {
@@ -27,7 +28,7 @@ pub struct RectangleCtx {
     custom_origin: bool,
     texture: Option<Texture>,
     blending: f32,
-    z: f32
+    z: f32,
 }
 
 impl RectangleCtx {
@@ -89,16 +90,24 @@ impl RectangleCtx {
         self
     }
 
-    pub fn create(mut self) -> DrawShape {
+    pub fn create(mut self) -> Shape {
         if !self.custom_origin {
             self.transform.origin.x = (self.points[0].0 + self.points[2].0) as f32 * 0.5;
             self.transform.origin.y = (self.points[0].1 + self.points[2].1) as f32 * 0.5;
         }
 
-        let tex_id = if let Some(ref t) = self.texture { t.id } else { 0 };
+        let tex_id = if let Some(ref t) = self.texture {
+            t.id
+        } else {
+            0
+        };
         let mut tris = Vec::with_capacity(2);
 
-        let uv = self.texture.as_ref().map(|tex| tex.get_uv()).unwrap_or([(0.0, 0.0); 4]);
+        let uv = self
+            .texture
+            .as_ref()
+            .map(|tex| tex.get_uv())
+            .unwrap_or([(0.0, 0.0); 4]);
         let tex_coords_1 = [uv[0], uv[3], uv[2]];
         let tex_coords_2 = [uv[0], uv[2], uv[1]];
 
@@ -158,10 +167,6 @@ impl RectangleCtx {
         tris.push(tri1);
         tris.push(tri2);
 
-        DrawShape {
-            triangles: tris,
-            extent: (0, 0),
-        }
+        Shape::new(tris)
     }
-
 }

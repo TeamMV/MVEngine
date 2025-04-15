@@ -1,13 +1,14 @@
-use mvutils::utils::TetrahedronOp;
 use crate::color::RgbColor;
 use crate::rendering::texture::Texture;
-use crate::rendering::{InputVertex, Transform, Triangle, Vertex};
-use crate::ui::rendering::ctx::{DrawShape, TextureCtx, TransformCtx};
+use crate::rendering::{InputVertex, Transform, Triangle};
+use crate::ui::geometry::shape::Shape;
+use crate::ui::rendering::ctx::{TextureCtx, TransformCtx};
+use mvutils::utils::TetrahedronOp;
 
 pub enum ArcTriPoint {
     Last,
     Current,
-    Center
+    Center,
 }
 
 pub struct ArcCtx {
@@ -81,7 +82,7 @@ impl ArcCtx {
         self
     }
 
-    pub fn create(mut self) -> DrawShape {
+    pub fn create(mut self) -> Shape {
         if !self.custom_origin {
             self.transform.origin.x = self.center.0 as f32;
             self.transform.origin.y = self.center.1 as f32;
@@ -89,7 +90,11 @@ impl ArcCtx {
 
         let mut tris = Vec::with_capacity(self.triangle_count as usize);
 
-        let tex_id = if let Some(ref t) = self.texture { t.id } else { 0 };
+        let tex_id = if let Some(ref t) = self.texture {
+            t.id
+        } else {
+            0
+        };
 
         let rad = self.radius as f32;
         let step_size = self.angle / self.triangle_count as f32;
@@ -105,14 +110,24 @@ impl ArcCtx {
                 let center_u = 0.5;
                 let center_v = 0.5;
 
-                let last_u = 0.5 + (last_x as f32 - self.center.0 as f32) / (2.0 * self.radius as f32);
-                let last_v = 0.5 + (last_y as f32 - self.center.1 as f32) / (2.0 * self.radius as f32);
+                let last_u =
+                    0.5 + (last_x as f32 - self.center.0 as f32) / (2.0 * self.radius as f32);
+                let last_v =
+                    0.5 + (last_y as f32 - self.center.1 as f32) / (2.0 * self.radius as f32);
 
-                let current_u = 0.5 + (x as f32 - self.center.0 as f32) / (2.0 * self.radius as f32);
-                let current_v = 0.5 + (y as f32 - self.center.1 as f32) / (2.0 * self.radius as f32);
+                let current_u =
+                    0.5 + (x as f32 - self.center.0 as f32) / (2.0 * self.radius as f32);
+                let current_v =
+                    0.5 + (y as f32 - self.center.1 as f32) / (2.0 * self.radius as f32);
 
-                [(last_u, last_v), (center_u, center_v), (current_u, current_v)]
-            } else { [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)] };
+                [
+                    (last_u, last_v),
+                    (center_u, center_v),
+                    (current_u, current_v),
+                ]
+            } else {
+                [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)]
+            };
 
             let tri = Triangle {
                 points: [
@@ -139,7 +154,7 @@ impl ArcCtx {
                         uv: tex_coords[2],
                         texture: tex_id,
                         has_texture: self.texture.is_some().yn(1.0, 0.0),
-                    }
+                    },
                 ],
             };
             tris.push(tri);
@@ -147,10 +162,6 @@ impl ArcCtx {
             last_x = x;
             last_y = y;
         }
-
-        DrawShape {
-            triangles: tris,
-            extent: (0, 0),
-        }
+        Shape::new(tris)
     }
 }

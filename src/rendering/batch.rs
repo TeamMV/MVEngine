@@ -23,7 +23,7 @@ pub(crate) struct RenderBatch {
     triangle_index: usize,
     vbo_id: GLuint,
     ibo_id: GLuint,
-    shader: GLuint
+    shader: GLuint,
 }
 
 impl RenderBatch {
@@ -126,7 +126,9 @@ impl RenderBatch {
     }
 
     pub fn can_hold_triangle(&self, triangle: &Triangle) -> bool {
-        if self.vertex_index + 3 > BATCH_VERTEX_AMOUNT { return false; }
+        if self.vertex_index + 3 > BATCH_VERTEX_AMOUNT {
+            return false;
+        }
 
         let mut needed_tex = 0;
         let mut seen = Vec::new();
@@ -147,7 +149,9 @@ impl RenderBatch {
     }
 
     pub fn can_hold_quad(&self, quad: &Quad) -> bool {
-        if self.vertex_index + 4 > BATCH_VERTEX_AMOUNT { return false; }
+        if self.vertex_index + 4 > BATCH_VERTEX_AMOUNT {
+            return false;
+        }
 
         let mut needed_tex = 0;
         let mut seen = Vec::new();
@@ -180,7 +184,13 @@ impl RenderBatch {
         self.vertex_data_index == 0
     }
 
-    pub fn draw(&mut self, window: &Window, camera: &OrthographicCamera, renderer: &mut impl PrimitiveRenderer, shader: &mut OpenGLShader) {
+    pub fn draw(
+        &mut self,
+        window: &Window,
+        camera: &OrthographicCamera,
+        renderer: &mut impl PrimitiveRenderer,
+        shader: &mut OpenGLShader,
+    ) {
         renderer.draw_data(
             window,
             camera,
@@ -191,12 +201,19 @@ impl RenderBatch {
             self.ibo_id,
             self.triangle_index as u32 * 3,
             self.texture_index,
-            shader
+            shader,
         );
         self.prepare_batch();
     }
 
-    pub fn draw_to_target(&mut self, window: &Window, camera: &OrthographicCamera, renderer: &mut impl PrimitiveRenderer, shader: &mut OpenGLShader, post: &mut RenderTarget) {
+    pub fn draw_to_target(
+        &mut self,
+        window: &Window,
+        camera: &OrthographicCamera,
+        renderer: &mut impl PrimitiveRenderer,
+        shader: &mut OpenGLShader,
+        post: &mut RenderTarget,
+    ) {
         renderer.draw_data_to_target(
             window,
             camera,
@@ -208,7 +225,7 @@ impl RenderBatch {
             self.triangle_index as u32 * 3,
             self.texture_index,
             shader,
-            post
+            post,
         );
         self.prepare_batch();
     }

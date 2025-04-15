@@ -1,30 +1,31 @@
+use crate::input::collect::InputProcessor;
+use crate::input::{Input, RawInputEvent};
+use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
+use crate::ui::rendering::ctx::DrawContext2D;
 use mvutils::once::{CreateOnce, Lazy};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Recover;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
-use crate::input::collect::InputProcessor;
-use crate::input::{Input, RawInputEvent};
-use crate::ui::context::{UiContext, UiResources};
-use crate::ui::rendering::ctx::DrawContext2D;
+use crate::window::Window;
 
 pub mod anim;
 pub mod attributes;
+pub mod context;
 pub mod ease;
 pub mod elements;
+pub mod geometry;
 pub mod parse;
 pub mod prelude;
+pub mod rendering;
+pub mod res;
 pub mod styles;
+pub mod theme;
 pub mod timing;
 pub mod uix;
 pub mod utils;
-pub mod theme;
-pub mod geometry;
-pub mod rendering;
-pub mod res;
-pub mod context;
 
 pub struct Ui {
     context: CreateOnce<UiContext>,
@@ -85,34 +86,28 @@ impl Ui {
 }
 
 impl InputProcessor for Ui {
-    fn digest_action(&mut self, action: RawInputEvent, input: &Input) {
+    fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
         match action {
-            RawInputEvent::Keyboard(action) => {
-                unsafe {
-                    for root in Unsafe::cast_static(&self.root_elems) {
-                        let mut guard = root.get_mut();
-                        let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
-                        let mut events = &mut guard.state_mut().events;
-                        events.keyboard_change(action, &mut *guard_ref, &*input);
-                    }
+            RawInputEvent::Keyboard(action) => unsafe {
+                for root in Unsafe::cast_static(&self.root_elems) {
+                    let mut guard = root.get_mut();
+                    let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let mut events = &mut guard.state_mut().events;
+                    events.keyboard_change(action, &mut *guard_ref, &*input);
                 }
-            }
-            RawInputEvent::Mouse(action) => {
-                unsafe {
-                    for root in Unsafe::cast_static(&self.root_elems) {
-                        let mut guard = root.get_mut();
-                        let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
-                        let mut events = &mut guard.state_mut().events;
-                        events.mouse_change(action, &mut *guard_ref, &*input);
-                    }
+            },
+            RawInputEvent::Mouse(action) => unsafe {
+                for root in Unsafe::cast_static(&self.root_elems) {
+                    let mut guard = root.get_mut();
+                    let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let mut events = &mut guard.state_mut().events;
+                    events.mouse_change(action, &mut *guard_ref, &*input, window);
                 }
-            }
+            },
         }
     }
 
-    fn end_frame(&mut self) {
-
-    }
+    fn end_frame(&mut self) {}
 
     fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;

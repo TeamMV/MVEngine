@@ -1,8 +1,8 @@
-use std::collections::Bound;
-use mvutils::clock::Clock;
-use std::ops::RangeBounds;
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
+use mvutils::clock::Clock;
+use std::collections::Bound;
+use std::ops::RangeBounds;
 
 #[derive(Clone)]
 struct FramePumpRange {
@@ -27,11 +27,12 @@ impl FramePumpRange {
     }
 
     fn end_check(&self, value: usize, total: usize) -> bool {
-        value < total && match self.end {
-            Bound::Included(frame) => value <= frame,
-            Bound::Excluded(frame) => value < frame,
-            Bound::Unbounded => true,
-        }
+        value < total
+            && match self.end {
+                Bound::Included(frame) => value <= frame,
+                Bound::Excluded(frame) => value < frame,
+                Bound::Unbounded => true,
+            }
     }
 }
 
@@ -78,8 +79,6 @@ impl TileSet {
         }
         Some((&self.texture, self.cache[index]))
     }
-
-
 
     pub fn frames(&self) -> FramePump<'_> {
         FramePump {
@@ -198,7 +197,10 @@ impl<'a> Pump for LoopingFramePump<'a> {
         if self.current >= self.tileset.count {
             self.current = 0;
         }
-        let res = self.tileset.get_tile(self.current).expect("Frame will always exist");
+        let res = self
+            .tileset
+            .get_tile(self.current)
+            .expect("Frame will always exist");
         self.current += 1;
         res
     }
@@ -221,7 +223,6 @@ impl<'a> LoopingRangeFramePump<'a> {
     }
 }
 
-
 impl<'a> Pump for LoopingRangeFramePump<'a> {
     type Item = (&'a Texture, Vec4);
 
@@ -229,20 +230,23 @@ impl<'a> Pump for LoopingRangeFramePump<'a> {
         if !self.range.end_check(self.current, self.tileset.count) {
             self.current = self.range.start();
         }
-        let res = self.tileset.get_tile(self.current).expect("Frame will always exist");
+        let res = self
+            .tileset
+            .get_tile(self.current)
+            .expect("Frame will always exist");
         self.current += 1;
         res
     }
 }
 
 #[derive(Clone)]
-pub struct ClockingFramePump<'a, P: Pump<Item=(&'a Texture, Vec4)>> {
+pub struct ClockingFramePump<'a, P: Pump<Item = (&'a Texture, Vec4)>> {
     pump: P,
     current: (&'a Texture, Vec4),
     clock: Clock,
 }
 
-impl<'a, P: Pump<Item=(&'a Texture, Vec4)>> ClockingFramePump<'a, P> {
+impl<'a, P: Pump<Item = (&'a Texture, Vec4)>> ClockingFramePump<'a, P> {
     pub fn new(mut pump: P, fps: u16) -> Self {
         let current = pump.pump();
         ClockingFramePump {
@@ -274,7 +278,7 @@ impl<'a, P: Pump<Item=(&'a Texture, Vec4)>> ClockingFramePump<'a, P> {
     }
 }
 
-impl<'a, P: Pump<Item=(&'a Texture, Vec4)>> Pump for ClockingFramePump<'a, P> {
+impl<'a, P: Pump<Item = (&'a Texture, Vec4)>> Pump for ClockingFramePump<'a, P> {
     type Item = P::Item;
 
     fn pump(&mut self) -> Self::Item {

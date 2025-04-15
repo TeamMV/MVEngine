@@ -25,7 +25,7 @@ impl OrthographicCamera {
             near: 0.0,
             far: 2000.0,
         }
-            .setup(width, height)
+        .setup(width, height)
     }
 
     pub fn get_view(&self) -> Mat4 {
@@ -80,7 +80,7 @@ impl PerspectiveCamera {
             projection: Mat4::default(),
             view: Mat4::default(),
         }
-            .setup(width, height)
+        .setup(width, height)
     }
 
     pub fn update_view(&mut self) {

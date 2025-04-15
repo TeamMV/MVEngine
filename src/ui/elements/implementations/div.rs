@@ -1,11 +1,11 @@
-use mvutils::unsafe_utils::Unsafe;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::{Dimension, UiStyle};
+use mvutils::unsafe_utils::Unsafe;
 
 #[derive(Clone)]
 pub struct Div {
@@ -13,7 +13,7 @@ pub struct Div {
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
-    body: ElementBody<Div>
+    body: ElementBody<Div>,
 }
 
 impl UiElementCallbacks for Div {

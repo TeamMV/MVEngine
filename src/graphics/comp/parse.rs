@@ -1,14 +1,14 @@
 use crate::math::vec::Vec2;
+use hashbrown::HashMap;
 use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::str::Chars;
-use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub struct ParsedAnimation {
-     pub(crate) name: String,
-     pub(crate) pre: Vec<ParsedKeyframe>,
-     pub(crate) keyframes: Vec<(f32, ParsedKeyframe)>
+    pub(crate) name: String,
+    pub(crate) pre: Vec<ParsedKeyframe>,
+    pub(crate) keyframes: Vec<(f32, ParsedKeyframe)>,
 }
 
 #[derive(Debug)]
@@ -16,13 +16,13 @@ pub struct ParsedPart {
     pub(crate) parent: Option<String>,
     pub(crate) name: String,
     pub(crate) index: usize,
-    pub(crate) bounds: Vec2
+    pub(crate) bounds: Vec2,
 }
 
 #[derive(Debug)]
 pub struct MRFParser {
     pub(crate) parts: Vec<ParsedPart>,
-    pub(crate) anims: Vec<ParsedAnimation>
+    pub(crate) anims: Vec<ParsedAnimation>,
 }
 
 impl MRFParser {
@@ -58,7 +58,6 @@ impl MRFParser {
                 Token::Animations => {
                     if state == 0 {
                         return Err("Expected ANIMATIONS after PARTS".to_string());
-
                     }
                     state = 3;
                 }
@@ -96,13 +95,18 @@ impl MRFParser {
                                     let x = Self::parse_vec2(&mut tokens)?;
                                     ParsedKeyframe::from_vec(path, x, name)
                                 }
-                                Path::TranslateX | Path::TranslateY | Path::ScaleX | Path::ScaleY | Path::OriginX | Path::OriginY | Path::Rotate => {
+                                Path::TranslateX
+                                | Path::TranslateY
+                                | Path::ScaleX
+                                | Path::ScaleY
+                                | Path::OriginX
+                                | Path::OriginY
+                                | Path::Rotate => {
                                     let x = Self::parse_f32(&mut tokens)?;
                                     ParsedKeyframe::from_num(path, x, name)
                                 }
                             };
                             current_keyframes.push((current_perc, keyframe))
-
                         } else if anim_state == 1 {
                             tokens.putback(Token::Ident(s));
                             let (name, path) = Self::parse_path(&mut tokens)?;
@@ -112,7 +116,13 @@ impl MRFParser {
                                     let x = Self::parse_vec2(&mut tokens)?;
                                     ParsedKeyframe::from_vec(path, x, name)
                                 }
-                                Path::TranslateX | Path::TranslateY | Path::ScaleX | Path::ScaleY | Path::OriginX | Path::OriginY | Path::Rotate => {
+                                Path::TranslateX
+                                | Path::TranslateY
+                                | Path::ScaleX
+                                | Path::ScaleY
+                                | Path::OriginX
+                                | Path::OriginY
+                                | Path::Rotate => {
                                     let x = Self::parse_f32(&mut tokens)?;
                                     ParsedKeyframe::from_num(path, x, name)
                                 }
@@ -127,7 +137,9 @@ impl MRFParser {
                 }
                 Token::New(anim) => {
                     if state != 3 {
-                        return Err("Animations can only be created in the ANIMATIONS section!".to_string());
+                        return Err(
+                            "Animations can only be created in the ANIMATIONS section!".to_string()
+                        );
                     }
                     anim_state = 0;
                     current_anim = anim;
@@ -204,7 +216,9 @@ impl MRFParser {
 
     fn parse_path(tokens: &mut TokenStream) -> Result<(String, Path), String> {
         if let Some(Token::Ident(name)) = tokens.next() {
-            let next = tokens.next().ok_or("Unexpected end of stream!".to_string())?;
+            let next = tokens
+                .next()
+                .ok_or("Unexpected end of stream!".to_string())?;
             if let Token::Dot = next {
                 let trans = tokens.expect_next_ident()?;
                 return match trans.as_str() {
@@ -215,7 +229,7 @@ impl MRFParser {
                             SubPath::X => Ok((name, Path::TranslateX)),
                             SubPath::Y => Ok((name, Path::TranslateY)),
                         }
-                    },
+                    }
                     "scale" => {
                         let subpath = Self::parse_sub_path(tokens)?;
                         match subpath {
@@ -223,7 +237,7 @@ impl MRFParser {
                             SubPath::X => Ok((name, Path::ScaleX)),
                             SubPath::Y => Ok((name, Path::ScaleY)),
                         }
-                    },
+                    }
                     "origin" => {
                         let subpath = Self::parse_sub_path(tokens)?;
                         match subpath {
@@ -231,12 +245,10 @@ impl MRFParser {
                             SubPath::X => Ok((name, Path::OriginX)),
                             SubPath::Y => Ok((name, Path::OriginY)),
                         }
-                    },
-                    "rotation" => {
-                        Ok((name, Path::Rotate))
-                    },
-                    _ => Err(format!("Unknown transformation '{trans}'!"))
-                }
+                    }
+                    "rotation" => Ok((name, Path::Rotate)),
+                    _ => Err(format!("Unknown transformation '{trans}'!")),
+                };
             } else {
                 tokens.putback(next);
                 return Err("What transformation do you want to modify?".to_string());
@@ -246,13 +258,15 @@ impl MRFParser {
     }
 
     fn parse_sub_path(tokens: &mut TokenStream) -> Result<SubPath, String> {
-        let next = tokens.next().ok_or("Unexpected end of stream!".to_string())?;
+        let next = tokens
+            .next()
+            .ok_or("Unexpected end of stream!".to_string())?;
         if let Token::Dot = next {
             let name = tokens.expect_next_ident()?;
             match name.as_str() {
                 "x" => Ok(SubPath::X),
                 "y" => Ok(SubPath::Y),
-                _ => Err(format!("Unknown transform variant '{:?}'!", name))
+                _ => Err(format!("Unknown transform variant '{:?}'!", name)),
             }
         } else {
             tokens.putback(next);
@@ -265,7 +279,7 @@ impl MRFParser {
 pub struct ParsedKeyframe {
     pub(crate) target: String,
     pub(crate) path: Path,
-    pub(crate) value: PathValue
+    pub(crate) value: PathValue,
 }
 
 impl ParsedKeyframe {
@@ -289,21 +303,21 @@ impl ParsedKeyframe {
 #[derive(Debug, Clone)]
 pub enum PathValue {
     Number(f32),
-    Vec2(Vec2)
+    Vec2(Vec2),
 }
 
 impl PathValue {
     pub fn as_f32(&self) -> f32 {
         match self {
             PathValue::Number(f) => *f,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 
     pub fn as_vec2(&self) -> Vec2 {
         match self {
             PathValue::Vec2(f) => *f,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -311,7 +325,7 @@ impl PathValue {
 enum SubPath {
     None,
     X,
-    Y
+    Y,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -325,7 +339,7 @@ pub enum Path {
     Rotate,
     Origin,
     OriginX,
-    OriginY
+    OriginY,
 }
 
 #[derive(Debug)]
@@ -350,15 +364,13 @@ pub enum Token {
 impl Token {
     pub fn ord(&self) -> u8 {
         let ptr_to_option = (self as *const Token) as *const u8;
-        unsafe {
-            *ptr_to_option
-        }
+        unsafe { *ptr_to_option }
     }
 }
 
 struct TokenStream<'a> {
     chars: Peekable<Chars<'a>>,
-    putback: VecDeque<Token>
+    putback: VecDeque<Token>,
 }
 
 impl<'a> TokenStream<'a> {
@@ -378,10 +390,22 @@ impl<'a> TokenStream<'a> {
         if let Some(start) = start {
             s.push(start);
         }
-        if self.chars.peek().is_some_and(|c| !Self::char_str_valid(*c, allow_numbers)) { return s; }
+        if self
+            .chars
+            .peek()
+            .is_some_and(|c| !Self::char_str_valid(*c, allow_numbers))
+        {
+            return s;
+        }
         while let Some(next) = self.chars.next() {
             s.push(next);
-            if self.chars.peek().is_some_and(|c| !Self::char_str_valid(*c, allow_numbers)) { return s; }
+            if self
+                .chars
+                .peek()
+                .is_some_and(|c| !Self::char_str_valid(*c, allow_numbers))
+            {
+                return s;
+            }
         }
         s
     }
@@ -399,10 +423,22 @@ impl<'a> TokenStream<'a> {
         if start.is_some() {
             num_str.push(start.unwrap());
         }
-        if self.chars.peek().is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-') { return num_str.parse::<f32>().ok(); }
+        if self
+            .chars
+            .peek()
+            .is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-')
+        {
+            return num_str.parse::<f32>().ok();
+        }
         while let Some(next) = self.chars.next() {
             num_str.push(next);
-            if self.chars.peek().is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-') { return num_str.parse::<f32>().ok(); }
+            if self
+                .chars
+                .peek()
+                .is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-')
+            {
+                return num_str.parse::<f32>().ok();
+            }
         }
         num_str.parse::<f32>().ok()
     }
@@ -454,18 +490,24 @@ impl<'a> Iterator for TokenStream<'a> {
         let mut next = next.unwrap();
         while next.is_whitespace() {
             let n = self.chars.next();
-            if n.is_none() { return None }
+            if n.is_none() {
+                return None;
+            }
             next = n.unwrap();
         }
         if next == ';' {
             while next != '\n' {
                 let n = self.chars.next();
-                if n.is_none() { return None }
+                if n.is_none() {
+                    return None;
+                }
                 next = n.unwrap();
             }
             while next.is_whitespace() {
                 let n = self.chars.next();
-                if n.is_none() { return None }
+                if n.is_none() {
+                    return None;
+                }
                 next = n.unwrap();
             }
         }
@@ -485,7 +527,7 @@ impl<'a> Iterator for TokenStream<'a> {
             '>' => {
                 let pc = self.parse_number(None)?;
                 Some(Token::Keyframe(pc))
-            },
+            }
             '#' => {
                 let name = self.parse_next_str(None, true);
                 match name.as_str() {
@@ -493,7 +535,7 @@ impl<'a> Iterator for TokenStream<'a> {
                     "BOUNDS" => Some(Token::Bounds),
                     "ANIMATIONS" => Some(Token::Animations),
                     "CONSTRAINTS" => Some(Token::Constraints),
-                    _ => None
+                    _ => None,
                 }
             }
             '+' => {
@@ -505,7 +547,7 @@ impl<'a> Iterator for TokenStream<'a> {
                 match sel.as_str() {
                     "pre" => Some(Token::Pre),
                     "keyframes" => Some(Token::Keyframes),
-                    _ => None
+                    _ => None,
                 }
             }
             '[' => {
@@ -513,29 +555,37 @@ impl<'a> Iterator for TokenStream<'a> {
                 let mut next = self.chars.next()?;
                 while next.is_whitespace() {
                     let n = self.chars.next();
-                    if n.is_none() { return None }
+                    if n.is_none() {
+                        return None;
+                    }
                     next = n.unwrap();
                 }
-                if next != ',' { return None; }
+                if next != ',' {
+                    return None;
+                }
                 let mut next = self.chars.next()?;
                 while next.is_whitespace() {
                     let n = self.chars.next();
-                    if n.is_none() { return None }
+                    if n.is_none() {
+                        return None;
+                    }
                     next = n.unwrap();
                 }
                 let num2 = self.parse_number(Some(next))?;
                 let mut next = self.chars.next()?;
                 while next.is_whitespace() {
                     let n = self.chars.next();
-                    if n.is_none() { return None }
+                    if n.is_none() {
+                        return None;
+                    }
                     next = n.unwrap();
                 }
-                if next != ']' { return None; }
+                if next != ']' {
+                    return None;
+                }
                 Some(Token::Vec2(Vec2::new(num1, num2)))
             }
-            _ => {
-                self.parse_ident(next)
-            }
+            _ => self.parse_ident(next),
         }
     }
 }
@@ -548,7 +598,7 @@ impl<'a> TokenStream<'a> {
                 Some(Token::Number(lit.unwrap()))
             } else {
                 None
-            }
+            };
         }
         let s = self.parse_next_str(Some(next), true);
         Some(Token::Ident(s))

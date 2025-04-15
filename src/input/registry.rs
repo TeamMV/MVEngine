@@ -1,20 +1,21 @@
+use crate::input::collect::InputProcessor;
+use crate::input::consts::{Key, MouseButton};
+use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use hashbrown::{HashMap, HashSet};
 use std::collections::btree_map::Entry;
 use std::fmt::Debug;
 use std::hash::Hash;
-use hashbrown::{HashSet, HashMap};
-use crate::input::collect::InputProcessor;
-use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
-use crate::input::consts::{Key, MouseButton};
+use crate::window::Window;
 
 #[derive(Debug)]
 pub enum State {
     Was,
-    Is
+    Is,
 }
 
 pub struct InputRegistry {
     actions: Vec<(String, Vec<RawInput>)>,
-    current: HashMap<String, State>
+    current: HashMap<String, State>,
 }
 
 fn unordered_contains_all<T: Hash + Eq + Debug>(a: &HashSet<T>, b: &[T]) -> bool {
@@ -76,7 +77,7 @@ impl InputRegistry {
 pub struct ActionInputProcessor {
     enabled: bool,
     pub(crate) registry: InputRegistry,
-    inputs: HashSet<RawInput>
+    inputs: HashSet<RawInput>,
 }
 
 impl ActionInputProcessor {
@@ -90,7 +91,7 @@ impl ActionInputProcessor {
 }
 
 impl InputProcessor for ActionInputProcessor {
-    fn digest_action(&mut self, action: RawInputEvent, input: &Input) {
+    fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
         let raw_input = RawInput::from_raw(action, input);
         if let Some(raw_input) = raw_input {
             let _ = match raw_input {
@@ -130,62 +131,48 @@ pub enum RawInput {
 impl RawInput {
     pub fn from_raw(event: RawInputEvent, input: &Input) -> Option<Self> {
         match event {
-            RawInputEvent::Keyboard(keyboard_event) => {
-                match keyboard_event {
-                    KeyboardAction::Press(press_event) => {
-                        Some(RawInput::KeyPress(press_event))
-                    }
-                    KeyboardAction::Release(release_event) => {
-                        Some(RawInput::KeyRelease(release_event))
-                    }
-                    KeyboardAction::Type(type_event) => {
-                        None
-                    }
-                }
-            }
-            RawInputEvent::Mouse(mouse_event) => {
-                match mouse_event {
-                    MouseAction::Wheel(dx, dy) => {
-                        if dx.abs() > dy.abs() {
-                            if dx > 0.0 {
-                                Some(RawInput::Scroll(Direction::Right))
-                            } else {
-                                Some(RawInput::Scroll(Direction::Left))
-                            }
+            RawInputEvent::Keyboard(keyboard_event) => match keyboard_event {
+                KeyboardAction::Press(press_event) => Some(RawInput::KeyPress(press_event)),
+                KeyboardAction::Release(release_event) => Some(RawInput::KeyRelease(release_event)),
+                KeyboardAction::Type(type_event) => None,
+            },
+            RawInputEvent::Mouse(mouse_event) => match mouse_event {
+                MouseAction::Wheel(dx, dy) => {
+                    if dx.abs() > dy.abs() {
+                        if dx > 0.0 {
+                            Some(RawInput::Scroll(Direction::Right))
                         } else {
-                            if dy > 0.0 {
-                                Some(RawInput::Scroll(Direction::Up))
-                            } else {
-                                Some(RawInput::Scroll(Direction::Down))
-                            }
+                            Some(RawInput::Scroll(Direction::Left))
+                        }
+                    } else {
+                        if dy > 0.0 {
+                            Some(RawInput::Scroll(Direction::Up))
+                        } else {
+                            Some(RawInput::Scroll(Direction::Down))
                         }
                     }
-                    MouseAction::Move(to_x, to_y) => {
-                        let dx = input.mouse_x - to_x;
-                        let dy = input.mouse_y - to_y;
+                }
+                MouseAction::Move(to_x, to_y) => {
+                    let dx = input.mouse_x - to_x;
+                    let dy = input.mouse_y - to_y;
 
-                        if dx.abs() > dy.abs() {
-                            if dx > 0 {
-                                Some(RawInput::MouseMove(Direction::Right))
-                            } else {
-                                Some(RawInput::MouseMove(Direction::Left))
-                            }
+                    if dx.abs() > dy.abs() {
+                        if dx > 0 {
+                            Some(RawInput::MouseMove(Direction::Right))
                         } else {
-                            if dy > 0 {
-                                Some(RawInput::MouseMove(Direction::Up))
-                            } else {
-                                Some(RawInput::MouseMove(Direction::Down))
-                            }
+                            Some(RawInput::MouseMove(Direction::Left))
+                        }
+                    } else {
+                        if dy > 0 {
+                            Some(RawInput::MouseMove(Direction::Up))
+                        } else {
+                            Some(RawInput::MouseMove(Direction::Down))
                         }
                     }
-                    MouseAction::Press(press_event) => {
-                        Some(RawInput::MousePress(press_event))
-                    }
-                    MouseAction::Release(release_event) => {
-                        Some(RawInput::MouseRelease(release_event))
-                    }
                 }
-            }
+                MouseAction::Press(press_event) => Some(RawInput::MousePress(press_event)),
+                MouseAction::Release(release_event) => Some(RawInput::MouseRelease(release_event)),
+            },
         }
     }
 }
@@ -195,5 +182,5 @@ pub enum Direction {
     Up,
     Down,
     Left,
-    Right
+    Right,
 }

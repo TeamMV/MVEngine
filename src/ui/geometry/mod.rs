@@ -1,3 +1,10 @@
+pub mod geom;
+pub mod modifier;
+pub mod morph;
+pub mod polygon;
+pub mod shape;
+
+use crate::rendering::Transform;
 use num_traits::Float;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -10,7 +17,12 @@ pub struct SimpleRect {
 
 impl SimpleRect {
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn inside(&self, x: i32, y: i32) -> bool {
@@ -31,14 +43,26 @@ pub struct Rect {
     rotation: f32,
     origin: (i32, i32),
 
-    pub bounding: SimpleRect
+    pub bounding: SimpleRect,
 }
 
 impl Rect {
     pub fn new(x: i32, y: i32, width: i32, height: i32, rotation: f32, origin: (i32, i32)) -> Self {
-        let mut this = Self { x, y, width, height, rotation, origin, bounding: SimpleRect::new(0, 0, 0, 0) };
+        let mut this = Self {
+            x,
+            y,
+            width,
+            height,
+            rotation,
+            origin,
+            bounding: SimpleRect::new(0, 0, 0, 0),
+        };
         this.update();
         this
+    }
+
+    pub fn simple(x: i32, y: i32, width: i32, height: i32) -> Self {
+        Self::new(x, y, width, height, 0.0, (x + width / 2, y + height / 2))
     }
 
     pub fn inside(&self, x: i32, y: i32) -> bool {
@@ -68,10 +92,7 @@ impl Rect {
     }
 
     pub fn center(&self) -> (i32, i32) {
-        let original_center = (
-            self.x + self.width / 2,
-            self.y + self.height / 2,
-        );
+        let original_center = (self.x + self.width / 2, self.y + self.height / 2);
         self.rot_points(original_center)
     }
 
@@ -86,12 +107,7 @@ impl Rect {
         let min_y = tl.1.min(tr.1).min(bl.1).min(br.1);
         let max_y = tl.1.max(tr.1).max(bl.1).max(br.1);
 
-        self.bounding = SimpleRect::new(
-            min_x,
-            min_y,
-            max_x - min_x,
-            max_y - min_y
-        );
+        self.bounding = SimpleRect::new(min_x, min_y, max_x - min_x, max_y - min_y);
     }
 
     pub fn x(&self) -> i32 {
@@ -170,6 +186,24 @@ impl Rect {
 
     pub fn add_rotation(&mut self, rotation: f32) {
         self.rotation += rotation;
+        self.update();
+    }
+
+    pub fn transform(&mut self, transform: &Transform) {
+        self.rotation += transform.rotation;
+        self.origin.0 = transform.origin.x as i32;
+        self.origin.1 = transform.origin.y as i32;
+        let mut trans_x = self.x - self.origin.0;
+        let mut trans_y = self.y - self.origin.1;
+        trans_x = (trans_x as f32 * transform.scale.x) as i32;
+        trans_y = (trans_y as f32 * transform.scale.x) as i32;
+        self.width = (self.width as f32 * transform.scale.x) as i32;
+        self.height = (self.height as f32 * transform.scale.y) as i32;
+        self.x = trans_x + self.origin.0;
+        self.y = trans_y + self.origin.1;
+
+        self.x += transform.translation.x as i32;
+        self.y += transform.translation.y as i32;
         self.update();
     }
 }

@@ -149,7 +149,7 @@ pub enum Key {
     Multiply,
     Mute,
     MyComputer,
-    NavigateForward, // also called "Prior"
+    NavigateForward,  // also called "Prior"
     NavigateBackward, // also called "Next"
     NextTrack,
     NoConvert,

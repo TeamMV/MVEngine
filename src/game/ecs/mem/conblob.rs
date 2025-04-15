@@ -8,7 +8,7 @@ pub struct ContinuousBlob {
     data: *mut u8,
     len: usize,
     capacity: usize,
-    layout: Layout
+    layout: Layout,
 }
 
 impl ContinuousBlob {
@@ -28,9 +28,14 @@ impl ContinuousBlob {
     fn realloc(&mut self) {
         self.capacity = (self.capacity as f64 * PHI).ceil() as usize;
         unsafe {
-            self.data = std::alloc::realloc(self.data, Layout::from_size_align_unchecked(
-            self.capacity * self.layout.size(), self.layout.align()
-            ), self.capacity);
+            self.data = std::alloc::realloc(
+                self.data,
+                Layout::from_size_align_unchecked(
+                    self.capacity * self.layout.size(),
+                    self.layout.align(),
+                ),
+                self.capacity,
+            );
         }
     }
 
@@ -55,7 +60,7 @@ impl ContinuousBlob {
             unsafe {
                 let added = self.data.add(idx * self.layout.size());
                 let typed = added as *mut T;
-                return typed.as_ref()
+                return typed.as_ref();
             }
         }
         None
@@ -66,7 +71,7 @@ impl ContinuousBlob {
             unsafe {
                 let added = self.data.add(idx * self.layout.size());
                 let typed = added as *mut T;
-                return typed.as_mut()
+                return typed.as_mut();
             }
         }
         None
@@ -100,7 +105,10 @@ impl ContinuousBlob {
         out
     }
 
-    pub fn get_all_traits_mut<T: ?Sized>(&mut self, meta: &<T as Pointee>::Metadata) -> Vec<&mut T> {
+    pub fn get_all_traits_mut<T: ?Sized>(
+        &mut self,
+        meta: &<T as Pointee>::Metadata,
+    ) -> Vec<&mut T> {
         let mut out = Vec::with_capacity(self.len);
         unsafe {
             for i in 0..self.len {

@@ -1,11 +1,15 @@
 pub mod blank;
 pub mod child;
+pub mod components;
 pub mod events;
 pub mod implementations;
-pub mod components;
 
 pub use implementations::*;
 
+use crate::math::vec::Vec2;
+use crate::rendering::text::Font;
+use crate::rendering::Transform;
+use crate::resolve;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::blank::Blank;
@@ -14,20 +18,22 @@ use crate::ui::elements::child::{Child, ToChild};
 use crate::ui::elements::div::Div;
 use crate::ui::elements::events::UiEvents;
 use crate::ui::geometry::Rect;
-use crate::ui::styles::{ChildAlign, Dimension, Direction, Interpolator, Origin, Position, ResCon, UiStyle, DEFAULT_STYLE};
+use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::res::MVR;
+use crate::ui::styles::ResolveResult;
+use crate::ui::styles::{
+    ChildAlign, Dimension, Direction, Interpolator, Origin, Position, ResCon, UiStyle,
+    DEFAULT_STYLE,
+};
 use crate::ui::uix::UiCompoundElement;
+use itertools::Itertools;
+use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, TetrahedronOp};
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::sync::Arc;
-use itertools::Itertools;
-use crate::rendering::text::Font;
-use crate::resolve;
-use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::res::MVR;
-use crate::ui::styles::ResolveResult;
 
 pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut DrawContext2D);
@@ -77,7 +83,10 @@ pub trait UiElementStub: UiElementCallbacks {
         state.rect.inside(x, y)
     }
 
-    fn compute_styles(&mut self) where Self: Sized {
+    fn compute_styles(&mut self)
+    where
+        Self: Sized,
+    {
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         let (_, style, state) = this.components_mut();
         state.ctx.dpi = 20.0; //TODO: change to renderer dpi
@@ -85,8 +94,47 @@ pub trait UiElementStub: UiElementCallbacks {
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
 
+        let maybe_parent = state.parent.clone();
+
+        let transform_translate_x = resolve!(self, transform.translate.x)
+            .unwrap_or_default_or_percentage(
+                &DEFAULT_STYLE.transform.translate.x,
+                maybe_parent.clone(),
+                |s| s.content_rect.width(),
+            );
+        let transform_translate_y = resolve!(self, transform.translate.y)
+            .unwrap_or_default_or_percentage(
+                &DEFAULT_STYLE.transform.translate.y,
+                maybe_parent.clone(),
+                |s| s.content_rect.height(),
+            );
+        let transform_scale_x = resolve!(self, transform.scale.x).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.transform.scale.x,
+            maybe_parent.clone(),
+            |s| s.content_rect.width() as f32,
+        );
+        let transform_scale_y = resolve!(self, transform.scale.y).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.transform.scale.y,
+            maybe_parent.clone(),
+            |s| s.content_rect.height() as f32,
+        );
+        let transform_rotation = resolve!(self, transform.rotate).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.transform.rotate,
+            maybe_parent.clone(),
+            |s| s.inner_transforms.rotation,
+        );
+        let transform_origin =
+            resolve!(self, transform.origin).unwrap_or_default(&DEFAULT_STYLE.origin);
+
+        state.transforms.translation.width += transform_translate_x;
+        state.transforms.translation.height += transform_translate_y;
+        state.transforms.scale.width = transform_scale_x;
+        state.transforms.scale.height = transform_scale_y;
+        state.transforms.rotation += transform_rotation;
+        state.transforms.origin = transform_origin;
+
         let padding = style.padding.get(self, |s| &s.padding, |s| &s.paddings); //t, b, l, r
-        let margin = style.margin.get(self, |s| &s.margin, |s| &s.margins);    //0, 1, 2, 3
+        let margin = style.margin.get(self, |s| &s.margin, |s| &s.margins); //0, 1, 2, 3
 
         let direction = resolve!(self, direction);
         let direction = if !direction.is_set() {
@@ -95,18 +143,21 @@ pub trait UiElementStub: UiElementCallbacks {
             direction.unwrap()
         };
 
-        let maybe_parent = state.parent.clone();
-
         let font = resolve!(self, text.font);
         let font = font.unwrap_or(MVR.font.default);
         let font = self.context().resources.resolve_font(font);
 
-        let size = resolve!(self, text.size).unwrap_or_default_or_percentage(&DEFAULT_STYLE.text.size, maybe_parent.clone(), |s| s.content_rect.height() as f32);
+        let size = resolve!(self, text.size).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.text.size,
+            maybe_parent.clone(),
+            |s| s.content_rect.height() as f32,
+        );
         let kerning = resolve!(self, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
         let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
-        let mut computed_size = Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning);
+        let mut computed_size =
+            Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning);
 
         let width = resolve!(self, width);
         let width = if width.is_set() {
@@ -130,9 +181,15 @@ pub trait UiElementStub: UiElementCallbacks {
         state.rect.set_width(width);
         state.rect.set_height(height);
         state.bounding_rect.set_width(width + margin[2] + margin[3]);
-        state.bounding_rect.set_height(height + margin[0] + margin[1]);
-        state.content_rect.set_width(width - padding[2] - padding[3]);
-        state.content_rect.set_height(height - padding[0] - padding[1]);
+        state
+            .bounding_rect
+            .set_height(height + margin[0] + margin[1]);
+        state
+            .content_rect
+            .set_width(width - padding[2] - padding[3]);
+        state
+            .content_rect
+            .set_height(height - padding[0] - padding[1]);
 
         let position = resolve!(self, position);
         let position = if !position.is_set() {
@@ -159,7 +216,7 @@ pub trait UiElementStub: UiElementCallbacks {
             };
 
             let y = resolve!(self, y);
-            let y = if !y.is_set() {
+            let y = if y.is_set() {
                 y.unwrap()
             } else if y.is_percent() {
                 y.resolve_percent(maybe_parent.clone(), |s| s.rect.height())
@@ -167,8 +224,12 @@ pub trait UiElementStub: UiElementCallbacks {
                 0
             };
 
-            state.bounding_rect.set_x(origin.get_actual_x(x, width, state));
-            state.bounding_rect.set_y(origin.get_actual_y(y, height, state));
+            state
+                .bounding_rect
+                .set_x(origin.get_actual_x(x, width, state));
+            state
+                .bounding_rect
+                .set_y(origin.get_actual_y(y, height, state));
         }
 
         state.rect.set_x(state.bounding_rect.x() + margin[2]);
@@ -176,23 +237,24 @@ pub trait UiElementStub: UiElementCallbacks {
         state.content_rect.set_x(state.rect.x() + padding[2]);
         state.content_rect.set_y(state.rect.y() + padding[1]);
 
-        let child_align = resolve!(self, child_align);
-        let child_align = if !child_align.is_set() {
-            ChildAlign::Start
-        } else {
-            child_align.unwrap()
-        };
+        let child_align_x = resolve!(self, child_align_x).unwrap_or(ChildAlign::Start);
+        let child_align_y = resolve!(self, child_align_y).unwrap_or(ChildAlign::Start);
 
         let (mut used_width, mut used_height) = (0, 0);
-        for child_elem in state.children.iter().filter_map(|e| {
-            match e {
-                Child::Element(c) => Some(c.clone()),
-                _ => None
-            }
+        for child_elem in state.children.iter().filter_map(|e| match e {
+            Child::Element(c) => Some(c.clone()),
+            _ => None,
         }) {
             let mut child_guard = child_elem.get_mut();
             let child_binding = unsafe { Unsafe::cast_mut_static(child_guard.deref_mut()) };
             let (_, child_style, child_state) = child_binding.components_mut();
+
+            child_state.transforms.translation.width += state.transforms.translation.width;
+            child_state.transforms.translation.height += state.transforms.translation.height;
+            child_state.transforms.rotation += state.transforms.rotation;
+            child_state.transforms.scale.width = state.transforms.scale.width;
+            child_state.transforms.scale.height = state.transforms.scale.height;
+            child_state.transforms.origin = state.transforms.origin.clone();
 
             let child_pos = resolve!(child_guard, position);
             let child_pos = if !child_pos.is_set() {
@@ -210,66 +272,188 @@ pub trait UiElementStub: UiElementCallbacks {
             if let Position::Relative = child_pos {
                 let (x, y) = match direction {
                     Direction::Vertical => {
-                        let cx = match child_align {
-                            ChildAlign::Start => { state.content_rect.x() }
-                            ChildAlign::End => { state.content_rect.x() + state.content_rect.width() - child_state.bounding_rect.bounding.width }
-                            ChildAlign::Middle => { state.content_rect.x() + state.content_rect.width() / 2 - child_state.bounding_rect.bounding.width / 2 }
-                            ChildAlign::OffsetStart(o) => { state.content_rect.x() + o }
-                            ChildAlign::OffsetEnd(o) => { state.content_rect.x() + state.content_rect.width() - child_state.bounding_rect.bounding.width + o }
-                            ChildAlign::OffsetMiddle(o) => { state.content_rect.x() + state.content_rect.width() / 2 - child_state.bounding_rect.bounding.width / 2 + o }
+                        let cx = match child_align_x {
+                            ChildAlign::Start => state.content_rect.x(),
+                            ChildAlign::End => {
+                                state.content_rect.x() + state.content_rect.width()
+                                    - child_state.bounding_rect.bounding.width
+                            }
+                            ChildAlign::Middle => {
+                                state.content_rect.x() + state.content_rect.width() / 2
+                                    - child_state.bounding_rect.bounding.width / 2
+                            }
+                            ChildAlign::OffsetStart(o) => state.content_rect.x() + o,
+                            ChildAlign::OffsetEnd(o) => {
+                                state.content_rect.x() + state.content_rect.width()
+                                    - child_state.bounding_rect.bounding.width
+                                    + o
+                            }
+                            ChildAlign::OffsetMiddle(o) => {
+                                state.content_rect.x() + state.content_rect.width() / 2
+                                    - child_state.bounding_rect.bounding.width / 2
+                                    + o
+                            }
                         };
 
-                        let cy = state.content_rect.y() + state.content_rect.height() - child_state.bounding_rect.bounding.height - used_height;
+                        let cy = match child_align_y {
+                            ChildAlign::Start => {
+                                state.content_rect.y() + state.content_rect.height()
+                                    - child_state.bounding_rect.bounding.height
+                                    - used_height
+                            }
+                            ChildAlign::End => state.content_rect.y() + used_height,
+                            ChildAlign::Middle => {
+                                state.content_rect.y() + state.content_rect.height() / 2
+                                    + computed_size.1 / 2
+                                    - used_height
+                                    - child_state.bounding_rect.bounding.height
+                            }
+                            ChildAlign::OffsetStart(o) => {
+                                state.content_rect.y() + state.content_rect.height()
+                                    - child_state.bounding_rect.bounding.height
+                                    - used_height
+                                    + o
+                            }
+                            ChildAlign::OffsetEnd(o) => state.content_rect.y() + used_height + o,
+                            ChildAlign::OffsetMiddle(o) => {
+                                state.content_rect.y() + state.content_rect.height() / 2
+                                    - computed_size.1 / 2
+                                    + used_height
+                                    + o
+                            }
+                        };
 
                         (
-                            child_origin.get_actual_x(cx, child_state.bounding_rect.bounding.width, child_state),
-                            child_origin.get_actual_y(cy, child_state.bounding_rect.bounding.height, child_state)
+                            child_origin.get_actual_x(
+                                cx,
+                                child_state.bounding_rect.bounding.width,
+                                child_state,
+                            ),
+                            child_origin.get_actual_y(
+                                cy,
+                                child_state.bounding_rect.bounding.height,
+                                child_state,
+                            ),
                         )
                     }
                     Direction::Horizontal => {
-                        let cx = state.content_rect.x() + used_width;
-                        let cy = match child_align {
-                            ChildAlign::Start => { state.content_rect.y() }
-                            ChildAlign::End => { state.content_rect.y() + state.content_rect.height() - child_state.bounding_rect.bounding.height }
-                            ChildAlign::Middle => { state.content_rect.y() + state.content_rect.height() / 2 - child_state.bounding_rect.bounding.height / 2 }
-                            ChildAlign::OffsetStart(o) => { state.content_rect.y() + o }
-                            ChildAlign::OffsetEnd(o) => { state.content_rect.y() + state.content_rect.height() - child_state.bounding_rect.bounding.height + o }
-                            ChildAlign::OffsetMiddle(o) => { state.content_rect.y() + state.content_rect.height() / 2 - child_state.bounding_rect.bounding.height / 2 + o }
+                        let cx = match child_align_x {
+                            ChildAlign::Start => state.content_rect.x() + used_width,
+                            ChildAlign::End => {
+                                state.content_rect.x() + state.content_rect.width()
+                                    - used_width
+                                    - child_state.bounding_rect.bounding.width
+                            }
+                            ChildAlign::Middle => {
+                                state.content_rect.x() + state.content_rect.width() / 2
+                                    - computed_size.0 / 2
+                                    + used_width
+                            }
+                            ChildAlign::OffsetStart(o) => state.content_rect.x() + used_width + o,
+                            ChildAlign::OffsetEnd(o) => {
+                                state.content_rect.x() + state.content_rect.width()
+                                    - used_width
+                                    - child_state.bounding_rect.bounding.width
+                                    + o
+                            }
+                            ChildAlign::OffsetMiddle(o) => {
+                                state.content_rect.x() + state.content_rect.width() / 2
+                                    - computed_size.0 / 2
+                                    + used_width
+                                    + o
+                            }
+                        };
+                        let cy = match child_align_y {
+                            ChildAlign::Start => state.content_rect.y(),
+                            ChildAlign::End => {
+                                state.content_rect.y() + state.content_rect.height()
+                                    - child_state.bounding_rect.bounding.height
+                            }
+                            ChildAlign::Middle => {
+                                state.content_rect.y() + state.content_rect.height() / 2
+                                    - child_state.bounding_rect.bounding.height / 2
+                            }
+                            ChildAlign::OffsetStart(o) => state.content_rect.y() + o,
+                            ChildAlign::OffsetEnd(o) => {
+                                state.content_rect.y() + state.content_rect.height()
+                                    - child_state.bounding_rect.bounding.height
+                                    + o
+                            }
+                            ChildAlign::OffsetMiddle(o) => {
+                                state.content_rect.y() + state.content_rect.height() / 2
+                                    - child_state.bounding_rect.bounding.height / 2
+                                    + o
+                            }
                         };
 
                         (
-                            child_origin.get_actual_x(cx, child_state.bounding_rect.bounding.width, child_state),
-                            child_origin.get_actual_y(cy, child_state.bounding_rect.bounding.height, child_state)
+                            child_origin.get_actual_x(
+                                cx,
+                                child_state.bounding_rect.bounding.width,
+                                child_state,
+                            ),
+                            child_origin.get_actual_y(
+                                cy,
+                                child_state.bounding_rect.bounding.height,
+                                child_state,
+                            ),
                         )
                     }
                 };
 
-                let child_padding = child_style.padding.get(child_guard.deref(), |s| &s.padding, |s| &s.paddings);
-                let child_margin = child_style.margin.get(child_guard.deref(), |s| &s.margin, |s| &s.margins);
+                let child_padding =
+                    child_style
+                        .padding
+                        .get(child_guard.deref(), |s| &s.padding, |s| &s.paddings);
+                let child_margin =
+                    child_style
+                        .margin
+                        .get(child_guard.deref(), |s| &s.margin, |s| &s.margins);
 
                 child_state.bounding_rect.set_x(x);
                 child_state.bounding_rect.set_y(y);
                 child_state.rect.set_x(x + child_padding[2]);
                 child_state.rect.set_y(y + child_padding[1]);
-                child_state.content_rect.set_x(child_state.rect.x() + child_margin[2]);
-                child_state.content_rect.set_y(child_state.rect.y() + child_margin[1]);
+                child_state
+                    .content_rect
+                    .set_x(child_state.rect.x() + child_margin[2]);
+                child_state
+                    .content_rect
+                    .set_y(child_state.rect.y() + child_margin[1]);
 
                 used_width += child_state.bounding_rect.bounding.width;
                 used_height += child_state.bounding_rect.bounding.height;
             }
         }
+
+        state.inner_transforms = state.transforms.clone();
+        state.transforms = UiTransformations::new();
     }
 
-    fn compute_children_size(state: &UiElementState, direction: &Direction, font: Option<&Font>, font_size: f32, font_stretch: Dimension<f32>, font_skew: f32, font_kerning: f32) -> (i32, i32) where Self: Sized {
+    fn compute_children_size(
+        state: &UiElementState,
+        direction: &Direction,
+        font: Option<&Font>,
+        font_size: f32,
+        font_stretch: Dimension<f32>,
+        font_skew: f32,
+        font_kerning: f32,
+    ) -> (i32, i32)
+    where
+        Self: Sized,
+    {
         let (mut w, mut h) = (0, 0);
+        let font_size = font_size * font_stretch.height;
         for child in &state.children {
             match child {
                 Child::String(s) => {
                     if let Some(font) = font {
                         let width = font.get_width(s, font_size);
                         let l = s.len() as f32 - 1f32;
-                        let width = width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
+                        let width =
+                            width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
                         w += width as i32;
+                        h = h.max(font_size as i32);
                     }
                 }
                 Child::Element(e) => {
@@ -295,7 +479,18 @@ pub trait UiElementStub: UiElementCallbacks {
                         }
                     }
                 }
-                Child::State(_) => {}
+                Child::State(s) => {
+                    let guard = s.read();
+                    let s = guard.deref();
+                    if let Some(font) = font {
+                        let width = font.get_width(s, font_size);
+                        let l = s.len() as f32 - 1f32;
+                        let width =
+                            width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
+                        w += width as i32;
+                        h = h.max(font_size as i32);
+                    }
+                }
             }
         }
         (w, h)
@@ -305,7 +500,12 @@ pub trait UiElementStub: UiElementCallbacks {
         for child in &self.state().children {
             if let Child::Element(e) = child {
                 let guard = e.get();
-                if guard.attributes().id.as_ref().is_some_and(|i| i.as_str() == id) {
+                if guard
+                    .attributes()
+                    .id
+                    .as_ref()
+                    .is_some_and(|i| i.as_str() == id)
+                {
                     drop(guard);
                     return Some(e.clone());
                 }
@@ -448,6 +648,7 @@ pub struct UiElementState {
     pub last_style: Option<UiStyle>,
 
     pub transforms: UiTransformations,
+    pub inner_transforms: UiTransformations,
 
     pub(crate) base_style: UiStyle,
     pub(crate) is_width_percent: bool,
@@ -455,11 +656,54 @@ pub struct UiElementState {
 }
 
 #[derive(Clone)]
-pub(crate) struct UiTransformations {
+pub struct UiTransformations {
     pub(crate) translation: Dimension<i32>,
     pub(crate) rotation: f32,
     pub(crate) scale: Dimension<f32>,
     pub(crate) origin: Origin,
+}
+
+impl UiTransformations {
+    pub fn new() -> Self {
+        Self {
+            translation: Dimension::new(0, 0),
+            rotation: 0.0,
+            scale: Dimension::new(1.0, 1.0),
+            origin: Default::default(),
+        }
+    }
+
+    pub fn merge_transform(&mut self, transform: Transform) {
+        self.translation.width += transform.translation.x as i32;
+        self.translation.height += transform.translation.y as i32;
+        self.rotation += transform.rotation;
+        self.scale.width = transform.scale.x;
+        self.scale.height = transform.scale.y;
+        if transform.origin.x != 0.0 || transform.origin.y != 0.0 {
+            let ox = transform.origin.x as i32;
+            let oy = transform.origin.y as i32;
+
+            self.origin = Origin::Custom(ox, oy);
+        }
+    }
+
+    pub fn as_render_transform(&self, state: &UiElementState) -> Transform {
+        let ox = self
+            .origin
+            .get_actual_x(state.rect.x(), state.rect.width(), state);
+        let oy = self
+            .origin
+            .get_actual_y(state.rect.y(), state.rect.height(), state);
+        Transform {
+            translation: Vec2::new(
+                self.translation.width as f32,
+                self.translation.height as f32,
+            ),
+            origin: Vec2::new(ox as f32, oy as f32),
+            scale: Vec2::new(self.scale.width, self.scale.height),
+            rotation: self.rotation,
+        }
+    }
 }
 
 impl UiElementState {
@@ -477,12 +721,8 @@ impl UiElementState {
             is_animating: false,
             last_animation: 0,
             last_style: None,
-            transforms: UiTransformations {
-                translation: Dimension::new(0, 0),
-                rotation: 0.0,
-                scale: Dimension::new(0.0, 0.0),
-                origin: Default::default(),
-            },
+            transforms: UiTransformations::new(),
+            inner_transforms: UiTransformations::new(),
             base_style: crate::ui::styles::EMPTY_STYLE.clone(),
             is_width_percent: false,
             is_height_percent: false,
@@ -506,6 +746,7 @@ impl Clone for UiElementState {
             last_animation: self.last_animation,
             last_style: self.last_style.clone(),
             transforms: self.transforms.clone(),
+            inner_transforms: self.inner_transforms.clone(),
             base_style: self.base_style.clone(),
             is_width_percent: self.is_width_percent.clone(),
             is_height_percent: self.is_height_percent.clone(),

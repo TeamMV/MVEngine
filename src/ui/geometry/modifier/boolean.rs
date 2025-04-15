@@ -1,11 +1,12 @@
-use std::cmp::Ordering;
+use crate::math::vec::Vec2;
+use crate::ui::geometry::geom;
+use crate::ui::geometry::shape::Shape;
+use crate::ui::rendering::ctx;
+use crate::ui::rendering::shapes::Param;
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::warn;
-use crate::math::vec::Vec2;
-use crate::ui::rendering::ctx;
-use crate::ui::rendering::ctx::DrawShape;
-use crate::ui::rendering::shapes::{geometry, Param};
+use std::cmp::Ordering;
 
 trait Dedup<T: PartialEq + Clone> {
     fn clear_duplicates(&mut self);
@@ -24,7 +25,11 @@ impl<T: PartialEq + Clone> Dedup<T> for Vec<T> {
     }
 }
 
-pub(crate) fn compute(input: &DrawShape, params: Vec<Param>, shapes: &HashMap<String, DrawShape>) -> Result<DrawShape, String> {
+pub(crate) fn compute(
+    input: &Shape,
+    params: Vec<Param>,
+    shapes: &HashMap<String, Shape>,
+) -> Result<Shape, String> {
     let mode = params[0].as_str();
     let other_shape_name = params[1].as_str();
     if let Some(other_shape) = shapes.get(other_shape_name) {
@@ -32,32 +37,34 @@ pub(crate) fn compute(input: &DrawShape, params: Vec<Param>, shapes: &HashMap<St
             "union" => compute_union(input, other_shape),
             "intersect" => compute_intersect(input, other_shape),
             "difference" => compute_difference(input, other_shape),
-            _ => Err(format!("Invalid Boolean mode {mode}"))
+            _ => Err(format!("Invalid Boolean mode {mode}")),
         }
     } else {
         Err(format!("{} is not defined!", other_shape_name))
     }
 }
 
-fn compute_union(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, String> {
+fn compute_union(input: &Shape, other: &Shape) -> Result<Shape, String> {
     todo!()
 }
 
-pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<DrawShape, String> {
-    let mut end_shape = DrawShape { triangles: vec![], extent: (0, 0) };
+pub fn compute_intersect(input: &Shape, clipping: &Shape) -> Result<Shape, String> {
+    let mut end_shape = Shape::new(vec![]);
 
     for input_triangle in &input.triangles {
         let input_vertices = input_triangle.vec2s();
         for clipping_triangle in &clipping.triangles {
             let clipping_vertices = clipping_triangle.vec2s();
-            if let Some(mut intersection_points) = geometry::get_triangle_intersections(&input_vertices, &clipping_vertices) {
+            if let Some(mut intersection_points) =
+                geom::get_triangle_intersections(&input_vertices, &clipping_vertices)
+            {
                 let mut res_vertices = Vec::with_capacity(intersection_points.len() + 6);
                 res_vertices.extend_from_slice(&input_vertices);
                 res_vertices.extend_from_slice(&clipping_vertices);
 
                 res_vertices.retain(|vertex| {
-                    geometry::is_point_in_triangle(&input_vertices, *vertex) &&
-                    geometry::is_point_in_triangle(&clipping_vertices, *vertex)
+                    geom::is_point_in_triangle(&input_vertices, *vertex)
+                        && geom::is_point_in_triangle(&clipping_vertices, *vertex)
                 });
 
                 res_vertices.clear_duplicates();
@@ -79,7 +86,10 @@ pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<Draw
                         let tri = ctx::triangle()
                             .point((res_vertices[0].x as i32, res_vertices[0].y as i32), None)
                             .point((res_vertices[i].x as i32, res_vertices[i].y as i32), None)
-                            .point((res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32), None)
+                            .point(
+                                (res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32),
+                                None,
+                            )
                             .create();
                         end_shape.combine(&tri);
                     }
@@ -106,34 +116,58 @@ pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<Draw
                         let tri = ctx::triangle()
                             .point((res_vertices[0].x as i32, res_vertices[0].y as i32), None)
                             .point((res_vertices[i].x as i32, res_vertices[i].y as i32), None)
-                            .point((res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32), None)
+                            .point(
+                                (res_vertices[i + 1].x as i32, res_vertices[i + 1].y as i32),
+                                None,
+                            )
                             .create();
                         end_shape.combine(&tri);
                     }
                 } else {
-                    warn!("Illegal amount of vertices ({}) left for triangulation!", res_vertices.len());
+                    warn!(
+                        "Illegal amount of vertices ({}) left for triangulation!",
+                        res_vertices.len()
+                    );
                 }
             } else {
-                if geometry::is_point_in_triangle(&clipping_vertices, input_vertices[0]) &&
-                    geometry::is_point_in_triangle(&clipping_vertices, input_vertices[1]) &&
-                    geometry::is_point_in_triangle(&clipping_vertices, input_vertices[2]) {
-
+                if geom::is_point_in_triangle(&clipping_vertices, input_vertices[0])
+                    && geom::is_point_in_triangle(&clipping_vertices, input_vertices[1])
+                    && geom::is_point_in_triangle(&clipping_vertices, input_vertices[2])
+                {
                     let tri = ctx::triangle()
-                        .point((input_vertices[0].x as i32, input_vertices[0].y as i32), None)
-                        .point((input_vertices[1].x as i32, input_vertices[1].y as i32), None)
-                        .point((input_vertices[2].x as i32, input_vertices[2].y as i32), None)
+                        .point(
+                            (input_vertices[0].x as i32, input_vertices[0].y as i32),
+                            None,
+                        )
+                        .point(
+                            (input_vertices[1].x as i32, input_vertices[1].y as i32),
+                            None,
+                        )
+                        .point(
+                            (input_vertices[2].x as i32, input_vertices[2].y as i32),
+                            None,
+                        )
                         .create();
                     end_shape.combine(&tri);
-                } else if geometry::is_point_in_triangle(&input_vertices, clipping_vertices[0]) &&
-                    geometry::is_point_in_triangle(&input_vertices, clipping_vertices[1]) &&
-                    geometry::is_point_in_triangle(&input_vertices, clipping_vertices[2]) {
-
+                } else if geom::is_point_in_triangle(&input_vertices, clipping_vertices[0])
+                    && geom::is_point_in_triangle(&input_vertices, clipping_vertices[1])
+                    && geom::is_point_in_triangle(&input_vertices, clipping_vertices[2])
+                {
                     println!("still addded");
 
                     let tri = ctx::triangle()
-                        .point((clipping_vertices[0].x as i32, clipping_vertices[0].y as i32), None)
-                        .point((clipping_vertices[1].x as i32, clipping_vertices[1].y as i32), None)
-                        .point((clipping_vertices[2].x as i32, clipping_vertices[2].y as i32), None)
+                        .point(
+                            (clipping_vertices[0].x as i32, clipping_vertices[0].y as i32),
+                            None,
+                        )
+                        .point(
+                            (clipping_vertices[1].x as i32, clipping_vertices[1].y as i32),
+                            None,
+                        )
+                        .point(
+                            (clipping_vertices[2].x as i32, clipping_vertices[2].y as i32),
+                            None,
+                        )
                         .create();
                     end_shape.combine(&tri);
                 }
@@ -144,6 +178,6 @@ pub fn compute_intersect(input: &DrawShape, clipping: &DrawShape) -> Result<Draw
     Ok(end_shape)
 }
 
-fn compute_difference(input: &DrawShape, other: &DrawShape) -> Result<DrawShape, String> {
+fn compute_difference(input: &Shape, other: &Shape) -> Result<Shape, String> {
     todo!()
 }

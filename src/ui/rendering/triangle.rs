@@ -1,8 +1,9 @@
-use mvutils::utils::TetrahedronOp;
 use crate::color::RgbColor;
 use crate::rendering::texture::Texture;
-use crate::rendering::{InputVertex, Transform, Triangle, Vertex};
-use crate::ui::rendering::ctx::{DrawShape, TextureCtx, TransformCtx};
+use crate::rendering::{InputVertex, Transform, Triangle};
+use crate::ui::geometry::shape::Shape;
+use crate::ui::rendering::ctx::{TextureCtx, TransformCtx};
+use mvutils::utils::TetrahedronOp;
 
 pub struct TriangleCtx {
     points: Vec<(i32, i32, Option<RgbColor>)>,
@@ -54,7 +55,7 @@ impl TriangleCtx {
         self
     }
 
-    pub fn create(mut self) -> DrawShape {
+    pub fn create(mut self) -> Shape {
         let mut iter = self.points.into_iter();
         let p1 = iter.next().expect("Expected 3 points on a triangle");
         let p2 = iter.next().expect("Expected 3 points on a triangle");
@@ -69,7 +70,11 @@ impl TriangleCtx {
             self.transform.origin.y = (p1.1 + p2.1 + p3.1) as f32 / 3.0;
         }
 
-        let tex_id = if let Some(ref t) = self.texture { t.id } else { 0 };
+        let tex_id = if let Some(ref t) = self.texture {
+            t.id
+        } else {
+            0
+        };
         let tex_coords = if let Some(ref tex) = self.texture {
             let uv: [(f32, f32); 4] = tex.get_uv();
 
@@ -88,7 +93,9 @@ impl TriangleCtx {
             let v3 = (p3.1 as f32 - min_y) / (max_y - min_y);
 
             Some([(u1, v1), (u2, v2), (u3, v3)])
-        } else { None };
+        } else {
+            None
+        };
 
         let tri = Triangle {
             points: [
@@ -118,11 +125,6 @@ impl TriangleCtx {
                 },
             ],
         };
-
-        DrawShape {
-            triangles: vec![tri],
-            extent: (0, 0),
-        }
+        Shape::new(vec![tri])
     }
-
 }

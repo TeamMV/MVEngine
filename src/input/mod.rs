@@ -1,13 +1,15 @@
-use std::sync::Arc;
-use bitflags::Bits;
-use parking_lot::Mutex;
 use crate::input::collect::{InputCollector, InputProcessor};
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::{ActionInputProcessor, InputRegistry};
+use bitflags::Bits;
+use parking_lot::Mutex;
+use std::sync::Arc;
+use mvutils::unsafe_utils::DangerousCell;
+use crate::ui::Ui;
 
 pub mod collect;
-pub mod registry;
 pub mod consts;
+pub mod registry;
 
 #[derive(Copy, Clone)]
 pub enum RawInputEvent {
@@ -37,9 +39,9 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new() -> Self {
+    pub fn new(ui: Arc<DangerousCell<Ui>>) -> Self {
         Self {
-            collector: InputCollector::new(),
+            collector: InputCollector::new(ui),
             mouse_x: i32::EMPTY,
             mouse_y: i32::EMPTY,
         }
@@ -50,11 +52,17 @@ impl Input {
     }
 
     pub fn is_action(&self, name: &str) -> bool {
-        self.collector.action_processor.registry.is_action_triggered(name)
+        self.collector
+            .action_processor
+            .registry
+            .is_action_triggered(name)
     }
 
     pub fn was_action(&self, name: &str) -> bool {
-        self.collector.action_processor.registry.was_action_triggered(name)
+        self.collector
+            .action_processor
+            .registry
+            .was_action_triggered(name)
     }
 
     pub fn action_processor(&self) -> &ActionInputProcessor {
@@ -73,4 +81,3 @@ impl Input {
         &mut self.collector.action_processor.registry
     }
 }
-

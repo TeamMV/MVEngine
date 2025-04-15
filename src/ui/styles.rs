@@ -24,7 +24,8 @@ lazy! {
         origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
         position: UiValue::Just(Position::Relative).to_resolve(),
         direction: UiValue::Just(Direction::Horizontal).to_resolve(),
-        child_align: UiValue::Just(ChildAlign::Start).to_resolve(),
+        child_align_x: UiValue::Just(ChildAlign::Start).to_resolve(),
+        child_align_y: UiValue::Just(ChildAlign::Start).to_resolve(),
         background: ShapeStyle {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::white()).to_resolve(),
@@ -36,15 +37,18 @@ lazy! {
             color: UiValue::Just(RgbColor::black()).to_resolve(),
             texture: UiValue::None.to_resolve(),
             shape: UiValue::Just(BasicInterpolatable::new(UiShape::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
+            //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
         },
         text: TextStyle {
-            size: UiValue::Measurement(Unit::Line(1.0)).to_field().to_resolve(),
-            kerning: UiValue::None.to_field().to_resolve(),
-            skew: UiValue::None.to_field().to_resolve(),
-            stretch: UiValue::None.to_field().to_resolve(),
-            font: UiValue::Just(0).to_field().to_resolve(),
-            fit: UiValue::Just(TextFit::ExpandParent).to_field().to_resolve(),
+            size: UiValue::Measurement(Unit::CM(3.0)).to_field().to_resolve(),
+            kerning: UiValue::Just(0.0).to_field().to_resolve(),
+            skew: UiValue::Just(0.0).to_field().to_resolve(),
+            stretch: UiValue::Just(Dimension::new(1.0, 1.0)).to_field().to_resolve(),
+            font: UiValue::Just(MVR.font.default).to_field().to_resolve(),
+            fit: UiValue::Just(TextFit::ExpandParent).to_resolve(),
             color: UiValue::Just(RgbColor::black()).to_resolve(),
+            align_x: UiValue::Just(TextAlign::Middle).to_resolve(),
+            align_y: UiValue::Just(TextAlign::Middle).to_resolve(),
         },
         transform: TransformStyle {
             translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
@@ -64,7 +68,8 @@ lazy! {
         origin: UiValue::Unset.to_resolve(),
         position: UiValue::Unset.to_resolve(),
         direction: UiValue::Unset.to_resolve(),
-        child_align: UiValue::Unset.to_resolve(),
+        child_align_x: UiValue::Unset.to_resolve(),
+        child_align_y: UiValue::Unset.to_resolve(),
         background: ShapeStyle {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
@@ -85,6 +90,8 @@ lazy! {
             font: UiValue::Unset.to_field().to_resolve(),
             fit: UiValue::Unset.to_field().to_resolve(),
             color: UiValue::Unset.to_resolve(),
+            align_x: UiValue::Unset.to_resolve(),
+            align_y: UiValue::Unset.to_resolve(),
         },
         transform: TransformStyle {
             translate: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
@@ -140,7 +147,9 @@ pub struct UiStyle {
     pub origin: Resolve<Origin>,
     pub position: Resolve<Position>,
     pub direction: Resolve<Direction>,
-    pub child_align: Resolve<ChildAlign>,
+    pub child_align_x: Resolve<ChildAlign>,
+    pub child_align_y: Resolve<ChildAlign>,
+
     pub background: ShapeStyle,
     pub border: ShapeStyle,
 
@@ -161,7 +170,7 @@ impl UiStyle {
         self.origin.merge_unset(&other.origin);
         self.position.merge_unset(&other.position);
         self.direction.merge_unset(&other.direction);
-        self.child_align.merge_unset(&other.child_align);
+        self.child_align_x.merge_unset(&other.child_align_x);
         self.background.merge_unset(&other.background);
         self.border.merge_unset(&other.border);
         self.text.merge_unset(&other.text);
@@ -180,7 +189,7 @@ pub enum Origin {
     BottomRight,
     Center,
     Custom(i32, i32),
-    Eval(fn(i32, i32, i32, i32) -> (i32, i32)),
+    Eval(fn(i32, i32, i32, i32, &UiElementState) -> (i32, i32)),
 }
 
 impl Origin {
@@ -206,14 +215,15 @@ impl Origin {
             Origin::BottomLeft => x,
             Origin::TopRight => x - width,
             Origin::BottomRight => x - width,
-            Origin::Center => x - width / 2,
-            Origin::Custom(cx, _) => x - cx,
+            Origin::Center => x + width / 2,
+            Origin::Custom(cx, _) => x + cx,
             Origin::Eval(f) => {
                 let res = f(
                     state.bounding_rect.x(),
                     state.bounding_rect.y(),
                     state.bounding_rect.width(),
                     state.bounding_rect.height(),
+                    state,
                 );
                 x - res.0
             }
@@ -226,7 +236,7 @@ impl Origin {
             Origin::BottomLeft => y,
             Origin::TopRight => y - height,
             Origin::BottomRight => y,
-            Origin::Center => y - height / 2,
+            Origin::Center => y + height / 2,
             Origin::Custom(_, cy) => y - cy,
             Origin::Eval(f) => {
                 let res = f(
@@ -234,6 +244,7 @@ impl Origin {
                     state.bounding_rect.y(),
                     state.bounding_rect.width(),
                     state.bounding_rect.height(),
+                    state,
                 );
                 y - res.1
             }
@@ -263,6 +274,14 @@ pub enum TextFit {
 }
 
 #[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum TextAlign {
+    Start,
+    #[default]
+    Middle,
+    End
+}
+
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ChildAlign {
     #[default]
     Start,
@@ -282,6 +301,8 @@ pub struct TextStyle {
     pub font: Resolve<usize>,
     pub fit: Resolve<TextFit>,
     pub color: Resolve<RgbColor>,
+    pub align_x: Resolve<TextAlign>,
+    pub align_y: Resolve<TextAlign>,
 }
 
 blanked_partial_ord!(TextStyle);
@@ -298,6 +319,8 @@ impl TextStyle {
             font: UiValue::Auto.into(),
             fit: UiValue::Auto.into(),
             color: UiValue::Auto.into(),
+            align_x: UiValue::Auto.into(),
+            align_y: UiValue::Auto.into(),
         }
     }
 
@@ -409,7 +432,12 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         Resolve::LayoutField(self)
     }
 
-    fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
+    fn resolve<F>(
+        &self,
+        dpi: f32,
+        parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -681,11 +709,12 @@ impl SideStyle {
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
-        PF: Fn(&UiElementState) -> &[i32; 4] //t, b, l, r
+        PF: Fn(&UiElementState) -> &[i32; 4], //t, b, l, r
     {
         let parent = elem.state().parent.clone();
 
-        let top = self.top
+        let top = self
+            .top
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).top
             });
@@ -697,7 +726,8 @@ impl SideStyle {
             self.top.is_auto().yn(5, 0)
         };
 
-        let bottom = self.bottom
+        let bottom = self
+            .bottom
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).bottom
             });
@@ -709,7 +739,8 @@ impl SideStyle {
             self.bottom.is_auto().yn(5, 0)
         };
 
-        let left = self.left
+        let left = self
+            .left
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).left
             });
@@ -721,7 +752,8 @@ impl SideStyle {
             self.left.is_auto().yn(5, 0)
         };
 
-        let right = self.right
+        let right = self
+            .right
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).right
             });
@@ -748,13 +780,13 @@ impl SideStyle {
 pub enum BackgroundRes {
     #[default]
     Color,
-    Texture
+    Texture,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum UiShape {
     Shape(usize),
-    Adaptive(usize)
+    Adaptive(usize),
 }
 
 impl Default for UiShape {
@@ -768,7 +800,7 @@ pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
     pub texture: Resolve<BasicInterpolatable<usize>>,
-    pub shape: Resolve<BasicInterpolatable<UiShape>>
+    pub shape: Resolve<BasicInterpolatable<UiShape>>,
 }
 
 impl ShapeStyle {
@@ -777,7 +809,8 @@ impl ShapeStyle {
             resource: UiValue::Just(BackgroundRes::Color.into()).to_resolve(),
             color: UiValue::Just(RgbColor::white().into()).to_resolve(),
             texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect)))
+                .to_resolve(),
         }
     }
 
@@ -795,7 +828,12 @@ pub enum Resolve<T: PartialOrd + Clone + 'static> {
 }
 
 impl<T: PartialOrd + Clone + 'static> Resolve<T> {
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
+    pub fn resolve<F>(
+        &self,
+        dpi: f32,
+        parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -871,15 +909,14 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
         match self {
             Resolve::UiValue(value) => match value {
                 UiValue::Just(j) => Some(j),
-                _ => None
-            }
-            Resolve::LayoutField(field) => {
-                match &field.value {
-                    UiValue::Just(j) => Some(j),
-                    _ => None
-                }
-            }
-        }.unwrap()
+                _ => None,
+            },
+            Resolve::LayoutField(field) => match &field.value {
+                UiValue::Just(j) => Some(j),
+                _ => None,
+            },
+        }
+        .unwrap()
     }
 }
 
@@ -904,7 +941,7 @@ pub enum UiValue<T: Clone + 'static> {
     Inherit,
     Just(T),
     Measurement(Unit),
-    Percent(f32)
+    Percent(f32),
 }
 
 pub enum ResolveResult<T> {
@@ -912,7 +949,7 @@ pub enum ResolveResult<T> {
     Auto,
     None,
     UseDefault,
-    Percent(f32)
+    Percent(f32),
 }
 
 impl<T: Clone> Clone for ResolveResult<T> {
@@ -922,7 +959,7 @@ impl<T: Clone> Clone for ResolveResult<T> {
             ResolveResult::Auto => ResolveResult::Auto,
             ResolveResult::None => ResolveResult::None,
             ResolveResult::UseDefault => ResolveResult::UseDefault,
-            ResolveResult::Percent(p) => ResolveResult::Percent(*p)
+            ResolveResult::Percent(p) => ResolveResult::Percent(*p),
         }
     }
 }
@@ -931,14 +968,14 @@ impl<T> ResolveResult<T> {
     pub fn unwrap(self) -> T {
         match self {
             Self::Value(t) => t,
-            _ => panic!("Unwrapped empty UiValueResult!")
+            _ => panic!("Unwrapped empty UiValueResult!"),
         }
     }
 
     pub fn unwrap_or(self, or: T) -> T {
         match self {
             Self::Value(t) => t,
-            _ => or
+            _ => or,
         }
     }
 
@@ -967,7 +1004,7 @@ impl<T: PartialOrd + Clone + 'static> ResolveResult<T> {
     pub fn unwrap_or_default(self, default: &Resolve<T>) -> T {
         match self {
             Self::Value(t) => t,
-            _ => default.resolve_just().clone()
+            _ => default.resolve_just().clone(),
         }
     }
 }
@@ -976,21 +1013,36 @@ impl ResolveResult<i32> {
     pub fn compute_percent(&self, parent: i32) -> i32 {
         match self {
             ResolveResult::Percent(p) => (*p * parent as f32) as i32,
-            _ => parent
+            _ => parent,
         }
     }
 
-    pub fn unwrap_or_default_or_percentage<F>(self, default: &Resolve<i32>, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> i32 where F: Fn(&UiElementState) -> i32 {
+    pub fn unwrap_or_default_or_percentage<F>(
+        self,
+        default: &Resolve<i32>,
+        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> i32
+    where
+        F: Fn(&UiElementState) -> i32,
+    {
         if self.is_percent() {
             return self.resolve_percent(maybe_parent, map);
         }
         match self {
             Self::Value(t) => t,
-            _ => default.resolve_just().clone()
+            _ => default.resolve_just().clone(),
         }
     }
 
-    pub fn resolve_percent<F>(&self, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> i32 where F: Fn(&UiElementState) -> i32 {
+    pub fn resolve_percent<F>(
+        &self,
+        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> i32
+    where
+        F: Fn(&UiElementState) -> i32,
+    {
         if let Some(parent) = maybe_parent {
             let binding = parent.get();
             let total = map(binding.state());
@@ -1005,21 +1057,36 @@ impl ResolveResult<f32> {
     pub fn compute_percent(&self, parent: f32) -> f32 {
         match self {
             ResolveResult::Percent(p) => *p * parent,
-            _ => parent
+            _ => parent,
         }
     }
 
-    pub fn unwrap_or_default_or_percentage<F>(self, default: &Resolve<f32>, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> f32 where F: Fn(&UiElementState) -> f32 {
+    pub fn unwrap_or_default_or_percentage<F>(
+        self,
+        default: &Resolve<f32>,
+        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> f32
+    where
+        F: Fn(&UiElementState) -> f32,
+    {
         if self.is_percent() {
             return self.resolve_percent(maybe_parent, map);
         }
         match self {
             Self::Value(t) => t,
-            _ => default.resolve_just().clone()
+            _ => default.resolve_just().clone(),
         }
     }
 
-    pub fn resolve_percent<F>(&self, maybe_parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> f32 where F: Fn(&UiElementState) -> f32 {
+    pub fn resolve_percent<F>(
+        &self,
+        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> f32
+    where
+        F: Fn(&UiElementState) -> f32,
+    {
         if let Some(parent) = maybe_parent {
             let binding = parent.get();
             let total = map(binding.state());
@@ -1039,7 +1106,12 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
         Resolve::UiValue(self)
     }
 
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Rc<DangerousCell<UiElement>>>, map: F) -> ResolveResult<T>
+    pub fn resolve<F>(
+        &self,
+        dpi: f32,
+        parent: Option<Rc<DangerousCell<UiElement>>>,
+        map: F,
+    ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
@@ -1047,19 +1119,12 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
             UiValue::None => ResolveResult::None,
             UiValue::Auto => ResolveResult::Auto,
             UiValue::Inherit => {
-                if parent.is_none() { return ResolveResult::UseDefault; }
+                if parent.is_none() {
+                    return ResolveResult::UseDefault;
+                }
                 let lock = parent.clone().unwrap();
                 let guard = lock.get();
-                map(guard.style()).resolve(
-                    dpi,
-                    parent
-                        .unwrap()
-                        .get()
-                        .state()
-                        .parent
-                        .clone(),
-                    map,
-                )
+                map(guard.style()).resolve(dpi, parent.unwrap().get().state().parent.clone(), map)
             }
             UiValue::Just(v) => ResolveResult::Value(v.clone()),
             UiValue::Measurement(u) => {
@@ -1119,7 +1184,7 @@ pub trait Interpolator<T: PartialOrd + Clone + 'static> {
 
 #[derive(Clone)]
 pub struct BasicInterpolatable<T: Clone + 'static> {
-    t: T
+    t: T,
 }
 
 impl<T: Clone> PartialEq<Self> for BasicInterpolatable<T> {
@@ -1142,9 +1207,7 @@ impl<T: Clone + 'static> From<T> for BasicInterpolatable<T> {
 
 impl<T: Clone + 'static> BasicInterpolatable<T> {
     pub const fn new(t: T) -> Self {
-        Self {
-            t,
-        }
+        Self { t }
     }
 }
 
@@ -1152,7 +1215,7 @@ impl<T: Clone + 'static> Interpolator<BasicInterpolatable<T>> for BasicInterpola
     fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
     where
         E: UiElementStub,
-        F: Fn(&UiStyle) -> &Self
+        F: Fn(&UiStyle) -> &Self,
     {
         if percent > 50.0 {
             end.clone_into(self);
@@ -1295,15 +1358,50 @@ impl Interpolator<UiStyle> for UiStyle {
         self.origin = (percent < 50f32).yn(start.origin.clone(), end.origin.clone());
         self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
         self.direction = (percent < 50f32).yn(start.direction.clone(), end.direction.clone());
-        self.child_align = (percent < 50f32).yn(start.child_align.clone(), end.child_align.clone());
+        self.child_align_x =
+            (percent < 50f32).yn(start.child_align_x.clone(), end.child_align_x.clone());
 
-        self.background.resource.interpolate(&start.background.resource, &end.background.resource, percent, elem, |s| &s.background.resource);
-        self.background.color.interpolate(&start.background.color, &end.background.color, percent, elem, |s| &s.background.color);
-        self.background.texture.interpolate(&start.background.texture, &end.background.texture, percent, elem, |s| &s.background.texture);
+        self.background.resource.interpolate(
+            &start.background.resource,
+            &end.background.resource,
+            percent,
+            elem,
+            |s| &s.background.resource,
+        );
+        self.background.color.interpolate(
+            &start.background.color,
+            &end.background.color,
+            percent,
+            elem,
+            |s| &s.background.color,
+        );
+        self.background.texture.interpolate(
+            &start.background.texture,
+            &end.background.texture,
+            percent,
+            elem,
+            |s| &s.background.texture,
+        );
 
-        self.border.resource.interpolate(&start.border.resource, &end.border.resource, percent, elem, |s| &s.border.resource);
-        self.border.color.interpolate(&start.border.color, &end.border.color, percent, elem, |s| &s.border.color);
-        self.border.texture.interpolate(&start.border.texture, &end.border.texture, percent, elem, |s| &s.border.texture);
+        self.border.resource.interpolate(
+            &start.border.resource,
+            &end.border.resource,
+            percent,
+            elem,
+            |s| &s.border.resource,
+        );
+        self.border
+            .color
+            .interpolate(&start.border.color, &end.border.color, percent, elem, |s| {
+                &s.border.color
+            });
+        self.border.texture.interpolate(
+            &start.border.texture,
+            &end.border.texture,
+            percent,
+            elem,
+            |s| &s.border.texture,
+        );
 
         self.text
             .size
@@ -1374,14 +1472,8 @@ impl Interpolator<UiStyle> for UiStyle {
 }
 
 impl Interpolator<TextStyle> for TextStyle {
-    fn interpolate<E, F>(
-        &mut self,
-        start: &Self,
-        end: &TextStyle,
-        percent: f32,
-        elem: &E,
-        f: F,
-    ) where
+    fn interpolate<E, F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &E, f: F)
+    where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
     {
@@ -1405,14 +1497,8 @@ impl Interpolator<TextStyle> for TextStyle {
 impl<T: Interpolator<T> + Num + Clone + Debug + PartialOrd + 'static> Interpolator<Dimension<T>>
     for Dimension<T>
 {
-    fn interpolate<E, F>(
-        &mut self,
-        start: &Self,
-        end: &Dimension<T>,
-        percent: f32,
-        elem: &E,
-        f: F,
-    ) where
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Dimension<T>, percent: f32, elem: &E, f: F)
+    where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
     {

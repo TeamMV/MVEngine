@@ -4,14 +4,18 @@ use crate::input::consts::Key;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::ui::Ui;
 use crate::window::app::WindowCallbacks;
+use glutin::{
+    ContextError, CreationError, ElementState, Event, MouseButton, MouseScrollDelta,
+    VirtualKeyCode, WindowBuilder,
+};
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
-use mvutils::remake::Remake;
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use parking_lot::Mutex;
 use std::mem;
 use std::ops::FromResidual;
+use std::sync::Arc;
 use std::time::SystemTime;
-use glutin::{ContextError, CreationError, ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowBuilder};
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -107,7 +111,7 @@ pub enum State {
 #[derive(Debug)]
 pub enum Error {
     Window(CreationError),
-    OpenGL(ContextError)
+    OpenGL(ContextError),
 }
 
 impl From<CreationError> for Error {
@@ -141,13 +145,16 @@ pub struct Window {
     pub input: Input,
     pressed_keys: HashSet<Key>,
 
-    pub ui: Ui
+    pub(crate) ui: Arc<DangerousCell<Ui>>,
 }
 
 impl Window {
     pub fn new(info: WindowCreateInfo) -> Self {
         let frame_time_nanos = NANOS_PER_SEC / info.fps as u64;
         let update_time_nanos = NANOS_PER_SEC / info.ups as u64;
+
+        let ui = Ui::new();
+        let ui = Arc::new(DangerousCell::new(ui));
 
         Window {
             info,
@@ -163,9 +170,9 @@ impl Window {
             time_u: SystemTime::now(),
             cached_pos: (0, 0),
             cached_size: (0, 0),
-            input: Input::new(),
+            input: Input::new(ui.clone()),
             pressed_keys: HashSet::new(),
-            ui: Ui::new(),
+            ui,
         }
     }
 
@@ -194,10 +201,10 @@ impl Window {
         }
 
         let w = window.build()?;
-        unsafe { w.make_current()?; }
-        gl::load_with(|symbol| {
-            w.get_proc_address(symbol) as *const _
-        });
+        unsafe {
+            w.make_current()?;
+        }
+        gl::load_with(|symbol| w.get_proc_address(symbol) as *const _);
 
         unsafe {
             //bindless::load_bindless_texture_functions(&w);
@@ -207,6 +214,7 @@ impl Window {
 
         let this = unsafe { Unsafe::cast_mut_static(&mut self) };
         let this2 = unsafe { Unsafe::cast_mut_static(&mut self) };
+        let this3 = unsafe { Unsafe::cast_mut_static(&mut self) };
         app_loop.post_init(&mut self);
 
         self.handle.show();
@@ -237,32 +245,50 @@ impl Window {
                                 } else {
                                     RawInputEvent::Keyboard(KeyboardAction::Type(code))
                                 }
-                            },
+                            }
                             ElementState::Released => {
                                 self.pressed_keys.remove(&code);
                                 RawInputEvent::Keyboard(KeyboardAction::Release(code))
                             }
                         };
-                        this.input.collector.dispatch_input(event, &self.input);
+                        this.input.collector.dispatch_input(event, &self.input, this3);
                     }
                     Event::MouseMoved(x, y) => {
-                        this.input.collector.dispatch_input(RawInputEvent::Mouse(MouseAction::Move(x, y)), &self.input);
+                        this.input.collector.dispatch_input(
+                            RawInputEvent::Mouse(MouseAction::Move(x, self.info.height as i32 - y)),
+                            &self.input,
+                            this3
+                        );
                         self.input.mouse_x = x;
-                        self.input.mouse_y = y;
+                        self.input.mouse_y = self.info.height as i32 - y;
                     }
                     Event::MouseWheel(delta, touch_phase, x) => {
                         if let MouseScrollDelta::PixelDelta(dx, dy) = delta {
-                            this.input.collector.dispatch_input(RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)), &self.input);
+                            this.input.collector.dispatch_input(
+                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                &self.input,
+                                this3
+                            );
                         }
                     }
                     Event::MouseInput(i, d, k) => {
-                        let button = unsafe { mem::transmute::<MouseButton, crate::input::consts::MouseButton>(d) };
+                        let button = unsafe {
+                            mem::transmute::<MouseButton, crate::input::consts::MouseButton>(d)
+                        };
                         match i {
                             ElementState::Pressed => {
-                                this.input.collector.dispatch_input(RawInputEvent::Mouse(MouseAction::Press(button)), &self.input);
+                                this.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Press(button)),
+                                    &self.input,
+                                    this3
+                                );
                             }
                             ElementState::Released => {
-                                this.input.collector.dispatch_input(RawInputEvent::Mouse(MouseAction::Release(button)), &self.input);
+                                this.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Release(button)),
+                                    &self.input,
+                                    this3
+                                );
                             }
                         }
                     }
@@ -368,30 +394,30 @@ impl Window {
             self.handle.set_position(0, 0);
             let (w, h) = monitor.get_dimensions();
             self.handle.set_inner_size(w, h);
-
         } else {
             let (x, y) = self.cached_pos;
             let (w, h) = self.cached_size;
             self.info.width = w;
             self.info.height = h;
 
-            self.handle.set_position(self.cached_pos.0, self.cached_pos.1);
+            self.handle
+                .set_position(self.cached_pos.0, self.cached_pos.1);
             let (w, h) = self.cached_size;
             self.handle.set_inner_size(w, h);
         }
     }
 
     pub fn ui(&self) -> &Ui {
-        &self.ui
+        self.ui.get()
     }
 
-    pub fn ui_mut (&mut self) -> &mut Ui {
-        &mut self.ui
+    pub fn ui_mut(&mut self) -> &mut Ui {
+        self.ui.get_mut()
     }
 }
 
 pub struct UninitializedWindow<'window> {
-    inner: &'window mut Window
+    inner: &'window mut Window,
 }
 
 impl<'window> UninitializedWindow<'window> {

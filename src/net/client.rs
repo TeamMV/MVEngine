@@ -1,71 +1,118 @@
-use std::io::Read;
-use std::net::TcpStream;
-use std::sync::Arc;
-use std::time::Duration;
+use std::io::{ErrorKind, Write};
+use std::marker::PhantomData;
+use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+use std::thread;
+use std::thread::JoinHandle;
 use bytebuffer::ByteBuffer;
-use log::{info, warn};
+use crossbeam_channel::Sender;
+use log::{debug, error, info, warn};
 use mvutils::save::Savable;
-use mvutils::unsafe_utils::DangerousCell;
-use crate::net::{middleware, ConnectionHandler, DisconnectReason, PacketHandler};
+use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 
-#[derive(Clone)]
-pub struct ClientEndpoint {
-    pub(crate) id: u64,
-    pub(crate) socket: Arc<DangerousCell<TcpStream>>,
-    pub(crate) addr: String,
+pub struct Client<In: Savable, Out: Savable> {
+    _maker: PhantomData<In>,
+    thread: JoinHandle<()>,
+    disconnect_sender: Sender<DisconnectReason>,
+    packet_sender: Sender<Out>
 }
 
-impl ClientEndpoint {
-    pub(crate) fn new<In: Savable + 'static, Out: Savable + 'static, Handler: PacketHandler<In> + 'static>(socket: TcpStream, connection_handler: Arc<ConnectionHandler<In, Out, Server, Handler>>) -> Self {
-        let addr = socket.peer_addr().map(|a| a.to_string()).unwrap_or("<invalid address>".to_string());
-        info!("Incoming connection from {addr}");
-        let this = Self {
-            id: mvutils::utils::next_id("MVEngine::Network::client_endpoint"),
-            socket: Arc::new(DangerousCell::new(socket)),
-            addr,
-        };
-        let _ = this.socket.get_mut().set_read_timeout(Some(Duration::from_secs(1)));
-        let _ = this.socket.get_mut().set_write_timeout(Some(Duration::from_secs(1)));
+impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
+    pub fn connect<Handler: ClientHandler<In> + 'static>(to: impl ToSocketAddrs) -> Option<Self> {
+        let tcp = TcpStream::connect(to);
+        if let Err(e) = tcp {
+            error!("Could not connect to server, {e}");
+            return None;
+        }
+        let mut tcp = tcp.unwrap();
+        if let Err(_) = tcp.set_nonblocking(true) {
+            error!("Cannot set TcpStream into non-blocking mode");
+            return None;
+        }
+        info!("Connected to server");
 
-        let this2 = this.clone();
-        std::thread::spawn(move || {
-            let socket = this2.get_socket();
+        let (disconnect_sen, disconnect_rec) = crossbeam_channel::unbounded();
+        let (packet_sen, packet_rec) = crossbeam_channel::unbounded::<Out>();
+
+        let cloned_dis_sen = disconnect_sen.clone();
+
+        let handler = Handler::on_connected();
+        let handle = thread::spawn(move || {
             loop {
-                let mut len_buffer = [0u8; 4];
-                if let Err(_) = socket.get_mut().read_exact(len_buffer.as_mut()) {
-                    warn!("Failed to read from {}", this2.addr);
-                    connection_handler.disconnect(this2.id, DisconnectReason::TimedOut);
-                    break;
-                } else {
-                    let len = u32::from_le_bytes(len_buffer);
-                    let mut buffer = vec![0u8; len as usize];
-                    if let Err(_) = socket.get_mut().read_exact(buffer.as_mut()) {
-                        warn!("Failed to read from {}", this2.addr);
-                        connection_handler.disconnect(this2.id, DisconnectReason::TimedOut);
-                        break;
-                    } else {
-                        let buffer = middleware::decode(buffer);
-                        let mut bytebuffer = ByteBuffer::from_bytes(buffer.as_slice());
-                        let packet = In::load(&mut bytebuffer);
-                        match packet {
-                            Ok(in_packet) => {
-                                connection_handler.handler.incoming(&*connection_handler, this2.id, in_packet);
+                if let Ok(reason) = disconnect_rec.try_recv() {
+                    debug!("Disconnecting from server, reason: {reason:?}");
+                    if let Err(e) =  tcp.shutdown(Shutdown::Both) {
+                        warn!("Error when shutting down socket connection: {e}");
+                    }
+                    return;
+                }
+
+                while let Ok(packet) = packet_rec.try_recv() {
+                    //build data (len_u32+bytes)
+                    let mut buffer = ByteBuffer::new();
+                    packet.save(&mut buffer);
+                    let len = buffer.len() as u32;
+                    let len_bytes: [u8; 4] = len.to_le_bytes();
+                    let mut vec = len_bytes.to_vec();
+                    vec.extend(buffer.into_vec());
+
+                    //write data
+                    if let Err(e) = tcp.write_all(&vec) {
+                        warn!("Error when attempting to write packet: {e}");
+                    }
+                }
+
+                let mut packet = try_read_packet::<In>(&mut tcp);
+                while let Ok(inner) = packet {
+                    handler.on_packet(inner);
+                    packet = try_read_packet::<In>(&mut tcp);
+                }
+                if let Some(e) = packet.err() {
+                    if let ReadPacketError::FromTcp(tcp_err) = e {
+                        match tcp_err.kind() {
+                            ErrorKind::TimedOut => {
+                                if let Err(e) = disconnect_sen.send(DisconnectReason::TimedOut) {
+                                    warn!("Error when attempting to send disconnect to server thread: {e}");
+                                }
                             }
-                            Err(error) => {
-                                warn!("Malformed packet: {error}");
+                            ErrorKind::ConnectionReset
+                            | ErrorKind::ConnectionAborted
+                            | ErrorKind::UnexpectedEof
+                            | ErrorKind::BrokenPipe
+                            | ErrorKind::NotConnected => {
+                                if let Err(e) = disconnect_sen.send(DisconnectReason::Disconnected) {
+                                    warn!("Error when attempting to send disconnect to server thread: {e}");
+                                }
                             }
+                            _ => {}
                         }
                     }
                 }
             }
         });
-        this
+
+        Self {
+            _maker: PhantomData::default(),
+            thread: handle,
+            disconnect_sender: cloned_dis_sen,
+            packet_sender: packet_sen,
+        }.into()
     }
 
-    fn get_socket(&self) -> Arc<DangerousCell<TcpStream>> {
-        self.socket.clone()
+    pub fn disconnect(&mut self, reason: DisconnectReason) {
+        if let Err(e) = self.disconnect_sender.send(reason) {
+            warn!("Error when attempting to send disconnect to server thread: {e}");
+        }
+    }
+
+    pub fn send(&mut self, packet: Out) {
+        if let Err(e) = self.packet_sender.send(packet) {
+            warn!("Error when sending packet: {e}");
+        }
     }
 }
 
-unsafe impl Send for ClientEndpoint {}
-unsafe impl Sync for ClientEndpoint {}
+pub trait ClientHandler<In: Savable>: Send {
+    fn on_connected() -> Self;
+    fn on_disconnected(&self, reason: DisconnectReason);
+    fn on_packet(&self, packet: In);
+}

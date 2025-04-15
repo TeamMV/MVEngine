@@ -1,20 +1,23 @@
-use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::Percentage;
 use crate::ui::anim::{easing, ElementAnimationInfo, FillMode};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::{ElementBody, TextBody};
+use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, Interpolator, UiStyle, EMPTY_STYLE};
+use crate::ui::styles::{Dimension, Interpolator, TextAlign, UiStyle, EMPTY_STYLE};
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::Percentage;
+use std::ops::Deref;
+use crate::resolve;
+use crate::ui::res::MVR;
 
 #[derive(Clone)]
 enum State {
     In,
-    Out
+    Out,
 }
 
 #[derive(Clone)]
@@ -44,7 +47,7 @@ impl Button {
     pub fn set_easing(&mut self, easing: Easing) {
         self.easing = easing;
     }
-    
+
     fn start_animation_in(&mut self) {
         unsafe {
             if TIMING_MANAGER.is_present(self.state.last_animation) {
@@ -65,7 +68,13 @@ impl Button {
                         let percent = static_elem.easing.get(percent);
 
                         let static_style = Unsafe::cast_mut_static(&mut static_elem.style);
-                        static_style.interpolate(static_from, static_to, percent, static_elem, |s| s);
+                        static_style.interpolate(
+                            static_from,
+                            static_to,
+                            percent,
+                            static_elem,
+                            |s| s,
+                        );
 
                         if percent >= 100.0 {
                             static_elem.style.clone_from(static_to);
@@ -99,7 +108,13 @@ impl Button {
                         let percent = static_elem.easing.get(percent);
 
                         let static_style = Unsafe::cast_mut_static(&mut static_elem.style);
-                        static_style.interpolate(static_from, static_to, percent, static_elem, |s| s);
+                        static_style.interpolate(
+                            static_from,
+                            static_to,
+                            percent,
+                            static_elem,
+                            |s| s,
+                        );
 
                         if percent >= 100.0 {
                             static_elem.style.clone_from(static_to);
@@ -116,7 +131,6 @@ impl Button {
 
 impl UiElementCallbacks for Button {
     fn draw(&mut self, ctx: &mut DrawContext2D) {
-
         //todo move into ui action processor (for each element have a fn(action: RawInputEvent))
         //let (mx, my) = (input.positions[0], input.positions[1]);
         //if self.inside(mx, my) {
@@ -151,7 +165,11 @@ impl UiElementCallbacks for Button {
                     let mut guard = e.get_mut();
                     guard.draw(ctx);
                 }
-                Child::State(_) => {}
+                Child::State(s) => {
+                    let guard = s.read();
+                    let s = guard.deref();
+                    self.text_body.draw(s, this, ctx, &self.context);
+                }
             }
         }
     }
@@ -160,7 +178,7 @@ impl UiElementCallbacks for Button {
 impl UiElementStub for Button {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
-        Self: Sized
+        Self: Sized,
     {
         Self {
             context: context.clone(),

@@ -18,30 +18,28 @@ pub enum Token {
 impl Token {
     pub fn ord(&self) -> u8 {
         let ptr_to_option = (self as *const Token) as *const u8;
-        unsafe {
-            *ptr_to_option
-        }
+        unsafe { *ptr_to_option }
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) enum NumberLit {
     Int(i32),
-    Float(f32)
+    Float(f32),
 }
 
 impl NumberLit {
     pub(crate) fn as_f32(&self) -> f32 {
         match self {
             NumberLit::Int(i) => *i as f32,
-            NumberLit::Float(f) => *f
+            NumberLit::Float(f) => *f,
         }
     }
 
     pub(crate) fn as_i32(&self) -> i32 {
         match self {
             NumberLit::Int(i) => *i,
-            NumberLit::Float(f) => *f as i32
+            NumberLit::Float(f) => *f as i32,
         }
     }
 }
@@ -50,7 +48,7 @@ pub struct TokenStream<'a> {
     chars: Peekable<Chars<'a>>,
     in_struct: bool,
     bracket_depth: i32,
-    putback: VecDeque<Token>
+    putback: VecDeque<Token>,
 }
 
 impl<'a> TokenStream<'a> {
@@ -72,10 +70,22 @@ impl<'a> TokenStream<'a> {
         if let Some(start) = start {
             s.push(start);
         }
-        if self.chars.peek().is_some_and(|c| !Self::char_str_valid(*c, allow_numbers)) { return s; }
+        if self
+            .chars
+            .peek()
+            .is_some_and(|c| !Self::char_str_valid(*c, allow_numbers))
+        {
+            return s;
+        }
         while let Some(next) = self.chars.next() {
             s.push(next);
-            if self.chars.peek().is_some_and(|c| !Self::char_str_valid(*c, allow_numbers)) { return s; }
+            if self
+                .chars
+                .peek()
+                .is_some_and(|c| !Self::char_str_valid(*c, allow_numbers))
+            {
+                return s;
+            }
         }
         s
     }
@@ -91,10 +101,22 @@ impl<'a> TokenStream<'a> {
     fn parse_number(&mut self, start: char) -> Option<NumberLit> {
         let mut num_str = String::new();
         num_str.push(start);
-        if self.chars.peek().is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-') { return self.get_lit_from_str(num_str); }
+        if self
+            .chars
+            .peek()
+            .is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-')
+        {
+            return self.get_lit_from_str(num_str);
+        }
         while let Some(next) = self.chars.next() {
             num_str.push(next);
-            if self.chars.peek().is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-') { return self.get_lit_from_str(num_str); }
+            if self
+                .chars
+                .peek()
+                .is_some_and(|c| !c.is_numeric() && *c != '.' && *c != '-')
+            {
+                return self.get_lit_from_str(num_str);
+            }
         }
         self.get_lit_from_str(num_str)
     }
@@ -155,18 +177,24 @@ impl Iterator for TokenStream<'_> {
         let mut next = next.unwrap();
         while next.is_whitespace() {
             let n = self.chars.next();
-            if n.is_none() { return None }
+            if n.is_none() {
+                return None;
+            }
             next = n.unwrap();
         }
         if next == '#' {
             while next != '\n' {
                 let n = self.chars.next();
-                if n.is_none() { return None }
+                if n.is_none() {
+                    return None;
+                }
                 next = n.unwrap();
             }
             while next.is_whitespace() {
                 let n = self.chars.next();
-                if n.is_none() { return None }
+                if n.is_none() {
+                    return None;
+                }
                 next = n.unwrap();
             }
         }
@@ -178,14 +206,14 @@ impl Iterator for TokenStream<'_> {
                 self.in_struct = true;
                 self.bracket_depth += 1;
                 Some(Token::LBracket)
-            },
+            }
             ']' => {
                 self.bracket_depth -= 1;
                 if self.bracket_depth <= 0 {
                     self.in_struct = false;
                 }
                 Some(Token::RBracket)
-            },
+            }
             '>' => {
                 let s = self.parse_next_str(None, true);
                 Some(Token::Selector(s))
@@ -197,7 +225,7 @@ impl Iterator for TokenStream<'_> {
                         Some(Token::Number(lit.unwrap()))
                     } else {
                         Some(Token::Error("Unable to parse number".to_string()))
-                    }
+                    };
                 }
                 let s = self.parse_next_str(Some(next), !self.in_struct);
                 Some(Token::Identifier(s))

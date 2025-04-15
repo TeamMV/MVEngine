@@ -1,20 +1,20 @@
+use crate::rendering::bindless;
 use gl::types::{GLint, GLsizei, GLuint, GLuint64};
 use image::{GenericImageView, ImageError};
 use mvutils::utils::TetrahedronOp;
-use crate::rendering::bindless;
 
 #[derive(Clone)]
 pub struct Texture {
     pub id: GLuint,
     pub handle: GLuint64,
-    pub dimensions: (u32, u32)
+    pub dimensions: (u32, u32),
 }
 
 impl Texture {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ImageError> {
         Self::from_bytes_sampled(bytes, false)
     }
-    
+
     pub fn from_bytes_sampled(bytes: &[u8], smooth: bool) -> Result<Self, ImageError> {
         let img = image::load_from_memory(bytes)?;
         let (width, height) = img.dimensions();
@@ -30,10 +30,26 @@ impl Texture {
 
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                smooth.yn(gl::LINEAR, gl::NEAREST) as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                smooth.yn(gl::LINEAR, gl::NEAREST) as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_EDGE as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_EDGE as GLint,
+            );
 
             gl::TexImage2D(
                 gl::TEXTURE_2D,
@@ -49,10 +65,14 @@ impl Texture {
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
 
-            handle = 0;//bindless::GetTextureHandleARB(texture_id);
+            handle = 0; //bindless::GetTextureHandleARB(texture_id);
         }
 
-        Ok(Self { id: texture_id, handle, dimensions: (width, height) })
+        Ok(Self {
+            id: texture_id,
+            handle,
+            dimensions: (width, height),
+        })
     }
 
     pub fn get_uv(&self) -> [(f32, f32); 4] {

@@ -1,3 +1,4 @@
+use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
@@ -5,11 +6,10 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{batch, bindless, PrimitiveRenderer, Vertex};
 use crate::window::Window;
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint, GLuint64};
+use itertools::Itertools;
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
-use itertools::Itertools;
-use crate::color::RgbColor;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -28,13 +28,15 @@ pub struct LightOpenGLRenderer {
     offscreen_target_1: GLuint,
     offscreen_target_2: GLuint,
     renderbuffer: GLuint,
-    depth_texture: GLuint
+    depth_texture: GLuint,
 }
 
 impl LightOpenGLRenderer {
     pub unsafe fn prepare(window: &Window) {
         let handle = window.get_handle();
-        handle.make_current().expect("Cannot make OpenGL context current");
+        handle
+            .make_current()
+            .expect("Cannot make OpenGL context current");
     }
 
     pub unsafe fn initialize(window: &Window) -> Self {
@@ -75,12 +77,23 @@ impl LightOpenGLRenderer {
         let mut fb = 0;
         gl::GenFramebuffers(1, &mut fb);
         gl::BindFramebuffer(gl::FRAMEBUFFER, fb);
-        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, offscreen_target_1, 0);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            offscreen_target_1,
+            0,
+        );
 
         let mut rb = 0;
         gl::GenRenderbuffers(1, &mut rb);
         gl::BindRenderbuffer(gl::RENDERBUFFER, rb);
-        gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT, window.info().width as GLsizei, window.info().height as GLsizei);
+        gl::RenderbufferStorage(
+            gl::RENDERBUFFER,
+            gl::DEPTH_COMPONENT,
+            window.info().width as GLsizei,
+            window.info().height as GLsizei,
+        );
         gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, rb);
 
         gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
@@ -105,13 +118,24 @@ impl LightOpenGLRenderer {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
-        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, depth_texture, 0);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_ATTACHMENT,
+            gl::TEXTURE_2D,
+            depth_texture,
+            0,
+        );
 
         gl::Enable(gl::DEPTH_TEST);
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
-        gl::Viewport(0, 0, window.info().width as GLsizei, window.info().height as GLsizei);
+        gl::Viewport(
+            0,
+            0,
+            window.info().width as GLsizei,
+            window.info().height as GLsizei,
+        );
 
         Self {
             ambient: RgbColor::new([50, 50, 50, 255]).as_vec4(),
@@ -123,8 +147,6 @@ impl LightOpenGLRenderer {
             depth_texture,
         }
     }
-
-
 
     pub fn push_light(&mut self, light: Light) {
         self.lights.push(light);
@@ -157,9 +179,7 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         }
     }
 
-    fn end_frame(&mut self) {
-
-    }
+    fn end_frame(&mut self) {}
 
     fn begin_frame_to_target(&mut self, post: &mut RenderTarget) {
         post.framebuffer = self.framebuffer;
@@ -169,7 +189,13 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         post.depth_texture = self.depth_texture;
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer);
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, self.offscreen_target_2, 0);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                self.offscreen_target_2,
+                0,
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::DepthMask(gl::TRUE);
@@ -183,13 +209,35 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         }
     }
 
-    fn draw_data(&mut self, window: &Window, camera: &OrthographicCamera, vertices: &[u8], indices: &[u32], textures: &[GLuint], vbo: GLuint, ibo: GLuint, amount: u32, amount_textures: usize, shader: &mut OpenGLShader) {
+    fn draw_data(
+        &mut self,
+        window: &Window,
+        camera: &OrthographicCamera,
+        vertices: &[u8],
+        indices: &[u32],
+        textures: &[GLuint],
+        vbo: GLuint,
+        ibo: GLuint,
+        amount: u32,
+        amount_textures: usize,
+        shader: &mut OpenGLShader,
+    ) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, vertices.len() as GLsizeiptr, vertices.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                vertices.len() as GLsizeiptr,
+                vertices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, indices.len() as GLsizeiptr * 4, indices.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                indices.len() as GLsizeiptr * 4,
+                indices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             shader.uniform_1f("uResX", window.info.width as f32);
             shader.uniform_1f("uResY", window.info.height as f32);
@@ -235,16 +283,79 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
 
             let stride = batch::VERTEX_SIZE_BYTES as GLsizei;
 
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.translation) as *const c_void);
-            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.origin) as *const c_void);
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.scale) as *const c_void);
-            gl::VertexAttribPointer(3, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.rotation) as *const c_void);
+            gl::VertexAttribPointer(
+                0,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.translation) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.origin) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.scale) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                3,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.rotation) as *const c_void,
+            );
 
-            gl::VertexAttribPointer(4, 3, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, pos) as *const c_void);
-            gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, color) as *const c_void);
-            gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, uv) as *const c_void);
-            gl::VertexAttribPointer(7, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, texture) as *const c_void);
-            gl::VertexAttribPointer(8, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, has_texture) as *const c_void);
+            gl::VertexAttribPointer(
+                4,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, pos) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                5,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, color) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                6,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, uv) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                7,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, texture) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                8,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, has_texture) as *const c_void,
+            );
 
             gl::EnableVertexAttribArray(0);
             gl::EnableVertexAttribArray(1);
@@ -266,13 +377,36 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         }
     }
 
-    fn draw_data_to_target(&mut self, window: &Window, camera: &OrthographicCamera, vertices: &[u8], indices: &[u32], textures: &[GLuint], vbo: GLuint, ibo: GLuint, amount: u32, amount_textures: usize, shader: &mut OpenGLShader, post: &mut RenderTarget) {
+    fn draw_data_to_target(
+        &mut self,
+        window: &Window,
+        camera: &OrthographicCamera,
+        vertices: &[u8],
+        indices: &[u32],
+        textures: &[GLuint],
+        vbo: GLuint,
+        ibo: GLuint,
+        amount: u32,
+        amount_textures: usize,
+        shader: &mut OpenGLShader,
+        post: &mut RenderTarget,
+    ) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, vertices.len() as GLsizeiptr, vertices.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                vertices.len() as GLsizeiptr,
+                vertices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, indices.len() as GLsizeiptr * 4, indices.as_ptr() as *const _, gl::DYNAMIC_DRAW);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                indices.len() as GLsizeiptr * 4,
+                indices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
 
             shader.uniform_1f("uResX", window.info.width as f32);
             shader.uniform_1f("uResY", window.info.height as f32);
@@ -318,16 +452,79 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
 
             let stride = batch::VERTEX_SIZE_BYTES as GLsizei;
 
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.translation) as *const c_void);
-            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.origin) as *const c_void);
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.scale) as *const c_void);
-            gl::VertexAttribPointer(3, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, transform.rotation) as *const c_void);
+            gl::VertexAttribPointer(
+                0,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.translation) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.origin) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.scale) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                3,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, transform.rotation) as *const c_void,
+            );
 
-            gl::VertexAttribPointer(4, 3, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, pos) as *const c_void);
-            gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, color) as *const c_void);
-            gl::VertexAttribPointer(6, 2, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, uv) as *const c_void);
-            gl::VertexAttribPointer(7, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, texture) as *const c_void);
-            gl::VertexAttribPointer(8, 1, gl::FLOAT, gl::FALSE, stride, offset_of!(Vertex, has_texture) as *const c_void);
+            gl::VertexAttribPointer(
+                4,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, pos) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                5,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, color) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                6,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, uv) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                7,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, texture) as *const c_void,
+            );
+            gl::VertexAttribPointer(
+                8,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                offset_of!(Vertex, has_texture) as *const c_void,
+            );
 
             gl::EnableVertexAttribArray(0);
             gl::EnableVertexAttribArray(1);
@@ -362,4 +559,3 @@ impl Drop for LightOpenGLRenderer {
         }
     }
 }
-

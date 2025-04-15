@@ -1,8 +1,8 @@
-use std::fmt::Debug;
 use crate::ui::attributes::Attributes;
 use crate::ui::elements::UiElement;
 use crate::ui::styles::UiStyle;
 use crate::ui::uix::UiCompoundElement;
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub enum VNode {
@@ -34,8 +34,21 @@ pub struct VElement {
 }
 
 impl VElement {
-    pub fn new(attributes: Attributes, style: UiStyle, key: String, constructor: fn(Attributes, UiStyle) -> UiElement, tag: String) -> Self {
-        Self { attributes, style, children: vec![], key, constructor, tag }
+    pub fn new(
+        attributes: Attributes,
+        style: UiStyle,
+        key: String,
+        constructor: fn(Attributes, UiStyle) -> UiElement,
+        tag: String,
+    ) -> Self {
+        Self {
+            attributes,
+            style,
+            children: vec![],
+            key,
+            constructor,
+            tag,
+        }
     }
 
     pub fn add_child(&mut self, child: VNode) {
@@ -63,8 +76,21 @@ pub struct VComponent {
 }
 
 impl VComponent {
-    pub fn new(attributes: Attributes, style: UiStyle, component: Box<dyn UiCompoundElement>, key: String, tag: String) -> Self {
-        Self { attributes, style, component, key, subtree: None, tag }
+    pub fn new(
+        attributes: Attributes,
+        style: UiStyle,
+        component: Box<dyn UiCompoundElement>,
+        key: String,
+        tag: String,
+    ) -> Self {
+        Self {
+            attributes,
+            style,
+            component,
+            key,
+            subtree: None,
+            tag,
+        }
     }
 
     pub fn generate_subtree(&mut self) {

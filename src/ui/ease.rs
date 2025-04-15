@@ -1,7 +1,7 @@
+use crate::math::curve::SimpleBezierCurve;
+use itertools::Itertools;
 use mvutils::utils::Map;
 use std::ops::Range;
-use itertools::Itertools;
-use crate::math::curve::SimpleBezierCurve;
 
 #[derive(Clone)]
 pub struct Easing {

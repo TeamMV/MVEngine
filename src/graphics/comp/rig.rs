@@ -1,12 +1,12 @@
 use crate::graphics::comp::parse::{MRFParser, ParsedKeyframe, Path, PathValue};
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::Time;
 use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
-use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::Time;
 
 #[derive(Debug)]
 pub struct Part {
@@ -39,24 +39,36 @@ pub struct Rig {
 
 impl Rig {
     pub fn from_parsed(parser: MRFParser) -> Self {
-        let mut part_map: HashMap<String, Arc<Mutex<Part>>> = parser.parts
+        let mut part_map: HashMap<String, Arc<Mutex<Part>>> = parser
+            .parts
             .iter()
-            .map(|p| (p.name.clone(), Arc::new(Mutex::new(Part {
-                index: p.index,
-                transform: Transform::new(),
-                prev_transform: Transform::new(),
-                bounds: p.bounds,
-                children: vec![],
-            })))).collect();
+            .map(|p| {
+                (
+                    p.name.clone(),
+                    Arc::new(Mutex::new(Part {
+                        index: p.index,
+                        transform: Transform::new(),
+                        prev_transform: Transform::new(),
+                        bounds: p.bounds,
+                        children: vec![],
+                    })),
+                )
+            })
+            .collect();
 
         let mut animations = HashMap::new();
         for parsed_anim in &parser.anims {
             let pre = Self::process_parsed_keyframe(&parsed_anim.pre, 0.0, &part_map);
-            let mut grouped_keyframes: HashMap<(u64, i16, i8), (Vec<&ParsedKeyframe>, f32)> = HashMap::new();
+            let mut grouped_keyframes: HashMap<(u64, i16, i8), (Vec<&ParsedKeyframe>, f32)> =
+                HashMap::new();
 
             for (perc, keyframe) in &parsed_anim.keyframes {
                 let dec = mvutils::utils::integer_decode(*perc as f64);
-                grouped_keyframes.entry(dec).or_insert((vec![], *perc)).0.push(keyframe);
+                grouped_keyframes
+                    .entry(dec)
+                    .or_insert((vec![], *perc))
+                    .0
+                    .push(keyframe);
             }
 
             let mut keyframes = Vec::new();
@@ -65,7 +77,11 @@ impl Rig {
                 keyframes.push(kf);
             }
 
-            keyframes.sort_by(|k1, k2| k1.percentage.partial_cmp(&k2.percentage).unwrap_or(Ordering::Equal));
+            keyframes.sort_by(|k1, k2| {
+                k1.percentage
+                    .partial_cmp(&k2.percentage)
+                    .unwrap_or(Ordering::Equal)
+            });
 
             animations.insert(parsed_anim.name.clone(), RigAnimation { keyframes, pre });
         }
@@ -75,7 +91,10 @@ impl Rig {
         for part in &parser.parts {
             if let Some(parent_name) = &part.parent {
                 if let Some(child) = part_map.remove(&part.name) {
-                    child_map.entry(parent_name.clone()).or_default().push(child);
+                    child_map
+                        .entry(parent_name.clone())
+                        .or_default()
+                        .push(child);
                 }
             }
         }
@@ -107,7 +126,10 @@ impl Rig {
         this
     }
 
-    unsafe fn flatten_part_hierarchy<'b>(part: Arc<Mutex<Part>>, lookup: &mut Vec<Arc<Mutex<Part>>>) {
+    unsafe fn flatten_part_hierarchy<'b>(
+        part: Arc<Mutex<Part>>,
+        lookup: &mut Vec<Arc<Mutex<Part>>>,
+    ) {
         lookup.push(part.clone());
         let mut lock = part.lock();
         for child in &lock.children {
@@ -115,41 +137,70 @@ impl Rig {
         }
     }
 
-    fn process_parsed_keyframe(parsed_keyframes: &[ParsedKeyframe], at: f32, map: &HashMap<String, Arc<Mutex<Part>>>) -> Keyframe {
-        let changes: Vec<(usize, Path, PathValue)> = parsed_keyframes.iter()
-            .filter_map(|kf| map.get(&kf.target).map(|target| (target.lock().index, kf.path.clone(), kf.value.clone())))
+    fn process_parsed_keyframe(
+        parsed_keyframes: &[ParsedKeyframe],
+        at: f32,
+        map: &HashMap<String, Arc<Mutex<Part>>>,
+    ) -> Keyframe {
+        let changes: Vec<(usize, Path, PathValue)> = parsed_keyframes
+            .iter()
+            .filter_map(|kf| {
+                map.get(&kf.target)
+                    .map(|target| (target.lock().index, kf.path.clone(), kf.value.clone()))
+            })
             .collect();
 
         let mut changes_map: HashMap<usize, Vec<(Path, PathValue)>> = HashMap::new();
         for (target, path, value) in changes {
-            changes_map.entry(target).or_insert_with(Vec::new).push((path, value));
+            changes_map
+                .entry(target)
+                .or_insert_with(Vec::new)
+                .push((path, value));
         }
 
-        Keyframe { percentage: at, changes: changes_map }
+        Keyframe {
+            percentage: at,
+            changes: changes_map,
+        }
     }
 
-    fn process_parsed_keyframe2(parsed_keyframes: Vec<&ParsedKeyframe>, at: f32, map: &HashMap<String, Arc<Mutex<Part>>>) -> Keyframe {
-        let changes: Vec<(usize, Path, PathValue)> = parsed_keyframes.iter()
-            .filter_map(|kf| map.get(&kf.target).map(|target| (target.lock().index, kf.path.clone(), kf.value.clone())))
+    fn process_parsed_keyframe2(
+        parsed_keyframes: Vec<&ParsedKeyframe>,
+        at: f32,
+        map: &HashMap<String, Arc<Mutex<Part>>>,
+    ) -> Keyframe {
+        let changes: Vec<(usize, Path, PathValue)> = parsed_keyframes
+            .iter()
+            .filter_map(|kf| {
+                map.get(&kf.target)
+                    .map(|target| (target.lock().index, kf.path.clone(), kf.value.clone()))
+            })
             .collect();
 
         let mut changes_map: HashMap<usize, Vec<(Path, PathValue)>> = HashMap::new();
         for (target, path, value) in changes {
-            changes_map.entry(target).or_insert_with(Vec::new).push((path, value));
+            changes_map
+                .entry(target)
+                .or_insert_with(Vec::new)
+                .push((path, value));
         }
 
-        Keyframe { percentage: at, changes: changes_map }
+        Keyframe {
+            percentage: at,
+            changes: changes_map,
+        }
     }
 
     pub fn get_part_transform(&self, part: usize) -> Option<Transform> {
-        self.part_lookup.as_ref().and_then(|lookup| {
-            lookup.get(part).map(|part| part.lock().transform.clone())
-        })
+        self.part_lookup
+            .as_ref()
+            .and_then(|lookup| lookup.get(part).map(|part| part.lock().transform.clone()))
     }
 
     pub fn start_animation(&mut self, animation: &str, duration: u32) {
         self.current_time = 0.0;
-        self.current_animations.insert(animation.to_string(), (duration, u128::time_millis()));
+        self.current_animations
+            .insert(animation.to_string(), (duration, u128::time_millis()));
 
         let this = unsafe { Unsafe::cast_mut_static(self) };
 
@@ -239,10 +290,12 @@ impl Rig {
                 }
                 let prev = part.prev_transform.clone();
                 let part_trans = &mut part.transform;
-                part_trans.translation = Self::interpolate_vec2(prev.translation, trans.translation, progress);
+                part_trans.translation =
+                    Self::interpolate_vec2(prev.translation, trans.translation, progress);
                 part_trans.scale = Self::interpolate_vec2(prev.scale, trans.scale, progress);
                 part_trans.origin = Self::interpolate_vec2(prev.origin, trans.origin, progress);
-                part_trans.rotation = Self::interpolate_f32(prev.rotation, trans.rotation, progress);
+                part_trans.rotation =
+                    Self::interpolate_f32(prev.rotation, trans.rotation, progress);
             }
         }
     }
@@ -252,6 +305,9 @@ impl Rig {
     }
 
     fn interpolate_vec2(start: Vec2, end: Vec2, percent: f32) -> Vec2 {
-        Vec2::new(start.x + (end.x - start.x) * percent, start.y + (end.y - start.y) * percent)
+        Vec2::new(
+            start.x + (end.x - start.x) * percent,
+            start.y + (end.y - start.y) * percent,
+        )
     }
 }

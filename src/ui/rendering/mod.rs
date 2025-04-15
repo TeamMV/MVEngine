@@ -1,14 +1,14 @@
-pub mod ctx;
-pub mod triangle;
-pub mod rectangle;
-pub mod arc;
-pub mod shapes;
 pub mod adaptive;
+pub mod arc;
+pub mod ctx;
+pub mod rectangle;
+pub mod shapes;
+pub mod triangle;
 
+use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
-use crate::rendering::{OpenGLRenderer, Quad, Triangle};
-use crate::rendering::camera::OrthographicCamera;
+use crate::rendering::{OpenGLRenderer, Quad, RenderContext, Triangle};
 use crate::window::Window;
 
 pub struct UiRenderer {
@@ -17,13 +17,15 @@ pub struct UiRenderer {
     shader: DefaultOpenGLShader,
     controller: RenderController,
     camera: OrthographicCamera,
-    dimension: (u32, u32)
+    dimension: (u32, u32),
 }
 
 impl UiRenderer {
     pub fn new(window: &mut Window) -> Self {
         unsafe {
-            let shader = DefaultOpenGLShader::new();
+            let mut shader = DefaultOpenGLShader::new();
+            shader.make().unwrap();
+            shader.bind().unwrap();
 
             Self {
                 last_z: 99.0,
@@ -61,7 +63,18 @@ impl UiRenderer {
     pub fn draw(&mut self, window: &Window) {
         self.last_z = 99.0;
 
-        self.controller.draw(window, &self.camera, &mut self.renderer, &mut self.shader);
+        self.shader.use_program();
+        self.controller
+            .draw(window, &self.camera, &mut self.renderer, &mut self.shader);
+    }
+
+    pub fn resize(&mut self, window: &mut Window) {
+        unsafe {
+            let width = window.info.width;
+            let height = window.info.height;
+            self.renderer = OpenGLRenderer::initialize(window);
+            self.camera = OrthographicCamera::new(width, height);
+        }
     }
 
     pub fn get_extent(&self) -> (u32, u32) {
@@ -73,6 +86,12 @@ impl UiRenderer {
     }
 
     pub fn controller_mut(&mut self) -> &mut RenderController {
+        &mut self.controller
+    }
+}
+
+impl RenderContext for UiRenderer {
+    fn controller(&mut self) -> &mut RenderController {
         &mut self.controller
     }
 }

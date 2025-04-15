@@ -1,16 +1,16 @@
 pub mod parse;
 pub mod rig;
 
-use std::marker::PhantomData;
 use crate::graphics::comp::parse::MRFParser;
 use crate::graphics::comp::rig::Rig;
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
 use crate::ui::context::UiResources;
+use std::marker::PhantomData;
 
 pub struct CompositeSprite {
     parts: Vec<Drawable>,
-    rig: Rig
+    rig: Rig,
 }
 
 impl CompositeSprite {
@@ -43,11 +43,14 @@ pub enum Drawable {
 }
 
 impl Drawable {
-    pub fn get_texture(&self, res: &'static impl UiResources) -> Option<(&'static Texture, Vec4)> {
+    pub fn get_texture(
+        &self,
+        res: &'static (impl UiResources + ?Sized),
+    ) -> Option<(&'static Texture, Vec4)> {
         match self {
             Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
             Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
-            Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx)
+            Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
         }
     }
 }

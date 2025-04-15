@@ -1,11 +1,13 @@
-use std::sync::Arc;
-use log::__private_api::loc;
-use parking_lot::Mutex;
-use crate::input::{Input, RawInputEvent};
 use crate::input::registry::ActionInputProcessor;
+use crate::input::{Input, RawInputEvent};
+use crate::ui::Ui;
+use mvutils::unsafe_utils::DangerousCell;
+use parking_lot::Mutex;
+use std::sync::Arc;
+use crate::window::Window;
 
 pub trait InputProcessor {
-    fn digest_action(&mut self, action: RawInputEvent, input: &Input);
+    fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window);
     fn end_frame(&mut self);
     fn set_enabled(&mut self, state: bool);
     fn is_enabled(&self) -> bool;
@@ -21,14 +23,16 @@ pub trait InputProcessor {
 
 pub struct InputCollector {
     pub(crate) action_processor: ActionInputProcessor,
-    targets: Vec<Arc<Mutex<dyn InputProcessor>>>
+    targets: Vec<Arc<Mutex<dyn InputProcessor>>>,
+    ui: Arc<DangerousCell<Ui>>
 }
 
 impl InputCollector {
-    pub fn new() -> Self {
+    pub fn new(ui: Arc<DangerousCell<Ui>>) -> Self {
         Self {
             action_processor: ActionInputProcessor::new(),
             targets: vec![],
+            ui,
         }
     }
 
@@ -36,12 +40,13 @@ impl InputCollector {
         self.targets.push(target);
     }
 
-    pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input) {
-        self.action_processor.digest_action(action, input);
+    pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
+        self.ui.get_mut().digest_action(action, input, window);
+        self.action_processor.digest_action(action, input, window);
         for target in &mut self.targets {
             let mut lock = target.lock();
             if lock.is_enabled() {
-                lock.digest_action(action, input);
+                lock.digest_action(action, input, window);
             }
         }
     }
