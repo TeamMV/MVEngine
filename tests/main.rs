@@ -1,7 +1,6 @@
 use itertools::Itertools;
 use log::LevelFilter;
 use mvengine::color::RgbColor;
-use mvengine::graphics::comp::Drawable;
 use mvengine::input::consts::Key;
 use mvengine::input::registry::RawInput;
 use mvengine::math::vec::{Vec2, Vec4};
@@ -16,23 +15,24 @@ use mvengine::rendering::texture::Texture;
 use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
 use mvengine::ui::elements::button::Button;
+use mvengine::ui::elements::textbox::TextBox;
+use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::child::ToChild;
 use mvengine::ui::elements::{UiElementCallbacks, UiElementStub};
 use mvengine::ui::geometry::morph::Morph;
-use mvengine::ui::geometry::Rect;
-use mvengine::ui::rendering::adaptive::AdaptiveFill;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::ui::res::MVR;
-use mvengine::ui::styles::{Dimension, Position, SideStyle, UiStyle, UiValue};
+use mvengine::ui::styles::{Dimension, Direction, Position, SideStyle, UiStyle, UiValue};
 use mvengine::window::app::WindowCallbacks;
-use mvengine::window::{Error, UninitializedWindow, Window, WindowCreateInfo};
+use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvengine_proc_macro::ui;
 use mvutils::once::CreateOnce;
-use mvutils::state::{MappedState, State};
-use mvutils::utils::Map;
+use mvutils::state::State;
+use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::sync::Arc;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -44,7 +44,8 @@ pub fn main() -> Result<(), Error> {
     info.vsync = true;
 
     let window = Window::new(info);
-    window.run::<Application>()
+    let arc = Arc::new(RwLock::new(Application::new()));
+    window.run::<Application>(arc)
 }
 
 struct Application {
@@ -63,8 +64,8 @@ struct Application {
     state: CreateOnce<State<String>>,
 }
 
-impl WindowCallbacks for Application {
-    fn new(window: UninitializedWindow) -> Self {
+impl Application {
+    fn new() -> Self {
         Self {
             renderer: CreateOnce::new(),
             camera: CreateOnce::new(),
@@ -81,7 +82,9 @@ impl WindowCallbacks for Application {
             state: CreateOnce::new(),
         }
     }
+}
 
+impl WindowCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
         unsafe {
             MVR::initialize();
@@ -151,23 +154,31 @@ impl WindowCallbacks for Application {
             self.test_texture2.create(|| test_texture2);
             self.font.create(|| font);
 
-            let mut style = UiStyle::default();
-            modify_style!(style.text.color = UiValue::Just(RgbColor::white()));
-            modify_style!(style.background.color = UiValue::Just(RgbColor::red()));
-            modify_style!(style.position = UiValue::Just(Position::Absolute));
-            modify_style!(style.x = UiValue::Just(10));
-            modify_style!(style.y = UiValue::Just(200));
-            modify_style!(style.text.stretch = UiValue::Just(Dimension::new(1.0, 1.0)));
-            modify_style!(style.text.size = UiValue::Just(20.0));
-            modify_style!(style.border.color = UiValue::Just(RgbColor::white()));
-            style.margin = SideStyle::all(UiValue::None.to_resolve());
-            style.padding = SideStyle::all(UiValue::None.to_resolve());
+            let mut btn_style = UiStyle::default();
+            modify_style!(btn_style.text.color = UiValue::Just(RgbColor::white()));
+            modify_style!(btn_style.background.color = UiValue::Just(RgbColor::red()));
+            modify_style!(btn_style.text.stretch = UiValue::Just(Dimension::new(1.0, 1.0)));
+            modify_style!(btn_style.text.size = UiValue::Just(20.0));
+            modify_style!(btn_style.border.color = UiValue::Just(RgbColor::white()));
+            modify_style!(btn_style.width = UiValue::Just(200));
+            modify_style!(btn_style.height = UiValue::Just(50));
+            btn_style.margin = SideStyle::all(UiValue::None.to_resolve());
+            btn_style.padding = SideStyle::all(UiValue::None.to_resolve());
+
+            let mut div_style = UiStyle::default();
+            modify_style!(div_style.position = UiValue::Just(Position::Absolute));
+            modify_style!(div_style.x = UiValue::Just(300));
+            modify_style!(div_style.y = UiValue::Just(200));
+            modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
 
             let state = State::new("Hello Button".to_string());
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Button style={style}>{state.map_identity()}</Button>
+                    <Div style={div_style}>
+                        <Button style={btn_style.clone()}>{state.map_identity()}</Button>
+                        <TextBox style={btn_style}/>
+                    </Div>
                 </Ui>
             };
 

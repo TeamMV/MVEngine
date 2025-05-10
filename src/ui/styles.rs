@@ -1550,6 +1550,22 @@ impl Default for UiStyle {
     }
 }
 
+impl UiStyle {
+    pub fn stack_vertical() -> Self {
+        let mut s = DEFAULT_STYLE.clone();
+        modify_style!(s.direction = UiValue::Just(Direction::Vertical));
+        modify_style!(s.child_align_x = UiValue::Just(ChildAlign::Middle));
+        s
+    }
+
+    pub fn stack_horizontal() -> Self {
+        let mut s = DEFAULT_STYLE.clone();
+        modify_style!(s.direction = UiValue::Just(Direction::Horizontal));
+        modify_style!(s.child_align_y = UiValue::Just(ChildAlign::Middle));
+        s
+    }
+}
+
 #[derive(Clone)]
 pub struct ResCon {
     pub dpi: f32,

@@ -7,8 +7,9 @@ use crate::ui::rendering::ctx::TextureCtx;
 use ahash::{HashSet, HashSetExt};
 use itertools::Itertools;
 use std::fmt::{Debug, Formatter, Write};
+use mvutils::Savable;
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct Shape {
     pub triangles: Vec<Triangle>,
     pub extent: (i32, i32),
@@ -294,7 +295,7 @@ impl Shape {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct ShapeOutline {
     points: Vec<PathPoint>,
 }
@@ -305,7 +306,7 @@ impl ShapeOutline {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct PathPoint {
     progress: f32,
     coords: (i32, i32),

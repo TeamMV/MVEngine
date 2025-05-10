@@ -27,6 +27,7 @@ pub struct RectangleCtx {
     transform: Transform,
     custom_origin: bool,
     texture: Option<Texture>,
+    uv: Vec4,
     blending: f32,
     z: f32,
 }
@@ -36,10 +37,11 @@ impl RectangleCtx {
         Self {
             points: vec![],
             point_colors: [0; 4].map(|_| None).to_vec(),
-            global_color: RgbColor::white(),
+            global_color: RgbColor::transparent(),
             transform: Transform::new(),
             custom_origin: false,
             texture: None,
+            uv: Vec4::default_uv(),
             blending: 0.0,
             z: f32::INFINITY,
         }
@@ -87,6 +89,7 @@ impl RectangleCtx {
     pub fn texture(mut self, texture: TextureCtx) -> Self {
         self.texture = texture.texture;
         self.blending = texture.blending;
+        self.uv = texture.uv;
         self
     }
 
@@ -106,7 +109,7 @@ impl RectangleCtx {
         let uv = self
             .texture
             .as_ref()
-            .map(|tex| tex.get_uv())
+            .map(|tex| tex.get_uv_inner(self.uv))
             .unwrap_or([(0.0, 0.0); 4]);
         let tex_coords_1 = [uv[0], uv[3], uv[2]];
         let tex_coords_2 = [uv[0], uv[2], uv[1]];

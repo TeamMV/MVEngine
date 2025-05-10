@@ -45,3 +45,5 @@ impl<Event> EventQueue<Event> {
         self.events.push_back(event);
     }
 }
+
+unsafe impl<Event: Send> Send for EventBus<Event> {}

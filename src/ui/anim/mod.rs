@@ -1,7 +1,7 @@
 pub mod complex;
 
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::{UiElement, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementStub};
 use crate::ui::styles::{Interpolator, UiStyle};
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::Unsafe;
@@ -28,14 +28,15 @@ pub enum AnimationMode {
 
 ///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
 pub fn animate_self(
-    elem: &mut UiElement,
+    elem: Element,
     target: &UiStyle,
     time_ms: u32,
     easing: Easing,
     fill_mode: FillMode,
     animation_mode: AnimationMode,
 ) -> u64 {
-    let style = unsafe { Unsafe::cast_mut_static(elem.style_mut()) };
+    let unwrapped = elem.get_mut();
+    let style = unsafe { Unsafe::cast_mut_static(unwrapped.style_mut()) };
     animate(
         elem,
         style,
@@ -49,7 +50,7 @@ pub fn animate_self(
 
 ///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
 pub fn animate(
-    elem: &mut UiElement,
+    elem: Element,
     initial: &mut UiStyle,
     target: &UiStyle,
     time_ms: u32,
@@ -57,6 +58,7 @@ pub fn animate(
     fill_mode: FillMode,
     animation_mode: AnimationMode,
 ) -> u64 {
+    let elem = elem.get_mut();
     if !elem.state().is_animating {
         elem.state_mut().is_animating = true;
     } else {

@@ -1,11 +1,12 @@
 use std::fmt::{Debug, Formatter, Write};
 use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
-
+use mvutils::Savable;
+use mvutils::save::{Loader, Savable, Saver};
 use crate::math::mat::Mat3;
 use mvutils::unsafe_utils::Unsafe;
 
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Savable)]
 #[repr(C)]
 pub struct Vec2 {
     pub x: f32,
@@ -102,6 +103,23 @@ impl Into<Vec4> for Vec3 {
 #[derive(Default, Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct Vec4(f32x4);
+
+impl Savable for Vec4 {
+    fn save(&self, saver: &mut impl Saver) {
+        self.x.save(saver);
+        self.y.save(saver);
+        self.z.save(saver);
+        self.w.save(saver);
+    }
+
+    fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let x = f32::load(loader)?;
+        let y = f32::load(loader)?;
+        let z = f32::load(loader)?;
+        let w = f32::load(loader)?;
+        Ok(Self(f32x4::from_array([x, y, z, w])))
+    }
+}
 
 impl Vec4 {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {

@@ -1,4 +1,6 @@
 use hashbrown::HashMap;
+use crate::ui::elements::{Element, UiElement};
+use crate::utils::fuckumaxfornotmakingshitpub::CloneableFn;
 
 #[derive(Clone)]
 pub struct Attributes {
@@ -43,7 +45,6 @@ impl Attributes {
                     .extend(s.split_whitespace().map(|st| st.to_string()));
                 return;
             }
-            return;
         }
 
         self.attribs.insert(name, value);
@@ -60,5 +61,5 @@ pub enum AttributeValue {
     Float(f64),
     Bool(bool),
     Char(char),
-    //Code(Box<dyn FnMut(&mut UiElement)>),
+    //Code(Box<dyn CloneableFn<()>>),
 }

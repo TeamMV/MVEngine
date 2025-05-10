@@ -2,33 +2,23 @@ pub mod parse;
 pub mod rig;
 
 use crate::graphics::comp::parse::MRFParser;
-use crate::graphics::comp::rig::Rig;
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
 use crate::ui::context::UiResources;
-use std::marker::PhantomData;
+use crate::ui::res::MVR;
+use mvutils::Savable;
 
+#[derive(Savable)]
 pub struct CompositeSprite {
     parts: Vec<Drawable>,
-    rig: Rig,
 }
 
 impl CompositeSprite {
     pub fn from_expr_and_resources(expr: &str, resources: Vec<Drawable>) -> Result<Self, String> {
         let parser = MRFParser::parse(expr)?;
-        let rig = Rig::from_parsed(parser);
         Ok(Self {
             parts: resources,
-            rig,
         })
-    }
-
-    pub fn rig(&self) -> &Rig {
-        &self.rig
-    }
-
-    pub fn rig_mut(&mut self) -> &mut Rig {
-        &mut self.rig
     }
 
     pub fn get_part_drawable(&self, index: usize) -> &Drawable {
@@ -36,6 +26,7 @@ impl CompositeSprite {
     }
 }
 
+#[derive(Clone, Savable)]
 pub enum Drawable {
     Texture(usize),
     Animation(usize),
@@ -51,6 +42,20 @@ impl Drawable {
             Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
             Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
             Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
+        }
+    }
+
+    pub fn get_texture_or_default(&self, res: &'static (impl UiResources + ?Sized)) -> (&'static Texture, Vec4) {
+        let tex = match self {
+            Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
+            Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
+            Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
+        };
+        if let Some(tex) = tex {
+            tex
+        } else {
+            let texture = MVR.resolve_texture(MVR.texture.missing).expect("Cannot get missing texture! Make sure to use the r! macro to create your resource struct");
+            (texture, Vec4::default_uv())
         }
     }
 }

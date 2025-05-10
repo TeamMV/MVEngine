@@ -7,25 +7,33 @@ use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use crate::window::Window;
 
-const CLICK_LISTENER: u32 = 0;
-const SCROLL_LISTENER: u32 = 1;
-const HOVER_LISTENER: u32 = 2;
-const MOVE_LISTENER: u32 = 3;
-const GLOBAL_MOVE_LISTENER: u32 = 4;
-
 pub struct UiEvents {
     last_inside: bool,
-    mouse: UiMouseEvents,
+    pub click_event: Option<UiClickEvent>,
+    pub hover_event: Option<UiHoverEvent>,
+    pub scroll_event: Option<UiScrollEvent>,
+    pub move_event: Option<UiMoveEvent>,
+    pub global_move_event: Option<UiMoveEvent>
 }
 
 impl UiEvents {
     pub fn create() -> Self {
-        unsafe {
-            Self {
-                last_inside: false,
-                mouse: UiMouseEvents::new(),
-            }
+        Self {
+            last_inside: false,
+            click_event: None,
+            hover_event: None,
+            scroll_event: None,
+            move_event: None,
+            global_move_event: None,
         }
+    }
+    
+    pub fn after_frame(&mut self) {
+        self.click_event = None;
+        self.hover_event = None;
+        self.scroll_event = None;
+        self.move_event = None;
+        self.global_move_event = None;
     }
 
     pub(crate) fn mouse_change(
@@ -35,17 +43,19 @@ impl UiEvents {
         input: &Input,
         window: &mut Window
     ) -> bool {
+        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+        
         let state = elem.state();
         let state = unsafe { Unsafe::cast_static(state) };
-
+        
         let mut used = false;
         for child in &state.children {
             match child {
                 Child::Element(e) => unsafe {
                     let mut child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
-                    let mut child_events = Unsafe::cast_mut_static(child_events);
-                    let res = child_events.mouse_change(action, (&mut *child_guard), input, window);
+                    let mut child_events: &mut UiEvents = Unsafe::cast_mut_static(child_events);
+                    let res = child_events.mouse_change(action.clone(), (&mut *child_guard), input, window);
                     if res {
                         used = res;
                     }
@@ -58,52 +68,39 @@ impl UiEvents {
 
         match action {
             MouseAction::Move(max, may) => {
-                for listener in &mut self.mouse.global_moves {
-                    let base = UiEventBase {
-                        elem,
-                        action: UiMoveAction::Moving,
-                        pos: Point::new(max, may),
-                        pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
-                        synthetic: false,
-                        window,
-                    };
-
-                    listener(UiMoveEvent::<'_> { base });
-                }
+                let base = UiEventBase {
+                    action: UiMoveAction::Moving,
+                    pos: Point::new(max, may),
+                    pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
+                    synthetic: false,
+                };
+                self.global_move_event = Some(UiMoveEvent { base });
 
                 if self.last_inside {
                     if !elem.inside(max, may) {
                         self.last_inside = false;
 
-                        for listener in &mut self.mouse.hovers {
-                            let base = UiEventBase {
-                                elem,
-                                action: UiHoverAction::Leave,
-                                pos: Point::new(max, may),
-                                pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: UiHoverAction::Leave,
+                            pos: Point::new(max, may),
+                            pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiHoverEvent::<'_> { base });
-                        }
+                        self.hover_event = Some(UiHoverEvent { base });
                     }
                 } else {
                     if elem.inside(max, may) {
                         self.last_inside = true;
 
-                        for listener in &mut self.mouse.hovers {
-                            let base = UiEventBase {
-                                elem,
-                                action: UiHoverAction::Enter,
-                                pos: Point::new(max, may),
-                                pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: UiHoverAction::Enter,
+                            pos: Point::new(max, may),
+                            pos_rel: Point::new(max - state.rect.x(), may - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiHoverEvent::<'_> { base });
-                        }
+                        self.hover_event = Some(UiHoverEvent { base });
                     }
                 }
             }
@@ -145,63 +142,47 @@ impl UiEvents {
                                 );
                             }
                         }
-                        for listener in &mut self.mouse.scrolls {
-                            let base = UiEventBase {
-                                elem,
-                                action: action.clone(),
-                                pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: action.clone(),
+                            pos: Point::new(mx, my),
+                            pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiScrollEvent::<'_> {
-                                base,
-                                direction: dir.clone(),
-                            });
-                        }
+                        self.scroll_event = Some(UiScrollEvent {
+                            base,
+                            direction: dir.clone(),
+                        });
                     }
                     MouseAction::Move(x, y) => {
-                        for listener in &mut self.mouse.moves {
-                            let base = UiEventBase {
-                                elem,
-                                action: UiMoveAction::Moving,
-                                pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: UiMoveAction::Moving,
+                            pos: Point::new(mx, my),
+                            pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiMoveEvent::<'_> { base });
-                        }
+                        self.move_event = Some(UiMoveEvent { base });
                     }
                     MouseAction::Press(b) => {
-                        for listener in &mut self.mouse.clicks {
-                            let base = UiEventBase {
-                                elem,
-                                action: UiClickAction::Click,
-                                pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: UiClickAction::Click,
+                            pos: Point::new(mx, my),
+                            pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiClickEvent::<'_> { base, button: b });
-                        }
+                        self.click_event = Some(UiClickEvent { base, button: b });
                     }
                     MouseAction::Release(b) => {
-                        for listener in &mut self.mouse.clicks {
-                            let base = UiEventBase {
-                                elem,
-                                action: UiClickAction::Release,
-                                pos: Point::new(mx, my),
-                                pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
-                                synthetic: false,
-                                window,
-                            };
+                        let base = UiEventBase {
+                            action: UiClickAction::Release,
+                            pos: Point::new(mx, my),
+                            pos_rel: Point::new(mx - state.rect.x(), my - state.rect.y()),
+                            synthetic: false,
+                        };
 
-                            listener(UiClickEvent::<'_> { base, button: b });
-                        }
+                        self.click_event = Some(UiClickEvent { base, button: b });
                     }
                 }
 
@@ -222,107 +203,17 @@ impl UiEvents {
     ) -> bool {
         true
     }
-
-    pub fn clear_listener(&mut self, id: u64) {
-        let idx = (id >> 32) as u32;
-        let kind = (id & 0xFFFFFFFF) as u32;
-        match kind {
-            CLICK_LISTENER => {
-                let _ = self.mouse.clicks.swap_remove(idx as usize);
-            }
-            SCROLL_LISTENER => {
-                let _ = self.mouse.scrolls.swap_remove(idx as usize);
-            }
-            HOVER_LISTENER => {
-                let _ = self.mouse.hovers.swap_remove(idx as usize);
-            }
-            MOVE_LISTENER => {
-                let _ = self.mouse.moves.swap_remove(idx as usize);
-            }
-            GLOBAL_MOVE_LISTENER => {
-                let _ = self.mouse.global_moves.swap_remove(idx as usize);
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn on_click<F>(&mut self, f: F) -> u64
-    where
-        F: FnMut(UiClickEvent) + 'static,
-    {
-        let idx = self.mouse.clicks.len() as u64;
-        self.mouse.clicks.push(Box::new(f));
-        ((idx << 32) as u32 | CLICK_LISTENER) as u64
-    }
-
-    pub fn on_scroll<F>(&mut self, f: F) -> u64
-    where
-        F: FnMut(UiScrollEvent) + 'static,
-    {
-        let idx = self.mouse.scrolls.len() as u64;
-        self.mouse.scrolls.push(Box::new(f));
-        ((idx << 32) as u32 | SCROLL_LISTENER) as u64
-    }
-
-    pub fn on_hover<F>(&mut self, f: F) -> u64
-    where
-        F: FnMut(UiHoverEvent) + 'static,
-    {
-        let idx = self.mouse.scrolls.len() as u64;
-        self.mouse.hovers.push(Box::new(f));
-        ((idx << 32) as u32 | HOVER_LISTENER) as u64
-    }
-
-    pub fn on_move<F>(&mut self, f: F) -> u64
-    where
-        F: FnMut(UiMoveEvent) + 'static,
-    {
-        let idx = self.mouse.scrolls.len() as u64;
-        self.mouse.moves.push(Box::new(f));
-        ((idx << 32) as u32 | MOVE_LISTENER) as u64
-    }
-
-    pub fn on_global_move<F>(&mut self, f: F) -> u64
-    where
-        F: FnMut(UiMoveEvent) + 'static,
-    {
-        let idx = self.mouse.scrolls.len() as u64;
-        self.mouse.global_moves.push(Box::new(f));
-        ((idx << 32) as u32 | GLOBAL_MOVE_LISTENER) as u64
-    }
 }
 
-pub struct UiEventBase<'a, Action: Clone> {
-    pub elem: &'a mut UiElement,
+pub struct UiEventBase<Action: Clone> {
     pub action: Action,
     pub pos: Point<i32>,
     pub pos_rel: Point<i32>,
     pub synthetic: bool,
-    pub window: &'a mut Window
 }
 
-pub struct UiMouseEvents {
-    clicks: Vec<Box<dyn FnMut(UiClickEvent)>>,
-    scrolls: Vec<Box<dyn FnMut(UiScrollEvent)>>,
-    hovers: Vec<Box<dyn FnMut(UiHoverEvent)>>,
-    moves: Vec<Box<dyn FnMut(UiMoveEvent)>>,
-    global_moves: Vec<Box<dyn FnMut(UiMoveEvent)>>,
-}
-
-impl UiMouseEvents {
-    pub fn new() -> Self {
-        Self {
-            clicks: vec![],
-            scrolls: vec![],
-            hovers: vec![],
-            moves: vec![],
-            global_moves: vec![],
-        }
-    }
-}
-
-pub struct UiClickEvent<'a> {
-    pub base: UiEventBase<'a, UiClickAction>,
+pub struct UiClickEvent {
+    pub base: UiEventBase<UiClickAction>,
     pub button: MouseButton,
 }
 
@@ -332,8 +223,8 @@ pub enum UiClickAction {
     Release,
 }
 
-pub struct UiScrollEvent<'a> {
-    pub base: UiEventBase<'a, UiScrollAction>,
+pub struct UiScrollEvent {
+    pub base: UiEventBase<UiScrollAction>,
     pub direction: UiScrollDirection,
 }
 
@@ -355,8 +246,8 @@ pub enum UiScrollDirection {
     DownRight,
 }
 
-pub struct UiHoverEvent<'a> {
-    pub base: UiEventBase<'a, UiHoverAction>,
+pub struct UiHoverEvent {
+    pub base: UiEventBase<UiHoverAction>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -365,8 +256,8 @@ pub enum UiHoverAction {
     Leave,
 }
 
-pub struct UiMoveEvent<'a> {
-    pub base: UiEventBase<'a, UiMoveAction>,
+pub struct UiMoveEvent {
+    pub base: UiEventBase<UiMoveAction>,
 }
 
 #[derive(Clone, PartialEq)]

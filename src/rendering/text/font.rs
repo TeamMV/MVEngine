@@ -9,12 +9,12 @@ pub struct AtlasData {
     pub kerning: Vec<Kerning>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Savable)]
 pub struct PreparedAtlasData {
     pub atlas: Atlas,
     pub metrics: Metrics,
-    pub glyphs: hashbrown::HashMap<u32, Glyph, U32IdentityHasher>,
-    pub kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher>,
+    pub glyphs: hashbrown::HashMap<u32, Glyph>,
+    pub kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>>,
 }
 
 #[derive(Savable, Debug, Default)]
@@ -69,14 +69,12 @@ pub struct Kerning {
 
 impl Into<PreparedAtlasData> for AtlasData {
     fn into(self) -> PreparedAtlasData {
-        let mut glyphs = hashbrown::HashMap::with_capacity_and_hasher(
+        let mut glyphs = hashbrown::HashMap::with_capacity(
             self.glyphs.len(),
-            U32IdentityHasher::default(),
         );
-        let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>, U32IdentityHasher> =
-            hashbrown::HashMap::with_capacity_and_hasher(
-                self.kerning.len(),
-                U32IdentityHasher::default(),
+        let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>> =
+            hashbrown::HashMap::with_capacity(
+                self.kerning.len()
             );
 
         for glyph in self.glyphs {

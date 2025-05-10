@@ -6,6 +6,8 @@ use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiEleme
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::{Dimension, UiStyle};
 use mvutils::unsafe_utils::Unsafe;
+use crate::input::{Input, RawInputEvent};
+use crate::ui::elements::button::Button;
 
 #[derive(Clone)]
 pub struct Div {
@@ -14,6 +16,16 @@ pub struct Div {
     style: UiStyle,
     state: UiElementState,
     body: ElementBody<Div>,
+}
+
+impl Div {
+    pub fn body(&self) -> &ElementBody<Div> {
+        &self.body
+    }
+
+    pub fn body_mut(&mut self) -> &mut ElementBody<Div> {
+        &mut self.body
+    }
 }
 
 impl UiElementCallbacks for Div {
@@ -30,6 +42,19 @@ impl UiElementCallbacks for Div {
                 Child::State(_) => {}
             }
         }
+    }
+
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
+        self.body.on_input(unsafe_self, action.clone(), input);
+        
+        for elem in &self.state.children {
+            if let Child::Element(child) = elem {
+                let child = child.get_mut();
+                child.raw_input(action.clone(), input);
+            }
+        }
+        true
     }
 }
 

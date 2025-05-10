@@ -11,6 +11,7 @@ use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
 use std::str::FromStr;
+use mvutils::Savable;
 
 pub mod batch;
 pub mod bindless;
@@ -33,7 +34,7 @@ impl RenderContext for RenderController {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Savable)]
 pub struct Transform {
     pub translation: Vec2,
     pub origin: Vec2,
@@ -96,7 +97,7 @@ impl Vertex {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct InputVertex {
     pub transform: Transform,
     pub pos: (f32, f32, f32),
@@ -106,7 +107,7 @@ pub struct InputVertex {
     pub has_texture: f32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct Triangle {
     pub points: [InputVertex; 3],
 }

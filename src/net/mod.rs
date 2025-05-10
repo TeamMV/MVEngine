@@ -2,7 +2,7 @@ pub mod server;
 pub mod client;
 
 use std::io;
-use bytebuffer::ByteBuffer;
+use bytebuffer::{ByteBuffer, Endian};
 use mvutils::save::Savable;
 use mvutils::Savable;
 use std::io::Read;
@@ -23,9 +23,10 @@ pub(crate) enum ReadPacketError {
 pub(crate) fn try_read_packet<P: Savable>(stream: &mut TcpStream) -> Result<P, ReadPacketError> {
     let mut len = [08; 4];
     stream.read_exact(&mut len).map_err(ReadPacketError::FromTcp)?;
-    let len = u32::from_le_bytes(len);
+    let len = u32::from_be_bytes(len);
     let mut buffer = vec![0u8; len as usize];
     stream.read_exact(&mut buffer).map_err(ReadPacketError::FromTcp)?;
     let mut buffer = ByteBuffer::from_vec(buffer);
+    buffer.set_endian(Endian::LittleEndian);
     P::load(&mut buffer).map_err(ReadPacketError::FromSavable)
 }

@@ -3,11 +3,22 @@ use crate::rendering::texture::Texture;
 use mvutils::clock::Clock;
 use std::collections::Bound;
 use std::ops::RangeBounds;
+use mvutils::Savable;
 
-#[derive(Clone)]
-struct FramePumpRange {
-    start: Bound<usize>,
-    end: Bound<usize>,
+#[derive(Clone, Savable)]
+pub struct FramePumpRange {
+    pub start: Bound<usize>,
+    pub end: Bound<usize>,
+}
+
+impl RangeBounds<usize> for FramePumpRange {
+    fn start_bound(&self) -> Bound<&usize> {
+        self.start.as_ref()
+    }
+
+    fn end_bound(&self) -> Bound<&usize> {
+        self.end.as_ref()
+    }
 }
 
 impl FramePumpRange {
@@ -36,6 +47,7 @@ impl FramePumpRange {
     }
 }
 
+#[derive(Clone, Savable)]
 pub struct TileSet {
     texture: Texture,
     tile_width: i32,

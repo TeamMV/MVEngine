@@ -5,11 +5,13 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::text::font::{AtlasData, PreparedAtlasData};
 use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, RenderContext, Transform, Vertex};
+use crate::utils::savers::SaveArc;
 use bytebuffer::ByteBuffer;
 use gl::types::GLuint;
 use hashbrown::HashMap;
 use itertools::Itertools;
 use mvutils::save::Savable;
+use mvutils::Savable;
 use num_traits::Inv;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -24,10 +26,10 @@ pub struct CharData {
     pub y_off: f32
 }
 
-#[derive(Clone)]
+#[derive(Clone, Savable)]
 pub struct Font {
     texture: Texture,
-    atlas: Arc<PreparedAtlasData>,
+    atlas: SaveArc<PreparedAtlasData>,
 }
 
 impl Font {
@@ -38,7 +40,7 @@ impl Font {
         drop(buffer);
         Ok(Self {
             texture,
-            atlas: arc,
+            atlas: arc.into(),
         })
     }
 

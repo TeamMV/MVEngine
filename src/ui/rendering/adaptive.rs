@@ -1,3 +1,4 @@
+use mvutils::Savable;
 use crate::color::RgbColor;
 use crate::graphics::comp::Drawable;
 use crate::rendering::control::RenderController;
@@ -17,6 +18,7 @@ pub const CORNER_TL: usize = 1;
 pub const CORNER_TR: usize = 2;
 pub const CORNER_BR: usize = 3;
 
+#[derive(Clone, Savable)]
 pub struct AdaptiveShape {
     pub edges: [Option<Shape>; 4],   //l, t, r, b
     pub corners: [Option<Shape>; 4], //bl, tl, tr, br

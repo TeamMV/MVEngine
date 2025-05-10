@@ -41,12 +41,12 @@ impl InputCollector {
     }
 
     pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
-        self.ui.get_mut().digest_action(action, input, window);
-        self.action_processor.digest_action(action, input, window);
+        self.ui.get_mut().digest_action(action.clone(), input, window);
+        self.action_processor.digest_action(action.clone(), input, window);
         for target in &mut self.targets {
             let mut lock = target.lock();
             if lock.is_enabled() {
-                lock.digest_action(action, input, window);
+                lock.digest_action(action.clone(), input, window);
             }
         }
     }

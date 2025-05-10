@@ -1,12 +1,15 @@
 use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
-use bytebuffer::ByteBuffer;
+use std::time::Duration;
+use bytebuffer::{ByteBuffer, Endian};
 use crossbeam_channel::Sender;
 use log::{debug, error, info, warn};
 use mvutils::save::Savable;
+use parking_lot::RwLock;
 use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 
 pub struct Client<In: Savable, Out: Savable> {
@@ -17,7 +20,7 @@ pub struct Client<In: Savable, Out: Savable> {
 }
 
 impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
-    pub fn connect<Handler: ClientHandler<In> + 'static>(to: impl ToSocketAddrs) -> Option<Self> {
+    pub fn connect<Handler: ClientHandler<In> + Sync + 'static>(to: impl ToSocketAddrs, handler: Arc<RwLock<Handler>>) -> Option<Self> {
         let tcp = TcpStream::connect(to);
         if let Err(e) = tcp {
             error!("Could not connect to server, {e}");
@@ -34,31 +37,57 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
         let (packet_sen, packet_rec) = crossbeam_channel::unbounded::<Out>();
 
         let cloned_dis_sen = disconnect_sen.clone();
+        let cloned = handler.clone();
 
-        let handler = Handler::on_connected();
         let handle = thread::spawn(move || {
+            fn write_packet(tcp: &mut TcpStream, vec: &[u8]) {
+                let mut written = 0;
+
+                while written < vec.len() {
+                    match tcp.write(&vec[written..]) {
+                        Ok(0) => {
+                            warn!("Socket closed while writing");
+                            break;
+                        }
+                        Ok(n) => written += n,
+                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                            debug!("WouldBlock error, attempting to rewrite packet");
+                            thread::sleep(Duration::from_millis(1));
+                            continue;
+                        }
+                        Err(e) => {
+                            warn!("Error when attempting to write packet: {e}");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let mut handler = cloned.write();
+            handler.on_connected();
+            drop(handler);
             loop {
+                handler = cloned.write();
                 if let Ok(reason) = disconnect_rec.try_recv() {
                     debug!("Disconnecting from server, reason: {reason:?}");
-                    if let Err(e) =  tcp.shutdown(Shutdown::Both) {
+                    if let Err(e) = tcp.shutdown(Shutdown::Both) {
                         warn!("Error when shutting down socket connection: {e}");
                     }
                     return;
                 }
 
                 while let Ok(packet) = packet_rec.try_recv() {
-                    //build data (len_u32+bytes)
+                    // Build data (len_u32 + bytes)
                     let mut buffer = ByteBuffer::new();
+                    buffer.set_endian(Endian::LittleEndian);
                     packet.save(&mut buffer);
                     let len = buffer.len() as u32;
-                    let len_bytes: [u8; 4] = len.to_le_bytes();
+                    let len_bytes: [u8; 4] = len.to_be_bytes();
                     let mut vec = len_bytes.to_vec();
                     vec.extend(buffer.into_vec());
 
-                    //write data
-                    if let Err(e) = tcp.write_all(&vec) {
-                        warn!("Error when attempting to write packet: {e}");
-                    }
+                    // Write data
+                    write_packet(&mut tcp, &vec);
                 }
 
                 let mut packet = try_read_packet::<In>(&mut tcp);
@@ -83,19 +112,28 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                                     warn!("Error when attempting to send disconnect to server thread: {e}");
                                 }
                             }
-                            _ => {}
+                            _ => {
+                                //WouldBlock
+                            }
+                        }
+                    } else {
+                        if let ReadPacketError::FromSavable(s) = e {
+                            println!("savable error: {s}");
                         }
                     }
                 }
+
+                drop(handler);
+                thread::sleep(Duration::from_millis(10));
             }
         });
 
-        Self {
+        Some(Self {
             _maker: PhantomData::default(),
             thread: handle,
             disconnect_sender: cloned_dis_sen,
             packet_sender: packet_sen,
-        }.into()
+        })
     }
 
     pub fn disconnect(&mut self, reason: DisconnectReason) {
@@ -112,7 +150,7 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
 }
 
 pub trait ClientHandler<In: Savable>: Send {
-    fn on_connected() -> Self;
-    fn on_disconnected(&self, reason: DisconnectReason);
-    fn on_packet(&self, packet: In);
+    fn on_connected(&mut self);
+    fn on_disconnected(&mut self, reason: DisconnectReason);
+    fn on_packet(&mut self, packet: In);
 }

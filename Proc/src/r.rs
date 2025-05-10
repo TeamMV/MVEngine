@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use mvutils::utils::TetrahedronOp;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{parse, parse_str, Expr, Path};
@@ -14,6 +15,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     let mut struct_name = "R";
     let mut cdir = "./".to_string();
     let mut is_mv = false;
+    let mut is_noctx= false;
 
     if let Some(value) = rsx.get_attrib("structName") {
         if let XmlValue::Str(s) = value {
@@ -23,6 +25,11 @@ pub fn r(input: TokenStream) -> TokenStream {
     if let Some(value) = rsx.get_attrib("cdir") {
         if let XmlValue::Str(s) = value {
             cdir = s.clone();
+        }
+    }
+    if let Some(value) = rsx.get_attrib("noctx") {
+        if let XmlValue::Str(s) = value {
+            is_noctx = true;
         }
     }
     if let Some(value) = rsx.get_attrib("superSecretTagWhichSpecifiesThisIsTheMVResourceStruct") {
@@ -78,13 +85,13 @@ pub fn r(input: TokenStream) -> TokenStream {
 
     let r_ident = Ident::new(struct_name, Span::call_site());
 
-    let mv_ts = if !is_mv {
+    let mv_ts = if !is_mv && !is_noctx {
         quote! { pub mv: &'static mvengine::ui::res::MVR, }
     } else {
         quote! {}
     };
 
-    let mv_gen_ts = if !is_mv {
+    let mv_gen_ts = if !is_mv && !is_noctx {
         quote! { mv: &mvengine::ui::res::MVR, }
     } else {
         quote! {}
@@ -146,18 +153,27 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "texture",
-        "mvengine::rendering::texture::Texture",
+        is_noctx.yn("mvengine::rendering::texture::NoCtxTexture", "mvengine::rendering::texture::Texture"),
         textures,
         |lit| {
             let (src, sampler) = lit.split_once('|').expect("Meta should always contain a colon");
             let path = get_src(cdir.as_str(), src);
             let linear = "linear" == sampler.to_lowercase();
 
-            quote! {
-                {
-                    let tex = mvengine::rendering::texture::Texture::from_bytes_sampled(include_bytes!(#path), #linear).expect("Cannot load texture!");
-                    tex
-                },
+            if is_noctx {
+                quote! {
+                    {
+                        let tex = mvengine::rendering::texture::NoCtxTexture::new(include_bytes!(#path), #linear);
+                        tex
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let tex = mvengine::rendering::texture::Texture::from_bytes_sampled(include_bytes!(#path), #linear).expect("Cannot load texture!");
+                        tex
+                    },
+                }
             }
         }
     );
@@ -185,7 +201,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
-    let (tile_struct_ts, tile_resolve_fn_ts) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
+    let (tile_struct_ts, tile_resolve_fn_ts, tile_save_ts) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
 
     let (tileset_struct_ts, tileset_resolve_fn_ts) = extent_resource(
         is_mv,
@@ -218,7 +234,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "animation",
-        "mvutils::once::Lazy<mvengine::graphics::animation::GlobalAnimation<'static>>",
+        "mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy<mvengine::graphics::animation::GlobalAnimation<'static>>",
         animations,
         |animation| {
             let tileset = &animation.tileset;
@@ -237,9 +253,9 @@ pub fn r(input: TokenStream) -> TokenStream {
             };
 
             quote! {
-                mvutils::once::Lazy::new(|| {
+                mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy::new(|| {
                     let tileset = #r_ident.resolve_tileset(#tileset_id).expect(#err_msg);
-                    let anim = mvengine::graphics::animation::GlobalAnimation::new(tileset, #range_ts, #fps);
+                    let anim = mvengine::graphics::animation::GlobalAnimation::new(tileset, #tileset_id, #range_ts, #fps);
                     anim
                 }),
             }
@@ -270,7 +286,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "composite",
-        "mvutils::once::Lazy<mvengine::graphics::comp::CompositeSprite>",
+        "mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy<mvengine::graphics::comp::CompositeSprite>",
         composites,
         |composite| {
 
@@ -299,7 +315,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             let rig = get_src(cdir.as_str(), rig);
             quote! {
                 {
-                    mvutils::once::Lazy::new(|| {
+                    mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy::new(|| {
                         let comp = mvengine::graphics::comp::CompositeSprite::from_expr_and_resources(include_str!(#rig), vec![#vec_ts]);
                         comp.unwrap()
                     })
@@ -327,7 +343,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     };
 
 
-    let init_fn_ts = if !is_mv {
+    let init_fn_ts = if !is_mv && !is_noctx {
         quote! {
             mvengine::ui::res::MVR::initialize();
             #r_ident.create(|| #r_ident {
@@ -347,6 +363,33 @@ pub fn r(input: TokenStream) -> TokenStream {
     let propagate_tick = if !is_mv {
         quote! { self.mv.tick_all_animations(); }
     } else { quote!{} };
+
+    let impl_ctx = if is_noctx {
+        quote! {}
+    } else {
+        quote! {
+            impl mvengine::ui::context::UiResources for #r_ident {
+            #color_resolve_fn_ts
+            #shape_resolve_fn_ts
+            #adaptive_resolve_fn_ts
+            #texture_resolve_fn_ts
+            #font_resolve_fn_ts
+            #tile_resolve_fn_ts
+            #tileset_resolve_fn_ts
+            #animation_resolve_fn_ts
+            #composite_resolve_fn_ts
+
+            fn tick_all_animations(&self) {
+                use std::ops::Deref;
+                    for anim in &self.animation.animation_arr {
+                        let anim = anim.deref();
+                        mvutils::unsafe_cast_mut!(anim, mvengine::graphics::animation::GlobalAnimation).tick();
+                    }
+                    #propagate_tick
+                }
+            }
+        }
+    };
 
     let pm1 = quote! {
         mvutils::lazy! {
@@ -378,24 +421,26 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl mvengine::ui::context::UiResources for #r_ident {
-            #color_resolve_fn_ts
-            #shape_resolve_fn_ts
-            #adaptive_resolve_fn_ts
-            #texture_resolve_fn_ts
-            #font_resolve_fn_ts
-            #tile_resolve_fn_ts
-            #tileset_resolve_fn_ts
-            #animation_resolve_fn_ts
-            #composite_resolve_fn_ts
+        #impl_ctx
 
-            fn tick_all_animations(&self) {
-                use std::ops::Deref;
-                for anim in &self.animation.animation_arr {
-                    let anim = anim.deref();
-                    mvutils::unsafe_cast_mut!(anim, mvengine::graphics::animation::GlobalAnimation).tick();
-                }
-                #propagate_tick
+        impl mvengine::ui::res::runtime::ResourceSavable for #r_ident {
+            fn save_res(&self, saver: &mut impl mvutils::save::Saver) {
+                use mvengine::ui::res::runtime::save_array_as_vec;
+                use mvengine::ui::res::runtime::save_res_array_as_vec;
+
+                save_array_as_vec(saver, &self.color.color_arr);
+                save_array_as_vec(saver, &self.shape.shape_arr);
+                save_array_as_vec(saver, &self.adaptive.adaptive_arr);
+                save_array_as_vec(saver, &self.texture.texture_arr);
+                save_array_as_vec(saver, &self.font.font_arr);
+                //save_array_as_vec()//self.tile.tile_arr.to_veO;
+                save_array_as_vec(saver, &self.tileset.tileset_arr);
+                save_res_array_as_vec(saver, &self.animation.animation_arr);
+                save_array_as_vec(saver, &self.composite.composite_arr);
+            }
+
+            fn load_res(loader: &mut impl mvutils::save::Loader, resources: &impl mvengine::ui::context::UiResources) -> Result<Self, String> {
+                Err("resource structs cannot be loaded. Use RuntimeResources instead.".to_string())
             }
         }
     };
@@ -488,11 +533,12 @@ fn extent_resource<F, T>(
     }, res_fn_ts)
 }
 
-fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r_field_gens_tokens: &mut TS, struct_name: &str, is_mv: bool) -> (TS, TS) {
+fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r_field_gens_tokens: &mut TS, struct_name: &str, is_mv: bool) -> (TS, TS, TS) {
     let mut total_count = 0usize;
     let mut tile_struct_fields_ts = quote! {};
     let mut tile_struct_fields_init_ts = quote! {};
     let mut structs = quote! {};
+    let mut tile_save_ts = quote! {};
     for (tileset_name, tileset) in tilesets {
         let mut tile_tiles_struct_fields_ts = quote! {};
         let mut tile_tiles_struct_fields_init_ts = quote! {};
@@ -511,6 +557,10 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
         tile_struct_fields_ts.extend(quote! {
             pub #ident: #ty,
         });
+
+        //tile_save_ts.extend(quote! {
+        //    self.tile.#ident
+        //});
 
         for (name, value) in &tileset.entries {
             total_count += 1;
@@ -575,7 +625,7 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
         }
     };
 
-    (pm, res_fn_ts)
+    (pm, res_fn_ts, tile_save_ts)
 }
 
 fn parse_color(entity: &Entity) -> (String, String) {

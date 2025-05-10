@@ -1,24 +1,18 @@
-use crate::ui::anim::{easing, ElementAnimationInfo, FillMode};
+use crate::ui::anim::easing;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::{ElementBody, TextBody};
+use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, Interpolator, TextAlign, UiStyle, EMPTY_STYLE};
+use crate::ui::styles::{Dimension, Interpolator, UiStyle};
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::Percentage;
 use std::ops::Deref;
-use crate::resolve;
-use crate::ui::res::MVR;
-
-#[derive(Clone)]
-enum State {
-    In,
-    Out,
-}
+use crate::input::{Input, MouseAction, RawInputEvent};
+use crate::ui::elements::components::text::TextBody;
 
 #[derive(Clone)]
 pub struct Button {
@@ -29,131 +23,20 @@ pub struct Button {
     attributes: Attributes,
     body: ElementBody<Button>,
     text_body: TextBody<Button>,
-    hover_style: UiStyle,
-    fade_time: u32,
-    easing: Easing,
-    hover_state: State,
 }
 
 impl Button {
-    pub fn set_hover_style(&mut self, hover_style: UiStyle) {
-        self.hover_style = hover_style;
+    pub fn body(&self) -> &ElementBody<Button> {
+        &self.body
     }
-
-    pub fn set_fade_time(&mut self, fade_time: u32) {
-        self.fade_time = fade_time;
-    }
-
-    pub fn set_easing(&mut self, easing: Easing) {
-        self.easing = easing;
-    }
-
-    fn start_animation_in(&mut self) {
-        unsafe {
-            if TIMING_MANAGER.is_present(self.state.last_animation) {
-                TIMING_MANAGER.cancel(self.state.last_animation);
-            }
-        }
-
-        let static_elem = unsafe { Unsafe::cast_mut_static(self) };
-        let static_from = unsafe { Unsafe::cast_static(&self.initial_style) };
-        let static_to = unsafe { Unsafe::cast_static(&self.hover_style) };
-
-        let id = unsafe {
-            TIMING_MANAGER.request(
-                DurationTask::new(
-                    static_elem.fade_time,
-                    |_, time| {
-                        let percent = (time as f32).percentage(static_elem.fade_time as f32);
-                        let percent = static_elem.easing.get(percent);
-
-                        let static_style = Unsafe::cast_mut_static(&mut static_elem.style);
-                        static_style.interpolate(
-                            static_from,
-                            static_to,
-                            percent,
-                            static_elem,
-                            |s| s,
-                        );
-
-                        if percent >= 100.0 {
-                            static_elem.style.clone_from(static_to);
-                        }
-                    },
-                    AnimationState::empty(),
-                ),
-                Some(Box::new(|| {})),
-            )
-        };
-        self.state.last_animation = id;
-    }
-
-    fn start_animation_out(&mut self) {
-        unsafe {
-            if TIMING_MANAGER.is_present(self.state.last_animation) {
-                TIMING_MANAGER.cancel(self.state.last_animation);
-            }
-        }
-
-        let static_elem = unsafe { Unsafe::cast_mut_static(self) };
-        let static_from = unsafe { Unsafe::cast_static(&self.hover_style) };
-        let static_to = unsafe { Unsafe::cast_static(&self.initial_style) };
-
-        let id = unsafe {
-            TIMING_MANAGER.request(
-                DurationTask::new(
-                    static_elem.fade_time,
-                    |_, time| {
-                        let percent = (time as f32).percentage(static_elem.fade_time as f32);
-                        let percent = static_elem.easing.get(percent);
-
-                        let static_style = Unsafe::cast_mut_static(&mut static_elem.style);
-                        static_style.interpolate(
-                            static_from,
-                            static_to,
-                            percent,
-                            static_elem,
-                            |s| s,
-                        );
-
-                        if percent >= 100.0 {
-                            static_elem.style.clone_from(static_to);
-                        }
-                    },
-                    AnimationState::empty(),
-                ),
-                Some(Box::new(|| {})),
-            )
-        };
-        self.state.last_animation = id;
+    
+    pub fn body_mut(&mut self) -> &mut ElementBody<Button> {
+        &mut self.body
     }
 }
 
 impl UiElementCallbacks for Button {
     fn draw(&mut self, ctx: &mut DrawContext2D) {
-        //todo move into ui action processor (for each element have a fn(action: RawInputEvent))
-        //let (mx, my) = (input.positions[0], input.positions[1]);
-        //if self.inside(mx, my) {
-        //    if let State::Out = self.hover_state {
-        //        self.hover_state = State::In;
-        //        self.initial_style = self.style.clone();
-        //        if self.fade_time == 0 {
-        //            self.style.clone_from(&self.hover_style);
-        //        } else {
-        //            self.start_animation_in();
-        //        }
-        //    }
-        //} else {
-        //    if let State::In = self.hover_state {
-        //        self.hover_state = State::Out;
-        //        if self.fade_time == 0 {
-        //            self.style.clone_from(&self.initial_style);
-        //        } else {
-        //            self.start_animation_out();
-        //        }
-        //    }
-        //}
-
         let this = unsafe { Unsafe::cast_static(self) };
         self.body.draw(this, ctx, &self.context);
         for children in &self.state.children {
@@ -173,14 +56,20 @@ impl UiElementCallbacks for Button {
             }
         }
     }
+
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
+        self.body.on_input(unsafe_self, action, input);
+        true
+    }
 }
 
 impl UiElementStub for Button {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
     where
         Self: Sized,
-    {
-        Self {
+    {        
+        let mut this = Self {
             context: context.clone(),
             state: UiElementState::new(),
             style: style.clone(),
@@ -188,11 +77,9 @@ impl UiElementStub for Button {
             attributes,
             body: ElementBody::new(),
             text_body: TextBody::new(),
-            hover_style: style,
-            fade_time: 0,
-            easing: easing(EasingGen::linear(), EasingMode::In),
-            hover_state: State::Out,
-        }
+        };
+        
+        this
     }
 
     fn wrap(self) -> UiElement {

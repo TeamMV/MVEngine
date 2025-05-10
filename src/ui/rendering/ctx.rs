@@ -8,6 +8,7 @@ use crate::ui::rendering::triangle::TriangleCtx;
 use crate::ui::rendering::UiRenderer;
 use crate::window::Window;
 use std::fmt::Debug;
+use crate::math::vec::Vec4;
 
 pub fn transform() -> TransformCtx {
     TransformCtx::new()
@@ -124,6 +125,7 @@ impl TransformCtx {
 pub struct TextureCtx {
     pub(crate) texture: Option<Texture>,
     pub(crate) blending: f32,
+    pub(crate) uv: Vec4
 }
 
 impl TextureCtx {
@@ -131,6 +133,7 @@ impl TextureCtx {
         Self {
             texture: None,
             blending: 0.0,
+            uv: Vec4::default_uv(),
         }
     }
 
@@ -141,6 +144,11 @@ impl TextureCtx {
 
     pub fn blending(mut self, blending: f32) -> Self {
         self.blending = blending;
+        self
+    }
+
+    pub fn uv(mut self, uv: Vec4) -> Self {
+        self.uv = uv;
         self
     }
 }

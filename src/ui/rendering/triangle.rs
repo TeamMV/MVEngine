@@ -4,6 +4,7 @@ use crate::rendering::{InputVertex, Transform, Triangle};
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx::{TextureCtx, TransformCtx};
 use mvutils::utils::TetrahedronOp;
+use crate::math::vec::Vec4;
 
 pub struct TriangleCtx {
     points: Vec<(i32, i32, Option<RgbColor>)>,
@@ -11,6 +12,7 @@ pub struct TriangleCtx {
     transform: Transform,
     custom_origin: bool,
     texture: Option<Texture>,
+    uv: Vec4,
     blending: f32,
     z: f32,
 }
@@ -23,6 +25,7 @@ impl TriangleCtx {
             transform: Transform::new(),
             custom_origin: false,
             texture: None,
+            uv: Vec4::default_uv(),
             blending: 0.0,
             z: f32::INFINITY,
         }
@@ -52,6 +55,7 @@ impl TriangleCtx {
     pub fn texture(mut self, texture: TextureCtx) -> Self {
         self.texture = texture.texture;
         self.blending = texture.blending;
+        self.uv = texture.uv;
         self
     }
 
@@ -76,7 +80,7 @@ impl TriangleCtx {
             0
         };
         let tex_coords = if let Some(ref tex) = self.texture {
-            let uv: [(f32, f32); 4] = tex.get_uv();
+            let uv: [(f32, f32); 4] = tex.get_uv_inner(self.uv);
 
             let min_x = p1.0.min(p2.0).min(p3.0) as f32;
             let max_x = p1.0.max(p2.0).max(p3.0) as f32;

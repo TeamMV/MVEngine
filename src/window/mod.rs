@@ -11,7 +11,7 @@ use glutin::{
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use std::mem;
 use std::ops::FromResidual;
 use std::sync::Arc;
@@ -176,9 +176,7 @@ impl Window {
         }
     }
 
-    pub fn run<T: WindowCallbacks + 'static>(mut self) -> Result<(), Error> {
-        let mut app_loop = T::new(UninitializedWindow { inner: &mut self });
-
+    pub fn run<T: WindowCallbacks + 'static>(mut self, callbacks: Arc<RwLock<T>>) -> Result<(), Error> {
         let mut window = WindowBuilder::new()
             .with_visibility(false)
             .with_title(self.info.title.clone())
@@ -215,7 +213,9 @@ impl Window {
         let this = unsafe { Unsafe::cast_mut_static(&mut self) };
         let this2 = unsafe { Unsafe::cast_mut_static(&mut self) };
         let this3 = unsafe { Unsafe::cast_mut_static(&mut self) };
-        app_loop.post_init(&mut self);
+        let mut lock = callbacks.write();
+        lock.post_init(&mut self);
+        drop(lock);
 
         self.handle.show();
         self.state = State::Running;
@@ -226,6 +226,7 @@ impl Window {
                     Event::Resized(w, h) => {
                         self.info.width = w;
                         self.info.height = h;
+                        let mut app_loop = callbacks.write();
                         app_loop.resize(&mut self, w, h);
                     }
                     Event::Moved(_, _) => {}
@@ -233,7 +234,12 @@ impl Window {
                         break 'outer;
                     }
                     Event::DroppedFile(_) => {}
-                    Event::ReceivedCharacter(_) => {}
+                    Event::ReceivedCharacter(ch) => {
+                        if !ch.is_control() {
+                            let action = RawInputEvent::Keyboard(KeyboardAction::Char(ch));
+                            this.input.collector.dispatch_input(action, &self.input, this3);
+                        }
+                    }
                     Event::Focused(_) => {}
                     Event::KeyboardInput(state, code, Some(key)) => {
                         let code = unsafe { mem::transmute::<VirtualKeyCode, Key>(key) };
@@ -307,6 +313,7 @@ impl Window {
                 self.delta_u = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_u = self.delta_u;
 
+                let mut app_loop = callbacks.write();
                 app_loop.update(&mut self, delta_u);
             }
 
@@ -316,6 +323,7 @@ impl Window {
                 self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_t = self.delta_t;
 
+                let mut app_loop = callbacks.write();
                 app_loop.draw(&mut self, delta_t);
                 self.input.collector.end_frame();
                 self.handle.swap_buffers()?;
@@ -323,6 +331,7 @@ impl Window {
         }
 
         self.state = State::Exited;
+        let mut app_loop = callbacks.write();
         app_loop.exiting(&mut self);
 
         Ok(())
@@ -413,6 +422,10 @@ impl Window {
 
     pub fn ui_mut(&mut self) -> &mut Ui {
         self.ui.get_mut()
+    }
+    
+    pub fn disable_depth_test(&mut self) {
+        unsafe { gl::Disable(gl::DEPTH_TEST); }
     }
 }
 

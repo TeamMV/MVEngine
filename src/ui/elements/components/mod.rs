@@ -1,7 +1,8 @@
+pub mod text;
+pub mod edittext;
+
 use crate::color::RgbColor;
 use crate::graphics::comp::Drawable;
-use crate::rendering::text::Font;
-use crate::rendering::{InputVertex, Quad, Transform};
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;
@@ -10,21 +11,165 @@ use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::err::{ResType, UiResErr};
 use crate::ui::res::MVR;
-use crate::ui::styles::{BackgroundRes, Dimension, ResolveResult, TextAlign, UiShape, DEFAULT_STYLE};
+use crate::ui::styles::{BackgroundRes, Interpolator, ResolveResult, UiShape, UiStyle};
 use crate::{get_adaptive, get_shape, resolve};
 use std::marker::PhantomData;
 use std::ops::Deref;
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::Percentage;
+use crate::input::{Input, MouseAction, RawInputEvent};
+use crate::ui::anim::easing;
+use crate::ui::ease::{Easing, EasingGen, EasingMode};
+use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+
+#[derive(Clone)]
+enum State {
+    In,
+    Out,
+}
 
 #[derive(Clone)]
 pub struct ElementBody<E: UiElementStub> {
     _phantom: PhantomData<E>,
+    fade_time: u32,
+    hover_style: Option<UiStyle>,
+    hover_state: State,
+    easing: Easing,
+    initial_style: Option<UiStyle>
 }
 
-impl<E: UiElementStub> ElementBody<E> {
+impl<E: UiElementStub + 'static> ElementBody<E> {
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData::default(),
+            fade_time: 0,
+            hover_style: None,
+            hover_state: State::Out,
+            easing: easing(EasingGen::linear(), EasingMode::In),
+            initial_style: None,
         }
+    }
+    
+    
+    
+    pub fn on_input(&mut self, e: &mut E, action: RawInputEvent, input: &Input) {
+        match action {
+            RawInputEvent::Keyboard(_) => {}
+            RawInputEvent::Mouse(ma) => {
+                match ma {
+                    MouseAction::Wheel(_, _) => {}
+                    MouseAction::Move(x, y) => {
+                        if e.inside(x, y) {
+                            if let State::Out = self.hover_state {
+                                self.hover_state = State::In;
+                                self.start_animation_in(e);
+                            }
+                        } else {
+                            if let State::In = self.hover_state {
+                                self.hover_state = State::Out;
+                                self.start_animation_out(e);
+                            }
+                        }
+                    }
+                    MouseAction::Press(_) => {}
+                    MouseAction::Release(_) => {}
+                }
+            }
+        };
+    }
+
+    fn start_animation_in(&mut self, elem: &mut E) {
+        if self.hover_style.is_none() { return; }
+        let hover_style = self.hover_style.as_ref().unwrap();
+        
+        unsafe {
+            if TIMING_MANAGER.is_present(elem.state().last_animation) {
+                TIMING_MANAGER.cancel(elem.state().last_animation);
+            } else {
+                self.initial_style = Some(elem.style().clone());
+            }
+        }
+
+        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+        let static_from = unsafe { Unsafe::cast_static(self.initial_style.as_ref().unwrap()) };
+        let static_to = unsafe { Unsafe::cast_static(hover_style) };
+
+        let fade_time = self.fade_time;
+        let easing = self.easing.clone();
+        
+        let id = unsafe {
+            TIMING_MANAGER.request(
+                DurationTask::new(
+                    fade_time,
+                    move |_, time| {
+                        let percent = (time as f32).percentage(fade_time as f32);
+                        let percent = easing.get(percent);
+
+                        let static_style = Unsafe::cast_mut_static(static_elem.style_mut());
+                        static_style.interpolate(
+                            static_from,
+                            static_to,
+                            percent,
+                            static_elem,
+                            |s| s,
+                        );
+
+                        if percent >= 100.0 {
+                            static_elem.style_mut().clone_from(static_to);
+                        }
+                    },
+                    AnimationState::empty(),
+                ),
+                Some(Box::new(|| {})),
+            )
+        };
+        elem.state_mut().last_animation = id;
+    }
+
+    fn start_animation_out(&mut self, elem: &mut E) {
+        if self.initial_style.is_none() { return; }
+        let initial_style = self.initial_style.as_ref().unwrap();
+
+        unsafe {
+            if TIMING_MANAGER.is_present(elem.state().last_animation) {
+                TIMING_MANAGER.cancel(elem.state().last_animation);
+            }
+        }
+
+        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+        let static_from = unsafe { Unsafe::cast_static(self.hover_style.as_ref().unwrap()) };
+        let static_to = unsafe { Unsafe::cast_static(initial_style) };
+
+        let fade_time = self.fade_time;
+        let easing = self.easing.clone();
+
+        let id = unsafe {
+            TIMING_MANAGER.request(
+                DurationTask::new(
+                    fade_time,
+                    move |_, time| {
+                        let percent = (time as f32).percentage(fade_time as f32);
+                        let percent = easing.get(percent);
+
+                        let static_style = Unsafe::cast_mut_static(static_elem.style_mut());
+                        static_style.interpolate(
+                            static_from,
+                            static_to,
+                            percent,
+                            static_elem,
+                            |s| s,
+                        );
+
+                        if percent >= 100.0 {
+                            static_elem.style_mut().clone_from(static_to);
+                        }
+                    },
+                    AnimationState::empty(),
+                ),
+                Some(Box::new(|| {})),
+            )
+        };
+        elem.state_mut().last_animation = id;
     }
 
     pub fn draw(&mut self, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
@@ -229,106 +374,17 @@ impl<E: UiElementStub> ElementBody<E> {
         };
         bd_shape.draw(ctx, rect, fill, context);
     }
-}
 
-#[derive(Clone)]
-pub struct TextBody<E: UiElementStub> {
-    _phantom: PhantomData<E>,
-}
-
-impl<E: UiElementStub> TextBody<E> {
-    pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData::default(),
-        }
+    pub fn set_fade_time(&mut self, fade_time: u32) {
+        self.fade_time = fade_time;
     }
 
-    pub fn draw(&self, text: &str, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
-        let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
-        let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
-        let font = resolve!(elem, text.font);
-        let font = font.unwrap_or(MVR.font.default);
-        if let Some(font) = context.resources.resolve_font(font) {
-            let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
-            let size = resolve!(elem, text.size).unwrap_or_default(&DEFAULT_STYLE.text.size);
-            let kerning =
-                resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
-            let stretch =
-                resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
-            let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
-            let shape = Self::create_shape(text, color, size, kerning, stretch, skew, font);
-            let state = elem.state();
-
-            let w = shape.extent.0;
-            let h = shape.extent.1;
-
-            let text_x = match text_align_x {
-                TextAlign::Start => { state.content_rect.x() }
-                TextAlign::Middle => { state.content_rect.x() + state.content_rect.width() / 2 - w / 2 }
-                TextAlign::End => { state.content_rect.x() + state.content_rect.width() - w }
-            };
-
-            let text_y = match text_align_y {
-                TextAlign::Start => { state.content_rect.y() }
-                TextAlign::Middle => { state.content_rect.y() + state.content_rect.height() / 2 - h / 2 }
-                TextAlign::End => { state.content_rect.y() + state.content_rect.height() - h }
-            };
-
-            let mut shape = shape.translated(text_x, text_y);
-            shape.apply_transformations();
-            ctx.shape(shape);
-        }
+    pub fn set_hover_style(&mut self, hover_style: Option<UiStyle>) {
+        self.hover_style = hover_style;
     }
 
-    pub fn create_shape(
-        s: &str,
-        color: RgbColor,
-        size: f32,
-        kerning: f32,
-        stretch: Dimension<f32>,
-        skew: f32,
-        font: &Font,
-    ) -> Shape {
-        let size = size * stretch.height;
-        let width = font.get_width(s, size);
-        let l = s.len() as f32 - 1f32;
-        let width = width * stretch.width + skew * 2f32 + kerning * l;
-
-        let mut triangles = vec![];
-        let mut x = 0f32;
-        let space_advance = font.get_space_advance(size);
-        let mut height = 0;
-        for (i, c) in s.char_indices() {
-            if c == '\t' {
-                x += 6.0 + space_advance;
-                continue;
-            } else if c == ' ' {
-                x += space_advance;
-                continue;
-            } else if c == '\n' {
-                continue;
-            }
-            let data = font.get_char_data(c, size);
-            let vertex = InputVertex {
-                transform: Transform::new(),
-                pos: (x, 0.0, f32::INFINITY),
-                color: color.as_vec4(),
-                uv: (0.0, 0.0),
-                texture: font.texture().id,
-                has_texture: 2.0,
-            };
-            let mut quad = Quad::from_corner(
-                vertex,
-                data.uv,
-                (data.width * stretch.width, data.size),
-                |vertex, (x, y)| vertex.pos = (x, y + data.y_off, vertex.pos.2),
-            );
-            height = height.max(data.size as i32);
-            quad.points[0].transform.translation.x -= skew;
-            quad.points[2].transform.translation.x += skew;
-            triangles.extend(quad.triangles());
-            x += data.width * stretch.width + kerning + skew * 2f32;
-        }
-        Shape::new_with_extent(triangles, (width as i32, (height as f32 * stretch.height) as i32))
+    pub fn set_easing(&mut self, easing: Easing) {
+        self.easing = easing;
     }
 }
+

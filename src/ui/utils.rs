@@ -1,3 +1,4 @@
+use mvutils::enum_val_ref;
 use crate::color::{Color, ColorFormat, RgbColor};
 use crate::ui::elements::UiElementState;
 use crate::ui::styles::{Origin, Resolve, UiStyle};
@@ -100,4 +101,75 @@ impl<T> OptionGetMapOr<T> for Option<T> {
         }
         def
     }
+}
+
+#[macro_export]
+macro_rules! expect_inner_element_by_id {
+    ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
+        let __e = $parent.get().find_element_by_id($id)
+            .expect(&format!("Element '{}' is not on parent!", $id));
+        let __inner = __e.get();
+        let $var = enum_val_ref!(UiElement, __inner, $elem_type);
+        $body
+    }};
+}
+
+#[macro_export]
+macro_rules! expect_inner_element_by_id_mut {
+    ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
+        let __e = $parent.get().find_element_by_id($id)
+            .expect(&format!("Element '{}' is not on parent!", $id));
+        let __inner = __e.get_mut();
+        let $var = enum_val_ref_mut!(UiElement, __inner, $elem_type);
+        $body
+    }};
+}
+
+#[macro_export]
+macro_rules! expect_element_by_id {
+    ($parent:expr, $id:literal) => {
+        {
+            let e = $parent.get().find_element_by_id($id).expect(&format!("Element '{}' is not on parent!", $id));
+            e
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! find_inner_element_by_id {
+    ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
+        if let Some(__e) = $parent.get().find_element_by_id($id) {
+            let __inner = __e.get();
+            if let $crate::UiElement::$elem_type($var) = __inner {
+                Some($body)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! find_inner_element_by_id_mut {
+    ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
+        if let Some(__e) = $parent.get().find_element_by_id($id) {
+            let __inner = __e.get_mut();
+            if let $crate::UiElement::$elem_type($var) = __inner {
+                Some($body)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! find_element_by_id {
+    ($parent:expr, $id:literal) => {{
+        $parent.get().find_element_by_id($id)
+    }};
 }

@@ -87,13 +87,17 @@ impl Ui {
 
 impl InputProcessor for Ui {
     fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
+        for root in &self.root_elems {
+            let e = root.get_mut();
+            e.raw_input(action.clone(), input);
+        }
         match action {
             RawInputEvent::Keyboard(action) => unsafe {
                 for root in Unsafe::cast_static(&self.root_elems) {
                     let mut guard = root.get_mut();
                     let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
                     let mut events = &mut guard.state_mut().events;
-                    events.keyboard_change(action, &mut *guard_ref, &*input);
+                    events.keyboard_change(action.clone(), &mut *guard_ref, &*input);
                 }
             },
             RawInputEvent::Mouse(action) => unsafe {
@@ -101,7 +105,7 @@ impl InputProcessor for Ui {
                     let mut guard = root.get_mut();
                     let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
                     let mut events = &mut guard.state_mut().events;
-                    events.mouse_change(action, &mut *guard_ref, &*input, window);
+                    events.mouse_change(action.clone(), &mut *guard_ref, &*input, window);
                 }
             },
         }

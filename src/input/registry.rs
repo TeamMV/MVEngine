@@ -4,7 +4,15 @@ use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use hashbrown::{HashMap, HashSet};
 use std::collections::btree_map::Entry;
 use std::fmt::Debug;
+use std::fs::File;
 use std::hash::Hash;
+use std::io::{Read, Write};
+use std::mem;
+use bytebuffer::ByteBuffer;
+use itertools::Itertools;
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::Savable;
+use mvutils::save::Savable;
 use crate::window::Window;
 
 #[derive(Debug)]
@@ -72,6 +80,29 @@ impl InputRegistry {
             false
         }
     }
+
+    pub(crate) fn save_to_file(&self, file: &mut File) -> std::io::Result<()> {
+        let mut buffer = ByteBuffer::new_le();
+        self.actions.save(&mut buffer);
+        file.write_all(buffer.as_bytes())
+    }
+
+    pub(crate) fn load_from_file(&mut self, file: &mut File) -> Result<(), String> {
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+        let mut buffer = ByteBuffer::from_vec_le(buffer);
+        let loaded = Vec::<(String, Vec<RawInput>)>::load(&mut buffer)?;
+
+        let old_actions = mem::take(&mut self.actions);
+        let mut self_map: HashMap<String, Vec<RawInput>> = old_actions.into_iter().collect();
+        for (key, item) in loaded {
+            self_map.insert(key, item);
+        }
+
+        self.actions = self_map.into_iter().collect_vec();
+
+        Ok(())
+    }
 }
 
 pub struct ActionInputProcessor {
@@ -87,6 +118,10 @@ impl ActionInputProcessor {
             registry: InputRegistry::new(),
             inputs: Default::default(),
         }
+    }
+    
+    pub fn is_raw_input(&self, input: RawInput) -> bool {
+        self.inputs.contains(&input)
     }
 }
 
@@ -118,7 +153,7 @@ impl InputProcessor for ActionInputProcessor {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, Savable)]
 pub enum RawInput {
     MousePress(MouseButton),
     MouseRelease(MouseButton),
@@ -134,7 +169,7 @@ impl RawInput {
             RawInputEvent::Keyboard(keyboard_event) => match keyboard_event {
                 KeyboardAction::Press(press_event) => Some(RawInput::KeyPress(press_event)),
                 KeyboardAction::Release(release_event) => Some(RawInput::KeyRelease(release_event)),
-                KeyboardAction::Type(type_event) => None,
+                _ => None,
             },
             RawInputEvent::Mouse(mouse_event) => match mouse_event {
                 MouseAction::Wheel(dx, dy) => {
@@ -177,7 +212,7 @@ impl RawInput {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, Savable)]
 pub enum Direction {
     Up,
     Down,

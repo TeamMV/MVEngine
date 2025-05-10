@@ -29,6 +29,13 @@ impl SimpleRect {
         self.x <= x && self.x + self.width >= x && self.y <= y && self.y + self.height >= y
     }
 
+    pub fn intersects(&self, other: &SimpleRect) -> bool {
+        self.x < other.x + other.width &&
+            self.x + self.width > other.x &&
+            self.y < other.y + other.height &&
+            self.y + self.height > other.y
+    }
+
     pub fn center(&self) -> (i32, i32) {
         (self.x + self.width / 2, self.y + self.height / 2)
     }

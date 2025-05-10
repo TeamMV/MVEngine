@@ -34,9 +34,13 @@ use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::input::{Input, RawInputEvent};
+use crate::ui::elements::textbox::TextBox;
 
 pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut DrawContext2D);
+    
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool { true }
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -538,11 +542,13 @@ pub trait UiElementStub: UiElementCallbacks {
 
 pub type Element = Rc<DangerousCell<UiElement>>;
 
+
 #[derive(Clone)]
 pub enum UiElement {
     Blank(Blank),
     Div(Div),
     Button(Button),
+    TextBox(TextBox)
 }
 
 impl ToChild for UiElement {
@@ -557,6 +563,7 @@ macro_rules! ui_element_fn {
             UiElement::Blank(e) => e.$fn_name(),
             UiElement::Div(e) => e.$fn_name(),
             UiElement::Button(e) => e.$fn_name(),
+            UiElement::TextBox(e) => e.$fn_name(),
             _ => todo!(),
         }
     };
@@ -565,6 +572,7 @@ macro_rules! ui_element_fn {
             UiElement::Blank(e) => e.$fn_name($($args),*),
             UiElement::Div(e) => e.$fn_name($($args),*),
             UiElement::Button(e) => e.$fn_name($($args),*),
+            UiElement::TextBox(e) => e.$fn_name($($args),*),
             _ => todo!(),
         }
     };
@@ -572,7 +580,12 @@ macro_rules! ui_element_fn {
 
 impl UiElementCallbacks for UiElement {
     fn draw(&mut self, ctx: &mut DrawContext2D) {
+        self.state_mut().events.after_frame();
         ui_element_fn!(self, draw(ctx))
+    }
+
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        ui_element_fn!(self, raw_input(action, input))
     }
 }
 
@@ -624,6 +637,7 @@ impl UiElementStub for UiElement {
         ui_element_fn!(self, context())
     }
 
+    /// Not used rn and will probably be removed, no implementation needed
     fn get_size(&self, s: &str) -> Dimension<i32> {
         ui_element_fn!(self, get_size(s))
     }

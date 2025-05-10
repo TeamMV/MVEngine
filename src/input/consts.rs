@@ -1,4 +1,6 @@
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
+use mvutils::Savable;
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Savable)]
 pub enum MouseButton {
     Left,
     Right,
@@ -6,7 +8,7 @@ pub enum MouseButton {
     Other(u8),
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Savable)]
 pub enum Key {
     Key1,
     /// The '2' key over the letters.

@@ -1,7 +1,7 @@
 use crate::ui::anim;
 use crate::ui::anim::{AnimationMode, FillMode};
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::{UiElement, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementStub};
 use crate::ui::styles::UiStyle;
 use crate::ui::timing::{AnimationState, DelayTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::{DangerousCell, Nullable, Unsafe};
@@ -18,7 +18,7 @@ pub enum UiElementAnimation {
 pub trait UiElementAnimationStub {
     fn play(
         &self,
-        elem: &mut UiElement,
+        elem: Element,
         duration: u32,
         fill_mode: FillMode,
         animation_mode: AnimationMode,
@@ -33,7 +33,7 @@ pub struct SimpleAnimation {
 impl UiElementAnimationStub for SimpleAnimation {
     fn play(
         &self,
-        elem: &mut UiElement,
+        elem: Element,
         duration: u32,
         fill_mode: FillMode,
         animation_mode: AnimationMode,
@@ -63,7 +63,7 @@ impl KeyframeAnimation {
         &self,
         index: usize,
         complete_duration: u32,
-        elem: &mut UiElement,
+        elem: Element,
         animation_mode: AnimationMode,
         on_finish: Arc<DangerousCell<F>>,
     ) where
@@ -78,16 +78,15 @@ impl KeyframeAnimation {
             let duration = (keyframe.duration_percent).value(complete_duration as f32) as u32;
 
             anim::animate_self(
-                elem,
+                elem.clone(),
                 &keyframe.style,
                 duration,
                 keyframe.easing.clone(),
                 FillMode::Keep,
                 animation_mode.clone(),
             );
-
+            
             let static_self = Unsafe::cast_static(self);
-            let static_elem = Unsafe::cast_mut_static(elem);
 
             let next_index = index + 1;
 
@@ -97,7 +96,7 @@ impl KeyframeAnimation {
                     static_self.animate_next_keyframe(
                         next_index,
                         complete_duration,
-                        static_elem,
+                        elem.clone(),
                         animation_mode.clone(),
                         on_finish.clone(),
                     );
@@ -113,13 +112,14 @@ impl KeyframeAnimation {
 impl UiElementAnimationStub for KeyframeAnimation {
     fn play(
         &self,
-        elem: &mut UiElement,
+        elem: Element,
         duration: u32,
         fill_mode: FillMode,
         animation_mode: AnimationMode,
     ) {
-        let original_style = elem.style().clone();
-        let current_style = unsafe { Unsafe::cast_mut_static(elem.style_mut()) };
+        let unwrapped = elem.get_mut();
+        let original_style = unwrapped.style().clone();
+        let current_style = unsafe { Unsafe::cast_mut_static(unwrapped.style_mut()) };
 
         self.animate_next_keyframe(
             0,

@@ -1,3 +1,8 @@
+pub mod args;
+pub mod mapto;
+pub mod savers;
+pub mod fuckumaxfornotmakingshitpub;
+
 use std::ops::{Deref, DerefMut};
 use mvutils::unsafe_utils::Unsafe;
 
@@ -34,5 +39,18 @@ impl<'a, T> Deref for CloneMut<'a, T> {
 impl<'a, T> DerefMut for CloneMut<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.inner
+    }
+}
+
+pub trait Expect2<T> {
+    fn expect2(self, msg: &str) -> T;
+}
+
+impl<T, E> Expect2<T> for Result<T, E> {
+    fn expect2(self, msg: &str) -> T {
+        if let Ok(t) = self {
+            return t;
+        }
+        panic!("{msg}");
     }
 }

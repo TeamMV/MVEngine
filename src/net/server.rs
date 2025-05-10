@@ -5,7 +5,8 @@ use std::{io, thread};
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::thread::JoinHandle;
-use bytebuffer::ByteBuffer;
+use std::time::Duration;
+use bytebuffer::{ByteBuffer, Endian};
 use crossbeam_channel::Sender;
 use hashbrown::HashMap;
 use log::{debug, error, info, warn};
@@ -13,7 +14,7 @@ use mvutils::hashers::U64IdentityHasher;
 use mvutils::save::Savable;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 
 pub type ClientId= u64;
@@ -35,10 +36,18 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
         }
     }
 
-    pub fn listen<Handler: ServerHandler<In>>(&mut self, port: u16) {
+    pub fn listen<Handler: ServerHandler<In> + Send + 'static>(
+        &mut self,
+        port: u16,
+    ) -> Arc<Mutex<Handler>> {
         let (stop_sen, stop_rec) = crossbeam_channel::unbounded::<String>();
         let (disconnect_sen, disconnect_rec) = crossbeam_channel::unbounded::<(ClientId, DisconnectReason)>();
         let clients = self.clients.clone();
+
+        let handler = Handler::on_server_start(port);
+        let handler_arc = Arc::new(Mutex::new(handler));
+        let handler_thread = handler_arc.clone();
+
         let handle = thread::spawn(move || {
             let addr = SocketAddr::from(([127, 0, 0, 1], port));
             let socket = TcpListener::bind(addr);
@@ -47,17 +56,16 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
                 return;
             }
             let mut socket = socket.unwrap();
-            if let Err(_) = socket.set_nonblocking(true) {
+            if socket.set_nonblocking(true).is_err() {
                 error!("Cannot set TcpListener into non-blocking mode");
                 return;
             }
 
-            let handler = Handler::on_server_start(port);
             info!("Listening on port {port}");
             loop {
                 if let Ok(stop_msg) = stop_rec.try_recv() {
                     info!("Server stopped with message: {stop_msg}");
-                    handler.on_server_stop(&stop_msg);
+                    handler_thread.lock().on_server_stop(&stop_msg);
                     return;
                 }
 
@@ -66,11 +74,11 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
                     let mut map = clients.write();
                     if let Some(client) = map.remove(&id) {
                         info!("Client {id} disconnected, reason: {reason:?}");
-                        handler.on_client_disconnect(client, reason);
+                        handler_thread.lock().on_client_disconnect(client, reason);
                     }
                 }
 
-                //check for incoming streams
+                // Check for new incoming connections
                 loop {
                     match socket.accept() {
                         Ok((stream, addr)) => {
@@ -78,58 +86,57 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
                             let id = utils::next_id("MVEngine::net::server::Server::listen");
                             let endpoint = ClientEndpoint::new(id, stream, disconnect_sen.clone());
                             let arc = Arc::new(endpoint);
-                            handler.on_client_connect(arc.clone());
+                            handler_thread.lock().on_client_connect(arc.clone());
                             let mut map = clients.write();
                             map.insert(id, arc);
                         }
-                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                            // No connection is ready to accept right now
-                            break;
-                        }
+                        Err(ref e) if e.kind() == ErrorKind::WouldBlock => break,
                         Err(e) => {
                             warn!("Error while accepting connection: {e}");
                             break;
                         }
                     }
-                }
-                //read streams into packets
 
+                    thread::sleep(Duration::from_millis(10));
+                }
+
+                // Read packets from existing clients
                 let mut map = clients.write();
                 for endpoint in map.values_mut() {
                     let stream = endpoint.tcp.get_mut();
                     let mut packet = try_read_packet::<In>(stream);
                     while let Ok(inner) = packet {
-                        handler.on_packet(endpoint.clone(), inner);
+                        handler_thread.lock().on_packet(endpoint.clone(), inner);
                         packet = try_read_packet::<In>(stream);
                     }
                     if let Some(e) = packet.err() {
-                        if let ReadPacketError::FromTcp(tcp_err) = e {
-                            match tcp_err.kind() {
+                        match e {
+                            ReadPacketError::FromTcp(tcp_err) => match tcp_err.kind() {
                                 ErrorKind::TimedOut => {
-                                    if let Err(e) = disconnect_sen.send((endpoint.id, DisconnectReason::TimedOut)) {
-                                        warn!("Error when attempting to send disconnect to server thread: {e}");
-                                    }
+                                    let _ = disconnect_sen.send((endpoint.id, DisconnectReason::TimedOut));
                                 }
                                 ErrorKind::ConnectionReset
                                 | ErrorKind::ConnectionAborted
                                 | ErrorKind::UnexpectedEof
                                 | ErrorKind::BrokenPipe
                                 | ErrorKind::NotConnected => {
-                                    if let Err(e) = disconnect_sen.send((endpoint.id, DisconnectReason::Disconnected)) {
-                                        warn!("Error when attempting to send disconnect to server thread: {e}");
-                                    }
+                                    let _ = disconnect_sen.send((endpoint.id, DisconnectReason::Disconnected));
                                 }
                                 _ => {}
+                            },
+                            ReadPacketError::FromSavable(s) => {
+                                warn!("Could not deserialize packet: {s}");
                             }
-                        } else if let ReadPacketError::FromSavable(s) = e {
-                            warn!("Could not deserialize packet: {s}");
                         }
                     }
                 }
-            };
+            }
         });
+
         self.thread = Some(handle);
         self.stopper = Some(stop_sen);
+
+        handler_arc
     }
 
     pub fn stop(&mut self, message: &str) {
@@ -152,10 +159,10 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
 
 pub trait ServerHandler<In: Savable> {
     fn on_server_start(port: u16) -> Self;
-    fn on_client_connect(&self, client: Arc<ClientEndpoint>);
-    fn on_client_disconnect(&self, client: Arc<ClientEndpoint>, reason: DisconnectReason);
-    fn on_packet(&self, client: Arc<ClientEndpoint>, packet: In);
-    fn on_server_stop(&self, message: &str);
+    fn on_client_connect(&mut self, client: Arc<ClientEndpoint>);
+    fn on_client_disconnect(&mut self, client: Arc<ClientEndpoint>, reason: DisconnectReason);
+    fn on_packet(&mut self, client: Arc<ClientEndpoint>, packet: In);
+    fn on_server_stop(&mut self, message: &str);
 }
 
 pub struct ClientEndpoint {
@@ -176,9 +183,10 @@ impl ClientEndpoint {
     pub fn send<Out: Savable>(&self, packet: Out) {
         //build data (len_u32+bytes)
         let mut buffer = ByteBuffer::new();
+        buffer.set_endian(Endian::LittleEndian);
         packet.save(&mut buffer);
         let len = buffer.len() as u32;
-        let len_bytes: [u8; 4] = len.to_le_bytes();
+        let len_bytes: [u8; 4] = len.to_be_bytes();
         let mut vec = len_bytes.to_vec();
         vec.extend(buffer.into_vec());
 
@@ -197,6 +205,10 @@ impl ClientEndpoint {
         if let Err(e) = stream.shutdown(Shutdown::Both) {
             warn!("Error when attempting to close socket connection: {e}");
         }
+    }
+
+    pub fn id(&self) -> ClientId {
+        self.id
     }
 }
 

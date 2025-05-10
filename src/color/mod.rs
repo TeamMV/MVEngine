@@ -5,6 +5,7 @@ use crate::math::vec::Vec4;
 use num_traits::{Num, ToPrimitive};
 use std::cmp::Ordering;
 use std::ops::Div;
+use mvutils::save::{Loader, Savable, Saver};
 
 pub type RgbColor = Color<RgbColorFormat>;
 pub type HsvColor = Color<HsvColorFormat>;
@@ -32,6 +33,17 @@ impl<T: ColorFormat> Clone for Color<T> {
         }
     }
 }
+
+impl<T: ColorFormat> Savable for Color<T> where T::ComponentType: Savable {
+    fn save(&self, saver: &mut impl Saver) {
+        self.components.save(saver);
+    }
+
+    fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let cmps = <[T::ComponentType; 4]>::load(loader)?;
+        Ok(Self { components: cmps })
+    }
+} 
 
 impl<Fmt: ColorFormat> Color<Fmt> {
     pub fn new(components: [Fmt::ComponentType; 4]) -> Self {
