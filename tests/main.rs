@@ -33,6 +33,7 @@ use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
+use mvengine::audio::{gen_sin_wave, AudioEngine};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -62,10 +63,17 @@ struct Application {
     draw_ctx: CreateOnce<DrawContext2D>,
     morph: CreateOnce<Morph>,
     state: CreateOnce<State<String>>,
+    audio: AudioEngine
 }
 
 impl Application {
     fn new() -> Self {
+        let audio = AudioEngine::setup().expect("Cannot start audio");
+        let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
+        let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
+        audio.play_sound(test_sound1);
+        audio.play_sound(test_sound2);
+        
         Self {
             renderer: CreateOnce::new(),
             camera: CreateOnce::new(),
@@ -80,6 +88,7 @@ impl Application {
             draw_ctx: CreateOnce::new(),
             morph: CreateOnce::new(),
             state: CreateOnce::new(),
+            audio,
         }
     }
 }
