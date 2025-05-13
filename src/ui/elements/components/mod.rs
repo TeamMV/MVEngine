@@ -253,8 +253,11 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
                     let tex = resolve!(elem, background.texture);
                     if let ResolveResult::Value(tex) = tex {
                         let tex = tex.deref().clone();
-                        if let Some(tex) = context.resources.resolve_texture(tex) {
-                            background_shape.set_texture(ctx::texture().source(Some(tex.clone())));
+                        if let Some((tex, uv)) = tex.get_texture(context.resources) {
+                            background_shape.set_texture(ctx::texture()
+                                .source(Some(tex.clone()))
+                                .uv(uv)
+                            );
                         } else {
                             bg_empty = true;
                         }
@@ -312,8 +315,11 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
                     let tex = resolve!(elem, border.texture);
                     if let ResolveResult::Value(tex) = tex {
                         let tex = tex.deref().clone();
-                        if let Some(tex) = context.resources.resolve_texture(tex) {
-                            border_shape.set_texture(ctx::texture().source(Some(tex.clone())));
+                        if let Some((tex, uv)) = tex.get_texture(context.resources) {
+                            border_shape.set_texture(ctx::texture()
+                                .source(Some(tex.clone()))
+                                .uv(uv)
+                            );
                         } else {
                             bd_empty = true;
                         }
@@ -324,7 +330,13 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
             }
         }
         if !bd_empty {
+            border_shape.set_translate(state.rect.x(), state.rect.y());
+            border_shape.apply_transformations();
+            border_shape.set_origin(state.rect.x(), state.rect.y());
             border_shape.set_scale(bd_scale_x, bd_scale_y);
+            border_shape.apply_transformations();
+            let ui_transform = state.inner_transforms.as_render_transform(state);
+            border_shape.set_transform(ui_transform);
             ctx.shape(border_shape);
         }
     }
@@ -335,7 +347,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         ctx: &mut DrawContext2D,
         context: &UiContext,
     ) {
-        let rect = &elem.state().content_rect;
+        let mut rect = elem.state().rect.clone();
         let res = resolve!(elem, background.resource).unwrap_or(BackgroundRes::Color.into());
         let res = res.deref();
         let fill = match res {
@@ -344,12 +356,14 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
                 AdaptiveFill::Color(color)
             }
             BackgroundRes::Texture => {
-                let texture = resolve!(elem, background.texture).unwrap_or(MVR.texture.missing.into());
-                let texture = *texture.deref();
-                AdaptiveFill::Drawable(Drawable::Texture(texture))
+                let texture = resolve!(elem, background.texture).unwrap_or(Drawable::missing().into());
+                let texture = texture.deref().clone();
+                AdaptiveFill::Drawable(texture)
             }
         };
-        bg_shape.draw(ctx, rect, fill, context);
+        let transform = elem.state().inner_transforms.as_render_transform(elem.state());
+        rect.transform(&transform);
+        bg_shape.draw(ctx, &rect, fill, context);
     }
 
     fn draw_border_adaptive(
@@ -358,7 +372,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         ctx: &mut DrawContext2D,
         context: &UiContext,
     ) {
-        let rect = &elem.state().content_rect;
+        let mut rect = elem.state().rect.clone();
         let res = resolve!(elem, border.resource).unwrap_or(BackgroundRes::Color.into());
         let res = res.deref();
         let fill = match res {
@@ -367,12 +381,14 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
                 AdaptiveFill::Color(color)
             }
             BackgroundRes::Texture => {
-                let texture = resolve!(elem, border.texture).unwrap_or(MVR.texture.missing.into());
-                let texture = *texture.deref();
-                AdaptiveFill::Drawable(Drawable::Texture(texture))
+                let texture = resolve!(elem, border.texture).unwrap_or(Drawable::missing().into());
+                let texture = texture.deref().clone();
+                AdaptiveFill::Drawable(texture)
             }
         };
-        bd_shape.draw(ctx, rect, fill, context);
+        let transform = elem.state().inner_transforms.as_render_transform(elem.state());
+        rect.transform(&transform);
+        bd_shape.draw(ctx, &rect, fill, context);
     }
 
     pub fn set_fade_time(&mut self, fade_time: u32) {
@@ -385,6 +401,26 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
 
     pub fn set_easing(&mut self, easing: Easing) {
         self.easing = easing;
+    }
+
+    pub fn set_initial_style(&mut self, initial_style: UiStyle) {
+        self.initial_style = Some(initial_style);
+    }
+
+    pub fn hover_style(&self) -> &Option<UiStyle> {
+        &self.hover_style
+    }
+
+    pub fn initial_style(&self) -> &Option<UiStyle> {
+        &self.initial_style
+    }
+
+    pub fn hover_style_mut(&mut self) -> &mut Option<UiStyle> {
+        &mut self.hover_style
+    }
+
+    pub fn initial_style_mut(&mut self) -> &mut Option<UiStyle> {
+        &mut self.initial_style
     }
 }
 

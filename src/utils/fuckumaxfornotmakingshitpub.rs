@@ -6,6 +6,8 @@ use std::ops::{Deref, DerefMut};
 use std::panic::RefUnwindSafe;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, Once};
+use bytebuffer::ByteBuffer;
+use mvutils::bytebuffer::ByteBufferExtras;
 
 pub struct MveLazy<T> {
     value: CreateOnce<T>,
@@ -164,4 +166,16 @@ macro_rules! enum_val_ref_mut {
             _ => panic!("Illegal Variant"),
         }
     }};
+}
+
+pub trait Interpret {
+    fn interpret<As: Savable>(self) -> Result<As, String>;
+}
+
+impl<T> Interpret for T where T: IntoIterator<Item=u8> {
+    fn interpret<As: Savable>(self) -> Result<As, String> {
+        let vec: Vec<u8> = self.into_iter().collect();
+        let mut buffer = ByteBuffer::from_vec_le(vec);
+        As::load(&mut buffer)
+    }
 }

@@ -4,10 +4,10 @@ use crate::ui::geometry::geom;
 use crate::ui::geometry::morph::Morph;
 use crate::ui::geometry::polygon::Polygon;
 use crate::ui::rendering::ctx::TextureCtx;
-use ahash::{HashSet, HashSetExt};
+use ahash::HashSetExt;
 use itertools::Itertools;
-use std::fmt::{Debug, Formatter, Write};
 use mvutils::Savable;
+use std::fmt::{Debug, Formatter, Write};
 
 #[derive(Clone, Savable)]
 pub struct Shape {
@@ -240,13 +240,12 @@ impl Shape {
             let width = (max_x - min_x) as f32;
             let height = (max_y - min_y) as f32;
 
-            let uv_bounds = tex.get_uv();
-            let (uv_tl, uv_tr, uv_br, uv_bl) = (
-                uv_bounds[0], // Top-left
-                uv_bounds[1], // Top-right
-                uv_bounds[2], // Bottom-right
-                uv_bounds[3], // Bottom-left
-            );
+            let uv: [(f32, f32); 4] = tex.get_uv_inner(texture.uv); //points in order bl, tl, tr, br
+
+            let bl = uv[3];
+            let tl = uv[0];
+            let tr = uv[1];
+            let br = uv[2];
 
             for triangle in self.triangles.iter_mut() {
                 for vertex in triangle.points.iter_mut() {
@@ -256,8 +255,13 @@ impl Shape {
                     let normalized_u = (x - min_x) / width;
                     let normalized_v = 1.0 - (y - min_y) / height;
 
-                    let u = uv_tl.0 + (uv_tr.0 - uv_tl.0) * normalized_u;
-                    let v = uv_tl.1 + (uv_bl.1 - uv_tl.1) * normalized_v;
+                    let left_u = bl.0 + normalized_v * (tl.0 - bl.0);
+                    let right_u = br.0 + normalized_v * (tr.0 - br.0);
+                    let u = left_u + normalized_u * (right_u - left_u);
+
+                    let left_v = bl.1 + normalized_v * (tl.1 - bl.1);
+                    let right_v = br.1 + normalized_v * (tr.1 - br.1);
+                    let v = left_v + normalized_u * (right_v - left_v);
 
                     vertex.uv = (u, v);
                     vertex.texture = tex.id;

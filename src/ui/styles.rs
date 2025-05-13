@@ -12,6 +12,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut};
 use std::rc::Rc;
+use crate::graphics::comp::Drawable;
 
 lazy! {
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
@@ -799,7 +800,7 @@ impl Default for UiShape {
 pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
-    pub texture: Resolve<BasicInterpolatable<usize>>,
+    pub texture: Resolve<BasicInterpolatable<Drawable>>,
     pub shape: Resolve<BasicInterpolatable<UiShape>>,
 }
 

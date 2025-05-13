@@ -7,6 +7,7 @@ use crate::rendering::texture::Texture;
 use crate::ui::context::UiResources;
 use crate::ui::res::MVR;
 use mvutils::Savable;
+use crate::ui::styles::BasicInterpolatable;
 
 #[derive(Savable)]
 pub struct CompositeSprite {
@@ -31,6 +32,12 @@ pub enum Drawable {
     Texture(usize),
     Animation(usize),
     TileSet(usize, usize),
+}
+
+impl Drawable {
+    pub fn missing() -> Drawable {
+        Drawable::Texture(MVR.texture.missing)
+    }
 }
 
 impl Drawable {

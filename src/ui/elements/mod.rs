@@ -416,14 +416,14 @@ pub trait UiElementStub: UiElementCallbacks {
 
                 child_state.bounding_rect.set_x(x);
                 child_state.bounding_rect.set_y(y);
-                child_state.rect.set_x(x + child_padding[2]);
-                child_state.rect.set_y(y + child_padding[1]);
+                child_state.rect.set_x(x + child_margin[2]);
+                child_state.rect.set_y(y + child_margin[1]);
                 child_state
                     .content_rect
-                    .set_x(child_state.rect.x() + child_margin[2]);
+                    .set_x(child_state.rect.x() + child_padding[2]);
                 child_state
                     .content_rect
-                    .set_y(child_state.rect.y() + child_margin[1]);
+                    .set_y(child_state.rect.y() + child_padding[1]);
 
                 used_width += child_state.bounding_rect.bounding.width;
                 used_height += child_state.bounding_rect.bounding.height;

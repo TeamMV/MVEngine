@@ -36,6 +36,14 @@ impl TextBox {
     pub fn body_mut(&mut self) -> &mut ElementBody<TextBox> {
         &mut self.body
     }
+
+    pub fn content(&self) -> State<String> {
+        self.content.clone()
+    }
+
+    pub fn placeholder(&self) -> State<String> {
+        self.placeholder.clone()
+    }
 }
 
 impl UiElementCallbacks for TextBox {
