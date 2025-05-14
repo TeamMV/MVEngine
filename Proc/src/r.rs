@@ -234,7 +234,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "animation",
-        "mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy<mvengine::graphics::animation::GlobalAnimation<'static>>",
+        "mvutils::once::Lazy<mvengine::graphics::animation::GlobalAnimation<'static>>",
         animations,
         |animation| {
             let tileset = &animation.tileset;
@@ -253,7 +253,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             };
 
             quote! {
-                mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy::new(|| {
+                mvutils::once::Lazy::new(|| {
                     let tileset = #r_ident.resolve_tileset(#tileset_id).expect(#err_msg);
                     let anim = mvengine::graphics::animation::GlobalAnimation::new(tileset, #tileset_id, #range_ts, #fps);
                     anim
@@ -286,7 +286,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "composite",
-        "mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy<mvengine::graphics::comp::CompositeSprite>",
+        "mvutils::once::Lazy<mvengine::graphics::comp::CompositeSprite>",
         composites,
         |composite| {
 
@@ -315,7 +315,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             let rig = get_src(cdir.as_str(), rig);
             quote! {
                 {
-                    mvengine::utils::fuckumaxfornotmakingshitpub::MveLazy::new(|| {
+                    mvutils::once::Lazy::new(|| {
                         let comp = mvengine::graphics::comp::CompositeSprite::from_expr_and_resources(include_str!(#rig), vec![#vec_ts]);
                         comp.unwrap()
                     })

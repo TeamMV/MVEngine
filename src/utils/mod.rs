@@ -1,7 +1,6 @@
 pub mod args;
 pub mod mapto;
 pub mod savers;
-pub mod fuckumaxfornotmakingshitpub;
 
 use std::ops::{Deref, DerefMut};
 use mvutils::unsafe_utils::Unsafe;
