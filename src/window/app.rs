@@ -1,4 +1,4 @@
-use crate::window::{UninitializedWindow, Window};
+use crate::window::Window;
 
 pub trait WindowCallbacks {
     fn post_init(&mut self, window: &mut Window);

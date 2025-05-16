@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut};
 use std::rc::Rc;
 use crate::graphics::comp::Drawable;
+use crate::window::Window;
 
 lazy! {
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
@@ -165,17 +166,37 @@ impl UiStyle {
     pub fn merge_unset(&mut self, other: &UiStyle) {
         self.x.merge_unset(&other.x);
         self.y.merge_unset(&other.y);
-        self.width.merge_unset(&other.height);
+        self.width.merge_unset(&other.width);
+        self.height.merge_unset(&other.height);
         self.padding.merge_unset(&other.padding);
         self.margin.merge_unset(&other.margin);
         self.origin.merge_unset(&other.origin);
         self.position.merge_unset(&other.position);
         self.direction.merge_unset(&other.direction);
         self.child_align_x.merge_unset(&other.child_align_x);
+        self.child_align_y.merge_unset(&other.child_align_y);
         self.background.merge_unset(&other.background);
         self.border.merge_unset(&other.border);
         self.text.merge_unset(&other.text);
         self.transform.merge_unset(&other.transform);
+    }
+    
+    pub fn merge_at_set_of(&mut self, to: &UiStyle) {
+        self.x.merge_at_set(&to.x);
+        self.y.merge_at_set(&to.y);
+        self.width.merge_at_set(&to.width);
+        self.height.merge_at_set(&to.height);
+        self.padding.merge_at_set(&to.padding);
+        self.margin.merge_at_set(&to.margin);
+        self.origin.merge_at_set(&to.origin);
+        self.position.merge_at_set(&to.position);
+        self.direction.merge_at_set(&to.direction);
+        self.child_align_x.merge_at_set(&to.child_align_x);
+        self.child_align_y.merge_at_set(&to.child_align_y);
+        self.background.merge_at_set(&to.background);
+        self.border.merge_at_set(&to.border);
+        self.text.merge_at_set(&to.text);
+        self.transform.merge_at_set(&to.transform);
     }
 }
 
@@ -334,6 +355,16 @@ impl TextStyle {
         self.fit.merge_unset(&other.fit);
         self.color.merge_unset(&other.color);
     }
+
+    pub fn merge_at_set(&mut self, other: &TextStyle) {
+        self.size.merge_at_set(&other.size);
+        self.kerning.merge_at_set(&other.kerning);
+        self.skew.merge_at_set(&other.skew);
+        self.stretch.merge_at_set(&other.stretch);
+        self.font.merge_at_set(&other.font);
+        self.fit.merge_at_set(&other.fit);
+        self.color.merge_at_set(&other.color);
+    }
 }
 
 #[derive(Clone)]
@@ -359,6 +390,13 @@ impl TransformStyle {
         self.scale.merge_unset(&other.scale);
         self.rotate.merge_unset(&other.rotate);
         self.origin.merge_unset(&other.origin);
+    }
+
+    pub fn merge_at_set(&mut self, other: &TransformStyle) {
+        self.translate.merge_at_set(&other.translate);
+        self.scale.merge_at_set(&other.scale);
+        self.rotate.merge_at_set(&other.rotate);
+        self.origin.merge_at_set(&other.origin);
     }
 }
 
@@ -418,6 +456,11 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn merge_unset(&mut self, other: &VectorField<T>) {
         self.x.merge_unset(&other.x);
         self.y.merge_unset(&other.y);
+    }
+
+    pub fn merge_at_set(&mut self, other: &VectorField<T>) {
+        self.x.merge_at_set(&other.x);
+        self.y.merge_at_set(&other.y);
     }
 }
 
@@ -706,11 +749,11 @@ impl SideStyle {
         self.right = v;
     }
 
-    pub fn get<E, F, PF>(&self, elem: &E, map: F, percent_map: PF) -> [i32; 4]
+    pub fn get<E, F, PF>(&self, elem: &E, map: F, percent_map: PF, window: &Window) -> [i32; 4]
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
-        PF: Fn(&UiElementState) -> &[i32; 4], //t, b, l, r
+        PF: Fn(&dyn InheritSupplier) -> [i32; 4], //t, b, l, r
     {
         let parent = elem.state().parent.clone();
 
@@ -722,7 +765,7 @@ impl SideStyle {
         let top = if top.is_set() {
             top.unwrap()
         } else if top.is_percent() {
-            top.resolve_percent(parent.clone(), |s| percent_map(s)[0])
+            top.resolve_percent(parent.clone(), |s| percent_map(s)[0], window)
         } else {
             self.top.is_auto().yn(5, 0)
         };
@@ -735,7 +778,7 @@ impl SideStyle {
         let bottom = if bottom.is_set() {
             bottom.unwrap()
         } else if bottom.is_percent() {
-            bottom.resolve_percent(parent.clone(), |s| percent_map(s)[1])
+            bottom.resolve_percent(parent.clone(), |s| percent_map(s)[1], window)
         } else {
             self.bottom.is_auto().yn(5, 0)
         };
@@ -748,7 +791,7 @@ impl SideStyle {
         let left = if left.is_set() {
             left.unwrap()
         } else if left.is_percent() {
-            left.resolve_percent(parent.clone(), |s| percent_map(s)[2])
+            left.resolve_percent(parent.clone(), |s| percent_map(s)[2], window)
         } else {
             self.left.is_auto().yn(5, 0)
         };
@@ -761,7 +804,7 @@ impl SideStyle {
         let right = if right.is_set() {
             right.unwrap()
         } else if right.is_percent() {
-            right.resolve_percent(parent.clone(), |s| percent_map(s)[3])
+            right.resolve_percent(parent.clone(), |s| percent_map(s)[3], window)
         } else {
             self.right.is_auto().yn(5, 0)
         };
@@ -774,6 +817,13 @@ impl SideStyle {
         self.top.merge_unset(&other.top);
         self.left.merge_unset(&other.left);
         self.right.merge_unset(&other.right);
+    }
+
+    pub fn merge_at_set(&mut self, other: &SideStyle) {
+        self.bottom.merge_at_set(&other.bottom);
+        self.top.merge_at_set(&other.top);
+        self.left.merge_at_set(&other.left);
+        self.right.merge_at_set(&other.right);
     }
 }
 
@@ -819,6 +869,12 @@ impl ShapeStyle {
         self.resource.merge_unset(&other.resource);
         self.color.merge_unset(&other.color);
         self.texture.merge_unset(&other.texture);
+    }
+
+    pub fn merge_at_set(&mut self, other: &ShapeStyle) {
+        self.resource.merge_at_set(&other.resource);
+        self.color.merge_at_set(&other.color);
+        self.texture.merge_at_set(&other.texture);
     }
 }
 
@@ -903,6 +959,12 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
     pub fn merge_unset(&mut self, other: &Resolve<T>) {
         if self.is_unset() {
             *self = other.clone();
+        }
+    }
+    
+    pub fn merge_at_set(&mut self, to: &Resolve<T>) {
+        if !to.is_unset() { 
+            *self = to.clone();
         }
     }
 
@@ -1023,12 +1085,13 @@ impl ResolveResult<i32> {
         default: &Resolve<i32>,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
+        window: &Window
     ) -> i32
     where
-        F: Fn(&UiElementState) -> i32,
+        F: Fn(&dyn InheritSupplier) -> i32,
     {
         if self.is_percent() {
-            return self.resolve_percent(maybe_parent, map);
+            return self.resolve_percent(maybe_parent, map, window);
         }
         match self {
             Self::Value(t) => t,
@@ -1040,16 +1103,17 @@ impl ResolveResult<i32> {
         &self,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
+        window: &Window
     ) -> i32
     where
-        F: Fn(&UiElementState) -> i32,
+        F: Fn(&dyn InheritSupplier) -> i32,
     {
         if let Some(parent) = maybe_parent {
             let binding = parent.get();
             let total = map(binding.state());
             self.compute_percent(total)
         } else {
-            0
+            self.compute_percent(map(window))
         }
     }
 }
@@ -1636,5 +1700,33 @@ impl Unit {
             Unit::Pace(value) => ((value * 30.0) * dpi) as i32,
             Unit::BeardFortnight(value) => ((value * 0.6048 * 0.393701) * dpi) as i32,
         }
+    }
+}
+
+
+pub trait InheritSupplier {
+    fn x(&self) -> i32;
+    fn y(&self) -> i32;
+    fn width(&self) -> i32;
+    fn height(&self) -> i32;
+    fn paddings(&self) -> [i32; 4] { [0; 4] }
+    fn margins(&self) -> [i32; 4] { [0; 4] }
+}
+
+impl InheritSupplier for Window {
+    fn x(&self) -> i32 {
+        0
+    }
+
+    fn y(&self) -> i32 {
+        0
+    }
+
+    fn width(&self) -> i32 {
+        self.info.width as i32
+    }
+
+    fn height(&self) -> i32 {
+        self.info.height as i32
     }
 }

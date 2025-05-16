@@ -1024,7 +1024,7 @@ dependencies = [
  "log",
  "mvengine-proc-macro",
  "mvlogger",
- "mvutils",
+ "mvutils 1.4.0",
  "num-traits 0.2.19",
  "parking_lot",
  "rand 0.9.0",
@@ -1036,7 +1036,7 @@ name = "mvengine-proc-macro"
 version = "1.0.0"
 dependencies = [
  "mvengine-ui-parsing",
- "mvutils",
+ "mvutils 1.3.7",
  "proc-macro2",
  "quote",
  "syn",
@@ -1053,7 +1053,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106ce56e99c777a1c4b83b3110588e3496cdb3dac63cdd4959d8643c378bcf55"
 dependencies = [
  "log",
- "mvutils",
+ "mvutils 1.3.7",
 ]
 
 [[package]]
@@ -1064,9 +1064,29 @@ checksum = "6afa8fdce625cb7234f19969a65986046b762f52650e4fbbd5d66bebbe39fc2f"
 dependencies = [
  "bytebuffer",
  "hashbrown",
- "mvutils-proc-macro",
+ "mvutils-proc-macro 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.19",
  "parking_lot",
+]
+
+[[package]]
+name = "mvutils"
+version = "1.4.0"
+dependencies = [
+ "bytebuffer",
+ "hashbrown",
+ "mvutils-proc-macro 1.1.0",
+ "num-traits 0.2.19",
+ "parking_lot",
+]
+
+[[package]]
+name = "mvutils-proc-macro"
+version = "1.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

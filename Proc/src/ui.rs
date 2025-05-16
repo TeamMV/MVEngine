@@ -69,7 +69,10 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    mvengine::ui::attributes::AttributeValue::Code(Box::new(#parsed_code))
+                    {
+                        use mvengine::ui::attributes::ToAttrib;
+                        #parsed_code.to_attrib()
+                    }
                 }
             }
         };
@@ -135,9 +138,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             #attrib_tokens
 
             let __attribs_ref__ = &mut #attribs_ident;
-            let #elem_ident = std::rc::Rc::new(mvutils::unsafe_utils::DangerousCell::new(
-                #name_ident::new(__context__.clone(), #attribs_ident, #style_code).wrap()
-            ));
+            let #elem_ident = #name_ident::new(__context__.clone(), #attribs_ident, #style_code);
             #inner_code
             #elem_ident
         }
@@ -149,7 +150,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
 fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {
         XmlValue::Str(_) => {
-            todo!()
+            panic!("String expressions are not yet implemented for an attribute. Please set it up in code")
         }
         XmlValue::Code(c) => {
             let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");

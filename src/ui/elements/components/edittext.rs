@@ -4,6 +4,7 @@ use mvutils::state::State;
 use std::mem;
 use crate::color::RgbColor;
 use crate::resolve;
+use crate::ui::attributes::UiState;
 use crate::ui::styles::ResolveResult;
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::UiElementStub;
@@ -17,12 +18,12 @@ pub struct EditableTextHelper<E: UiElementStub> {
     _phantom: PhantomData<E>,
     cursor_pos: usize,
     selection: Option<Range<usize>>,
-    content: State<String>,
+    content: UiState,
     pub(crate) view_range: Range<usize>
 }
 
 impl<E: UiElementStub> EditableTextHelper<E> {
-    pub fn new(content: State<String>) -> Self {
+    pub fn new(content: UiState) -> Self {
         let l = content.read().len();
         let view_range = 0..l;
         Self {

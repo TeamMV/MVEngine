@@ -1,31 +1,25 @@
+use std::rc::{Rc, Weak};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::{Dimension, UiStyle};
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use crate::enum_val_ref_mut;
 use crate::input::{Input, RawInputEvent};
 use crate::ui::elements::button::Button;
 
 #[derive(Clone)]
 pub struct Div {
+    rc: Weak<DangerousCell<UiElement>>,
+    
     context: UiContext,
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
-    body: ElementBody<Div>,
-}
-
-impl Div {
-    pub fn body(&self) -> &ElementBody<Div> {
-        &self.body
-    }
-
-    pub fn body_mut(&mut self) -> &mut ElementBody<Div> {
-        &mut self.body
-    }
+    body: ElementBody,
 }
 
 impl UiElementCallbacks for Div {
@@ -59,21 +53,33 @@ impl UiElementCallbacks for Div {
 }
 
 impl UiElementStub for Div {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
         Self: Sized,
     {
-        Self {
+        let this = Self {
+            rc: Weak::new(),
             context: context.clone(),
             attributes,
             style,
             state: UiElementState::new(),
             body: ElementBody::new(),
-        }
+        };
+
+        let rc = Rc::new(DangerousCell::new(this.wrap()));
+        let e = rc.get_mut();
+        let div = enum_val_ref_mut!(UiElement, e, Div);
+        div.rc = Rc::downgrade(&rc);
+
+        rc
     }
 
     fn wrap(self) -> UiElement {
         UiElement::Div(self)
+    }
+
+    fn wrapped(&self) -> Element {
+        self.rc.upgrade().expect("Reference to this self")
     }
 
     fn attributes(&self) -> &Attributes {
@@ -110,6 +116,14 @@ impl UiElementStub for Div {
 
     fn context(&self) -> &UiContext {
         &self.context
+    }
+
+    fn body(&self) -> &ElementBody {
+        &self.body
+    }
+
+    fn body_mut(&mut self) -> &mut ElementBody {
+        &mut self.body
     }
 
     fn get_size(&self, s: &str) -> Dimension<i32> {

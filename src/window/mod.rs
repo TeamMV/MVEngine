@@ -156,7 +156,7 @@ impl Window {
         let ui = Ui::new();
         let ui = Arc::new(DangerousCell::new(ui));
 
-        Window {
+        let this = Window {
             info,
 
             handle: CreateOnce::new(),
@@ -173,7 +173,10 @@ impl Window {
             input: Input::new(ui.clone()),
             pressed_keys: HashSet::new(),
             ui,
-        }
+        };
+        
+        this.ui.get_mut().init_window(&this);
+        this
     }
 
     pub fn run<T: WindowCallbacks + 'static>(mut self, callbacks: Arc<RwLock<T>>) -> Result<(), Error> {
@@ -323,10 +326,14 @@ impl Window {
                 self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_t = self.delta_t;
 
+                self.ui.get_mut().init_window(&self); //This is the most tape like fix to a problem from unsafe code but ig it works
+                
                 let mut app_loop = callbacks.write();
                 app_loop.draw(&mut self, delta_t);
                 self.input.collector.end_frame();
                 self.handle.swap_buffers()?;
+                
+                self.ui.get_mut().end_frame();
             }
         }
 

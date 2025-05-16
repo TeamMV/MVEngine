@@ -29,8 +29,7 @@ enum State {
 }
 
 #[derive(Clone)]
-pub struct ElementBody<E: UiElementStub> {
-    _phantom: PhantomData<E>,
+pub struct ElementBody {
     fade_time: u32,
     hover_style: Option<UiStyle>,
     hover_state: State,
@@ -38,10 +37,9 @@ pub struct ElementBody<E: UiElementStub> {
     initial_style: Option<UiStyle>
 }
 
-impl<E: UiElementStub + 'static> ElementBody<E> {
+impl ElementBody {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData::default(),
             fade_time: 0,
             hover_style: None,
             hover_state: State::Out,
@@ -52,7 +50,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
     
     
     
-    pub fn on_input(&mut self, e: &mut E, action: RawInputEvent, input: &Input) {
+    pub fn on_input<E: UiElementStub + 'static>(&mut self, e: &mut E, action: RawInputEvent, input: &Input) {
         match action {
             RawInputEvent::Keyboard(_) => {}
             RawInputEvent::Mouse(ma) => {
@@ -78,7 +76,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         };
     }
 
-    fn start_animation_in(&mut self, elem: &mut E) {
+    fn start_animation_in<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
         if self.hover_style.is_none() { return; }
         let hover_style = self.hover_style.as_ref().unwrap();
         
@@ -126,7 +124,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         elem.state_mut().last_animation = id;
     }
 
-    fn start_animation_out(&mut self, elem: &mut E) {
+    fn start_animation_out<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
         if self.initial_style.is_none() { return; }
         let initial_style = self.initial_style.as_ref().unwrap();
 
@@ -172,7 +170,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         elem.state_mut().last_animation = id;
     }
 
-    pub fn draw(&mut self, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
+    pub fn draw<E: UiElementStub>(&mut self, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
         let res = context.resources;
 
         let resolved = resolve!(elem, background.shape);
@@ -216,7 +214,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         }
     }
 
-    fn draw_background_shape(
+    fn draw_background_shape<E: UiElementStub>(
         mut background_shape: Shape,
         elem: &E,
         ctx: &mut DrawContext2D,
@@ -279,7 +277,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         }
     }
 
-    fn draw_border_shape(
+    fn draw_border_shape<E: UiElementStub>(
         mut border_shape: Shape,
         elem: &E,
         ctx: &mut DrawContext2D,
@@ -341,7 +339,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         }
     }
 
-    fn draw_background_adaptive(
+    fn draw_background_adaptive<E: UiElementStub>(
         bg_shape: &AdaptiveShape,
         elem: &E,
         ctx: &mut DrawContext2D,
@@ -366,7 +364,7 @@ impl<E: UiElementStub + 'static> ElementBody<E> {
         bg_shape.draw(ctx, &rect, fill, context);
     }
 
-    fn draw_border_adaptive(
+    fn draw_border_adaptive<E: UiElementStub>(
         bd_shape: &AdaptiveShape,
         elem: &E,
         ctx: &mut DrawContext2D,
