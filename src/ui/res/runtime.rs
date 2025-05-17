@@ -9,10 +9,10 @@ use crate::ui::context::UiResources;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::adaptive::AdaptiveShape;
 use crate::ui::res::MVR;
-use crate::utils::fuckumaxfornotmakingshitpub::MveLazy;
 use itertools::Itertools;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
+use mvutils::once::Lazy;
 use crate::ui;
 use crate::ui::res;
 
@@ -63,7 +63,7 @@ impl<T: ResourceSavable> ResourceSavable for Vec<T> {
     }
 }
 
-impl<T: ResourceSavable> ResourceSavable for MveLazy<T> {
+impl<T: ResourceSavable> ResourceSavable for Lazy<T> {
     fn save_res(&self, saver: &mut impl Saver) {
         let inner = self.deref();
         inner.save_res(saver);
@@ -71,7 +71,7 @@ impl<T: ResourceSavable> ResourceSavable for MveLazy<T> {
 
     fn load_res(loader: &mut impl Loader, resources: &impl UiResources) -> Result<Self, String> {
         let t = T::load_res(loader, resources)?;
-        Ok(Self::init_now(t))
+        Ok(Self::new_initialized(t))
     }
 }
 

@@ -3,7 +3,7 @@ use mvengine_proc_macro::r;
 pub mod err;
 pub mod runtime;
 
-pub const CR: usize = usize::MAX / 2; //Custom Resources start
+pub const CR: usize = usize::MAX / 2; // Custom Resources start
 
 use crate as mvengine;
 use crate::math::vec::Vec4;
