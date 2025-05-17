@@ -1,4 +1,7 @@
 use hashbrown::HashMap;
+use mvutils::state::{MappedState, State};
+
+pub type UiState = MappedState<String, String>;
 
 #[derive(Clone)]
 pub struct Attributes {
@@ -55,9 +58,102 @@ impl Attributes {
 #[derive(Clone)]
 pub enum AttributeValue {
     Str(String),
+    State(MappedState<String, String>),
     Int(i64),
     Float(f64),
     Bool(bool),
     Char(char),
-    //Code(Box<dyn CloneableFn<()>>),
+}
+
+impl AttributeValue {
+    pub fn as_string(&self) -> String {
+        match self {
+            AttributeValue::Str(s) => s.clone(),
+            AttributeValue::State(s) => s.read().clone(),
+            AttributeValue::Int(i) => i.to_string(),
+            AttributeValue::Float(f) => f.to_string(),
+            AttributeValue::Bool(b) => b.to_string(),
+            AttributeValue::Char(c) => c.to_string()
+        }
+    }
+    
+    pub fn as_ui_state(&self) -> UiState {
+        match self {
+            AttributeValue::Str(s) => State::new(s.clone()).map_identity(),
+            AttributeValue::Int(i) => State::new(i.to_string()).map_identity(),
+            AttributeValue::Float(f) => State::new(f.to_string()).map_identity(),
+            AttributeValue::Bool(b) => State::new(b.to_string()).map_identity(),
+            AttributeValue::Char(c) => State::new(c.to_string()).map_identity(),
+            AttributeValue::State(state) => state.clone()
+        }
+    }
+}
+
+pub trait ToAttrib {
+    fn to_attrib(self) -> AttributeValue;
+}
+
+impl ToAttrib for String {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::Str(self)
+    }
+}
+
+impl ToAttrib for &str {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::Str(self.to_string())
+    }
+}
+
+impl ToAttrib for State<String> {
+    fn to_attrib(self) -> AttributeValue {
+        let state = self.map(|s| s.to_string());
+        AttributeValue::State(state)
+    }
+}
+
+impl ToAttrib for MappedState<String, String> {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::State(self)
+    }
+}
+
+macro_rules! to_attrib_int {
+    ($($t:ty,)*) => {
+        $(
+            impl ToAttrib for $t {
+                fn to_attrib(self) -> AttributeValue {
+                    AttributeValue::Int(self as i64)
+                }
+            }
+        )*
+    };
+}
+
+to_attrib_int!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize,);
+
+macro_rules! to_attrib_float {
+    ($($t:ty,)*) => {
+        $(
+            impl ToAttrib for $t {
+                fn to_attrib(self) -> AttributeValue {
+                    AttributeValue::Float(self as f64)
+                }
+            }
+        )*
+    };
+}
+
+to_attrib_float!(f32, f64,);
+
+impl ToAttrib for bool {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::Bool(self)
+    }
+}
+
+impl ToAttrib for char {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::Char(self)
+    }
 }

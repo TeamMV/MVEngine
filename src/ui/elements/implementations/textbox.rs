@@ -1,47 +1,43 @@
+use crate::enum_val_ref_mut;
 use crate::input::consts::{Key, MouseButton};
+use crate::input::registry::RawInput;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
-use crate::ui::attributes::{AttributeValue, Attributes};
+use crate::ui::attributes::{Attributes, UiState};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, UiStyle};
-use mvutils::state::State;
-use mvutils::unsafe_utils::Unsafe;
-use crate::input::registry::RawInput;
-use crate::ui::elements::button::Button;
 use crate::ui::elements::components::edittext::EditableTextHelper;
 use crate::ui::elements::components::text::TextBody;
+use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::styles::UiStyle;
+use mvutils::state::State;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use std::rc::{Rc, Weak};
+use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct TextBox {
+    rc: Weak<DangerousCell<UiElement>>,
+    
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
     attributes: Attributes,
-    body: ElementBody<TextBox>,
+    body: ElementBody,
     text_body: TextBody<TextBox>,
-    content: State<String>,
-    placeholder: State<String>,
+    content: UiState,
+    placeholder: UiState,
     focused: bool,
     helper: EditableTextHelper<TextBox>,
 }
 
 impl TextBox {
-    pub fn body(&self) -> &ElementBody<TextBox> {
-        &self.body
-    }
-
-    pub fn body_mut(&mut self) -> &mut ElementBody<TextBox> {
-        &mut self.body
-    }
-
-    pub fn content(&self) -> State<String> {
+    pub fn content(&self) -> UiState {
         self.content.clone()
     }
 
-    pub fn placeholder(&self) -> State<String> {
+    pub fn placeholder(&self) -> UiState {
         self.placeholder.clone()
     }
 }
@@ -131,41 +127,22 @@ impl UiElementCallbacks for TextBox {
 }
 
 impl UiElementStub for TextBox {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
         Self: Sized
     {
         let content = match attributes.attribs.get("content") {
-            None => String::new(),
-            Some(v) => {
-                match v {
-                    AttributeValue::Str(s) => s.clone(),
-                    AttributeValue::Int(i) => i.to_string(),
-                    AttributeValue::Float(f) => f.to_string(),
-                    AttributeValue::Bool(b) => b.to_string(),
-                    AttributeValue::Char(c) => c.to_string(),
-                    _ => "fn(Element)".to_string()
-                }
-            }
+            None => State::new(String::new()).map_identity(),
+            Some(v) => v.as_ui_state()
         };
 
         let placeholder = match attributes.attribs.get("placeholder") {
-            None => String::new(),
-            Some(v) => {
-                match v {
-                    AttributeValue::Str(s) => s.clone(),
-                    AttributeValue::Int(i) => i.to_string(),
-                    AttributeValue::Float(f) => f.to_string(),
-                    AttributeValue::Bool(b) => b.to_string(),
-                    AttributeValue::Char(c) => c.to_string(),
-                    _ => "fn(Element)".to_string()
-                }
-            }
+            None => State::new(String::new()).map_identity(),
+            Some(v) => v.as_ui_state()
         };
-
-        let content = State::new(content);
         
-        Self {
+        let this = Self {
+            rc: Weak::new(),
             context,
             state: UiElementState::new(),
             style,
@@ -173,14 +150,25 @@ impl UiElementStub for TextBox {
             body: ElementBody::new(),
             text_body: TextBody::new(),
             content: content.clone(),
-            placeholder: State::new(placeholder),
+            placeholder,
             focused: false,
             helper: EditableTextHelper::new(content),
-        }
+        };
+
+        let rc = Rc::new(DangerousCell::new(this.wrap()));
+        let e = rc.get_mut();
+        let bx = enum_val_ref_mut!(UiElement, e, TextBox);
+        bx.rc = Rc::downgrade(&rc);
+
+        rc
     }
 
     fn wrap(self) -> UiElement {
         UiElement::TextBox(self)
+    }
+
+    fn wrapped(&self) -> Element {
+        self.rc.upgrade().expect("Reference to this self")
     }
 
     fn attributes(&self) -> &Attributes {
@@ -217,6 +205,14 @@ impl UiElementStub for TextBox {
 
     fn context(&self) -> &UiContext {
         &self.context
+    }
+
+    fn body(&self) -> &ElementBody {
+        &self.body
+    }
+
+    fn body_mut(&mut self) -> &mut ElementBody {
+        &mut self.body
     }
 
     fn get_size(&self, s: &str) -> Dimension<i32> {

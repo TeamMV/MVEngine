@@ -74,6 +74,7 @@ impl UiRenderer {
             let height = window.info.height;
             self.renderer = OpenGLRenderer::initialize(window);
             self.camera = OrthographicCamera::new(width, height);
+            self.dimension = (width, height);
         }
     }
 

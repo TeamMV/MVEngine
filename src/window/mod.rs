@@ -322,11 +322,13 @@ impl Window {
                 self.time_f = SystemTime::now();
                 self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_t = self.delta_t;
-
+                
                 let mut app_loop = callbacks.write();
                 app_loop.draw(&mut self, delta_t);
                 self.input.collector.end_frame();
                 self.handle.swap_buffers()?;
+                
+                self.ui.get_mut().end_frame();
             }
         }
 

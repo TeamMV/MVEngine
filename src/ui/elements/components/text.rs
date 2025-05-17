@@ -9,7 +9,9 @@ use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
-use crate::ui::styles::{Dimension, TextAlign, DEFAULT_STYLE};
+use crate::ui::styles::DEFAULT_STYLE;
+use crate::ui::styles::enums::TextAlign;
+use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct TextBody<E: UiElementStub> {

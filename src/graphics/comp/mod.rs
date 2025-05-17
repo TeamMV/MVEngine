@@ -7,7 +7,7 @@ use crate::rendering::texture::Texture;
 use crate::ui::context::UiResources;
 use crate::ui::res::MVR;
 use mvutils::Savable;
-use crate::ui::styles::BasicInterpolatable;
+use crate::ui::styles::interpolate::BasicInterpolatable;
 
 #[derive(Savable)]
 pub struct CompositeSprite {

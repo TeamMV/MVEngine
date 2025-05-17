@@ -1058,9 +1058,9 @@ dependencies = [
 
 [[package]]
 name = "mvutils"
-version = "1.4.0"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24f1efbf1ec865f90c245c91619bf50c601e217219782017a08251e28a0d087e"
+checksum = "de65a4912a09e5141220eadb28d4c1e6330dfbdfd0b638e1de3679156f91b7dc"
 dependencies = [
  "bytebuffer",
  "hashbrown",
@@ -1071,9 +1071,9 @@ dependencies = [
 
 [[package]]
 name = "mvutils-proc-macro"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c88f73308a3da3b55ff760ed6e568cb5e1e57e6ca0429fe2cb83aa4268880bc7"
+checksum = "3668069f1d9435e779137f2cc8b368f778fdb17fd10fd97538f076fdb23468ef"
 dependencies = [
  "proc-macro2",
  "quote",

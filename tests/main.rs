@@ -1,8 +1,6 @@
 use itertools::Itertools;
 use log::LevelFilter;
 use mvengine::color::RgbColor;
-use mvengine::input::consts::Key;
-use mvengine::input::registry::RawInput;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
 use mvengine::rendering::camera::OrthographicCamera;
@@ -23,7 +21,7 @@ use mvengine::ui::geometry::morph::Morph;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::ui::res::MVR;
-use mvengine::ui::styles::{Dimension, Direction, Position, SideStyle, UiStyle, UiValue};
+use mvengine::ui::styles::{UiStyle, UiValue};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvengine_proc_macro::ui;
@@ -33,7 +31,10 @@ use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
-use mvengine::audio::{gen_sin_wave, AudioEngine};
+use mvengine::audio::AudioEngine;
+use mvengine::ui::styles::enums::{Direction, Origin, Position};
+use mvengine::ui::styles::groups::SideStyle;
+use mvengine::ui::styles::types::Dimension;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -69,10 +70,10 @@ struct Application {
 impl Application {
     fn new() -> Self {
         let audio = AudioEngine::setup().expect("Cannot start audio");
-        let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
-        let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
-        audio.play_sound(test_sound1);
-        audio.play_sound(test_sound2);
+        //let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
+        //let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
+        //audio.play_sound(test_sound1);
+        //audio.play_sound(test_sound2);
         
         Self {
             renderer: CreateOnce::new(),
@@ -176,17 +177,18 @@ impl WindowCallbacks for Application {
 
             let mut div_style = UiStyle::default();
             modify_style!(div_style.position = UiValue::Just(Position::Absolute));
-            modify_style!(div_style.x = UiValue::Just(300));
+            modify_style!(div_style.x = UiValue::Percent(1.0));
             modify_style!(div_style.y = UiValue::Just(200));
             modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
+            modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
 
-            let state = State::new("Hello Button".to_string());
+            let state = State::new(String::new());
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
                     <Div style={div_style}>
-                        <Button style={btn_style.clone()}>{state.map_identity()}</Button>
-                        <TextBox style={btn_style}/>
+                        <Button style={btn_style.clone()}>{state.clone().map_identity()}</Button>
+                        <TextBox style={btn_style} content={state.map_identity()}/>
                     </Div>
                 </Ui>
             };
@@ -209,40 +211,11 @@ impl WindowCallbacks for Application {
             let morph = rr.create_morph(r);
             self.morph.create(|| morph);
         }
-
-        let registry = window.input.action_registry_mut();
-        registry.create_action("forward");
-        registry.create_action("left");
-        registry.bind_action("forward", vec![RawInput::KeyPress(Key::W)]);
-        registry.bind_action("left", vec![RawInput::KeyPress(Key::A)]);
-
-        registry.create_action("save");
-        registry.bind_action(
-            "save",
-            vec![
-                RawInput::KeyPress(Key::LControl),
-                RawInput::KeyPress(Key::S),
-            ],
-        );
     }
 
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        if window.input.is_action("forward") {
-            println!("forward is triggered");
-        }
-
-        if window.input.is_action("left") {
-            println!("left is triggered");
-        }
-
-        if window.input.was_action("save") {
-            println!("save was triggered");
-            let mut writer = self.state.write();
-            writer.push('!');
-        }
-
         window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));

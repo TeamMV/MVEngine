@@ -4,7 +4,7 @@ use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
 use mvutils::once::{CreateOnce, Lazy};
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
 use mvutils::utils::Recover;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -41,7 +41,7 @@ impl Ui {
             root_elems: vec![],
         }
     }
-
+    
     pub fn init(&mut self, resources: &'static dyn UiResources) {
         self.context.create(|| UiContext::new(resources));
     }
@@ -55,17 +55,18 @@ impl Ui {
     }
 
     pub fn remove_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
+        elem.get_mut().end_frame();
         self.root_elems.retain(|e| {
             let guard1 = e.get();
             let guard2 = elem.get();
             guard1.attributes().id != guard2.attributes().id
-        })
+        });
     }
 
-    pub fn compute_styles(&mut self) {
+    pub fn compute_styles(&mut self, ctx: &DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
             let mut guard = arc.get_mut();
-            guard.compute_styles();
+            guard.compute_styles(ctx);
         }
     }
 
@@ -79,8 +80,15 @@ impl Ui {
     pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
             let mut guard = arc.get_mut();
-            guard.compute_styles();
+            guard.compute_styles(ctx);
             guard.draw(ctx);
+        }
+    }
+    
+    pub fn end_frame(&mut self) {
+        for arc in self.root_elems.iter_mut() {
+            let mut guard = arc.get_mut();
+            guard.end_frame();
         }
     }
 }

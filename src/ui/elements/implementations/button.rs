@@ -1,38 +1,29 @@
-use crate::ui::anim::easing;
+use crate::input::{Input, RawInputEvent};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
-use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, Interpolator, UiStyle};
-use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
-use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::Percentage;
-use std::ops::Deref;
-use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::ui::elements::components::text::TextBody;
+use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::styles::UiStyle;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use std::ops::Deref;
+use std::rc::{Rc, Weak};
+use crate::enum_val_ref_mut;
+use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct Button {
+    rc: Weak<DangerousCell<UiElement>>,
+    
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
     initial_style: UiStyle,
     attributes: Attributes,
-    body: ElementBody<Button>,
+    body: ElementBody,
     text_body: TextBody<Button>,
-}
-
-impl Button {
-    pub fn body(&self) -> &ElementBody<Button> {
-        &self.body
-    }
-    
-    pub fn body_mut(&mut self) -> &mut ElementBody<Button> {
-        &mut self.body
-    }
 }
 
 impl UiElementCallbacks for Button {
@@ -65,11 +56,12 @@ impl UiElementCallbacks for Button {
 }
 
 impl UiElementStub for Button {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Self
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
         Self: Sized,
     {        
-        let mut this = Self {
+        let this = Self {
+            rc: Weak::new(),
             context: context.clone(),
             state: UiElementState::new(),
             style: style.clone(),
@@ -78,12 +70,20 @@ impl UiElementStub for Button {
             body: ElementBody::new(),
             text_body: TextBody::new(),
         };
+        let rc = Rc::new(DangerousCell::new(this.wrap()));
+        let e = rc.get_mut();
+        let btn = enum_val_ref_mut!(UiElement, e, Button);
+        btn.rc = Rc::downgrade(&rc);
         
-        this
+        rc
     }
 
     fn wrap(self) -> UiElement {
         UiElement::Button(self)
+    }
+
+    fn wrapped(&self) -> Element {
+        self.rc.upgrade().expect("Reference to this self")
     }
 
     fn attributes(&self) -> &Attributes {
@@ -120,6 +120,14 @@ impl UiElementStub for Button {
 
     fn context(&self) -> &UiContext {
         &self.context
+    }
+
+    fn body(&self) -> &ElementBody {
+        &self.body
+    }
+
+    fn body_mut(&mut self) -> &mut ElementBody {
+        &mut self.body
     }
 
     fn get_size(&self, s: &str) -> Dimension<i32> {

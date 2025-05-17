@@ -9,6 +9,7 @@ use crate::ui::rendering::UiRenderer;
 use crate::window::Window;
 use std::fmt::Debug;
 use crate::math::vec::Vec4;
+use crate::ui::styles::InheritSupplier;
 
 pub fn transform() -> TransformCtx {
     TransformCtx::new()
@@ -70,6 +71,24 @@ impl DrawContext2D {
 impl RenderContext for DrawContext2D {
     fn controller(&mut self) -> &mut RenderController {
         &mut self.renderer.controller
+    }
+}
+
+impl InheritSupplier for DrawContext2D {
+    fn x(&self) -> i32 {
+        0
+    }
+
+    fn y(&self) -> i32 {
+        0
+    }
+
+    fn width(&self) -> i32 {
+        self.renderer.dimension.0 as i32
+    }
+
+    fn height(&self) -> i32 {
+        self.renderer.dimension.1 as i32
     }
 }
 
