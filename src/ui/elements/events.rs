@@ -2,7 +2,7 @@ use crate::input::consts::MouseButton;
 use crate::input::{Input, KeyboardAction, MouseAction};
 use crate::ui::elements::child::Child;
 use crate::ui::elements::{UiElement, UiElementStub};
-use crate::ui::styles::Point;
+use crate::ui::styles::types::Point;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use crate::window::Window;

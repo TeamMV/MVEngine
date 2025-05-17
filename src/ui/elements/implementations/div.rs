@@ -5,11 +5,11 @@ use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, UiStyle};
+use crate::ui::styles::UiStyle;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use crate::enum_val_ref_mut;
 use crate::input::{Input, RawInputEvent};
-use crate::ui::elements::button::Button;
+use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct Div {

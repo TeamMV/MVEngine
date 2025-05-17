@@ -1,8 +1,6 @@
 use itertools::Itertools;
 use log::LevelFilter;
 use mvengine::color::RgbColor;
-use mvengine::input::consts::Key;
-use mvengine::input::registry::RawInput;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
 use mvengine::rendering::camera::OrthographicCamera;
@@ -23,7 +21,7 @@ use mvengine::ui::geometry::morph::Morph;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::ui::res::MVR;
-use mvengine::ui::styles::{Dimension, Direction, Origin, Position, SideStyle, UiStyle, UiValue};
+use mvengine::ui::styles::{UiStyle, UiValue};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvengine_proc_macro::ui;
@@ -33,7 +31,10 @@ use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
-use mvengine::audio::{gen_sin_wave, AudioEngine};
+use mvengine::audio::AudioEngine;
+use mvengine::ui::styles::enums::{Direction, Origin, Position};
+use mvengine::ui::styles::groups::SideStyle;
+use mvengine::ui::styles::types::Dimension;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -178,8 +179,8 @@ impl WindowCallbacks for Application {
             modify_style!(div_style.position = UiValue::Just(Position::Absolute));
             modify_style!(div_style.x = UiValue::Percent(1.0));
             modify_style!(div_style.y = UiValue::Just(200));
-            modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
             modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
+            modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
 
             let state = State::new(String::new());
 

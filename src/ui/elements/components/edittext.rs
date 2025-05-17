@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 use std::ops::Range;
-use mvutils::state::State;
 use std::mem;
 use crate::color::RgbColor;
 use crate::resolve;
@@ -11,7 +10,8 @@ use crate::ui::elements::UiElementStub;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
-use crate::ui::styles::{TextAlign, DEFAULT_STYLE};
+use crate::ui::styles::DEFAULT_STYLE;
+use crate::ui::styles::enums::TextAlign;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {

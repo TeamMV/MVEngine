@@ -1,4 +1,5 @@
-use crate::ui::styles::Origin;
+use std::str::FromStr;
+use crate::ui::styles::enums::Origin;
 use mvutils::utils::TetrahedronOp;
 
 pub fn parse_4xi32(s: &str) -> Result<[i32; 4], String> {
@@ -55,4 +56,8 @@ pub fn parse_origin(s: &str) -> Result<Origin, String> {
                 .to_string(),
         ),
     }
+}
+
+pub fn parse_num<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<T, String> {
+    s.parse().map_err(|e: S| e.to_string())
 }

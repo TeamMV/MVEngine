@@ -28,7 +28,6 @@ pub mod uix;
 pub mod utils;
 
 pub struct Ui {
-    window: Option<&'static Window>, //Static is fine since Ui is member of Window and fucking rust lifetimes are so annoying to work with that im going the simple yet effective way :)
     context: CreateOnce<UiContext>,
     enabled: bool,
     root_elems: Vec<Rc<DangerousCell<UiElement>>>,
@@ -37,17 +36,12 @@ pub struct Ui {
 impl Ui {
     pub(crate) fn new() -> Self {
         Self {
-            window: None,
             context: CreateOnce::new(),
             enabled: true,
             root_elems: vec![],
         }
     }
     
-    pub fn init_window(&mut self, window: &Window) {
-        self.window = Some(unsafe { Unsafe::cast_static(window) });
-    }
-
     pub fn init(&mut self, resources: &'static dyn UiResources) {
         self.context.create(|| UiContext::new(resources));
     }
@@ -69,10 +63,10 @@ impl Ui {
         });
     }
 
-    pub fn compute_styles(&mut self, window: &Window) {
+    pub fn compute_styles(&mut self, ctx: &DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
             let mut guard = arc.get_mut();
-            guard.compute_styles(window);
+            guard.compute_styles(ctx);
         }
     }
 
@@ -84,12 +78,10 @@ impl Ui {
     }
 
     pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
-        if let Some(window) = &self.window {
-            for arc in self.root_elems.iter_mut() {
-                let mut guard = arc.get_mut();
-                guard.compute_styles(window);
-                guard.draw(ctx);
-            }
+        for arc in self.root_elems.iter_mut() {
+            let mut guard = arc.get_mut();
+            guard.compute_styles(ctx);
+            guard.draw(ctx);
         }
     }
     

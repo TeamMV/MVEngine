@@ -10,16 +10,16 @@ use crate::ui::rendering::adaptive::{AdaptiveFill, AdaptiveShape};
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::err::{ResType, UiResErr};
-use crate::ui::res::MVR;
-use crate::ui::styles::{BackgroundRes, Interpolator, ResolveResult, UiShape, UiStyle};
+use crate::ui::styles::{ResolveResult, UiStyle};
 use crate::{get_adaptive, get_shape, resolve};
-use std::marker::PhantomData;
 use std::ops::Deref;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::Percentage;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::ui::anim::easing;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
+use crate::ui::styles::enums::{BackgroundRes, UiShape};
+use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 
 #[derive(Clone)]

@@ -6,11 +6,12 @@ use crate::ui::elements::components::text::TextBody;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::{Dimension, UiStyle};
+use crate::ui::styles::UiStyle;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use crate::enum_val_ref_mut;
+use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct Button {

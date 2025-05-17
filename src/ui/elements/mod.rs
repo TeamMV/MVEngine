@@ -23,7 +23,7 @@ use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, ResolveResult};
 use crate::ui::styles::{
-    ChildAlign, Dimension, Direction, Interpolator, Origin, Position, ResCon, UiStyle,
+    ResCon, UiStyle,
     DEFAULT_STYLE,
 };
 use crate::ui::uix::UiCompoundElement;
@@ -32,7 +32,9 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, TetrahedronOp};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::window::Window;
+use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Position};
+use crate::ui::styles::interpolate::Interpolator;
+use crate::ui::styles::types::Dimension;
 
 pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut DrawContext2D);
@@ -116,7 +118,7 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     /// Computes all the styles and sets up the state. Should be called before draw()
-    fn compute_styles(&mut self, window: &Window)
+    fn compute_styles(&mut self, ctx: &DrawContext2D)
     where
         Self: Sized,
     {
@@ -134,14 +136,14 @@ pub trait UiElementStub: UiElementCallbacks {
                 &DEFAULT_STYLE.transform.translate.x,
                 maybe_parent.clone(),
                 |s| s.width(),
-                window
+                ctx
             );
         let transform_translate_y = resolve!(self, transform.translate.y)
             .unwrap_or_default_or_percentage(
                 &DEFAULT_STYLE.transform.translate.y,
                 maybe_parent.clone(),
                 |s| s.height(),
-                window
+                ctx
             );
         let transform_scale_x = resolve!(self, transform.scale.x).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.scale.x,
@@ -168,8 +170,8 @@ pub trait UiElementStub: UiElementCallbacks {
         state.transforms.rotation += transform_rotation;
         state.transforms.origin = transform_origin;
 
-        let padding = style.padding.get(self, |s| &s.padding, |s| s.paddings(), window); //t, b, l, r
-        let margin = style.margin.get(self, |s| &s.margin, |s| s.margins(), window); //0, 1, 2, 3
+        let padding = style.padding.get(self, |s| &s.padding, |s| s.paddings(), ctx); //t, b, l, r
+        let margin = style.margin.get(self, |s| &s.margin, |s| s.margins(), ctx); //0, 1, 2, 3
 
         let direction = resolve!(self, direction);
         let direction = if !direction.is_set() {
@@ -192,14 +194,14 @@ pub trait UiElementStub: UiElementCallbacks {
         let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
         let mut computed_size =
-            Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning, window);
+            Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning, ctx);
 
         let width = resolve!(self, width);
         let width = if width.is_set() {
             width.unwrap()
         } else if width.is_percent() {
             state.is_width_percent = true;
-            width.resolve_percent(maybe_parent.clone(), |s| s.width(), window)
+            width.resolve_percent(maybe_parent.clone(), |s| s.width(), ctx)
         } else {
             computed_size.0 + padding[2] + padding[3]
         };
@@ -208,7 +210,7 @@ pub trait UiElementStub: UiElementCallbacks {
             height.unwrap()
         } else if height.is_percent() {
             state.is_height_percent = true;
-            height.resolve_percent(maybe_parent.clone(), |s| s.height(), window)
+            height.resolve_percent(maybe_parent.clone(), |s| s.height(), ctx)
         } else {
             computed_size.1 + padding[0] + padding[1]
         };
@@ -245,7 +247,7 @@ pub trait UiElementStub: UiElementCallbacks {
             let x = if x.is_set() {
                 x.unwrap()
             } else if x.is_percent() {
-                x.resolve_percent(maybe_parent.clone(), |s| s.width(), window)
+                x.resolve_percent(maybe_parent.clone(), |s| s.width(), ctx)
             } else {
                 0
             };
@@ -254,7 +256,7 @@ pub trait UiElementStub: UiElementCallbacks {
             let y = if y.is_set() {
                 y.unwrap()
             } else if y.is_percent() {
-                y.resolve_percent(maybe_parent.clone(), |s| s.height(), window)
+                y.resolve_percent(maybe_parent.clone(), |s| s.height(), ctx)
             } else {
                 0
             };
@@ -439,11 +441,11 @@ pub trait UiElementStub: UiElementCallbacks {
                 let child_padding =
                     child_style
                         .padding
-                        .get(child_guard.deref(), |s| &s.padding, |s| s.paddings(), window);
+                        .get(child_guard.deref(), |s| &s.padding, |s| s.paddings(), ctx);
                 let child_margin =
                     child_style
                         .margin
-                        .get(child_guard.deref(), |s| &s.margin, |s| s.margins(), window);
+                        .get(child_guard.deref(), |s| &s.margin, |s| s.margins(), ctx);
 
                 child_state.bounding_rect.set_x(x);
                 child_state.bounding_rect.set_y(y);
@@ -473,7 +475,7 @@ pub trait UiElementStub: UiElementCallbacks {
         font_stretch: Dimension<f32>,
         font_skew: f32,
         font_kerning: f32,
-        window: &Window
+        ctx: &DrawContext2D
     ) -> (i32, i32)
     where
         Self: Sized,
@@ -494,7 +496,7 @@ pub trait UiElementStub: UiElementCallbacks {
                 }
                 Child::Element(e) => {
                     let mut guard = e.get_mut();
-                    guard.compute_styles(window);
+                    guard.compute_styles(ctx);
                     let bounding = &guard.state().bounding_rect;
                     match direction {
                         Direction::Vertical => {
