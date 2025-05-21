@@ -2,6 +2,7 @@ pub mod enums;
 pub mod groups;
 pub mod types;
 pub mod interpolate;
+pub mod unit;
 
 use crate::blanked_partial_ord;
 use crate::color::{ColorFormat, RgbColor};
@@ -18,6 +19,7 @@ use std::rc::Rc;
 use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, UiShape};
 use groups::{LayoutField, ShapeStyle, SideStyle, TextStyle, TransformStyle};
 use interpolate::Interpolator;
+use unit::Unit;
 use crate::ui::styles::groups::VectorField;
 use crate::ui::styles::interpolate::BasicInterpolatable;
 use crate::ui::styles::types::Dimension;
@@ -343,6 +345,35 @@ pub enum UiValue<T: Clone + 'static> {
     Percent(f32),
 }
 
+impl<T: TryFrom<String, Error=String>> TryFrom<String> for UiValue<T> {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let lower = value.trim().to_lowercase();
+        
+        match lower.as_str() {
+            "unset" => Ok(UiValue::Unset),
+            "none" => Ok(UiValue::None),
+            "auto" => Ok(UiValue::Auto),
+            "inherit" => Ok(UiValue::Inherit),
+            _ => {
+                if let Some(num_str) = lower.strip_suffix('%') {
+                    let parsed = num_str.trim().parse::<f32>()
+                        .map_err(|_| format!("Invalid percentage: {}", value))?;
+                    return Ok(UiValue::Percent(parsed / 100.0));
+                }
+
+                if let Ok(unit) = Unit::try_from(lower.clone()) {
+                    return Ok(UiValue::Measurement(unit));
+                }
+                
+                let t = T::try_from(value.clone())?;
+                Ok(UiValue::Just(t))
+            }
+        }
+    }
+}
+
 pub enum ResolveResult<T> {
     Value(T),
     Auto,
@@ -626,67 +657,6 @@ pub struct ResCon {
 impl ResCon {
     pub(crate) fn set_dpi(&mut self, dpi: f32) {
         self.dpi = dpi;
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum Unit {
-    Px(i32),             // px
-    MM(f32),             // mm
-    CM(f32),             // cm
-    M(f32),              // m
-    In(f32),             // in
-    Twip(f32),           // twip
-    Mil(f32),            // mil
-    Point(f32),          // pt
-    Pica(f32),           // pica
-    Foot(f32),           // ft
-    Yard(f32),           // yd
-    Link(f32),           // lk
-    Rod(f32),            // rd
-    Chain(f32),          // ch
-    Line(f32),           // ln
-    BarleyCorn(f32),     // bc
-    Nail(f32),           // nl
-    Finger(f32),         // fg
-    Stick(f32),          // sk
-    Palm(f32),           // pm
-    Shaftment(f32),      // sf
-    Span(f32),           // sp
-    Quarter(f32),        // qr
-    Pace(f32),           // pc
-    BeardFortnight(f32), //bf
-}
-
-impl Unit {
-    pub fn as_px(&self, dpi: f32) -> i32 {
-        match self {
-            Unit::Px(px) => *px,
-            Unit::MM(value) => ((value / 25.4) * dpi) as i32,
-            Unit::CM(value) => ((value / 2.54) * dpi) as i32,
-            Unit::M(value) => (value * dpi) as i32,
-            Unit::In(value) => (value * dpi) as i32,
-            Unit::Twip(value) => ((value / 1440.0) * dpi) as i32,
-            Unit::Mil(value) => ((value / 1000.0) * dpi) as i32,
-            Unit::Point(value) => (value * (dpi / 72.0)) as i32,
-            Unit::Pica(value) => (value * (dpi / 6.0)) as i32,
-            Unit::Foot(value) => ((value * 12.0) * dpi) as i32,
-            Unit::Yard(value) => ((value * 36.0) * dpi) as i32,
-            Unit::Link(value) => ((value * 7.92) * dpi) as i32,
-            Unit::Rod(value) => ((value * 198.0) * dpi) as i32,
-            Unit::Chain(value) => ((value * 792.0) * dpi) as i32,
-            Unit::Line(value) => ((value * (1.0 / 40.0)) * dpi) as i32,
-            Unit::BarleyCorn(value) => ((value * 0.125) * dpi) as i32,
-            Unit::Nail(value) => ((value * 0.25) * dpi) as i32,
-            Unit::Finger(value) => ((value * 0.375) * dpi) as i32,
-            Unit::Stick(value) => ((value * 0.5) * dpi) as i32,
-            Unit::Palm(value) => ((value * 3.0) * dpi) as i32,
-            Unit::Shaftment(value) => ((value * 6.0) * dpi) as i32,
-            Unit::Span(value) => ((value * 9.0) * dpi) as i32,
-            Unit::Quarter(value) => ((value * 36.0) * dpi) as i32,
-            Unit::Pace(value) => ((value * 30.0) * dpi) as i32,
-            Unit::BeardFortnight(value) => ((value * 0.6048 * 0.393701) * dpi) as i32,
-        }
     }
 }
 

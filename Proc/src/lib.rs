@@ -5,6 +5,7 @@ mod r;
 mod ui;
 mod uix;
 mod listener;
+mod style_expr;
 
 #[proc_macro]
 pub fn generate_get_components(input: TokenStream) -> TokenStream {
@@ -14,6 +15,11 @@ pub fn generate_get_components(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn ui(input: TokenStream) -> TokenStream {
     ui::ui(input)
+}
+
+#[proc_macro]
+pub fn style_expr(input: TokenStream) -> TokenStream {
+    style_expr::style_expr(input)
 }
 
 #[proc_macro_attribute]

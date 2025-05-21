@@ -5,10 +5,11 @@ use crate::color::RgbColor;
 use crate::graphics::comp::Drawable;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::res::MVR;
-use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue, Unit};
+use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
 use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, UiShape};
 use crate::ui::styles::interpolate::{BasicInterpolatable, Interpolator};
 use crate::ui::styles::types::Dimension;
+use crate::ui::styles::unit::Unit;
 
 #[derive(Clone)]
 pub struct TextStyle {
