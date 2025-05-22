@@ -5,7 +5,10 @@ use crate::math::vec::Vec4;
 use num_traits::{Num, ToPrimitive};
 use std::cmp::Ordering;
 use std::ops::Div;
+use std::str::FromStr;
 use mvutils::save::{Loader, Savable, Saver};
+use crate::color::parse::parse_color;
+use crate::ui::styles::Parseable;
 
 pub type RgbColor = Color<RgbColorFormat>;
 pub type HsvColor = Color<HsvColorFormat>;
@@ -201,5 +204,13 @@ impl ColorFormat for HsvColorFormat {
         let v = max;
 
         Color::new([h, s, v, a])
+    }
+}
+
+impl<F: ColorFormat> FromStr for Color<F> {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_color(s).map(|c| F::from_rgb(c)).map_err(|e| e.1)
     }
 }

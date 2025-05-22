@@ -182,15 +182,12 @@ impl WindowCallbacks for Application {
             modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
             modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
             
-            
-            let my_style = style_expr!(x: 10%; text.size: 10cm;);
-            
 
             let state = State::new(String::new());
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style={div_style}>
+                    <Div style="position: absolute; x: 100%; y: 5bf; direction: vertical; origin: bottom_right; background.color: hsl(136, 0.62, 0.61);">
                         <Button style={btn_style.clone()}>{state.clone().map_identity()}</Button>
                         <TextBox style={btn_style} content={state.map_identity()}/>
                     </Div>

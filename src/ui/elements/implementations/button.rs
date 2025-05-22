@@ -10,7 +10,7 @@ use crate::ui::styles::UiStyle;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
-use crate::enum_val_ref_mut;
+use mvutils::enum_val_ref_mut;
 use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]

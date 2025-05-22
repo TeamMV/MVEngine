@@ -16,6 +16,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::ops::{Add, Deref, DerefMut};
 use std::rc::Rc;
+use std::str::FromStr;
 use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, UiShape};
 use groups::{LayoutField, ShapeStyle, SideStyle, TextStyle, TransformStyle};
 use interpolate::Interpolator;
@@ -146,6 +147,16 @@ macro_rules! modify_style {
         $($style).*.x.for_field(|l| (*l).$acc = $($ac)*);
         $($style).*.y.for_field(|l| (*l).$acc = $($ac)*);
     };
+}
+
+pub trait Parseable: Sized {
+    fn parse(s: &str) -> Result<Self, String>;
+}
+
+impl<T: FromStr> Parseable for T {
+    fn parse(s: &str) -> Result<Self, String> {
+        T::from_str(s).map_err(|_| format!("{s} cannot be parsed in this context!"))
+    }
 }
 
 #[derive(Clone)]
@@ -345,10 +356,10 @@ pub enum UiValue<T: Clone + 'static> {
     Percent(f32),
 }
 
-impl<T: TryFrom<String, Error=String>> TryFrom<String> for UiValue<T> {
-    type Error = String;
+impl<T: FromStr + Clone> FromStr for UiValue<T> {
+    type Err = String;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let lower = value.trim().to_lowercase();
         
         match lower.as_str() {
@@ -367,7 +378,7 @@ impl<T: TryFrom<String, Error=String>> TryFrom<String> for UiValue<T> {
                     return Ok(UiValue::Measurement(unit));
                 }
                 
-                let t = T::try_from(value.clone())?;
+                let t = T::from_str(value).map_err(|_| format!("{value} cannot be parsed into string!"))?;
                 Ok(UiValue::Just(t))
             }
         }

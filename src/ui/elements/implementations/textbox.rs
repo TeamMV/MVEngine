@@ -1,4 +1,3 @@
-use crate::enum_val_ref_mut;
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::RawInput;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
@@ -14,6 +13,7 @@ use crate::ui::styles::UiStyle;
 use mvutils::state::State;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
+use mvutils::enum_val_ref_mut;
 use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]

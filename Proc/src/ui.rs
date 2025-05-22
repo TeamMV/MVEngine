@@ -46,7 +46,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
 
     let name = entity.name();
     let style_xml = entity.get_attrib("style").unwrap_or(&new_ui_style);
-    let style_code = xml_value_to_tknstream(style_xml);
+    let style_code = xml_value_as_style(style_xml);
 
     let attributes_xml = entity.get_attrib("attributes").unwrap_or(&new_attributes);
     let attributes_code = xml_value_to_tknstream(attributes_xml);
@@ -151,6 +151,21 @@ fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {
         XmlValue::Str(_) => {
             panic!("String expressions are not yet implemented for an attribute. Please set it up in code")
+        }
+        XmlValue::Code(c) => {
+            let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
+            quote! { #parsed_code }
+        }
+        _ => {
+            unreachable!()
+        }
+    }
+}
+
+fn xml_value_as_style(value: &XmlValue) -> proc_macro2::TokenStream {
+    match value {
+        XmlValue::Str(s) => {
+            quote! { mvengine_proc_macro::style_expr!(#s) }
         }
         XmlValue::Code(c) => {
             let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");

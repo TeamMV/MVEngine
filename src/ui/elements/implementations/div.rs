@@ -1,4 +1,5 @@
 use std::rc::{Rc, Weak};
+use mvutils::enum_val_ref_mut;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
@@ -7,7 +8,6 @@ use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::UiStyle;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use crate::enum_val_ref_mut;
 use crate::input::{Input, RawInputEvent};
 use crate::ui::styles::types::Dimension;
 
