@@ -1,9 +1,68 @@
-use crate::audio::decode::Decoder;
+use bytebuffer::ByteBuffer;
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::Savable;
+use mvutils::save::custom::{raw_vec_save, raw_vec_load};
+use mvutils::save::Loader;
 
-pub struct WavDecoder;
+pub type Static4String = [u8; 4];
 
-impl Decoder for WavDecoder {
-    fn read(bytes: &[u8]) -> Vec<f32> {
-        todo!()
+#[derive(Debug, Savable)]
+pub struct WavData {
+    header: Static4String,
+    file_size: u32,
+    WAVE: Static4String,
+    fmt_null_byte: Static4String,
+    format_length: u32,
+    format_type: i16,
+    num_channels: u16,
+    sample_rate: u32,
+    weird_calculation_using_data_already_in_this_struct: u32,
+    even_uselessler_calculation: u16,
+    bits_per_sample: u16,
+    data_header: Static4String,
+    data_size: u32,
+    #[custom(save = raw_vec_save, load = raw_vec_load)]
+    data: Vec<u8>,
+}
+
+impl WavData {
+    // NOTE: idk if this works lmao
+    pub fn validate(&self) -> bool {
+        self.header == *b"RIFF" &&
+            self.WAVE == *b"WAVE" &&
+            self.fmt_null_byte == *b"fmt\0"
+    }
+}
+
+pub struct ActuallyUsefulWavData {
+    channels: u8,
+    sample_rate: u32,
+    samples: Vec<f32>,
+}
+
+impl From<WavData> for ActuallyUsefulWavData {
+    fn from(value: WavData) -> Self {
+        let mut buffer = ByteBuffer::from_vec_le(value.data);
+        let mut samples = Vec::new();
+        match value.bits_per_sample {
+            8 => {
+                while let Some(value) = buffer.pop_u8() {
+                    samples.push(((value as f32) - 128.0) / 128.0);
+                }
+            }
+            16 => {
+                while let Some(value) = buffer.pop_i16() {
+                    samples.push((value as f32) / 32768.0);
+                }
+            }
+            _ => {
+                panic!("Illegal wav format, you are going to jail");
+            }
+        }
+        ActuallyUsefulWavData {
+            channels: value.num_channels as u8,
+            sample_rate: value.sample_rate,
+            samples,
+        }
     }
 }

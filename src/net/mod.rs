@@ -8,6 +8,7 @@ use mvutils::Savable;
 use std::io::Read;
 use std::net::TcpStream;
 use log::debug;
+use mvutils::bytebuffer::ByteBufferExtras;
 
 #[derive(Clone, Savable, Debug)]
 pub enum DisconnectReason {
@@ -26,7 +27,6 @@ pub(crate) fn try_read_packet<P: Savable>(stream: &mut TcpStream) -> Result<P, R
     let len = u32::from_be_bytes(len);
     let mut buffer = vec![0u8; len as usize];
     stream.read_exact(&mut buffer).map_err(ReadPacketError::FromTcp)?;
-    let mut buffer = ByteBuffer::from_vec(buffer);
-    buffer.set_endian(Endian::LittleEndian);
+    let mut buffer = ByteBuffer::from_vec_le(buffer);
     P::load(&mut buffer).map_err(ReadPacketError::FromSavable)
 }
