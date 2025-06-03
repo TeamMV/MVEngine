@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use crate::audio::source::Sound;
+use crate::audio::source::{Sound, SoundWithAttributes};
 
 pub struct AudioMixer { //gt reference
-    playing: Vec<(Arc<Sound>, usize)>,
+    playing: Vec<(Arc<SoundWithAttributes>, usize)>,
     last_idx: usize
 }
 
@@ -14,7 +14,7 @@ impl AudioMixer {
         }
     }
 
-    pub fn play(&mut self, sound: Arc<Sound>) {
+    pub fn play(&mut self, sound: Arc<SoundWithAttributes>) {
         self.playing.push((sound, self.last_idx));
     }
 
