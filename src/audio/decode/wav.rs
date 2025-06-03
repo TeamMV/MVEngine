@@ -1,8 +1,13 @@
-use bytebuffer::ByteBuffer;
+use std::sync::Arc;
+use bytebuffer::{ByteBuffer, Endian};
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::Savable;
 use mvutils::save::custom::{raw_vec_save, raw_vec_load};
-use mvutils::save::Loader;
+use mvutils::save::{Loader, Savable};
+use crate::audio::decode::AudioDecoder;
+use crate::audio::source::Sound;
+
+pub struct WavDecoder;
 
 pub type Static4String = [u8; 4];
 
@@ -64,5 +69,25 @@ impl From<WavData> for ActuallyUsefulWavData {
             sample_rate: value.sample_rate,
             samples,
         }
+    }
+}
+
+impl AudioDecoder for WavDecoder {
+    fn is_compatible(input: &[u8]) -> bool {
+        let mut buffer = ByteBuffer::from_bytes(input);
+        buffer.set_endian(Endian::LittleEndian);
+        let decoded = WavData::load(&mut buffer);
+        if let Ok(decoded) = decoded {
+            decoded.validate()
+        } else {
+            false
+        }
+    }
+
+    fn decode(&self, input: &[u8]) -> Arc<Sound> {
+        let mut buffer = ByteBuffer::from_bytes(input);
+        buffer.set_endian(Endian::LittleEndian);
+        let decoded = WavData::load(&mut buffer).expect("Not wav data");
+        Sound::from_wav(decoded.into())
     }
 }

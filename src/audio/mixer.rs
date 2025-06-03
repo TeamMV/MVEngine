@@ -29,7 +29,7 @@ impl AudioMixer {
             total += 1.0;
         }
         
-        self.playing.retain(|(sound, started)| sound.is_looping() || idx - started < sound.total_samples());
+        self.playing.retain(|(sound, started)| sound.is_looping() || idx - started < sound.sound().total_samples());
         
         if total == 0.0 {
             return (0.0, 0.0);

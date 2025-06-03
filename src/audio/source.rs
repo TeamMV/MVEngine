@@ -29,7 +29,7 @@ impl SoundWithAttributes {
         }
 
         let looping = self.looping.load(Ordering::Acquire);
-        let volume = unsafe { mem::transmute(self.volume.load(Ordering::Acquire)) };
+        let volume: f32 = unsafe { mem::transmute(self.volume.load(Ordering::Acquire)) };
 
         match self.sound.channels {
             2 => {

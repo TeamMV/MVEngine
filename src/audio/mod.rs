@@ -9,7 +9,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::{error, info};
 use parking_lot::Mutex;
 use crate::audio::mixer::AudioMixer;
-use crate::audio::source::Sound;
+use crate::audio::source::{Sound, SoundWithAttributes};
 
 pub struct AudioEngine {
     mixer: Arc<Mutex<AudioMixer>>,
@@ -69,7 +69,7 @@ impl AudioEngine {
         None
     }
     
-    pub fn play_sound(&self, sound: Arc<Sound>) {
+    pub fn play_sound(&self, sound: Arc<SoundWithAttributes>) {
         self.mixer.lock().play(sound)
     }
 }
