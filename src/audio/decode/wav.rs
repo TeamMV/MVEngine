@@ -35,9 +35,9 @@ impl WavData {
 }
 
 pub struct ActuallyUsefulWavData {
-    channels: u8,
-    sample_rate: u32,
-    samples: Vec<f32>,
+    pub channels: u8,
+    pub sample_rate: u32,
+    pub samples: Vec<f32>,
 }
 
 impl From<WavData> for ActuallyUsefulWavData {

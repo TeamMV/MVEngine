@@ -25,8 +25,6 @@ impl AudioEngine {
 
 impl AudioEngine {
     pub fn setup() -> Option<Self> {
-        let balance = 0.3_f32;
-
         let host = cpal::default_host();
         if let Some(device) = host.default_output_device() {
             info!("Selected audio device: {:?}", device.name());
@@ -43,11 +41,8 @@ impl AudioEngine {
                     for sample in data.chunks_mut(config.channels() as usize) {
                         let tone = mixer.lock().get_current_sample(index);
 
-                        let left = tone * (1.0 - balance) * 0.5;
-                        let right = tone * (1.0 + balance) * 0.5;
-
-                        sample[0] = left;
-                        sample[1] = right;
+                        sample[0] = tone.0;
+                        sample[1] = tone.1;
 
                         index = index.wrapping_add(1);
                     }
@@ -97,5 +92,5 @@ pub fn gen_sin_wave(freq: u32, rate: u32, duration: u32) -> Arc<Sound> {
         samples.push(sample);
     }
     
-    Sound::new(samples)
+    Sound::from_raw(1, rate as u32, samples)
 }
