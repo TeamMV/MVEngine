@@ -39,7 +39,7 @@ impl AudioEngine {
                 
                 let stream = device.build_output_stream(&config.config(), move |data: &mut [f32], _| {
                     for sample in data.chunks_mut(config.channels() as usize) {
-                        let tone = mixer.lock().get_current_sample(index);
+                        let tone = mixer.lock().get_current_sample(index, sample_rate);
 
                         sample[0] = tone.0;
                         sample[1] = tone.1;

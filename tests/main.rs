@@ -31,7 +31,11 @@ use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
-use mvengine::audio::AudioEngine;
+use std::time::Duration;
+use mvengine::audio::{gen_sin_wave, AudioEngine};
+use mvengine::audio::decode::AudioDecoder;
+use mvengine::audio::decode::wav::WavDecoder;
+use mvengine::audio::source::SoundWithAttributes;
 use mvengine::ui::styles::enums::{Direction, Origin, Position};
 use mvengine::ui::styles::groups::SideStyle;
 use mvengine::ui::styles::types::Dimension;
@@ -70,10 +74,33 @@ struct Application {
 impl Application {
     fn new() -> Self {
         let audio = AudioEngine::setup().expect("Cannot start audio");
-        //let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
-        //let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
-        //audio.play_sound(test_sound1);
-        //audio.play_sound(test_sound2);
+        let decoder = WavDecoder;
+        let test_sound_a = decoder.decode(include_bytes!("out.wav"));
+        let wrapped_a = SoundWithAttributes::new(test_sound_a);
+        wrapped_a.set_looping(true);
+        wrapped_a.set_volume(1.0);
+
+        println!("{} {}", audio.sample_rate(), wrapped_a.sound().sample_rate());
+        
+        audio.play_sound(wrapped_a.full_clone());
+        std::thread::sleep(Duration::from_millis(200));
+        wrapped_a.set_volume(0.3);
+        wrapped_a.set_balance(1.0);
+        wrapped_a.set_looping(false);
+        audio.play_sound(wrapped_a.full_clone());
+        std::thread::sleep(Duration::from_millis(200));
+        wrapped_a.set_volume(1.5);
+        wrapped_a.set_balance(0.0);
+        audio.play_sound(wrapped_a);
+        // let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
+        // let wrapped_1 = SoundWithAttributes::new(test_sound1);
+        // let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
+        // let wrapped_2 = SoundWithAttributes::new(test_sound2);
+        // wrapped_2.set_volume(1.0);
+        // audio.play_sound(wrapped_1);
+        // audio.play_sound(wrapped_2);
+
+
         
         Self {
             renderer: CreateOnce::new(),

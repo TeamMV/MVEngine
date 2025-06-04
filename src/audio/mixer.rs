@@ -18,25 +18,19 @@ impl AudioMixer {
         self.playing.push((sound, self.last_idx));
     }
 
-    pub(crate) fn get_current_sample(&mut self, idx: usize) -> (f32, f32) {
+    pub(crate) fn get_current_sample(&mut self, idx: usize, sample_rate: u32) -> (f32, f32) {
         self.last_idx = idx;
         let mut mixed = (0.0, 0.0);
-        let mut total = 0.0;
         for (_, (sound, started)) in self.playing.iter().enumerate() {
-            let s = sound.get_sample(idx - started);
+            let s = sound.get_sample_mapped(idx - started, sample_rate);
             mixed.0 += s.0;
             mixed.1 += s.1;
-            total += 1.0;
         }
         
         self.playing.retain(|(sound, started)| sound.is_looping() || idx - started < sound.sound().total_samples());
-        
-        if total == 0.0 {
-            return (0.0, 0.0);
-        }
 
         // This feels like adding empty sound would just make shit quieter randomly, perhaps just use clamp and sum instead?
         // (clamp(mixed.0, -1.0, 1.0), clamp(mixed.1, -1.0, 1.0))
-        (mixed.0 / total, mixed.1 / total)
+        mixed
     }
 }

@@ -8,6 +8,7 @@ pub struct SoundWithAttributes {
     // hacky ass workaround, use raw bytes lmao
     mono_balance: AtomicU32,
     volume: AtomicU32,
+    speed: AtomicU32,
     looping: AtomicBool,
     sound: Arc<Sound>
 }
@@ -17,10 +18,20 @@ impl SoundWithAttributes {
         let this = Self {
             mono_balance: AtomicU32::new(unsafe { mem::transmute(0.5f32) }),
             volume: AtomicU32::new(unsafe { mem::transmute(1.0f32) }),
+            speed: AtomicU32::new(unsafe { mem::transmute(1.0f32) }),
             looping: AtomicBool::new(false),
             sound
         };
         Arc::new(this)
+    }
+
+    pub fn map_index(&self, index: usize, sample_rate: u32) -> usize {
+        let speed: f32 = unsafe { mem::transmute(self.speed.load(Ordering::Acquire)) };
+        (self.sound.map_index(index, sample_rate) as f32 * speed).round() as usize
+    }
+
+    pub fn get_sample_mapped(&self, index: usize, sample_rate: u32) -> (f32, f32) {
+        self.get_sample(self.map_index(index, sample_rate))
     }
 
     pub fn get_sample(&self, index: usize) -> (f32, f32) {
@@ -37,6 +48,9 @@ impl SoundWithAttributes {
                 let idx = if looping {
                     index % sample_count
                 } else {
+                    if index >= sample_count {
+                        return (0.0, 0.0);
+                    }
                     index
                 };
                 (self.sound.samples[idx * 2] * volume, self.sound.samples[idx * 2 + 1] * volume)
@@ -47,6 +61,9 @@ impl SoundWithAttributes {
                 let idx = if looping {
                     index % sample_count
                 } else {
+                    if index >= sample_count {
+                        return (0.0, 0.0);
+                    }
                     index
                 };
                 let sample = self.sound.samples[idx];
@@ -62,7 +79,7 @@ impl SoundWithAttributes {
         self.looping.load(Ordering::Acquire)
     }
 
-    pub fn set_looping(&mut self, looping: bool) {
+    pub fn set_looping(&self, looping: bool) {
         self.looping.store(looping, Ordering::Release);
     }
 
@@ -70,7 +87,7 @@ impl SoundWithAttributes {
         unsafe { mem::transmute(self.mono_balance.load(Ordering::Acquire)) }
     }
 
-    pub fn set_balance(&mut self, balance: f32) {
+    pub fn set_balance(&self, balance: f32) {
         self.mono_balance.store(unsafe { mem::transmute(balance) }, Ordering::Release);
     }
 
@@ -78,12 +95,31 @@ impl SoundWithAttributes {
         unsafe { mem::transmute(self.volume.load(Ordering::Acquire)) }
     }
 
-    pub fn set_volume(&mut self, volume: f32) {
+    pub fn set_volume(&self, volume: f32) {
         self.volume.store(unsafe { mem::transmute(volume) }, Ordering::Release);
+    }
+
+    pub fn speed(&self) -> f32 {
+        unsafe { mem::transmute(self.speed.load(Ordering::Acquire)) }
+    }
+
+    pub fn set_speed(&self, speed: f32) {
+        self.speed.store(unsafe { mem::transmute(speed) }, Ordering::Release);
     }
 
     pub fn sound(&self) -> Arc<Sound> {
         self.sound.clone()
+    }
+    
+    pub fn full_clone(self: &Arc<Self>) -> Arc<Self> {
+        let this = Self {
+            mono_balance: AtomicU32::new(self.mono_balance.load(Ordering::Acquire)),
+            volume: AtomicU32::new(self.volume.load(Ordering::Acquire)),
+            speed: AtomicU32::new(self.speed.load(Ordering::Acquire)),
+            looping: AtomicBool::new(self.looping.load(Ordering::Acquire)),
+            sound: self.sound.clone()
+        };
+        Arc::new(this)
     }
 }
 
@@ -111,8 +147,17 @@ impl Sound {
         self.samples.len()
     }
 
+    pub fn map_index(&self, index: usize, sample_rate: u32) -> usize {
+        let ratio = self.sample_rate as f32 / sample_rate as f32;
+        (index as f32 * ratio).round() as usize
+    }
+
     pub fn get_sample_raw(&self, index: usize) -> f32 {
         self.samples[index]
+    }
+
+    pub fn get_sample_mapped(&self, index: usize, sample_rate: u32) -> (f32, f32) {
+        self.get_sample(self.map_index(index, sample_rate))
     }
 
     pub fn get_sample(&self, index: usize) -> (f32, f32) {
@@ -131,5 +176,9 @@ impl Sound {
                 panic!("We do not support futuristic 3+ ear headphones");
             }
         }
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate
     }
 }
