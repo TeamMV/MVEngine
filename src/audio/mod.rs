@@ -1,6 +1,7 @@
 pub mod mixer;
 pub mod source;
 pub mod decode;
+pub mod dj;
 
 use std::f32::consts::PI;
 use std::sync::Arc;

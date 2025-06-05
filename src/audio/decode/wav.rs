@@ -9,14 +9,14 @@ use crate::audio::source::Sound;
 
 pub struct WavDecoder;
 
-pub type Static4String = [u8; 4];
+pub type HeaderType4ByteString = [u8; 4];
 
 #[derive(Debug, Savable)]
 pub struct WavData {
-    header: Static4String,
+    header: HeaderType4ByteString,
     file_size: u32,
-    WAVE: Static4String,
-    fmt_null_byte: Static4String,
+    WAVE: HeaderType4ByteString,
+    fmt_null_byte: HeaderType4ByteString,
     format_length: u32,
     format_type: i16,
     num_channels: u16,
@@ -24,10 +24,16 @@ pub struct WavData {
     weird_calculation_using_data_already_in_this_struct: u32,
     even_uselessler_calculation: u16,
     bits_per_sample: u16,
-    data_header: Static4String,
+    data_header: HeaderType4ByteString,
     data_size: u32,
     #[custom(save = raw_vec_save, load = raw_vec_load)]
     data: Vec<u8>,
+}
+
+pub struct ActuallyUsefulWavData {
+    pub channels: u8,
+    pub sample_rate: u32,
+    pub samples: Vec<f32>,
 }
 
 impl WavData {
@@ -37,12 +43,6 @@ impl WavData {
             self.WAVE == *b"WAVE" &&
             self.fmt_null_byte == *b"fmt\0"
     }
-}
-
-pub struct ActuallyUsefulWavData {
-    pub channels: u8,
-    pub sample_rate: u32,
-    pub samples: Vec<f32>,
 }
 
 impl From<WavData> for ActuallyUsefulWavData {
@@ -78,6 +78,7 @@ impl AudioDecoder for WavDecoder {
         buffer.set_endian(Endian::LittleEndian);
         let decoded = WavData::load(&mut buffer);
         if let Ok(decoded) = decoded {
+            // still don't know if this works
             decoded.validate()
         } else {
             false

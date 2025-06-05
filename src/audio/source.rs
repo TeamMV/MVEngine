@@ -1,33 +1,26 @@
-use std::mem;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use mvutils::unsafe_utils::DangerousCell;
 use crate::audio::decode::wav::ActuallyUsefulWavData;
+use crate::ui::ease::{Easing, EasingGen, EasingMode};
 
-// "Fucl u" - v22
+// "Fucl u" - v22 (4/6/25)
+// "Fucl you" - v22 (5/6/25)
 pub struct SoundWithAttributes {
-    // hacky ass workaround, use raw bytes lmao
-    mono_balance: AtomicU32,
-    volume: AtomicU32,
-    speed: AtomicU32,
-    looping: AtomicBool,
-    sound: Arc<Sound>
+    sound: Arc<Sound>,
+    with_attributes: WithAttributes
 }
 
 impl SoundWithAttributes {
     pub fn new(sound: Arc<Sound>) -> Arc<Self> {
         let this = Self {
-            mono_balance: AtomicU32::new(unsafe { mem::transmute(0.5f32) }),
-            volume: AtomicU32::new(unsafe { mem::transmute(1.0f32) }),
-            speed: AtomicU32::new(unsafe { mem::transmute(1.0f32) }),
-            looping: AtomicBool::new(false),
-            sound
+            sound,
+            with_attributes: WithAttributes::new(),
         };
         Arc::new(this)
     }
 
     pub fn map_index(&self, index: usize, sample_rate: u32) -> usize {
-        let speed: f32 = unsafe { mem::transmute(self.speed.load(Ordering::Acquire)) };
-        (self.sound.map_index(index, sample_rate) as f32 * speed).round() as usize
+        (self.sound.map_index(index, sample_rate) as f32 * self.with_attributes.speed.get_val()).round() as usize
     }
 
     pub fn get_sample_mapped(&self, index: usize, sample_rate: u32) -> (f32, f32) {
@@ -39,8 +32,8 @@ impl SoundWithAttributes {
             return (0.0, 0.0);
         }
 
-        let looping = self.looping.load(Ordering::Acquire);
-        let volume: f32 = unsafe { mem::transmute(self.volume.load(Ordering::Acquire)) };
+        let looping = self.with_attributes.looping.get_val();
+        let mut volume: f32 = self.with_attributes.volume.get_val();
 
         match self.sound.channels {
             2 => {
@@ -53,10 +46,11 @@ impl SoundWithAttributes {
                     }
                     index
                 };
+                volume *= self.with_attributes.get_easing_multiplier(idx);
                 (self.sound.samples[idx * 2] * volume, self.sound.samples[idx * 2 + 1] * volume)
             }
             1 => {
-                let balance = unsafe { mem::transmute::<u32, f32>(self.mono_balance.load(Ordering::Acquire)) };
+                let balance = self.with_attributes.mono_balance.get_val();
                 let sample_count = self.sound.samples.len();
                 let idx = if looping {
                     index % sample_count
@@ -66,6 +60,7 @@ impl SoundWithAttributes {
                     }
                     index
                 };
+                volume *= self.with_attributes.get_easing_multiplier(idx);
                 let sample = self.sound.samples[idx];
                 (sample * (1.0 - balance) * volume, sample * balance * volume)
             }
@@ -76,50 +71,149 @@ impl SoundWithAttributes {
     }
 
     pub fn is_looping(&self) -> bool {
-        self.looping.load(Ordering::Acquire)
+        self.with_attributes.looping.get_val()
     }
 
     pub fn set_looping(&self, looping: bool) {
-        self.looping.store(looping, Ordering::Release);
+        self.with_attributes.looping.replace(looping);
     }
 
     pub fn balance(&self) -> f32 {
-        unsafe { mem::transmute(self.mono_balance.load(Ordering::Acquire)) }
+        self.with_attributes.mono_balance.get_val()
     }
 
     pub fn set_balance(&self, balance: f32) {
-        self.mono_balance.store(unsafe { mem::transmute(balance) }, Ordering::Release);
+        self.with_attributes.mono_balance.replace(balance);
     }
 
     pub fn volume(&self) -> f32 {
-        unsafe { mem::transmute(self.volume.load(Ordering::Acquire)) }
+        self.with_attributes.volume.get_val()
     }
 
     pub fn set_volume(&self, volume: f32) {
-        self.volume.store(unsafe { mem::transmute(volume) }, Ordering::Release);
+        self.with_attributes.volume.replace(volume);
     }
 
     pub fn speed(&self) -> f32 {
-        unsafe { mem::transmute(self.speed.load(Ordering::Acquire)) }
+        self.with_attributes.speed.get_val()
     }
 
     pub fn set_speed(&self, speed: f32) {
-        self.speed.store(unsafe { mem::transmute(speed) }, Ordering::Release);
+        self.with_attributes.speed.replace(speed);
+    }
+
+    pub fn set_fade_in(&self, gen: EasingGen, duration_ms: u32) {
+        let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
+        self.with_attributes.fade_in.replace(Some(Easing::new(gen, EasingMode::In, 0.0..duration_samples as f32, 0.0..1.0)));
+    }
+
+    pub fn set_fade_out(&self, gen: EasingGen, duration_ms: u32) {
+        let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
+        let start_sample = self.sound.effective_samples() as u32 - duration_samples;
+        self.with_attributes.fade_out.replace(Some(Easing::new(gen, EasingMode::Out, start_sample as f32..(start_sample + duration_samples) as f32, 1.0..0.0)));
     }
 
     pub fn sound(&self) -> Arc<Sound> {
         self.sound.clone()
     }
+
+    pub fn with_attributes(&self) -> &WithAttributes {
+        &self.with_attributes
+    }
     
     pub fn full_clone(self: &Arc<Self>) -> Arc<Self> {
         let this = Self {
-            mono_balance: AtomicU32::new(self.mono_balance.load(Ordering::Acquire)),
-            volume: AtomicU32::new(self.volume.load(Ordering::Acquire)),
-            speed: AtomicU32::new(self.speed.load(Ordering::Acquire)),
-            looping: AtomicBool::new(self.looping.load(Ordering::Acquire)),
-            sound: self.sound.clone()
+            sound: self.sound.clone(),
+            with_attributes: self.with_attributes.clone()
         };
         Arc::new(this)
+    }
+}
+
+unsafe impl Send for SoundWithAttributes {}
+unsafe impl Sync for SoundWithAttributes {}
+
+pub struct WithAttributes {
+    // Fuck memory safety, we need to read this shit 48000 times a second we dont have time for rwlock overhead
+    mono_balance: DangerousCell<f32>,
+    volume: DangerousCell<f32>,
+    speed: DangerousCell<f32>,
+    looping: DangerousCell<bool>,
+
+    fade_in: DangerousCell<Option<Easing>>,
+    fade_out: DangerousCell<Option<Easing>>,
+}
+
+impl WithAttributes {
+    pub fn new() -> Self {
+        Self {
+            mono_balance: 0.5.into(),
+            volume: 1.0.into(),
+            speed: 1.0.into(),
+            looping: false.into(),
+
+            fade_in: None.into(),
+            fade_out: None.into(),
+        }
+    }
+
+    pub fn get_easing_multiplier(&self, index: usize) -> f32 {
+        let fade_in = if let Some(fade_in) = self.fade_in.get() {
+            fade_in.get(index as f32)
+        } else {
+            1.0
+        };
+        let fade_out = if let Some(fade_out) = self.fade_out.get() {
+            fade_out.get(index as f32)
+        } else {
+            1.0
+        };
+        fade_in * fade_out
+    }
+
+    pub fn is_looping(&self) -> bool {
+        self.looping.get_val()
+    }
+
+    pub fn set_looping(&self, looping: bool) {
+        self.looping.replace(looping);
+    }
+
+    pub fn balance(&self) -> f32 {
+        self.mono_balance.get_val()
+    }
+
+    pub fn set_balance(&self, balance: f32) {
+        self.mono_balance.replace(balance);
+    }
+
+    pub fn volume(&self) -> f32 {
+        self.volume.get_val()
+    }
+
+    pub fn set_volume(&self, volume: f32) {
+        self.volume.replace(volume);
+    }
+
+    pub fn speed(&self) -> f32 {
+        self.speed.get_val()
+    }
+
+    pub fn set_speed(&self, speed: f32) {
+        self.speed.replace(speed);
+    }
+}
+
+impl Clone for WithAttributes {
+    fn clone(&self) -> Self {
+        Self {
+            mono_balance: self.mono_balance.get_val().into(),
+            volume: self.volume.get_val().into(),
+            speed: self.speed.get_val().into(),
+            looping: self.looping.get_val().into(),
+            fade_in: self.fade_in.get().clone().into(),
+            fade_out: self.fade_out.get().clone().into(),
+        }
     }
 }
 
@@ -145,6 +239,10 @@ impl Sound {
 
     pub fn total_samples(&self) -> usize {
         self.samples.len()
+    }
+
+    pub fn effective_samples(&self) -> usize {
+        self.samples.len() / self.channels as usize
     }
 
     pub fn map_index(&self, index: usize, sample_rate: u32) -> usize {

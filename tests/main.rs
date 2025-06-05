@@ -36,6 +36,7 @@ use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::source::SoundWithAttributes;
+use mvengine::ui::ease::{EasingGen, SinEasing};
 use mvengine::ui::styles::enums::{Direction, Origin, Position};
 use mvengine::ui::styles::groups::SideStyle;
 use mvengine::ui::styles::types::Dimension;
@@ -79,19 +80,21 @@ impl Application {
         let wrapped_a = SoundWithAttributes::new(test_sound_a);
         wrapped_a.set_looping(true);
         wrapped_a.set_volume(1.0);
+        wrapped_a.set_fade_in(EasingGen::sin(), 5000);
+        wrapped_a.set_fade_out(EasingGen::sin(), 5000);
 
         println!("{} {}", audio.sample_rate(), wrapped_a.sound().sample_rate());
         
-        audio.play_sound(wrapped_a.full_clone());
-        std::thread::sleep(Duration::from_millis(200));
-        wrapped_a.set_volume(0.3);
-        wrapped_a.set_balance(1.0);
-        wrapped_a.set_looping(false);
-        audio.play_sound(wrapped_a.full_clone());
-        std::thread::sleep(Duration::from_millis(200));
-        wrapped_a.set_volume(1.5);
-        wrapped_a.set_balance(0.0);
         audio.play_sound(wrapped_a);
+        // std::thread::sleep(Duration::from_millis(200));
+        // wrapped_a.set_volume(0.3);
+        // wrapped_a.set_balance(1.0);
+        // wrapped_a.set_looping(false);
+        // audio.play_sound(wrapped_a.full_clone());
+        // std::thread::sleep(Duration::from_millis(200));
+        // wrapped_a.set_volume(1.5);
+        // wrapped_a.set_balance(0.0);
+        // audio.play_sound(wrapped_a);
         // let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
         // let wrapped_1 = SoundWithAttributes::new(test_sound1);
         // let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);

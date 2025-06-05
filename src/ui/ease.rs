@@ -22,6 +22,12 @@ impl Easing {
     }
 
     pub fn get(&self, pos: f32) -> f32 {
+        if pos < self.x_range.start {
+            return self.y_range.start;
+        }
+        if pos > self.x_range.end {
+            return self.y_range.end;
+        }
         match &self.gen {
             EasingGen::Linear(e) => e.get(
                 pos,
@@ -109,6 +115,8 @@ pub enum EasingMode {
 pub trait EasingFunction {
     fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32;
 }
+
+// Very useful comments under this:
 
 // Linear Easing
 #[derive(Clone)]
