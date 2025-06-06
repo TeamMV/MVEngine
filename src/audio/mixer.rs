@@ -21,7 +21,7 @@ impl AudioMixer {
     pub(crate) fn get_current_sample(&mut self, idx: usize, sample_rate: u32) -> (f32, f32) {
         self.last_idx = idx;
         let mut mixed = (0.0, 0.0);
-        for (_, (sound, started)) in self.playing.iter().enumerate() {
+        for (sound, started) in self.playing.iter() {
             let s = sound.get_sample_mapped(idx - started, sample_rate);
             mixed.0 += s.0;
             mixed.1 += s.1;
