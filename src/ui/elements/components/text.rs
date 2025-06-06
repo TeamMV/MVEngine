@@ -80,7 +80,7 @@ impl<E: UiElementStub> TextBody<E> {
         let mut x = 0f32;
         let space_advance = font.get_space_advance(size);
         let mut height = 0;
-        for (_, c) in s.char_indices() {
+        for c in s.chars() {
             if c == '\t' {
                 x += 6.0 + space_advance;
                 continue;
