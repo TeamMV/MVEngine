@@ -2,7 +2,7 @@ pub mod text;
 pub mod edittext;
 
 use crate::color::RgbColor;
-use crate::graphics::comp::Drawable;
+use crate::graphics::Drawable;
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;

@@ -26,9 +26,41 @@ pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
             });
 
         let value = &entry.value;
-        mods.extend(quote! {
-            modify_style!(#accessor_expr = mvengine::ui::styles::Parseable::parse(#value).expect("Cannot parse style"));
-        });
+        
+        if value.starts_with('{') {
+            //{} means the inner part should be kept as rust code to initialize the field
+            let mut inner = String::new();
+            let mut paren_depth = 0;
+            for c in value.chars() {
+                if c == '}' && paren_depth == 0 { 
+                    break;
+                } else {
+                    if c == '{' { 
+                        paren_depth += 1;
+                    } else if c == '}' {
+                        paren_depth -= 1;
+                    }
+                    inner.push(c);
+                }
+            }
+            let value: Expr = parse_str(&inner).expect("Cannot parse inner rust code as expression! Note: values inside {} will be treated as rust code and does not call Parseable::parse.");
+
+            mods.extend(quote! {
+                modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(#value)));
+            });
+        } else if value.starts_with('@') {
+            //@ means it's a resource
+            mods.extend(quote! {
+                {
+                    let r = resolve_resource!(#value).expect("Cannot find resource!");
+                    modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(r.clone())));
+                }
+            });
+        } else {
+            mods.extend(quote! {
+                modify_style!(#accessor_expr = mvengine::ui::styles::Parseable::parse(#value).expect("Cannot parse style"));
+            });
+        }
     }
     
     let mut base_ts = quote! {

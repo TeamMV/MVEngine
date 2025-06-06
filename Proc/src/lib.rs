@@ -6,6 +6,8 @@ mod ui;
 mod uix;
 mod listener;
 mod style_expr;
+mod multiline_str_into;
+mod resolve_resource;
 
 #[proc_macro]
 pub fn generate_get_components(input: TokenStream) -> TokenStream {
@@ -35,4 +37,14 @@ pub fn r(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn listener(head: TokenStream, body: TokenStream) -> TokenStream {
     listener::listener(head, body)
+}
+
+#[proc_macro]
+pub fn multiline_str_into(input: TokenStream) -> TokenStream {
+    multiline_str_into::multiline_str_into(input)
+}
+
+#[proc_macro]
+pub fn resolve_resource(input: TokenStream) -> TokenStream {
+    resolve_resource::resolve_resource(input)
 }

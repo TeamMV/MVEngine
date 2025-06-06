@@ -10,6 +10,7 @@ use crate::ui::rendering::adaptive::AdaptiveShape;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use crate::graphics::Drawable;
 
 #[derive(Clone)]
 pub struct UiContext {
@@ -49,6 +50,7 @@ pub trait UiResources {
     fn resolve_tileset(&self, id: usize) -> Option<&TileSet>;
     fn resolve_animation(&self, id: usize) -> Option<&GlobalAnimation>;
     fn resolve_composite(&self, id: usize) -> Option<&CompositeSprite>;
+    fn resolve_drawable(&self, id: usize) -> Option<&Drawable>;
 
     fn tick_all_animations(&self);
 }

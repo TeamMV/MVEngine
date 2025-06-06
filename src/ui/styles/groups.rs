@@ -2,7 +2,7 @@ use std::rc::Rc;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{PClamp, TetrahedronOp};
 use crate::color::RgbColor;
-use crate::graphics::comp::Drawable;
+use crate::graphics::Drawable;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};

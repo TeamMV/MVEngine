@@ -213,6 +213,14 @@ impl Rect {
         self.y += transform.translation.y as i32;
         self.update();
     }
+    
+    pub fn get_transform(&self) -> Transform {
+        let mut t = Transform::new();
+        t.origin.x = self.origin.0 as f32;
+        t.origin.y = self.origin.1 as f32;
+        t.rotation = self.rotation;
+        t
+    }
 }
 
 impl Default for Rect {

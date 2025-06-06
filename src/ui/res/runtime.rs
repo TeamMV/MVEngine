@@ -13,7 +13,7 @@ use itertools::Itertools;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
 use mvutils::once::Lazy;
-use crate::ui;
+use crate::graphics::Drawable;
 use crate::ui::res;
 
 pub struct RuntimeResources<'a> {
@@ -24,7 +24,8 @@ pub struct RuntimeResources<'a> {
     fonts: Vec<Font>,
     tilesets: Vec<TileSet>,
     animations: Vec<GlobalAnimation<'a>>,
-    composites: Vec<CompositeSprite>
+    composites: Vec<CompositeSprite>,
+    drawables: Vec<Drawable>,
 }
 
 pub fn save_array_as_vec<T: Savable, const N: usize>(saver: &mut impl Saver, arr: &[T; N]) {
@@ -85,6 +86,7 @@ impl Savable for RuntimeResources<'_> {
         self.tilesets.save(saver);
         self.animations.save_res(saver);
         self.composites.save(saver);
+        self.drawables.save(saver);
     }
 
     fn load(loader: &mut impl Loader) -> Result<Self, String> {
@@ -102,6 +104,7 @@ impl Savable for RuntimeResources<'_> {
         let fonts = Vec::<Font>::load(loader)?;
         let tilesets = Vec::<TileSet>::load(loader)?;
         let composites = Vec::<CompositeSprite>::load(loader)?;
+        let drawables = Vec::<Drawable>::load(loader)?;
         
         let mut this = Self {
             colors,
@@ -112,6 +115,7 @@ impl Savable for RuntimeResources<'_> {
             tilesets,
             animations: Vec::new(),
             composites,
+            drawables,
         };
         
         let animations = Vec::<GlobalAnimation>::load_res(loader, &this)?;
@@ -190,6 +194,14 @@ impl UiResources for RuntimeResources<'_> {
             MVR.resolve_composite(id)
         } else {
             self.composites.get(id - res::CR)
+        }
+    }
+
+    fn resolve_drawable(&self, id: usize) -> Option<&Drawable> {
+        if id < res::CR {
+            MVR.resolve_drawable(id)
+        } else {
+            self.drawables.get(id - res::CR)
         }
     }
 

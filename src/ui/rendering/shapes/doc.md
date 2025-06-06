@@ -78,6 +78,15 @@ Adds another shape to the currently selected shape, merging their geometries.
 ### **5. `export`**
 Exports the current shape and exits the program. This step is required to finalize the shape manipulation process.
 
+### **6. `modifier (Modifier Expression)`**
+Calls the given modifier expression. Example:
+```
+let r = rect[x0y0w100h100];
+let c = arc[c[x100y100]r360tc10];
+modifier Boolean intersect r c;
+export r;
+```
+
 ---
 
 ## Example Usage

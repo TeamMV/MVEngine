@@ -165,7 +165,7 @@ fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
 fn xml_value_as_style(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {
         XmlValue::Str(s) => {
-            quote! { mvengine_proc_macro::style_expr!(#s) }
+            quote! { style_expr!(#s) }
         }
         XmlValue::Code(c) => {
             let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");

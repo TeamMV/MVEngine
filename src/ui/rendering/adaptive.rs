@@ -1,6 +1,6 @@
 use mvutils::Savable;
 use crate::color::RgbColor;
-use crate::graphics::comp::Drawable;
+use crate::graphics::Drawable;
 use crate::rendering::control::RenderController;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiContext;
@@ -256,6 +256,13 @@ impl AdaptiveShape {
                         point.has_texture = 0.0;
                     }
                     AdaptiveFill::Drawable(draw) => {
+                        if let Drawable::Color(c) = draw {
+                            if let Some(color) = context.resources.resolve_color(*c) {
+                                point.color = color.as_vec4();
+                                point.has_texture = 0.0;
+                                continue;
+                            }
+                        }
                         if let Some((tex, uv)) = draw.get_texture(context.resources) {
                             point.has_texture = 1.0;
                             point.texture = tex.id;
@@ -299,6 +306,13 @@ impl AdaptiveShape {
                         point.has_texture = 0.0;
                     }
                     AdaptiveFill::Drawable(draw) => {
+                        if let Drawable::Color(c) = draw {
+                            if let Some(color) = context.resources.resolve_color(*c) {
+                                point.color = color.as_vec4();
+                                point.has_texture = 0.0;
+                                continue;
+                            }
+                        }
                         if let Some((tex, uv)) = draw.get_texture(context.resources) {
                             point.has_texture = 1.0;
                             point.texture = tex.id;

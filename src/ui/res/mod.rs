@@ -53,6 +53,9 @@ r! {
                 <part res="texture.test"/>
             </composite>
         </composites>
+        <drawables>
+            <drawable name="test" type="texture" ref="test"/>
+        </drawables>
     </resources>
 }
 

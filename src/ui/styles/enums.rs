@@ -1,4 +1,5 @@
 use std::num::ParseIntError;
+use std::str::FromStr;
 use crate::ui::elements::UiElementState;
 use crate::ui::res::MVR;
 use mvutils::{TryFromString};
@@ -118,10 +119,10 @@ pub enum ChildAlign {
     OffsetMiddle(i32),
 }
 
-impl TryFrom<String> for ChildAlign {
-    type Error = String;
+impl FromStr for ChildAlign {
+    type Err = String;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut name = String::new();
         let mut num = String::new();
         let mut in_num = false;
@@ -176,10 +177,10 @@ impl Default for UiShape {
     }
 }
 
-impl TryFrom<String> for UiShape {
-    type Error = String;
+impl FromStr for UiShape {
+    type Err = String;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut name = String::new();
         let mut num = String::new();
         let mut in_num = false;

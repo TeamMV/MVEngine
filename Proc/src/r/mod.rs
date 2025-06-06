@@ -1,9 +1,31 @@
+mod color;
+mod shape;
+mod adaptive;
+mod texture;
+mod font;
+mod animation;
+mod composite;
+mod tileset;
+mod drawable;
+
 use proc_macro::TokenStream;
 use mvutils::utils::TetrahedronOp;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse, parse_str, Expr, Path};
-use ui_parsing::xml::{parse_rsx, Entity, XmlValue};
+use syn::{parse_str, Expr, Path};
+use animation::ParsedAnimation;
+use composite::{ParsedComposite, PartRes};
+use tileset::ParsedTileSet;
+use ui_parsing::xml::{parse_rsx, XmlValue};
+use crate::r::adaptive::parse_adaptive;
+use crate::r::animation::parse_animation;
+use crate::r::color::parse_color;
+use crate::r::composite::parse_composite;
+use crate::r::drawable::{parse_drawable, DrawableType, ParsedDrawable};
+use crate::r::font::parse_font;
+use crate::r::shape::parse_shape;
+use crate::r::texture::parse_texture;
+use crate::r::tileset::parse_tileset;
 
 pub fn r(input: TokenStream) -> TokenStream {
     let content = input.to_string();
@@ -46,6 +68,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     let mut tilesets: Vec<(String, ParsedTileSet)> = vec![];
     let mut animations: Vec<(String, ParsedAnimation)> = vec![];
     let mut composites: Vec<(String, ParsedComposite)> = vec![];
+    let mut drawables: Vec<(String, ParsedDrawable)> = vec![];
 
     if let Some(inner) = rsx.inner() {
         if let XmlValue::Entities(children) = inner {
@@ -74,6 +97,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     "tilesets" => branch!(tilesets, parse_tileset),
                     "animations" => branch!(animations, parse_animation),
                     "composites" => branch!(composites, parse_composite),
+                    "drawables" => branch!(drawables, parse_drawable),
 
                     _ => panic!("Invalid resource type {ty}")
                 }
@@ -99,6 +123,11 @@ pub fn r(input: TokenStream) -> TokenStream {
 
     let mut res_gens_ts = quote! {};
     let mut r_fields_ts = quote! {};
+
+    // #################################################
+    // ########## Extending the resources ##############
+    // #################################################
+
     let (color_struct_ts, color_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -109,6 +138,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         colors,
         |lit| { quote! { mvengine::color::parse::parse_color(#lit).unwrap(), } }
     );
+
     let (shape_struct_ts, shape_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -129,6 +159,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
+
     let (adaptive_struct_ts, adaptive_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -147,6 +178,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
+
     let (texture_struct_ts, texture_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -177,6 +209,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
+
     let (font_struct_ts, font_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -201,6 +234,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     );
+
     let (tile_struct_ts, tile_resolve_fn_ts, tile_save_ts) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
 
     let (tileset_struct_ts, tileset_resolve_fn_ts) = extent_resource(
@@ -295,17 +329,17 @@ pub fn r(input: TokenStream) -> TokenStream {
                 let ts = match res {
                     PartRes::Texture(tex) => {
                         let ident: Expr = parse_str(tex).unwrap();
-                        quote! { mvengine::graphics::comp::Drawable::Texture(#r_ident.#ident), }
+                        quote! { mvengine::graphics::Drawable::Texture(#r_ident.#ident), }
                     }
                     PartRes::Anim(anim) => {
                         let ident: Expr = parse_str(anim).unwrap();
-                        quote! { mvengine::graphics::comp::Drawable::Animation(#r_ident.#ident), }
+                        quote! { mvengine::graphics::Drawable::Animation(#r_ident.#ident), }
                     }
                     PartRes::TileSet(tileset, tile) => {
                         let ident_ts: Expr = parse_str(tileset).unwrap();
                         let ident_t: Expr = parse_str(tile).unwrap();
 
-                        quote! { mvengine::graphics::comp::Drawable::TileSet(#r_ident.tileset.#ident_ts, #r_ident.#ident_t), }
+                        quote! { mvengine::graphics::Drawable::TileSet(#r_ident.tileset.#ident_ts, #r_ident.#ident_t), }
                     }
                 };
                 vec_ts.extend(ts);
@@ -343,6 +377,67 @@ pub fn r(input: TokenStream) -> TokenStream {
     };
 
 
+    let (drawable_struct_ts, drawable_resolve_fn_ts) = extent_resource(
+        is_mv,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        "drawable",
+        "mvutils::once::Lazy<mvengine::graphics::Drawable>",
+        drawables,
+        |parsed| {
+            let init_ts = match parsed.drawable_type {
+                DrawableType::Color => {
+                    let v = &parsed.thingies[0];
+                    let ident = Ident::new(v, Span::call_site());
+                    quote! { mvengine::graphics::Drawable::Color(#r_ident.color.#ident) }
+                }
+                DrawableType::Texture => {
+                    let v = &parsed.thingies[0];
+                    let ident = Ident::new(v, Span::call_site());
+                    quote! { mvengine::graphics::Drawable::Texture(#r_ident.texture.#ident) }
+                }
+                DrawableType::Animation => {
+                    let v = &parsed.thingies[0];
+                    let ident = Ident::new(v, Span::call_site());
+                    quote! { mvengine::graphics::Drawable::Animation(#r_ident.animation.#ident) }
+                }
+                DrawableType::Tileset => {
+                    let v = &parsed.thingies[0];
+                    let v1 = &parsed.thingies[1];
+                    let ident = Ident::new(v, Span::call_site());
+                    let ident2 = Ident::new(v1, Span::call_site());
+                    quote! { mvengine::graphics::Drawable::TileSet(#r_ident.tileset.#v, #r_ident.tile.#ident.#ident2) }
+                }
+            };
+
+            quote! { mvutils::once::Lazy::new(|| #init_ts) }
+        }
+    );
+
+    let drawable_resolve_fn_ts = if !is_mv {
+        quote! {
+            fn resolve_drawable(&self, id: usize) -> Option<&mvengine::graphics::Drawable> {
+                if id >= mvengine::ui::res::CR {
+                    self.drawable.drawable_arr.get(id - mvengine::ui::res::CR).map(std::ops::Deref::deref)
+                } else {
+                    self.mv.resolve_drawable(id)
+                }
+            }
+        }
+    } else {
+        quote! {
+             fn resolve_drawable(&self, id: usize) -> Option<&mvengine::graphics::Drawable> {
+                self.drawable.drawable_arr.get(id).map(std::ops::Deref::deref)
+            }
+        }
+    };
+
+
+    // ########################################
+    // ###########  R struct setup ############
+    // ########################################
+
     let init_fn_ts = if !is_mv && !is_noctx {
         quote! {
             mvengine::ui::res::MVR::initialize();
@@ -378,6 +473,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             #tileset_resolve_fn_ts
             #animation_resolve_fn_ts
             #composite_resolve_fn_ts
+            #drawable_resolve_fn_ts
 
             fn tick_all_animations(&self) {
                 use std::ops::Deref;
@@ -409,6 +505,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         #tileset_struct_ts
         #animation_struct_ts
         #composite_struct_ts
+        #drawable_struct_ts
 
         #tile_struct_ts
 
@@ -437,6 +534,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                 save_array_as_vec(saver, &self.tileset.tileset_arr);
                 save_res_array_as_vec(saver, &self.animation.animation_arr);
                 save_array_as_vec(saver, &self.composite.composite_arr);
+                save_array_as_vec(saver, &self.drawable.drawable_arr);
             }
 
             fn load_res(loader: &mut impl mvutils::save::Loader, resources: &impl mvengine::ui::context::UiResources) -> Result<Self, String> {
@@ -626,277 +724,4 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
     };
 
     (pm, res_fn_ts, tile_save_ts)
-}
-
-fn parse_color(entity: &Entity) -> (String, String) {
-    if entity.name().as_str() != "color" {
-        panic!("Color resource must be named color, got {}!", entity.name());
-    }
-    if let Some(val) = entity.get_attrib("val") {
-        if let Some(name) = entity.get_attrib("name") {
-            if let XmlValue::Str(val_s) = val {
-                if let XmlValue::Str(name_s) = name {
-                    return (name_s.clone(), val_s.clone());
-                }
-            }
-            panic!("Code blocks are not supported in color!")
-        } else {
-            panic!("Expected a 'name' attribute on color!")
-        }
-    } else {
-        panic!("Expected a 'val' attribute on color!")
-    }
-}
-
-fn parse_shape(entity: &Entity) -> (String, String){
-    if entity.name().as_str() != "shape" {
-        panic!("Shape resource must be named shape, got {}!", entity.name());
-    }
-    if let Some(val) = entity.get_attrib("src") {
-        if let Some(name) = entity.get_attrib("name") {
-            if let XmlValue::Str(val_s) = val {
-                if let XmlValue::Str(name_s) = name {
-                    return (name_s.clone(), val_s.clone());
-                }
-            }
-            panic!("Code blocks are not supported in shape!")
-        } else {
-            panic!("Expected a 'name' attribute on shape!")
-        }
-    } else {
-        panic!("Expected a 'src' attribute on shape!")
-    }
-}
-
-fn parse_adaptive(entity: &Entity) -> (String, String){
-    if entity.name().as_str() != "adaptive" {
-        panic!("Adaptive resource must be named adaptive, got {}!", entity.name());
-    }
-    if let Some(val) = entity.get_attrib("src") {
-        if let Some(name) = entity.get_attrib("name") {
-            if let XmlValue::Str(val_s) = val {
-                if let XmlValue::Str(name_s) = name {
-                    return (name_s.clone(), val_s.clone());
-                }
-            }
-            panic!("Code blocks are not supported in adaptive!")
-        } else {
-            panic!("Expected a 'name' attribute on adaptive!")
-        }
-    } else {
-        panic!("Expected a 'src' attribute on adaptive!")
-    }
-}
-
-fn parse_texture(entity: &Entity) -> (String, String){
-    if entity.name().as_str() != "texture" {
-        panic!("Texture resource must be named texture, got {}!", entity.name());
-    }
-    if let Some(val) = entity.get_attrib("src") {
-        if let Some(name) = entity.get_attrib("name") {
-            if let XmlValue::Str(val_s) = val {
-                if let XmlValue::Str(name_s) = name {
-                    let mut sampler = format!("|nearest");
-                    if let Some(XmlValue::Str(sam)) = entity.get_attrib("sampler") {
-                        sampler = format!("|{sam}");
-                    }
-                    let mut cloned_val_s = val_s.clone();
-                    cloned_val_s.push_str(sampler.as_str());
-                    return (name_s.clone(), cloned_val_s);
-                }
-            }
-            panic!("Code blocks are not supported in texture!")
-        } else {
-            panic!("Expected a 'name' attribute on texture!")
-        }
-    } else {
-        panic!("Expected a 'src' attribute on texture!")
-    }
-}
-
-fn parse_font(entity: &Entity) -> (String, String){
-    if entity.name().as_str() != "font" {
-        panic!("Font resource must be named font, got {}!", entity.name());
-    }
-    if let Some(val) = entity.get_attrib("src") {
-        if let Some(name) = entity.get_attrib("name") {
-            if let XmlValue::Str(val_s) = val {
-                if let XmlValue::Str(name_s) = name {
-                    if let Some(XmlValue::Str(atlas)) = entity.get_attrib("atlas") {
-                        let lit = format!("{val_s}|{atlas}");
-                        return (name_s.clone(), lit);
-                    }
-                }
-            }
-            panic!("Code blocks are not supported in font!")
-        } else {
-            panic!("Expected a 'name' attribute on font!")
-        }
-    } else {
-        panic!("Expected a 'src' attribute on font!")
-    }
-}
-
-struct ParsedTileSet {
-    atlas: String,
-    width: i32,
-    height: i32,
-    fps: Option<u16>,
-    count: usize,
-    linear: bool,
-    entries: Vec<(String, usize)>,
-}
-
-fn parse_tileset(entity: &Entity) -> (String, ParsedTileSet) {
-    if entity.name().as_str() != "tileset" {
-        panic!("Tileset resource must be named tileset, got {}!", entity.name());
-    }
-
-    let atlas = entity.get_attrib("atlas");
-    let name = entity.get_attrib("name");
-    let width = entity.get_attrib("width");
-    let height = entity.get_attrib("height");
-    let count = entity.get_attrib("count");
-
-    if let (Some(XmlValue::Str(atlas)), Some(XmlValue::Str(name)), Some(XmlValue::Str(width)), Some(XmlValue::Str(height)), Some(XmlValue::Str(count))) = (atlas, name, width, height, count) {
-        let mut linear = false;
-        if let Some(XmlValue::Str(sampler)) = entity.get_attrib("sampler") {
-            linear = sampler == "linear";
-        }
-
-        let fps = if let Some(XmlValue::Str(fps)) = entity.get_attrib("fps") {
-            Some(fps.parse::<u16>().expect("fps must be a positive number between 0-65535"))
-        } else {
-            None
-        };
-
-        let mut parsed = ParsedTileSet {
-            atlas: atlas.to_string(),
-            width: width.parse::<i32>().expect("Tileset width must be a number"),
-            height: height.parse::<i32>().expect("Tileset height must be a number"),
-            count: count.parse::<usize>().expect("Tileset count must be a number"),
-            linear,
-            fps,
-            entries: vec![],
-        };
-        if let Some(XmlValue::Entities(entities)) = entity.inner() {
-            for entity in entities {
-                if entity.name() == "fps" {
-                    if let Some(XmlValue::Str(fps)) = entity.get_attrib("value") {
-                        parsed.fps = Some(fps.parse::<u16>().expect("fps must be a positive number between 0-65535"));
-                    } else if let Some(XmlValue::Str(fps)) = entity.inner() {
-                        parsed.fps = Some(fps.parse::<u16>().expect("fps must be a positive number between 0-65535"));
-                    } else {
-                        panic!("fps tag must either contain 'value' attribute or string child")
-                    }
-                    continue;
-                }
-                if entity.name() != "entry" {
-                    panic!("Unsupported tileset entry type '{}'", entity.name());
-                }
-                let name = entity.get_attrib("name");
-                let index = entity.get_attrib("index");
-
-                if let (Some(XmlValue::Str(name)), Some(XmlValue::Str(index))) = (name, index) {
-                    parsed.entries.push((name.to_string(), index.parse::<usize>().expect("Tileset entry index must be a number")));
-                } else {
-                    panic!("Tileset entry must contain 'name' and 'index' attributes");
-                }
-            }
-        }
-
-        (name.to_string(), parsed)
-    } else {
-        panic!("Tileset must contain 'altas', 'name', 'width', 'height' and 'count' attributes");
-    }
-}
-
-struct ParsedAnimation {
-    tileset: String,
-    range: String,
-    fps: u16,
-    use_mv: bool,
-}
-
-fn parse_animation(entity: &Entity) -> (String, ParsedAnimation) {
-    if entity.name().as_str() != "animation" {
-        panic!("Animation resource must be named animation, got {}!", entity.name());
-    }
-
-    let tileset = entity.get_attrib("tileset");
-    let name = entity.get_attrib("name");
-    let fps = entity.get_attrib("fps");
-
-    if let (Some(XmlValue::Str(tileset)), Some(XmlValue::Str(name)), Some(XmlValue::Str(fps))) = (tileset, name, fps) {
-        let range = if let Some(XmlValue::Str(range)) = entity.get_attrib("range") {
-            range.to_string()
-        } else {
-            "..".to_string()
-        };
-
-        let use_mv = if let Some(XmlValue::Str(mv)) = entity.get_attrib("mv") {
-            !mv.is_empty()
-        } else {
-            false
-        };
-
-        (name.to_string(), ParsedAnimation {
-            tileset: tileset.to_string(),
-            range,
-            fps: fps.parse::<u16>().expect("fps must be a positive number between 0-65535"),
-            use_mv,
-        })
-    } else {
-        panic!("Animation must contain 'tileset', 'name' and 'fps' attributes");
-    }
-}
-
-enum PartRes {
-    Texture(String),
-    Anim(String),
-    TileSet(String, String)
-}
-
-struct ParsedComposite {
-    rig: String,
-    parts: Vec<PartRes>
-}
-
-fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
-    if entity.name().as_str() != "composite" {
-        panic!("Composite resource must be named animation, got {}!", entity.name());
-    }
-
-    let name = entity.get_attrib("name");
-    let rig = entity.get_attrib("rig");
-
-    if let (Some(XmlValue::Str(name)), Some(XmlValue::Str(rig))) = (name, rig) {
-        let mut parts = vec![];
-        if let Some(XmlValue::Entities(children)) = entity.inner() {
-            for child in children {
-                if child.name() == "part" {
-                    let res = child.get_attrib("res");
-                    if let Some(XmlValue::Str(res)) = res {
-                        let (beginning, rem) = res.split_once('.').expect("Invalid resource!");
-                        let p_res =  match beginning {
-                            "texture" => PartRes::Texture(res.to_string()),
-                            "animation" => PartRes::Anim(res.to_string()),
-                            "tile" => {
-                                let (ts, _) = rem.split_once('.').expect("Expected valid tileset");
-                                PartRes::TileSet(ts.to_string(), res.to_string())
-                            },
-                            _ => panic!("Unsupported resource")
-                        };
-                        parts.push(p_res);
-                    }
-                }
-            }
-        }
-        (name.to_string(), ParsedComposite {
-            rig: rig.to_string(),
-            parts,
-        })
-    } else {
-        panic!("Animation must contain 'tileset', 'name' and 'fps' attributes");
-    }
 }

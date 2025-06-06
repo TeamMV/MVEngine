@@ -1,6 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use mvutils::unsafe_utils::Unsafe;
 use std::cmp::Ordering;
+use std::str::FromStr;
 use mvutils::utils::TetrahedronOp;
 use crate::color::{Color, ColorFormat};
 use crate::ui::elements::UiElementStub;
@@ -103,6 +104,14 @@ impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Reso
         }
     }
 }
+
+impl<T: FromStr + Clone> FromStr for BasicInterpolatable<T> {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        T::from_str(s).map(|t| BasicInterpolatable::from(t)).map_err(|_| format!("{s} cannot be parsed!"))
+    }
+} 
 
 impl Interpolator<UiStyle> for UiStyle {
     fn interpolate<E, F>(&mut self, start: &Self, end: &UiStyle, percent: f32, elem: &E, f: F)

@@ -24,7 +24,7 @@ use mvengine::ui::res::MVR;
 use mvengine::ui::styles::{UiStyle, UiValue};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
-use mvengine_proc_macro::{style_expr, ui};
+use mvengine_proc_macro::{resolve_resource, style_expr, ui};
 use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
@@ -211,7 +211,6 @@ impl WindowCallbacks for Application {
             modify_style!(div_style.y = UiValue::Just(200));
             modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
             modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
-            
 
             let state = State::new(String::new());
 
