@@ -11,9 +11,8 @@ use glutin::{
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{RwLock};
 use std::mem;
-use std::ops::FromResidual;
 use std::sync::Arc;
 use std::time::SystemTime;
 use glutin::os::windows::WindowExt;
@@ -218,9 +217,9 @@ impl Window {
             }
         }
 
-        unsafe {
-            //bindless::load_bindless_texture_functions(&w);
-        }
+        // unsafe {
+        //     bindless::load_bindless_texture_functions(&w);
+        // }
 
         self.handle.create(|| w);
 
@@ -255,7 +254,7 @@ impl Window {
                         }
                     }
                     Event::Focused(_) => {}
-                    Event::KeyboardInput(state, code, Some(key)) => {
+                    Event::KeyboardInput(state, _, Some(key)) => {
                         let code = unsafe { mem::transmute::<VirtualKeyCode, Key>(key) };
                         let event = match state {
                             ElementState::Pressed => {
@@ -282,7 +281,7 @@ impl Window {
                         self.input.mouse_x = x;
                         self.input.mouse_y = self.info.height as i32 - y;
                     }
-                    Event::MouseWheel(delta, touch_phase, x) => {
+                    Event::MouseWheel(delta, _, _) => {
                         if let MouseScrollDelta::PixelDelta(dx, dy) = delta {
                             this.input.collector.dispatch_input(
                                 RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
@@ -291,7 +290,7 @@ impl Window {
                             );
                         }
                     }
-                    Event::MouseInput(i, d, k) => {
+                    Event::MouseInput(i, d, _) => {
                         let button = unsafe {
                             mem::transmute::<MouseButton, crate::input::consts::MouseButton>(d)
                         };
@@ -424,7 +423,7 @@ impl Window {
             let (w, h) = monitor.get_dimensions();
             self.handle.set_inner_size(w, h);
         } else {
-            let (x, y) = self.cached_pos;
+            // let (x, y) = self.cached_pos;
             let (w, h) = self.cached_size;
             self.info.width = w;
             self.info.height = h;

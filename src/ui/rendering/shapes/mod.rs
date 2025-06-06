@@ -14,13 +14,13 @@ pub enum Command {
 }
 
 #[derive(Debug)]
-enum Assignment {
+pub enum Assignment {
     New(ParsedStruct),
     Clone(String),
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum Param {
+pub enum Param {
     Str(String),
     Struct(ParsedStruct),
 }
@@ -152,7 +152,7 @@ impl ShapeParser {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ParsedStruct {
+pub struct ParsedStruct {
     name: String,
     values: HashMap<String, StructValue>,
 }

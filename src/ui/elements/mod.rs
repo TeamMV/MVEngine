@@ -21,25 +21,21 @@ use crate::ui::elements::textbox::TextBox;
 use crate::ui::geometry::Rect;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
+use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Position};
+use crate::ui::styles::types::Dimension;
 use crate::ui::styles::{InheritSupplier, ResolveResult};
 use crate::ui::styles::{
     ResCon, UiStyle,
     DEFAULT_STYLE,
 };
-use crate::ui::uix::UiCompoundElement;
-use itertools::Itertools;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use mvutils::utils::{Recover, TetrahedronOp};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Position};
-use crate::ui::styles::interpolate::Interpolator;
-use crate::ui::styles::types::Dimension;
 
 pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut DrawContext2D);
     
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool { true }
+    fn raw_input(&mut self, _action: RawInputEvent, _input: &Input) -> bool { true }
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -194,7 +190,7 @@ pub trait UiElementStub: UiElementCallbacks {
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
         let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
-        let mut computed_size =
+        let computed_size =
             Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning, ctx);
 
         let width = resolve!(self, width);
@@ -496,7 +492,7 @@ pub trait UiElementStub: UiElementCallbacks {
                     }
                 }
                 Child::Element(e) => {
-                    let mut guard = e.get_mut();
+                    let guard = e.get_mut();
                     guard.compute_styles(ctx);
                     let bounding = &guard.state().bounding_rect;
                     match direction {
@@ -545,7 +541,6 @@ pub trait UiElementStub: UiElementCallbacks {
                     .as_ref()
                     .is_some_and(|i| i.as_str() == id)
                 {
-                    drop(guard);
                     return Some(e.clone());
                 }
                 if let Some(e2) = guard.find_element_by_id(id) {
@@ -597,7 +592,6 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name(),
             UiElement::Button(e) => e.$fn_name(),
             UiElement::TextBox(e) => e.$fn_name(),
-            _ => unimplemented!(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -605,7 +599,6 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name($($args),*),
             UiElement::Button(e) => e.$fn_name($($args),*),
             UiElement::TextBox(e) => e.$fn_name($($args),*),
-            _ => unimplemented!(),
         }
     };
 }
@@ -621,7 +614,7 @@ impl UiElementCallbacks for UiElement {
 }
 
 impl UiElementStub for UiElement {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
+    fn new(_context: UiContext, _attributes: Attributes, _style: UiStyle) -> Element
     where
         Self: Sized,
     {

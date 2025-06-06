@@ -3,7 +3,6 @@ pub mod mapto;
 pub mod savers;
 
 use std::ops::{Deref, DerefMut};
-use mvutils::unsafe_utils::Unsafe;
 
 ///CAUTION!!! UNSAFE
 pub struct CloneMut<'a, T> {

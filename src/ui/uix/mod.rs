@@ -1,8 +1,7 @@
 pub mod dom;
 
 use crate::ui::attributes::Attributes;
-use crate::ui::elements::child::Child;
-use crate::ui::elements::{UiElement, UiElementStub};
+use crate::ui::elements::{UiElement};
 use crate::ui::styles::UiStyle;
 use crate::ui::uix::dom::VNode;
 use mvutils::state::State;
@@ -31,7 +30,7 @@ impl DynamicUi {
     }
 
     /// This will return the underlying UiElement. Keep in mind that this removes and dynamic functionality with states.
-    pub fn to_static(mut self) -> UiElement {
+    pub fn to_static(self) -> UiElement {
         self.cached
     }
 
@@ -54,7 +53,7 @@ impl DynamicUi {
 ///     let test_state = use_state::<i32>(5);
 /// }
 /// ```
-pub fn use_state<T>(init: T) -> State<T> {
+pub fn use_state<T>(_init: T) -> State<T> {
     panic!("You can only use use_state() in an #[uix] function!")
 }
 
@@ -70,7 +69,7 @@ pub fn use_state<T>(init: T) -> State<T> {
 ///     let test_state = global_state::<i32>(STATE);
 /// }
 /// ```
-pub fn global_state<T>(init: State<T>) -> State<T> {
+pub fn global_state<T>(_init: State<T>) -> State<T> {
     panic!("You can only use global_state() in an #[uix] function!")
 }
 

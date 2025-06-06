@@ -5,7 +5,6 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{PrimitiveRenderer, Quad, Triangle};
 use crate::window::Window;
 use gl::types::GLuint;
-use std::ops::{Deref, DerefMut};
 
 pub struct RenderController {
     default_shader: GLuint,
@@ -21,13 +20,6 @@ impl RenderController {
                 batches: vec![RenderBatch::new(default_shader)],
                 batch_index: 0,
             }
-        }
-    }
-
-    fn setup(&mut self) {
-        unsafe {
-            self.batches = vec![RenderBatch::new(self.default_shader.clone())];
-            self.batch_index = 0;
         }
     }
 

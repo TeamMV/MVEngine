@@ -100,12 +100,16 @@ pub fn get_slope(v1: Vec2, v2: Vec2) -> f32 {
     (v2.y - v1.y) / (v2.x - v1.x)
 }
 
+// it might get used in the future?
+#[allow(unused)]
 pub(crate) fn lerp(p1: Vec2, p2: Vec2, p: f32) -> Vec2 {
     let x = p1.x + (p2.x - p1.x) * p;
     let y = p1.y + (p2.y - p1.y) * p;
     Vec2::new(x, y)
 }
 
+// this one too
+#[allow(unused)]
 pub(crate) fn is_convex(a: Vec2, b: Vec2, c: Vec2) -> bool {
     let cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
     cross < 0.0 // Counter-clockwise = convex

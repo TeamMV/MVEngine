@@ -4,7 +4,7 @@ use crate::rendering::{InputVertex, Quad, Transform};
 use crate::rendering::text::Font;
 use crate::resolve;
 use crate::ui::styles::ResolveResult;
-use crate::ui::context::{UiContext, UiResources};
+use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx::DrawContext2D;
@@ -80,7 +80,7 @@ impl<E: UiElementStub> TextBody<E> {
         let mut x = 0f32;
         let space_advance = font.get_space_advance(size);
         let mut height = 0;
-        for (i, c) in s.char_indices() {
+        for (_, c) in s.char_indices() {
             if c == '\t' {
                 x += 6.0 + space_advance;
                 continue;

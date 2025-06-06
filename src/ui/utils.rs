@@ -5,13 +5,13 @@ use crate::ui::styles::{Resolve, UiStyle};
 macro_rules! blanked_partial_ord {
     ($t:ty) => {
         impl PartialEq<Self> for $t {
-            fn eq(&self, other: &Self) -> bool {
+            fn eq(&self, _: &Self) -> bool {
                 false //Like you would never ever use this, it is just required ._.
             }
         }
 
         impl PartialOrd for $t {
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
                 None
             }
         }

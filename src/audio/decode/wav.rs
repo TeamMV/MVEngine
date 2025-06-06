@@ -1,3 +1,6 @@
+// we dont give a fuck WAVE is useless anyways (see: ActuallyUsefulWavData)
+#![allow(non_snake_case)]
+
 use std::sync::Arc;
 use bytebuffer::{ByteBuffer, Endian};
 use mvutils::bytebuffer::ByteBufferExtras;
@@ -38,6 +41,7 @@ pub struct ActuallyUsefulWavData {
 
 impl WavData {
     // NOTE: idk if this works lmao
+    // Re: NOTE: i think it does (maybe)
     pub fn validate(&self) -> bool {
         self.header == *b"RIFF" &&
             self.WAVE == *b"WAVE" &&

@@ -235,7 +235,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     );
 
-    let (tile_struct_ts, tile_resolve_fn_ts, tile_save_ts) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
+    let (tile_struct_ts, tile_resolve_fn_ts, _) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
 
     let (tileset_struct_ts, tileset_resolve_fn_ts) = extent_resource(
         is_mv,
@@ -377,7 +377,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     };
 
 
-    let (drawable_struct_ts, drawable_resolve_fn_ts) = extent_resource(
+    let (drawable_struct_ts, _) = extent_resource(
         is_mv,
         &mut r_fields_ts,
         &mut res_gens_ts,
@@ -632,7 +632,6 @@ fn extent_resource<F, T>(
 }
 
 fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r_field_gens_tokens: &mut TS, struct_name: &str, is_mv: bool) -> (TS, TS, TS) {
-    let mut total_count = 0usize;
     let mut tile_struct_fields_ts = quote! {};
     let mut tile_struct_fields_init_ts = quote! {};
     let mut structs = quote! {};
@@ -661,7 +660,6 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
         //});
 
         for (name, value) in &tileset.entries {
-            total_count += 1;
             let ident = Ident::new(name.as_str(), Span::call_site());
             tile_tiles_struct_fields_ts.extend(quote! {
                 pub #ident: usize,

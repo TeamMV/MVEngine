@@ -26,7 +26,6 @@ r! {
         <shapes>
             <shape name="rect" src="shapes/rect.msf"/>
             <shape name="round_rect" src="shapes/round_rect.msf"/>
-            <shape name="idk" src="shapes/idk.msf"/>
         </shapes>
         <adaptives>
             <adaptive name="void_rect" src="shapes/void_rect.msf"/>

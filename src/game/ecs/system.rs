@@ -1,3 +1,6 @@
+// fuck this compiler who gives a shit about naming conventions
+#![allow(non_snake_case)]
+
 use crate::game::ecs::entity::EntityType;
 use crate::game::ecs::EcsStorage;
 use std::marker::PhantomData;

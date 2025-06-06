@@ -80,7 +80,8 @@ impl TriangleCtx {
             0
         };
         let tex_coords = if let Some(ref tex) = self.texture {
-            let uv: [(f32, f32); 4] = tex.get_uv_inner(self.uv);
+            // TODO: use uv idk how tho
+            let _uv: [(f32, f32); 4] = tex.get_uv_inner(self.uv);
 
             let min_x = p1.0.min(p2.0).min(p3.0) as f32;
             let max_x = p1.0.max(p2.0).max(p3.0) as f32;

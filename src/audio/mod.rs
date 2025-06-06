@@ -5,7 +5,7 @@ pub mod dj;
 
 use std::f32::consts::PI;
 use std::sync::Arc;
-use cpal::{BufferSize, ChannelCount, SampleRate, Stream, StreamConfig};
+use cpal::{Stream};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::{error, info};
 use parking_lot::Mutex;
@@ -14,7 +14,7 @@ use crate::audio::source::{Sound, SoundWithAttributes};
 
 pub struct AudioEngine {
     mixer: Arc<Mutex<AudioMixer>>,
-    stream: Stream,
+    _stream: Stream,
     sample_rate: u32
 }
 
@@ -54,7 +54,7 @@ impl AudioEngine {
                 if let Ok(stream) = stream {
                     stream.play().ok()?;
                     return Some(Self {
-                        stream,
+                        _stream: stream,
                         mixer: cloned_mixer,
                         sample_rate
                     })
@@ -75,7 +75,7 @@ impl AudioEngine {
     }
 }
 
-fn gen_tone(freq: u32, sample_idx: u32, sample_rate: u32) -> f32 {
+pub fn gen_tone(freq: u32, sample_idx: u32, sample_rate: u32) -> f32 {
     let freq = freq as f32;
     let t = sample_idx as f32 / sample_rate as f32;
     (2.0 * PI * freq * t).sin()

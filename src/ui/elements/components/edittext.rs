@@ -5,7 +5,7 @@ use crate::color::RgbColor;
 use crate::resolve;
 use crate::ui::attributes::UiState;
 use crate::ui::styles::ResolveResult;
-use crate::ui::context::{UiContext, UiResources};
+use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;

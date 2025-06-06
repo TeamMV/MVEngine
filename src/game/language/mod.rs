@@ -60,4 +60,8 @@ impl Language {
     pub fn code(&self) -> &str {
         &self.code
     }
+    
+    pub fn left_to_right(&self) -> bool {
+        self.left_to_right
+    }
 }

@@ -1,3 +1,6 @@
+// remove when this file is also relevant and like not neglected
+#![allow(unused)]
+
 use crate::math::vec::Vec2;
 use hashbrown::HashMap;
 use std::collections::VecDeque;

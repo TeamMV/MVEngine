@@ -1,4 +1,3 @@
-use crate::rendering::shader::default::DefaultOpenGLShader;
 use crate::rendering::shader::OpenGLShader;
 use std::ops::{Deref, DerefMut};
 

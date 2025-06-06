@@ -1,3 +1,6 @@
+// womp fucking WOMP compiler imma switch to C++ for my next project
+#![allow(static_mut_refs)]
+
 pub mod complex;
 
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
@@ -136,9 +139,9 @@ pub fn animate(
     id
 }
 
-pub(crate) struct ElementAnimationInfo {
+pub struct ElementAnimationInfo {
     pub(crate) fill_mode: FillMode,
-    pub(crate) duration: u32,
+    pub(crate) _duration: u32,
     pub(crate) easing: Easing,
     pub(crate) initial: &'static mut UiStyle,
     pub(crate) target: &'static UiStyle,
@@ -157,7 +160,7 @@ impl ElementAnimationInfo {
         unsafe {
             Self {
                 fill_mode,
-                duration: duration_ms,
+                _duration: duration_ms,
                 easing,
                 initial: Unsafe::cast_mut_static(initial),
                 target: Unsafe::cast_static(target),

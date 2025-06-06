@@ -1,15 +1,13 @@
-use crate::rendering::bindless;
-use gl::types::{GLint, GLsizei, GLuint, GLuint64};
+use crate::math::vec::Vec4;
+use gl::types::{GLint, GLsizei, GLuint};
 use image::{GenericImageView, ImageError};
-use mvutils::Savable;
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::TetrahedronOp;
-use crate::math::vec::Vec4;
+use mvutils::Savable;
 
 #[derive(Clone)]
 pub struct Texture {
     pub id: GLuint,
-    pub handle: GLuint64,
     pub dimensions: (u32, u32),
     sampler: bool
 }
@@ -27,7 +25,6 @@ impl Texture {
         let img = img.to_rgba8();
 
         let mut texture_id: GLuint = 0;
-        let mut handle = 0;
         unsafe {
             gl::GenTextures(1, &mut texture_id);
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
@@ -68,13 +65,10 @@ impl Texture {
             );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
-
-            handle = 0; //bindless::GetTextureHandleARB(texture_id);
         }
 
         Ok(Self {
             id: texture_id,
-            handle,
             dimensions: (width, height),
             sampler: smooth,
         })
@@ -94,7 +88,6 @@ impl Texture {
         }
 
         let mut texture_id: GLuint = 0;
-        let mut handle = 0;
 
         unsafe {
             gl::GenTextures(1, &mut texture_id);
@@ -123,7 +116,6 @@ impl Texture {
 
         Ok(Self {
             id: texture_id,
-            handle,
             dimensions: (width, height),
             sampler: smooth,
         })

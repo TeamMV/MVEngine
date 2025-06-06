@@ -7,7 +7,6 @@ use crate::ui::rendering::ctx;
 use crate::ui::rendering::shapes::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
 use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
-use std::thread::current;
 
 fn parse_vec2(parsed_struct: &ParsedStruct) -> Result<Vec2, String> {
     let mut vec2 = Vec2::new(0.0, 0.0);
@@ -339,7 +338,7 @@ impl ShapeGenerator {
                     "export" => {
                         let all_param = Param::Str("all".to_string());
                         let first = params.get(0).unwrap_or(&all_param);
-                        if let Param::Str(export) = first {}
+                        if let Param::Str(_) = first {}
                         let current = vars
                             .get_mut(&current_selection)
                             .ok_or("No shape selected".to_string())?;
@@ -355,7 +354,7 @@ impl ShapeGenerator {
                                 .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;
                             match name.as_str() {
-                                "Boolean" => unsafe {
+                                "Boolean" => {
                                     let res = boolean::compute(current, mod_params, vars2)?;
                                     vars.insert(current_selection.clone(), res);
                                 },
@@ -481,7 +480,7 @@ impl ShapeGenerator {
                                 .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;
                             match name.as_str() {
-                                "Boolean" => unsafe {
+                                "Boolean" => {
                                     let res = boolean::compute(current, mod_params, vars2)?;
                                     vars.insert(current_selection.clone(), res);
                                 },

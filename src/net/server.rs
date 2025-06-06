@@ -1,11 +1,4 @@
-use std::io::{ErrorKind, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::sync::Arc;
-use std::{io, thread};
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
-use std::thread::JoinHandle;
-use std::time::Duration;
+use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 use bytebuffer::{ByteBuffer, Endian};
 use crossbeam_channel::Sender;
 use hashbrown::HashMap;
@@ -15,7 +8,13 @@ use mvutils::save::Savable;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils;
 use parking_lot::{Mutex, RwLock};
-use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
+use std::io::{ErrorKind, Write};
+use std::marker::PhantomData;
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Duration;
+use std::thread;
 
 pub type ClientId= u64;
 
@@ -55,7 +54,7 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
                 error!("Could not start server: {e}");
                 return;
             }
-            let mut socket = socket.unwrap();
+            let socket = socket.unwrap();
             if socket.set_nonblocking(true).is_err() {
                 error!("Cannot set TcpListener into non-blocking mode");
                 return;

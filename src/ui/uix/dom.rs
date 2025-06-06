@@ -1,3 +1,6 @@
+// remove when this is actually relevant code and not dormant and neglected
+#![allow(unused)]
+
 use crate::ui::attributes::Attributes;
 use crate::ui::elements::UiElement;
 use crate::ui::styles::UiStyle;

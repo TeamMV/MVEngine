@@ -5,7 +5,7 @@ use mvutils::utils::{PClamp, TetrahedronOp};
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
 use crate::ui::elements::{UiElement, UiElementStub};
-use crate::ui::parse::{parse_4xi32, parse_4xi32_abstract};
+use crate::ui::parse::parse_4xi32_abstract;
 use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
 use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, UiShape};
@@ -190,8 +190,8 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
             return value;
         }
 
-        let mut emin = None;
-        let mut emax = None;
+        let emin;
+        let emax;
 
         if min.is_set() {
             emin = Some(min.unwrap());
@@ -304,7 +304,7 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 }
 
 impl Interpolator<TextStyle> for TextStyle {
-    fn interpolate<E, F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &E, f: F)
+    fn interpolate<E, F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &E, _: F)
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,

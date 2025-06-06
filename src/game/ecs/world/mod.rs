@@ -1,11 +1,10 @@
-use crate::game::ecs::entity::{Entity, EntityBehavior, EntityType, NoBehavior};
+use crate::game::ecs::entity::{Entity, EntityBehavior, EntityType};
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use crate::game::ecs::EcsStorage;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::any::TypeId;
-use std::process::id;
 
 pub struct World {
     storage: EcsStorage,
@@ -41,12 +40,12 @@ impl World {
         &mut self,
         entity: fn(EcsStorage) -> Entity<B, C>,
     ) -> Option<()> {
-        let mut entity = entity(self.storage.clone());
+        let entity = entity(self.storage.clone());
         let type_id = TypeId::of::<B>();
         let entity_ty = entity.ty;
         let b = entity.behavior;
         if b.is_some() {
-            let mut b = b.unwrap();
+            let b = b.unwrap();
             let idx = if let Some((cb, _)) = self.behaviors.get_mut(&type_id) {
                 cb.push_next(b)?
             } else {
@@ -66,6 +65,7 @@ impl World {
             self.behavior_indices.insert(entity_ty, idx);
             self.behavior_indices_rev.insert(idx as u64, entity_ty);
             br.start(entity_ty);
+            self.entities.push(entity_ty);
         }
 
         Some(())

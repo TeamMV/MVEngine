@@ -2,7 +2,6 @@ use crate::input::collect::InputProcessor;
 use crate::input::consts::{Key, MouseButton};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use hashbrown::{HashMap, HashSet};
-use std::collections::btree_map::Entry;
 use std::fmt::Debug;
 use std::fs::File;
 use std::hash::Hash;
@@ -126,7 +125,7 @@ impl ActionInputProcessor {
 }
 
 impl InputProcessor for ActionInputProcessor {
-    fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
+    fn digest_action(&mut self, action: RawInputEvent, input: &Input, _window: &mut Window) {
         let raw_input = RawInput::from_raw(action, input);
         if let Some(raw_input) = raw_input {
             let _ = match raw_input {

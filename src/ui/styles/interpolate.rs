@@ -20,13 +20,13 @@ pub struct BasicInterpolatable<T: Clone + 'static> {
 }
 
 impl<T: Clone> PartialEq<Self> for BasicInterpolatable<T> {
-    fn eq(&self, other: &Self) -> bool {
-        false //Like you would never ever use this, it is just required ._.
+    fn eq(&self, _: &Self) -> bool {
+        false // Like you would never ever use this, it is just required ._.
     }
 }
 
 impl<T: Clone> PartialOrd for BasicInterpolatable<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, _: &Self) -> Option<Ordering> {
         None
     }
 }
@@ -44,7 +44,7 @@ impl<T: Clone + 'static> BasicInterpolatable<T> {
 }
 
 impl<T: Clone + 'static> Interpolator<BasicInterpolatable<T>> for BasicInterpolatable<T> {
-    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, _: &E, _: F)
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
@@ -79,7 +79,7 @@ impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Reso
     {
         let state = elem.state();
 
-        let mut self_resolve = self.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
+        let self_resolve = self.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
         let start_resolve = start.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
         let end_resolve = end.resolve(state.ctx.dpi, state.parent.clone(), |s| f(s));
 

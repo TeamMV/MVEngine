@@ -1,14 +1,13 @@
 pub mod server;
 pub mod client;
 
-use std::io;
-use bytebuffer::{ByteBuffer, Endian};
+use bytebuffer::ByteBuffer;
+use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
 use mvutils::Savable;
+use std::io;
 use std::io::Read;
 use std::net::TcpStream;
-use log::debug;
-use mvutils::bytebuffer::ByteBufferExtras;
 
 #[derive(Clone, Savable, Debug)]
 pub enum DisconnectReason {

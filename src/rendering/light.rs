@@ -3,10 +3,9 @@ use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{batch, bindless, PrimitiveRenderer, Vertex};
+use crate::rendering::{batch, PrimitiveRenderer, Vertex};
 use crate::window::Window;
-use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint, GLuint64};
-use itertools::Itertools;
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
@@ -203,7 +202,7 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         }
     }
 
-    fn end_frame_to_target(&mut self, post: &mut RenderTarget) {
+    fn end_frame_to_target(&mut self, _post: &mut RenderTarget) {
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }

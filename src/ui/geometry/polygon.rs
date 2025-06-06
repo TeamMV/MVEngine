@@ -16,7 +16,7 @@ pub struct Intersection {
 }
 
 impl Intersection {
-    fn new(point: Vec2) -> Self {
+    pub fn new(point: Vec2) -> Self {
         Intersection {
             point,
             visited: false,
@@ -203,7 +203,7 @@ impl Polygon {
 
         let mut polygon = Polygon { vertices: vec![] };
 
-        for (start, end) in &boundary_edges {
+        for (start, _) in &boundary_edges {
             polygon
                 .vertices
                 .push(Vec2::new(start.0 as f32, start.1 as f32));

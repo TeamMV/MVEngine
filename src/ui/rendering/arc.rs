@@ -110,7 +110,8 @@ impl ArcCtx {
             let y = (self.center.1 as f32 + current.sin() * rad) as i32;
 
             let tex_coords = if let Some(ref tex) = self.texture {
-                let uv: [(f32, f32); 4] = tex.get_uv_inner(self.uv);
+                // TODO: use uv (in the far distant future)
+                let _uv: [(f32, f32); 4] = tex.get_uv_inner(self.uv);
                 let center_u = 0.5;
                 let center_v = 0.5;
 

@@ -3,13 +3,11 @@ use crate::input::{Input, RawInputEvent};
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
 use crate::ui::rendering::ctx::DrawContext2D;
-use mvutils::once::{CreateOnce, Lazy};
-use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
-use mvutils::utils::Recover;
+use crate::window::Window;
+use mvutils::once::CreateOnce;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
-use crate::window::Window;
 
 pub mod anim;
 pub mod attributes;
@@ -22,7 +20,6 @@ pub mod prelude;
 pub mod rendering;
 pub mod res;
 pub mod styles;
-pub mod theme;
 pub mod timing;
 pub mod uix;
 pub mod utils;
@@ -65,21 +62,21 @@ impl Ui {
 
     pub fn compute_styles(&mut self, ctx: &DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.get_mut();
+            let guard = arc.get_mut();
             guard.compute_styles(ctx);
         }
     }
 
     pub fn draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.get_mut();
+            let guard = arc.get_mut();
             guard.draw(ctx);
         }
     }
 
     pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.get_mut();
+            let guard = arc.get_mut();
             guard.compute_styles(ctx);
             guard.draw(ctx);
         }
@@ -87,7 +84,7 @@ impl Ui {
     
     pub fn end_frame(&mut self) {
         for arc in self.root_elems.iter_mut() {
-            let mut guard = arc.get_mut();
+            let guard = arc.get_mut();
             guard.end_frame();
         }
     }
@@ -103,16 +100,16 @@ impl InputProcessor for Ui {
             RawInputEvent::Keyboard(action) => unsafe {
                 for root in Unsafe::cast_static(&self.root_elems) {
                     let mut guard = root.get_mut();
-                    let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
-                    let mut events = &mut guard.state_mut().events;
+                    let guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let events = &mut guard.state_mut().events;
                     events.keyboard_change(action.clone(), &mut *guard_ref, &*input);
                 }
             },
             RawInputEvent::Mouse(action) => unsafe {
                 for root in Unsafe::cast_static(&self.root_elems) {
                     let mut guard = root.get_mut();
-                    let mut guard_ref = Unsafe::cast_mut_static(&mut guard);
-                    let mut events = &mut guard.state_mut().events;
+                    let guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let events = &mut guard.state_mut().events;
                     events.mouse_change(action.clone(), &mut *guard_ref, &*input, window);
                 }
             },

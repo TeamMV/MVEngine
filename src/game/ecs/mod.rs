@@ -1,14 +1,9 @@
-#![feature(ptr_metadata)]
-
 use crate::game::ecs::mem::storage::ComponentStorage;
 use crate::game::ecs::world::World;
 use mvutils::unsafe_utils::DangerousCell;
-use mvutils::utils;
-use std::marker::PhantomData;
 use std::sync::Arc;
-
 pub mod entity;
-mod mem;
+pub mod mem;
 pub mod system;
 pub mod world;
 

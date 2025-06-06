@@ -3,7 +3,7 @@ use crate::ui::utils::AnyType;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use mvutils::lazy;
-use mvutils::utils::{TetrahedronOp, Time};
+use mvutils::utils::{Time};
 
 pub struct TimingManager {
     tasks: HashMap<u64, (Box<dyn TimingTask>, Option<Box<dyn FnMut()>>), U64IdentityHasher>,
@@ -87,7 +87,7 @@ impl TimingTask for IterationTask {
         self.limit > 0 && self.current_iter as i32 >= self.limit
     }
 
-    fn iteration(&mut self, dt: f32, frame: u64) {
+    fn iteration(&mut self, _: f32, _: u64) {
         (self.function)(&mut self.state, self.current_iter);
         self.current_iter += 1;
     }
@@ -120,7 +120,7 @@ impl TimingTask for DurationTask {
         u128::time_millis() > self.init_time + self.duration as u128
     }
 
-    fn iteration(&mut self, dt: f32, frame: u64) {
+    fn iteration(&mut self, _: f32, _: u64) {
         (self.function)(
             &mut self.state,
             (u128::time_millis() - self.init_time) as u32,
@@ -157,7 +157,7 @@ impl TimingTask for DelayTask {
         self.done && u128::time_millis() > self.init_time + self.delay as u128
     }
 
-    fn iteration(&mut self, dt: f32, frame: u64) {
+    fn iteration(&mut self, _: f32, _: u64) {
         let ms = u128::time_millis();
         if ms > self.init_time + self.delay as u128 {
             (self.function)(&mut self.state, (ms - self.init_time) as u32);
@@ -197,7 +197,7 @@ impl TimingTask for PeriodicTask {
         self.limit > 0 && self.current_iter as i32 > self.limit
     }
 
-    fn iteration(&mut self, dt: f32, frame: u64) {
+    fn iteration(&mut self, _: f32, _: u64) {
         let ms = u128::time_millis();
         if ms > self.init_time + self.delay as u128 {
             self.init_time = ms;

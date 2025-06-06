@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::audio::source::{Sound, SoundWithAttributes};
+use crate::audio::source::SoundWithAttributes;
 
 pub struct AudioMixer { //gt reference
     playing: Vec<(Arc<SoundWithAttributes>, usize)>,

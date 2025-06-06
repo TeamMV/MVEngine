@@ -207,9 +207,8 @@ impl UiResources for RuntimeResources<'_> {
 
     fn tick_all_animations(&self) {
         for anim in &self.animations {
-            let anim = anim.deref();
             unsafe {
-                ((anim as *const _) as *const GlobalAnimation)
+                (anim as *const GlobalAnimation)
                     .cast_mut()
                     .as_mut()
                     .unwrap()

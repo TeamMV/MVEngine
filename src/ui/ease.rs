@@ -1,5 +1,4 @@
 use crate::math::curve::SimpleBezierCurve;
-use itertools::Itertools;
 use mvutils::utils::Map;
 use std::ops::Range;
 
@@ -123,7 +122,7 @@ pub trait EasingFunction {
 pub struct LinearEasing;
 
 impl EasingFunction for LinearEasing {
-    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, mode: EasingMode) -> f32 {
+    fn get(&self, pos: f32, x_range: Range<f32>, y_range: Range<f32>, _: EasingMode) -> f32 {
         let t = (pos - x_range.start) / (x_range.end - x_range.start);
         let value = t;
         y_range.start + value * (y_range.end - y_range.start)

@@ -5,16 +5,12 @@ pub mod interpolate;
 pub mod unit;
 
 use crate::blanked_partial_ord;
-use crate::color::{ColorFormat, RgbColor};
+use crate::color::{RgbColor};
 use crate::ui::elements::{UiElement, UiElementState, UiElementStub};
 use crate::ui::res::MVR;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use mvutils::utils::{PClamp, TetrahedronOp};
 use mvutils::{enum_val_ref, lazy};
-use num_traits::Num;
 use std::any::TypeId;
-use std::fmt::Debug;
-use std::ops::{Add, Deref, DerefMut};
 use std::rc::Rc;
 use std::str::FromStr;
 use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, UiShape};
@@ -589,9 +585,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
                 unsafe {
                     if parent.is_some() {
                         let cloned = parent.clone().unwrap();
-                        let p_guard = cloned.get();
-                        let parent_value = Unsafe::cast_static(map(p_guard.style()));
-                        drop(p_guard);
+                        let parent_value = Unsafe::cast_static(map(cloned.get().style()));
                         return parent_value.resolve(dpi, parent.clone(), map);
                     }
                 }
@@ -614,15 +608,11 @@ impl<T: Clone + 'static> UiValue<T> {
 //    }
 //}
 
-fn no_parent<T>() -> T {
-    panic!("Called Inherit on UiElement without parent")
-}
-
 macro_rules! impl_interpolator_primitives {
     ($($t:ty,)*) => {
         $(
             impl Interpolator<$t> for $t {
-                fn interpolate<E, F>(&mut self, start: &$t, end: &$t, percent: f32, elem: &E, f: F)
+                fn interpolate<E, F>(&mut self, start: &$t, end: &$t, percent: f32, _: &E, _: F)
                     where
                         E: UiElementStub,
                         F: Fn(&UiStyle) -> &Self,
@@ -664,13 +654,6 @@ impl UiStyle {
 pub struct ResCon {
     pub dpi: f32,
 }
-
-impl ResCon {
-    pub(crate) fn set_dpi(&mut self, dpi: f32) {
-        self.dpi = dpi;
-    }
-}
-
 
 pub trait InheritSupplier {
     fn x(&self) -> i32;

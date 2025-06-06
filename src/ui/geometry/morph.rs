@@ -7,8 +7,7 @@ use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use itertools::Itertools;
-use mvutils::utils::{Map, PClamp};
-use num_traits::float::FloatCore;
+use mvutils::utils::PClamp;
 
 const CONTOUR_THRESHOLD: f32 = 5.0;
 
@@ -25,7 +24,7 @@ impl Morph {
 
         let mut from_sdf = SDF::new(sdf_width, sdf_height);
         let mut to_sdf = SDF::new(sdf_width, sdf_height);
-        let mut current_sdf = SDF::new(sdf_width, sdf_height);
+        let current_sdf = SDF::new(sdf_width, sdf_height);
 
         from_sdf.populate(from);
         to_sdf.populate(to);
@@ -62,15 +61,15 @@ impl SDF {
     }
 
     pub fn populate(&mut self, shape: &Shape) {
-        let center = Vec2::new(shape.extent.0 as f32, shape.extent.1 as f32);
-        let mut init = true;
+        // let center = Vec2::new(shape.extent.0 as f32, shape.extent.1 as f32);
+        // let mut init = true;
         for y in 0..self.size.1 {
             for x in 0..self.size.0 {
                 let p = Vec2::new(x as f32, y as f32);
                 let mut min_dist = f32::MAX;
 
-                let mut inside = false;
-                let outline = shape.get_outline();
+                let inside = false;
+                // let outline = shape.get_outline();
                 //for (a, b) in outline.points().iter().tuple_windows() {
                 //    let l1 = Vec2::new(a.coords().0 as f32, a.coords().1 as f32);
                 //    let l2 = Vec2::new(b.coords().0 as f32, b.coords().1 as f32);
@@ -130,7 +129,7 @@ impl SDF {
             for x in 0..self.size.0 {
                 let val = self.grid[(y * self.size.0 + x) as usize];
                 //println!("{}", val);
-                let mapped = val.map(&(-10.0..10.0), &(0.0..255.0)).p_clamp(0.0, 255.0);
+                // let mapped = val.map(&(-10.0..10.0), &(0.0..255.0)).p_clamp(0.0, 255.0);
                 let mapped = (val * 2.0).p_clamp(0.0, 255.0);
                 let col = RgbColor::white().alpha(mapped as u8);
                 let mut rect = ctx::rectangle()
@@ -146,7 +145,7 @@ impl SDF {
     }
 }
 
-fn triangulate_contour(mut contour: Vec<Vec2>) -> Vec<[Vec2; 3]> {
+fn triangulate_contour(contour: Vec<Vec2>) -> Vec<[Vec2; 3]> {
     let mut triangles = vec![];
 
     if contour.len() < 3 {

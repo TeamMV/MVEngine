@@ -1,20 +1,16 @@
-use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::control::RenderController;
-use crate::rendering::light::LightOpenGLRenderer;
-use crate::rendering::post::{OpenGLPostProcessRenderer, RenderTarget};
+use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
 use crate::window::Window;
-use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint, GLuint64};
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
+use mvutils::Savable;
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
-use std::str::FromStr;
-use mvutils::Savable;
 
 pub mod batch;
-pub mod bindless;
 pub mod camera;
 pub mod control;
 pub mod light;
@@ -401,7 +397,7 @@ impl PrimitiveRenderer for OpenGLRenderer {
         }
     }
 
-    fn end_frame_to_target(&mut self, post: &mut RenderTarget) {
+    fn end_frame_to_target(&mut self, _post: &mut RenderTarget) {
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }

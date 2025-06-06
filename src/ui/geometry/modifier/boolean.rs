@@ -3,10 +3,8 @@ use crate::ui::geometry::geom;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::shapes::Param;
-use hashbrown::{HashMap, HashSet};
-use itertools::Itertools;
+use hashbrown::{HashMap};
 use log::warn;
-use std::cmp::Ordering;
 
 trait Dedup<T: PartialEq + Clone> {
     fn clear_duplicates(&mut self);
@@ -44,7 +42,8 @@ pub(crate) fn compute(
     }
 }
 
-fn compute_union(input: &Shape, other: &Shape) -> Result<Shape, String> {
+fn compute_union(_: &Shape, _: &Shape) -> Result<Shape, String> {
+    // we do indeed compute the union here
     todo!()
 }
 
@@ -55,7 +54,7 @@ pub fn compute_intersect(input: &Shape, clipping: &Shape) -> Result<Shape, Strin
         let input_vertices = input_triangle.vec2s();
         for clipping_triangle in &clipping.triangles {
             let clipping_vertices = clipping_triangle.vec2s();
-            if let Some(mut intersection_points) =
+            if let Some(intersection_points) =
                 geom::get_triangle_intersections(&input_vertices, &clipping_vertices)
             {
                 let mut res_vertices = Vec::with_capacity(intersection_points.len() + 6);
@@ -178,6 +177,7 @@ pub fn compute_intersect(input: &Shape, clipping: &Shape) -> Result<Shape, Strin
     Ok(end_shape)
 }
 
-fn compute_difference(input: &Shape, other: &Shape) -> Result<Shape, String> {
+fn compute_difference(_: &Shape, _: &Shape) -> Result<Shape, String> {
+    // we also compute the difference here
     todo!()
 }

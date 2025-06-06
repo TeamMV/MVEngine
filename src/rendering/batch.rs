@@ -3,7 +3,7 @@ use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{PrimitiveRenderer, Quad, Triangle, Vertex};
 use crate::window::Window;
-use gl::types::{GLuint, GLuint64};
+use gl::types::GLuint;
 
 pub const BATCH_VERTEX_AMOUNT: usize = 100_000;
 
@@ -23,7 +23,7 @@ pub(crate) struct RenderBatch {
     triangle_index: usize,
     vbo_id: GLuint,
     ibo_id: GLuint,
-    shader: GLuint,
+    _shader: GLuint,
 }
 
 impl RenderBatch {
@@ -47,12 +47,12 @@ impl RenderBatch {
             triangle_index: 0,
             vbo_id,
             ibo_id,
-            shader,
+            _shader: shader,
         }
     }
 
-    pub(crate) fn push_triangle(&mut self, mut triangle: Triangle) {
-        for (idx, vertex) in triangle.points.into_iter().enumerate() {
+    pub(crate) fn push_triangle(&mut self, triangle: Triangle) {
+        for vertex in triangle.points.into_iter() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
             if r_vertex.has_texture > 0.0 {
                 let req_id = vertex.texture;
@@ -84,8 +84,8 @@ impl RenderBatch {
         self.vertex_index += 3;
     }
 
-    pub(crate) fn push_quad(&mut self, mut quad: Quad) {
-        for (idx, vertex) in quad.points.into_iter().enumerate() {
+    pub(crate) fn push_quad(&mut self, quad: Quad) {
+        for vertex in quad.points.into_iter() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
             if r_vertex.has_texture > 0.0 {
                 let req_id = vertex.texture;

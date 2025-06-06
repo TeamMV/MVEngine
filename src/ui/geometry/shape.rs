@@ -4,7 +4,6 @@ use crate::ui::geometry::geom;
 use crate::ui::geometry::morph::Morph;
 use crate::ui::geometry::polygon::Polygon;
 use crate::ui::rendering::ctx::TextureCtx;
-use ahash::HashSetExt;
 use itertools::Itertools;
 use mvutils::Savable;
 use std::fmt::{Debug, Formatter, Write};
@@ -111,7 +110,7 @@ impl Shape {
         self.extent = (width as i32, height as i32);
     }
 
-    fn set_z(&mut self, z: f32) {
+    pub fn set_z(&mut self, z: f32) {
         for tri in &mut self.triangles {
             tri.points.iter_mut().for_each(|v| v.pos.2 = z);
         }
@@ -285,7 +284,7 @@ impl Shape {
     }
 
     pub fn create_morph(&self, to: &Shape) -> Morph {
-        let mut morph = Morph::new(self, to);
+        let morph = Morph::new(self, to);
         morph
     }
 

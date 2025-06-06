@@ -82,7 +82,8 @@ impl Drawable {
 impl FromStr for Drawable {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        // good implementation
         todo!()
     }
 }

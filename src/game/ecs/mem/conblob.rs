@@ -15,7 +15,7 @@ impl ContinuousBlob {
     pub fn new(layout: Layout) -> Self {
         let ptr = unsafe { std::alloc::alloc(layout) };
 
-        let mut this = Self {
+        let this = Self {
             data: ptr,
             len: 0,
             capacity: layout.size(),
@@ -56,7 +56,7 @@ impl ContinuousBlob {
     }
 
     pub fn get<T: Sized + 'static>(&self, idx: usize) -> Option<&T> {
-        if idx >= 0 && idx < self.len {
+        if idx < self.len {
             unsafe {
                 let added = self.data.add(idx * self.layout.size());
                 let typed = added as *mut T;
@@ -67,7 +67,7 @@ impl ContinuousBlob {
     }
 
     pub fn get_mut<T: Sized + 'static>(&mut self, idx: usize) -> Option<&mut T> {
-        if idx >= 0 && idx < self.len {
+        if idx < self.len {
             unsafe {
                 let added = self.data.add(idx * self.layout.size());
                 let typed = added as *mut T;

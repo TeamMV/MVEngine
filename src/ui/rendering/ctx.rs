@@ -7,7 +7,6 @@ use crate::ui::rendering::rectangle::RectangleCtx;
 use crate::ui::rendering::triangle::TriangleCtx;
 use crate::ui::rendering::UiRenderer;
 use crate::window::Window;
-use std::fmt::Debug;
 use crate::math::vec::Vec4;
 use crate::ui::styles::InheritSupplier;
 

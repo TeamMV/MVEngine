@@ -1,19 +1,12 @@
 use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
-use crate::rendering::control::RenderController;
-use crate::rendering::shader::OpenGLShader;
 use crate::rendering::text::font::{AtlasData, PreparedAtlasData};
 use crate::rendering::texture::Texture;
-use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, RenderContext, Transform, Vertex};
+use crate::rendering::{InputVertex, Quad, RenderContext, Transform};
 use crate::utils::savers::SaveArc;
 use bytebuffer::ByteBuffer;
-use gl::types::GLuint;
-use hashbrown::HashMap;
-use itertools::Itertools;
 use mvutils::save::Savable;
 use mvutils::Savable;
-use num_traits::Inv;
-use std::ops::DerefMut;
 use std::sync::Arc;
 
 pub mod font;
@@ -117,7 +110,7 @@ impl Font {
 
         let mut chars = text.chars().peekable();
 
-        let reference = text.clone();
+        let reference = text;
         let mut idx = 0;
         while let Some(char) = chars.next() {
             if char == '\t' {
@@ -161,29 +154,29 @@ impl Font {
         &self,
         text: &str,
         height: f32,
-        mut transform: Transform,
+        transform: Transform,
         z: f32,
         color: &RgbColor,
         controller: &mut impl RenderContext,
     ) {
         let atlas = &self.atlas;
 
-        let mut font_scale = self.get_scale(height);
+        let font_scale = self.get_scale(height);
         let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
 
         let mut x = 0.0;
         let mut y = 0.0;
 
-        let reference = text.clone();
+        let reference = text;
 
         for (idx, char) in text.chars().enumerate() {
-            if (char == '\t') {
+            if char == '\t' {
                 x += 6.0 + space_advance * font_scale;
                 continue;
-            } else if (char == ' ') {
+            } else if char == ' ' {
                 x += space_advance * font_scale;
                 continue;
-            } else if (char == '\n') {
+            } else if char == '\n' {
                 x = 0.0;
                 y -= font_scale * atlas.metrics.line_height;
                 continue;

@@ -20,7 +20,7 @@ pub struct Button {
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
-    initial_style: UiStyle,
+    _initial_style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
     text_body: TextBody<Button>,
@@ -36,7 +36,7 @@ impl UiElementCallbacks for Button {
                     self.text_body.draw(s, this, ctx, &self.context);
                 }
                 Child::Element(e) => {
-                    let mut guard = e.get_mut();
+                    let guard = e.get_mut();
                     guard.draw(ctx);
                 }
                 Child::State(s) => {
@@ -65,7 +65,7 @@ impl UiElementStub for Button {
             context: context.clone(),
             state: UiElementState::new(),
             style: style.clone(),
-            initial_style: style.clone(),
+            _initial_style: style.clone(),
             attributes,
             body: ElementBody::new(),
             text_body: TextBody::new(),
@@ -130,7 +130,8 @@ impl UiElementStub for Button {
         &mut self.body
     }
 
-    fn get_size(&self, s: &str) -> Dimension<i32> {
+    fn get_size(&self, _: &str) -> Dimension<i32> {
+        // so this one also needs to be implemented, sounds important
         todo!()
     }
 }

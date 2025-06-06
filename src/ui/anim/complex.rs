@@ -1,13 +1,12 @@
 use crate::ui::anim;
 use crate::ui::anim::{AnimationMode, FillMode};
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::{Element, UiElement, UiElementStub};
+use crate::ui::elements::{Element, UiElementStub};
 use crate::ui::styles::UiStyle;
 use crate::ui::timing::{AnimationState, DelayTask, TIMING_MANAGER};
-use mvutils::unsafe_utils::{DangerousCell, Nullable, Unsafe};
-use mvutils::utils::{key, Percentage};
-use num_traits::{ToPrimitive, Zero};
-use std::mem;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use mvutils::utils::Percentage;
+use num_traits::Zero;
 use std::sync::Arc;
 
 pub enum UiElementAnimation {
@@ -50,7 +49,6 @@ impl UiElementAnimationStub for SimpleAnimation {
 }
 
 pub struct KeyframeAnimation {
-    start_style: UiStyle,
     keyframes: Vec<Keyframe>,
 }
 
@@ -140,7 +138,6 @@ pub struct KeyframeAnimationBuilder {
     remaining_duration: f32,
     keyframes: Vec<Keyframe>,
     last_style: UiStyle,
-    start_style: UiStyle,
 }
 
 impl KeyframeAnimationBuilder {
@@ -148,7 +145,6 @@ impl KeyframeAnimationBuilder {
         Self {
             remaining_duration: 100.0,
             keyframes: vec![],
-            start_style: start_style.clone(),
             last_style: start_style,
         }
     }
@@ -188,7 +184,6 @@ impl KeyframeAnimationBuilder {
 
     pub fn build(self) -> KeyframeAnimation {
         KeyframeAnimation {
-            start_style: self.start_style,
             keyframes: self.keyframes,
         }
     }

@@ -30,7 +30,7 @@ impl UiElementCallbacks for Div {
             match children {
                 Child::String(_) => {}
                 Child::Element(e) => {
-                    let mut guard = e.get_mut();
+                    let guard = e.get_mut();
                     guard.draw(ctx);
                 }
                 Child::State(_) => {}
@@ -126,7 +126,8 @@ impl UiElementStub for Div {
         &mut self.body
     }
 
-    fn get_size(&self, s: &str) -> Dimension<i32> {
+    fn get_size(&self, _: &str) -> Dimension<i32> {
+        // you know im starting to wonder if v22 forgot this function exists and needs to be implemented, or is too lazy to implement it
         todo!()
     }
 }

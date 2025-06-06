@@ -1,11 +1,8 @@
-use crate::game::ecs::mem::storage::ComponentStorage;
-use crate::game::ecs::{EcsStorage, ECS};
-use mvutils::once::CreateOnce;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe, UnsafeRef};
+use crate::game::ecs::EcsStorage;
+use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 
 pub type EntityType = u64;
 
@@ -21,16 +18,16 @@ pub trait EntityBehavior {
 pub struct NoBehavior;
 
 impl EntityBehavior for NoBehavior {
-    fn new(storage: EcsStorage) -> Self
+    fn new(_storage: EcsStorage) -> Self
     where
         Self: Sized,
     {
         Self {}
     }
 
-    fn start(&mut self, entity: EntityType) {}
+    fn start(&mut self, _entity: EntityType) {}
 
-    fn update(&mut self, entity: EntityType) {}
+    fn update(&mut self, _entity: EntityType) {}
 }
 
 #[derive(Clone)]
@@ -60,7 +57,7 @@ impl<C> Deref for LocalComponent<C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.component.unwrap() }
+        self.component.unwrap()
     }
 }
 
@@ -83,12 +80,12 @@ pub struct Entity<B, C> {
 
 impl<B, C> Entity<B, C> {
     pub fn get_component<T: Sized + 'static>(&self) -> Option<&T> {
-        let mut st = self.storage.get_mut();
+        let st = self.storage.get_mut();
         st.get_component::<T>(self.ty)
     }
 
     pub fn get_component_mut<T: Sized + 'static>(&mut self) -> Option<&mut T> {
-        let mut st = self.storage.get_mut();
+        let st = self.storage.get_mut();
         st.get_component_mut::<T>(self.ty)
     }
 }
@@ -132,7 +129,7 @@ macro_rules! impl_entity_tuples {
 
         impl<B: EntityBehavior, $first: Sized + Default + 'static, $($rest: Sized + Default + 'static),*> Entity<B, ($first, $($rest),*)> {
             pub fn new(storage: EcsStorage) -> Self {
-                let mut this = Self::new_internal(storage.clone(), Some(B::new(storage.clone())));
+                let this = Self::new_internal(storage.clone(), Some(B::new(storage.clone())));
 
                 #[allow(non_snake_case)]
                 let ($first, $($rest),*) = ($first::default(), $($rest::default()),*);
@@ -154,7 +151,7 @@ macro_rules! impl_entity_tuples {
                 component.clone_into(&mut new_component);
 
                 $(
-                    let mut component = self.get_component::<$rest>().unwrap();
+                    let component = self.get_component::<$rest>().unwrap();
                     let mut new_component = new.get_component_mut::<$rest>().unwrap();
                     component.clone_into(&mut new_component);
                 )*
@@ -169,10 +166,10 @@ impl_entity_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15);
 
 impl<B: EntityBehavior, C: Sized + Default + 'static> Entity<B, (C,)> {
     pub fn new(storage: EcsStorage) -> Self {
-        let mut this = Self::new_internal(storage.clone(), Some(B::new(storage.clone())));
+        let this = Self::new_internal(storage.clone(), Some(B::new(storage.clone())));
 
         #[allow(non_snake_case)]
-        let (c) = (C::default());
+        let c = C::default();
 
         this.storage.get_mut().set_component(this.ty, c);
 
@@ -186,7 +183,7 @@ impl<B: EntityBehavior + Clone, C: Sized + Clone + Default + 'static> Clone for 
 
         let mut new = Self::new(self.storage.clone());
 
-        let mut new_component = new.get_component_mut::<C>().unwrap();
+        let new_component = new.get_component_mut::<C>().unwrap();
         *new_component = component.clone();
 
         new

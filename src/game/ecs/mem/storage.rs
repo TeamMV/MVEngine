@@ -2,8 +2,7 @@ use crate::game::ecs::entity::EntityType;
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
 use mvengine_proc_macro::generate_get_components;
-use mvutils::hashers::{U64IdentityHasher, UsizeIdentityHasher};
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::any::TypeId;
 

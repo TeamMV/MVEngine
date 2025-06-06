@@ -42,9 +42,7 @@ impl UiEvents {
         elem: &mut UiElement,
         input: &Input,
         window: &mut Window
-    ) -> bool {
-        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
-        
+    ) -> bool {        
         let state = elem.state();
         let state = unsafe { Unsafe::cast_static(state) };
         
@@ -52,10 +50,10 @@ impl UiEvents {
         for child in &state.children {
             match child {
                 Child::Element(e) => unsafe {
-                    let mut child_guard = e.get_mut();
+                    let child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
-                    let mut child_events: &mut UiEvents = Unsafe::cast_mut_static(child_events);
-                    let res = child_events.mouse_change(action.clone(), (&mut *child_guard), input, window);
+                    let child_events: &mut UiEvents = Unsafe::cast_mut_static(child_events);
+                    let res = child_events.mouse_change(action.clone(), &mut *child_guard, input, window);
                     if res {
                         used = res;
                     }
@@ -154,7 +152,7 @@ impl UiEvents {
                             direction: dir.clone(),
                         });
                     }
-                    MouseAction::Move(x, y) => {
+                    MouseAction::Move(_x, _y) => {
                         let base = UiEventBase {
                             action: UiMoveAction::Moving,
                             pos: Point::new(mx, my),
@@ -197,10 +195,11 @@ impl UiEvents {
 
     pub(crate) fn keyboard_change(
         &mut self,
-        action: KeyboardAction,
-        elem: &mut UiElement,
-        input: &Input,
+        _: KeyboardAction,
+        _: &mut UiElement,
+        _: &Input,
     ) -> bool {
+        //There are no keyboard events on ui elements yet, so this makes sense that its not used. they will be tho in the near future
         true
     }
 }

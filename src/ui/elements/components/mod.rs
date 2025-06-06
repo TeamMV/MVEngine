@@ -1,9 +1,12 @@
+// yeah fuck this shit I know my code will work safely (50% accuracy on that statement)
+#![allow(static_mut_refs)]
+
 pub mod text;
 pub mod edittext;
 
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
-use crate::ui::context::{UiContext, UiResources};
+use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::adaptive::{AdaptiveFill, AdaptiveShape};
@@ -50,7 +53,7 @@ impl ElementBody {
     
     
     
-    pub fn on_input<E: UiElementStub + 'static>(&mut self, e: &mut E, action: RawInputEvent, input: &Input) {
+    pub fn on_input<E: UiElementStub + 'static>(&mut self, e: &mut E, action: RawInputEvent, _: &Input) {
         match action {
             RawInputEvent::Keyboard(_) => {}
             RawInputEvent::Mouse(ma) => {

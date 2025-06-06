@@ -1,7 +1,9 @@
-use mvengine::ui::styles::enums::UiShape;
-use glutin::VirtualKeyCode::R;
 use itertools::Itertools;
 use log::LevelFilter;
+use mvengine::audio::decode::wav::WavDecoder;
+use mvengine::audio::decode::AudioDecoder;
+use mvengine::audio::source::SoundWithAttributes;
+use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::color::RgbColor;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
@@ -14,35 +16,26 @@ use mvengine::rendering::text::Font;
 use mvengine::rendering::texture::Texture;
 use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
-use mvengine::ui::elements::button::Button;
-use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::div::Div;
-use mvengine::ui::elements::child::ToChild;
 use mvengine::ui::elements::{UiElementCallbacks, UiElementStub};
 use mvengine::ui::geometry::morph::Morph;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::ui::res::MVR;
+use mvengine::ui::styles::enums::{Direction, Origin, Position};
+use mvengine::ui::styles::groups::SideStyle;
+use mvengine::ui::styles::types::Dimension;
 use mvengine::ui::styles::{UiStyle, UiValue};
+use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
-use mvengine_proc_macro::{resolve_resource, style_expr, ui};
+use mvengine_proc_macro::{style_expr, ui};
 use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::time::Duration;
-use mvengine::audio::{gen_sin_wave, AudioEngine};
-use mvengine::audio::decode::AudioDecoder;
-use mvengine::audio::decode::wav::WavDecoder;
-use mvengine::audio::source::SoundWithAttributes;
-use mvengine::ui::ease::{EasingGen, SinEasing};
-use mvengine::ui::styles::enums::{Direction, Origin, Position};
-use mvengine::ui::styles::groups::SideStyle;
-use mvengine::ui::styles::types::Dimension;
-use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -234,7 +227,7 @@ impl WindowCallbacks for Application {
             let button = ui! {
                 <Ui context={window.ui().context()}>
                     <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: blue; margin: none;">
-                        <Div style="width: 100%; height: 100%; background.shape: {UiShape::Shape(2)}; margin: none;">
+                        <Div style="width: 100%; height: 100%; margin: none;">
 
                         </Div>
                     </Div>

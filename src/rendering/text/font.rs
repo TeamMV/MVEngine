@@ -1,4 +1,3 @@
-use mvutils::hashers::U32IdentityHasher;
 use mvutils::Savable;
 
 #[derive(Savable, Debug, Default)]

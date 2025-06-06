@@ -3,10 +3,9 @@ pub mod light;
 
 use crate::math::mat::{Mat2, Mat3, Mat4};
 use crate::math::vec::{Vec2, Vec3, Vec4};
-use gl::types::{GLint, GLsizei, GLuint};
+use gl::types::GLuint;
 use std::ffi::CString;
 use std::ptr;
-use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct OpenGLShader {
@@ -60,35 +59,6 @@ impl OpenGLShader {
 
             Ok(())
         }
-    }
-
-    fn compile_shader(shader: GLuint, source_code: &str) -> Result<(), String> {
-        unsafe {
-            let lines: Vec<CString> = source_code
-                .lines()
-                .map(|line| CString::new(line).unwrap())
-                .collect();
-
-            let line_ptrs: Vec<*const i8> = lines.iter().map(|line| line.as_ptr()).collect();
-            let line_lengths: Vec<GLint> = lines
-                .iter()
-                .map(|line| line.to_bytes().len() as GLint)
-                .collect();
-
-            gl::ShaderSource(
-                shader,
-                line_ptrs.len() as GLsizei,
-                line_ptrs.as_ptr(),
-                line_lengths.as_ptr(),
-            );
-            gl::CompileShader(shader);
-
-            if Self::check_shader_compile_status(shader).is_err() {
-                return Err(Self::get_shader_log(shader));
-            }
-        }
-
-        Ok(())
     }
 
     pub fn bind(&self) -> Result<(), String> {
@@ -198,7 +168,7 @@ impl OpenGLShader {
     pub fn uniform_1f(&self, name: &str, value: f32) {
         unsafe {
             let location =
-                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr());
+                gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr()); //NOBODY fucking cares
             if location != -1 {
                 gl::Uniform1f(location, value);
             }
@@ -215,7 +185,7 @@ impl OpenGLShader {
         }
     }
 
-    pub(crate) fn uniform_1fv(&self, name: &str, values: &[f32]) {
+    pub fn uniform_1fv(&self, name: &str, values: &[f32]) {
         let location = unsafe {
             gl::GetUniformLocation(self.program_id, CString::new(name).unwrap().as_ptr())
         };

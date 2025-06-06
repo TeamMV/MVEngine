@@ -23,7 +23,7 @@ impl Token {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum NumberLit {
+pub enum NumberLit {
     Int(i32),
     Float(f32),
 }

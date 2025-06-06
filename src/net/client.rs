@@ -14,7 +14,7 @@ use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 
 pub struct Client<In: Savable, Out: Savable> {
     _maker: PhantomData<In>,
-    thread: JoinHandle<()>,
+    _thread: JoinHandle<()>,
     disconnect_sender: Sender<DisconnectReason>,
     packet_sender: Sender<Out>
 }
@@ -130,7 +130,7 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
 
         Some(Self {
             _maker: PhantomData::default(),
-            thread: handle,
+            _thread: handle,
             disconnect_sender: cloned_dis_sen,
             packet_sender: packet_sen,
         })

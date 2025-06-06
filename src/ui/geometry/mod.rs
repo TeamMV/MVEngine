@@ -5,7 +5,6 @@ pub mod polygon;
 pub mod shape;
 
 use crate::rendering::Transform;
-use num_traits::Float;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct SimpleRect {
