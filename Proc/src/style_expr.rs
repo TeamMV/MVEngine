@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse, parse_macro_input, parse_str, Expr, ExprField, LitStr, Member};
+use syn::{parse_macro_input, parse_str, Expr, ExprField, LitStr, Member};
 use ui_parsing::style::StyleParser;
 
 pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
@@ -26,7 +26,7 @@ pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
             });
 
         let value = &entry.value;
-        
+
         if value.starts_with('{') {
             //{} means the inner part should be kept as rust code to initialize the field
             let mut inner = String::new();
@@ -63,7 +63,7 @@ pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
         }
     }
     
-    let mut base_ts = quote! {
+    let base_ts = quote! {
         let mut style = mvengine::ui::styles::UiStyle::default();
         #mods
     };

@@ -16,6 +16,7 @@ use std::mem;
 use std::ops::FromResidual;
 use std::sync::Arc;
 use std::time::SystemTime;
+use glutin::os::windows::WindowExt;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -132,6 +133,8 @@ pub struct Window {
     handle: CreateOnce<glutin::Window>,
     state: State,
 
+    dpi: u32,
+
     frame_time_nanos: u64,
     update_time_nanos: u64,
     delta_t: f64,
@@ -162,6 +165,7 @@ impl Window {
             handle: CreateOnce::new(),
             state: State::Ready,
 
+            dpi: 96,
             frame_time_nanos,
             update_time_nanos,
             delta_t: 0.0,
@@ -203,6 +207,16 @@ impl Window {
             w.make_current()?;
         }
         gl::load_with(|symbol| w.get_proc_address(symbol) as *const _);
+
+        unsafe {
+            if cfg!(windows) {
+                let dpi_awareness_context = winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
+                self.dpi = winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
+                println!("dpi: {}", self.dpi);
+            } else {
+                panic!("Illegal operating system (go buy a copy of windows for 1000$)")
+            }
+        }
 
         unsafe {
             //bindless::load_bindless_texture_functions(&w);
@@ -343,6 +357,10 @@ impl Window {
         &self.info
     }
 
+    pub fn dpi(&self) -> u32 {
+        self.dpi
+    }
+
     pub fn get_state(&self) -> State {
         self.state
     }
@@ -428,47 +446,5 @@ impl Window {
     
     pub fn disable_depth_test(&mut self) {
         unsafe { gl::Disable(gl::DEPTH_TEST); }
-    }
-}
-
-pub struct UninitializedWindow<'window> {
-    inner: &'window mut Window,
-}
-
-impl<'window> UninitializedWindow<'window> {
-    pub fn info(&self) -> &WindowCreateInfo {
-        &self.inner.info()
-    }
-
-    pub fn get_state(&self) -> State {
-        self.inner.get_state()
-    }
-
-    pub fn get_delta_t(&self) -> f64 {
-        self.inner.get_delta_t()
-    }
-
-    pub fn get_delta_u(&self) -> f64 {
-        self.inner.get_delta_u()
-    }
-
-    pub fn set_fps(&mut self, fps: u32) {
-        self.inner.set_fps(fps)
-    }
-
-    pub fn set_ups(&mut self, ups: u32) {
-        self.inner.set_ups(ups)
-    }
-
-    pub fn fps(&self) -> u32 {
-        self.inner.fps()
-    }
-
-    pub fn ups(&self) -> u32 {
-        self.inner.ups()
-    }
-
-    pub fn center(&self) -> (i32, i32) {
-        self.inner.center()
     }
 }

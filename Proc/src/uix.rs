@@ -14,7 +14,7 @@ pub fn uix(_attrib: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let vis = &input.vis;
     let comp_name = &input.sig.ident;
-    let parameters = &input.sig.inputs;
+    // let parameters = &input.sig.inputs;
     let returns = &input.sig.output;
 
     let block = input.block.as_ref();
@@ -257,6 +257,8 @@ fn get_state_uses(fn_block: &Block) -> (Vec<StateUse>, Vec<StateUse>, pm2::Token
     (local_usages, global_usages, rep_block, highlighting)
 }
 
+// remove when code is actually used
+#[allow(dead_code)]
 fn get_return_code(block: &Block) -> pm2::TokenStream {
     for stmt in block.stmts.iter() {
         if let Stmt::Expr(expr, ..) = stmt {

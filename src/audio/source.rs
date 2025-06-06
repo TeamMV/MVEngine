@@ -5,6 +5,7 @@ use crate::ui::ease::{Easing, EasingGen, EasingMode};
 
 // "Fucl u" - v22 (4/6/25)
 // "Fucl you" - v22 (5/6/25)
+// fucl YOU max - v22 right now
 pub struct SoundWithAttributes {
     sound: Arc<Sound>,
     with_attributes: WithAttributes
@@ -274,6 +275,10 @@ impl Sound {
                 panic!("We do not support futuristic 3+ ear headphones");
             }
         }
+    }
+    
+    pub fn channels(&self) -> u8 {
+        self.channels
     }
 
     pub fn sample_rate(&self) -> u32 {

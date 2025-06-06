@@ -50,7 +50,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     }
     if let Some(value) = rsx.get_attrib("noctx") {
-        if let XmlValue::Str(s) = value {
+        if let XmlValue::Str(_) = value {
             is_noctx = true;
         }
     }
@@ -636,7 +636,7 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
     let mut tile_struct_fields_ts = quote! {};
     let mut tile_struct_fields_init_ts = quote! {};
     let mut structs = quote! {};
-    let mut tile_save_ts = quote! {};
+    let tile_save_ts = quote! {};
     for (tileset_name, tileset) in tilesets {
         let mut tile_tiles_struct_fields_ts = quote! {};
         let mut tile_tiles_struct_fields_init_ts = quote! {};

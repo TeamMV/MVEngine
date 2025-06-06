@@ -1,3 +1,5 @@
+use mvengine::ui::styles::enums::UiShape;
+use glutin::VirtualKeyCode::R;
 use itertools::Itertools;
 use log::LevelFilter;
 use mvengine::color::RgbColor;
@@ -40,6 +42,7 @@ use mvengine::ui::ease::{EasingGen, SinEasing};
 use mvengine::ui::styles::enums::{Direction, Origin, Position};
 use mvengine::ui::styles::groups::SideStyle;
 use mvengine::ui::styles::types::Dimension;
+use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -76,16 +79,30 @@ impl Application {
     fn new() -> Self {
         let audio = AudioEngine::setup().expect("Cannot start audio");
         let decoder = WavDecoder;
-        let test_sound_a = decoder.decode(include_bytes!("out.wav"));
-        let wrapped_a = SoundWithAttributes::new(test_sound_a);
+        let sin = gen_sin_wave(440, 48000, 5000);
+        let test_sound_a = decoder.decode(include_bytes!("fart.wav"));
+        let wrapped_a = SoundWithAttributes::new(sin);
         wrapped_a.set_looping(true);
         wrapped_a.set_volume(1.0);
-        wrapped_a.set_fade_in(EasingGen::sin(), 5000);
-        wrapped_a.set_fade_out(EasingGen::sin(), 5000);
+        //wrapped_a.set_fade_in(EasingGen::sin(), 5000);
+        //wrapped_a.set_fade_out(EasingGen::sin(), 5000);
+        wrapped_a.set_balance(1.0);
 
-        println!("{} {}", audio.sample_rate(), wrapped_a.sound().sample_rate());
+
+        unsafe {
+            let cloned = wrapped_a.clone();
+            TIMING_MANAGER.request(PeriodicTask::new(-1, 1000, move |_, i| {
+                if i % 2 == 0 {
+                    cloned.set_balance(1.0);
+                } else {
+                    cloned.set_balance(0.0);
+                }
+            }, AnimationState::empty()), None);
+        }
+
+        println!("{} {}", audio.sample_rate(), wrapped_a.sound().channels());
         
-        audio.play_sound(wrapped_a);
+        //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
         // wrapped_a.set_volume(0.3);
         // wrapped_a.set_balance(1.0);
@@ -216,9 +233,10 @@ impl WindowCallbacks for Application {
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style="position: absolute; x: 100%; y: 5bf; direction: vertical; origin: bottom_right; background.color: hsl(136, 0.62, 0.61);">
-                        <Button style={btn_style.clone()}>{state.clone().map_identity()}</Button>
-                        <TextBox style={btn_style} content={state.map_identity()}/>
+                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: blue; margin: none;">
+                        <Div style="width: 100%; height: 100%; background.shape: {UiShape::Shape(2)}; margin: none;">
+
+                        </Div>
                     </Div>
                 </Ui>
             };
@@ -268,6 +286,10 @@ impl WindowCallbacks for Application {
         self.draw_ctx.draw(window);
 
         self.rot += 0.5;
+
+        unsafe {
+            TIMING_MANAGER.post_frame(1.0, 1);
+        }
     }
 
     fn exiting(&mut self, window: &mut Window) {}

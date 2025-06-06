@@ -124,7 +124,8 @@ pub trait UiElementStub: UiElementCallbacks {
     {
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         let (_, style, state) = this.components_mut();
-        state.ctx.dpi = 20.0; //TODO: change to renderer dpi
+        state.ctx.dpi = ctx.renderer().dpi() as f32;
+        
 
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
@@ -812,19 +813,19 @@ impl Clone for UiElementState {
 
 impl InheritSupplier for UiElementState {
     fn x(&self) -> i32 {
-        self.rect.x()
+        self.content_rect.x()
     }
 
     fn y(&self) -> i32 {
-        self.rect.y()
+        self.content_rect.y()
     }
 
     fn width(&self) -> i32 {
-        self.rect.width()
+        self.content_rect.width()
     }
 
     fn height(&self) -> i32 {
-        self.rect.height()
+        self.content_rect.height()
     }
 
     fn paddings(&self) -> [i32; 4] {

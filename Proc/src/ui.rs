@@ -20,7 +20,7 @@ pub fn ui(input: TokenStream) -> TokenStream {
         if let Some(XmlValue::Entities(inner)) = rsx.inner() {
             if let Some(first) = inner.first() {
                 let gen = parse_entity(first);
-                let mut ts = quote! {
+                let ts = quote! {
                     {
                         let __context__ = #context;
                         #gen

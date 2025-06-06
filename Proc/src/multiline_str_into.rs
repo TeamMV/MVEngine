@@ -4,7 +4,7 @@ use quote::quote;
 
 pub fn multiline_str_into(input: TokenStream) -> TokenStream {
     let input = input.to_string();
-    let ((mac, s)) = input.split_once(',').expect("Illegal setup");
+    let (mac, s) = input.split_once(',').expect("Illegal setup");
     let s = s.trim();
     let s = s.strip_prefix('{').expect("Illegal string. use {} to encaspulate it");
     let s = s.strip_suffix('}').expect("Illegal string. use {} to encaspulate it");

@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use std::ops::Deref;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ImplItem, ItemImpl, Path, Type, Visibility};
+use syn::{parse_macro_input, FnArg, ImplItem, ItemImpl, Path, Type};
 
 pub fn listener(head: TokenStream, body: TokenStream) -> TokenStream {
     let event_enum_path = parse_macro_input!(head as Path);

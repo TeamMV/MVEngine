@@ -18,6 +18,7 @@ pub struct UiRenderer {
     controller: RenderController,
     camera: OrthographicCamera,
     dimension: (u32, u32),
+    dpi: u32,
 }
 
 impl UiRenderer {
@@ -34,9 +35,12 @@ impl UiRenderer {
                 shader,
                 camera: OrthographicCamera::new(window.info.width, window.info.height),
                 dimension: (window.info.width, window.info().height),
+                dpi: window.dpi(),
             }
         }
     }
+    
+    
 
     pub(crate) fn gen_z(&mut self) -> f32 {
         let z = self.last_z;
@@ -88,6 +92,10 @@ impl UiRenderer {
 
     pub fn controller_mut(&mut self) -> &mut RenderController {
         &mut self.controller
+    }
+
+    pub fn dpi(&self) -> u32 {
+        self.dpi
     }
 }
 

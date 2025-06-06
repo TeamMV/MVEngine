@@ -1,9 +1,11 @@
 use std::rc::Rc;
+use std::str::FromStr;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{PClamp, TetrahedronOp};
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
 use crate::ui::elements::{UiElement, UiElementStub};
+use crate::ui::parse::{parse_4xi32, parse_4xi32_abstract};
 use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
 use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, UiShape};
@@ -333,6 +335,16 @@ pub struct SideStyle {
 }
 
 impl SideStyle {
+    // this is just so the proc macro doesnt fuck itself up
+    // band aid on leaky pipe type shit
+    pub fn for_value<F>(&mut self, f: F)
+    where
+        F: Fn(&mut SideStyle),
+    {
+        f(self);
+        
+    }
+    
     pub fn all_i32(v: i32) -> Self {
         Self {
             top: UiValue::Just(v).to_field().to_resolve(),
@@ -451,6 +463,21 @@ impl SideStyle {
         self.top.merge_at_set(&other.top);
         self.left.merge_at_set(&other.left);
         self.right.merge_at_set(&other.right);
+    }
+}
+
+impl FromStr for SideStyle {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = parse_4xi32_abstract(s).map_err(|_| "Whoops!?! Looks like your amazing string wasn't compatible with our patented parse_4xi32 function...".to_string())?;
+        let [a, b, c, d] = s;
+        Ok(Self {
+            top: a,
+            bottom: b,
+            left: c,
+            right: d,
+        })
     }
 }
 
