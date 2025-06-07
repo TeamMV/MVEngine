@@ -1,4 +1,6 @@
-use itertools::Itertools;
+use mvengine::ui::elements::button::Button;
+use mvengine::ui::elements::textbox::TextBox;
+use mvengine_proc_macro::resolve_resource;
 use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
@@ -17,7 +19,7 @@ use mvengine::rendering::texture::Texture;
 use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
 use mvengine::ui::elements::div::Div;
-use mvengine::ui::elements::{UiElementCallbacks, UiElementStub};
+use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::geometry::morph::Morph;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
@@ -33,7 +35,6 @@ use mvengine_proc_macro::{style_expr, ui};
 use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
-use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -77,8 +78,6 @@ impl Application {
         let wrapped_a = SoundWithAttributes::new(sin);
         wrapped_a.set_looping(true);
         wrapped_a.set_volume(1.0);
-        //wrapped_a.set_fade_in(EasingGen::sin(), 5000);
-        //wrapped_a.set_fade_out(EasingGen::sin(), 5000);
         wrapped_a.set_balance(1.0);
 
 
@@ -92,8 +91,6 @@ impl Application {
                 }
             }, AnimationState::empty()), None);
         }
-
-        println!("{} {}", audio.sample_rate(), wrapped_a.sound().channels());
         
         //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
@@ -140,7 +137,7 @@ impl WindowCallbacks for Application {
             MVR::initialize();
             window.ui_mut().init(MVR.deref().deref());
 
-            let mut shape = ctx::arc()
+            let shape = ctx::arc()
                 .center(30, 30)
                 .radius(50)
                 .angle(45.0)
@@ -204,31 +201,15 @@ impl WindowCallbacks for Application {
             self.test_texture2.create(|| test_texture2);
             self.font.create(|| font);
 
-            let mut btn_style = UiStyle::default();
-            modify_style!(btn_style.text.color = UiValue::Just(RgbColor::white()));
-            modify_style!(btn_style.background.color = UiValue::Just(RgbColor::red()));
-            modify_style!(btn_style.text.stretch = UiValue::Just(Dimension::new(1.0, 1.0)));
-            modify_style!(btn_style.text.size = UiValue::Just(20.0));
-            modify_style!(btn_style.border.color = UiValue::Just(RgbColor::white()));
-            modify_style!(btn_style.width = UiValue::Just(200));
-            modify_style!(btn_style.height = UiValue::Just(50));
-            btn_style.margin = SideStyle::all(UiValue::None.to_resolve());
-            btn_style.padding = SideStyle::all(UiValue::None.to_resolve());
-
-            let mut div_style = UiStyle::default();
-            modify_style!(div_style.position = UiValue::Just(Position::Absolute));
-            modify_style!(div_style.x = UiValue::Percent(1.0));
-            modify_style!(div_style.y = UiValue::Just(200));
-            modify_style!(div_style.direction = UiValue::Just(Direction::Vertical));
-            modify_style!(div_style.origin = UiValue::Just(Origin::BottomRight));
-
             let state = State::new(String::new());
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: blue; margin: none;">
-                        <Div style="width: 100%; height: 100%; margin: none;">
-
+                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
+                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
+                            <TextBox style="width: 5cm; height: 1cm; text.align_x: start;" placeholder="email"/>
+                            <TextBox style="width: 5cm; height: 1cm; text.align_x: start;" placeholder="password"/>
+                            <Button style="width: 5cm; height: 1cm;">Login</Button>
                         </Div>
                     </Div>
                 </Ui>

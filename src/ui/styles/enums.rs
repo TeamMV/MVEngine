@@ -2,7 +2,7 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 use crate::ui::elements::UiElementState;
 use crate::ui::res::MVR;
-use mvutils::{TryFromString};
+use mvutils::{Savable, TryFromString};
 use crate::ui::parse::parse_num;
 
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
@@ -165,19 +165,19 @@ pub enum BackgroundRes {
     Texture,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub enum UiShape {
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Savable)]
+pub enum Geometry {
     Shape(usize),
     Adaptive(usize),
 }
 
-impl Default for UiShape {
+impl Default for Geometry {
     fn default() -> Self {
         Self::Shape(MVR.shape.rect)
     }
 }
 
-impl FromStr for UiShape {
+impl FromStr for Geometry {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -205,8 +205,8 @@ impl FromStr for UiShape {
         }
 
         match name.as_str() {
-            "shape" => Ok(UiShape::Shape(parse_num::<usize, ParseIntError>(num.as_str())?)),
-            "adaptive" => Ok(UiShape::Adaptive(parse_num::<usize, ParseIntError>(num.as_str())?)),
+            "shape" => Ok(Geometry::Shape(parse_num::<usize, ParseIntError>(num.as_str())?)),
+            "adaptive" => Ok(Geometry::Adaptive(parse_num::<usize, ParseIntError>(num.as_str())?)),
             _ => Err(format!("ChildAlign '{name}' unknown!"))
         }
     }

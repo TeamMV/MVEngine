@@ -214,9 +214,4 @@ impl UiElementStub for TextBox {
     fn body_mut(&mut self) -> &mut ElementBody {
         &mut self.body
     }
-
-    fn get_size(&self, _: &str) -> Dimension<i32> {
-        // TODO: probably should implement this
-        todo!()
-    }
 }

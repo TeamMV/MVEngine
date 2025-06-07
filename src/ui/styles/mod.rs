@@ -13,7 +13,7 @@ use mvutils::{enum_val_ref, lazy};
 use std::any::TypeId;
 use std::rc::Rc;
 use std::str::FromStr;
-use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, UiShape};
+use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, Geometry};
 use groups::{LayoutField, ShapeStyle, SideStyle, TextStyle, TransformStyle};
 use interpolate::Interpolator;
 use unit::Unit;
@@ -28,8 +28,8 @@ lazy! {
         y: UiValue::Just(0).to_field().to_resolve(),
         width: UiValue::Auto.to_field().to_resolve(),
         height: UiValue::Auto.to_field().to_resolve(),
-        padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
-        margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve()),
+        padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5)).to_field().to_resolve()),
+        margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5)).to_field().to_resolve()),
         origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
         position: UiValue::Just(Position::Relative).to_resolve(),
         direction: UiValue::Just(Direction::Horizontal).to_resolve(),
@@ -39,17 +39,17 @@ lazy! {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::white()).to_resolve(),
             texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
         },
         border: ShapeStyle {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::black()).to_resolve(),
             texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
             //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
         },
         text: TextStyle {
-            size: UiValue::Measurement(Unit::CM(3.0)).to_field().to_resolve(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve(),
             kerning: UiValue::Just(0.0).to_field().to_resolve(),
             skew: UiValue::Just(0.0).to_field().to_resolve(),
             stretch: UiValue::Just(Dimension::new(1.0, 1.0)).to_field().to_resolve(),

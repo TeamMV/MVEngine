@@ -129,9 +129,4 @@ impl UiElementStub for Button {
     fn body_mut(&mut self) -> &mut ElementBody {
         &mut self.body
     }
-
-    fn get_size(&self, _: &str) -> Dimension<i32> {
-        // so this one also needs to be implemented, sounds important
-        todo!()
-    }
 }

@@ -56,6 +56,9 @@ r! {
         <drawables>
             <drawable name="test" type="texture" ref="test"/>
         </drawables>
+        <geometries>
+            <geometry name="rect" type="shape" ref="rect"/>
+        </geometries>
     </resources>
 }
 

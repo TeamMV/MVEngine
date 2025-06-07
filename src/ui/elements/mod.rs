@@ -93,9 +93,6 @@ pub trait UiElementStub: UiElementCallbacks {
     
     fn body_mut(&mut self) -> &mut ElementBody;
 
-    /// Deprecated
-    fn get_size(&self, s: &str) -> Dimension<i32>;
-
     /// Checks whether a given point is inside the element
     fn inside(&self, x: i32, y: i32) -> bool {
         let state = self.state();
@@ -671,11 +668,6 @@ impl UiElementStub for UiElement {
 
     fn body_mut(&mut self) -> &mut ElementBody {
         ui_element_fn!(self, body_mut())
-    }
-
-    /// Not used rn and will probably be removed, no implementation needed
-    fn get_size(&self, s: &str) -> Dimension<i32> {
-        ui_element_fn!(self, get_size(s))
     }
 }
 

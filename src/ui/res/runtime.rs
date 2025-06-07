@@ -15,6 +15,7 @@ use std::ops::Deref;
 use mvutils::once::Lazy;
 use crate::graphics::Drawable;
 use crate::ui::res;
+use crate::ui::styles::enums::Geometry;
 
 pub struct RuntimeResources<'a> {
     colors: Vec<RgbColor>,
@@ -26,6 +27,7 @@ pub struct RuntimeResources<'a> {
     animations: Vec<GlobalAnimation<'a>>,
     composites: Vec<CompositeSprite>,
     drawables: Vec<Drawable>,
+    geometries: Vec<Geometry>,
 }
 
 pub fn save_array_as_vec<T: Savable, const N: usize>(saver: &mut impl Saver, arr: &[T; N]) {
@@ -87,6 +89,7 @@ impl Savable for RuntimeResources<'_> {
         self.animations.save_res(saver);
         self.composites.save(saver);
         self.drawables.save(saver);
+        self.geometries.save(saver);
     }
 
     fn load(loader: &mut impl Loader) -> Result<Self, String> {
@@ -105,6 +108,7 @@ impl Savable for RuntimeResources<'_> {
         let tilesets = Vec::<TileSet>::load(loader)?;
         let composites = Vec::<CompositeSprite>::load(loader)?;
         let drawables = Vec::<Drawable>::load(loader)?;
+        let geometries = Vec::<Geometry>::load(loader)?;
         
         let mut this = Self {
             colors,
@@ -116,6 +120,7 @@ impl Savable for RuntimeResources<'_> {
             animations: Vec::new(),
             composites,
             drawables,
+            geometries
         };
         
         let animations = Vec::<GlobalAnimation>::load_res(loader, &this)?;
@@ -202,6 +207,14 @@ impl UiResources for RuntimeResources<'_> {
             MVR.resolve_drawable(id)
         } else {
             self.drawables.get(id - res::CR)
+        }
+    }
+
+    fn resolve_geometry(&self, id: usize) -> Option<&Geometry> {
+        if id < res::CR {
+            MVR.resolve_geometry(id)
+        } else {
+            self.geometries.get(id - res::CR)
         }
     }
 

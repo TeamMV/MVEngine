@@ -11,6 +11,7 @@ use mvutils::unsafe_utils::DangerousCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use crate::graphics::Drawable;
+use crate::ui::styles::enums::Geometry;
 
 #[derive(Clone)]
 pub struct UiContext {
@@ -51,6 +52,7 @@ pub trait UiResources {
     fn resolve_animation(&self, id: usize) -> Option<&GlobalAnimation>;
     fn resolve_composite(&self, id: usize) -> Option<&CompositeSprite>;
     fn resolve_drawable(&self, id: usize) -> Option<&Drawable>;
+    fn resolve_geometry(&self, id: usize) -> Option<&Geometry>;
 
     fn tick_all_animations(&self);
 }

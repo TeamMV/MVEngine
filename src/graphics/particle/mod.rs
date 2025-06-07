@@ -3,7 +3,7 @@ use crate::math::vec::Vec2;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiResources;
 use crate::ui::geometry::Rect;
-use crate::ui::styles::enums::UiShape;
+use crate::ui::styles::enums::Geometry;
 
 #[derive(Clone)]
 pub struct ParticleSystem {
@@ -15,18 +15,18 @@ pub struct Particle {
     velocity: Vec2,
     scale: Vec2,
     drawable: Drawable,
-    shape: UiShape
+    shape: Geometry
 }
 
 impl Particle {
     pub fn draw(&self, ctx: &mut impl RenderContext, area: Rect, r: &'static (impl UiResources + ?Sized)) {
         match self.shape {
-            UiShape::Shape(s) => {
+            Geometry::Shape(s) => {
                 if let Some(res_shape) = r.resolve_shape(s) {
                     
                 }
             }
-            UiShape::Adaptive(a) => {
+            Geometry::Adaptive(a) => {
                 if let Some(adaptive) = r.resolve_adaptive(a) {
                     
                 }

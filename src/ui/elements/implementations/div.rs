@@ -125,9 +125,4 @@ impl UiElementStub for Div {
     fn body_mut(&mut self) -> &mut ElementBody {
         &mut self.body
     }
-
-    fn get_size(&self, _: &str) -> Dimension<i32> {
-        // you know im starting to wonder if v22 forgot this function exists and needs to be implemented, or is too lazy to implement it
-        todo!()
-    }
 }

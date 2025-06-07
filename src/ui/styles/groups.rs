@@ -8,7 +8,7 @@ use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::parse::parse_4xi32_abstract;
 use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
-use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, UiShape};
+use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, Geometry};
 use crate::ui::styles::interpolate::{BasicInterpolatable, Interpolator};
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::unit::Unit;
@@ -486,7 +486,7 @@ pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
     pub texture: Resolve<BasicInterpolatable<Drawable>>,
-    pub shape: Resolve<BasicInterpolatable<UiShape>>,
+    pub shape: Resolve<BasicInterpolatable<Geometry>>,
 }
 
 impl ShapeStyle {
@@ -495,7 +495,7 @@ impl ShapeStyle {
             resource: UiValue::Just(BackgroundRes::Color.into()).to_resolve(),
             color: UiValue::Just(RgbColor::white().into()).to_resolve(),
             texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect)))
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect)))
                 .to_resolve(),
         }
     }

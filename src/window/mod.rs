@@ -211,7 +211,6 @@ impl Window {
             if cfg!(windows) {
                 let dpi_awareness_context = winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
                 self.dpi = winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
-                println!("dpi: {}", self.dpi);
             } else {
                 panic!("Illegal operating system (go buy a copy of windows for 1000$)")
             }

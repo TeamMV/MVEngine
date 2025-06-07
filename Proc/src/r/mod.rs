@@ -7,6 +7,7 @@ mod animation;
 mod composite;
 mod tileset;
 mod drawable;
+mod geometry;
 
 use proc_macro::TokenStream;
 use mvutils::utils::TetrahedronOp;
@@ -23,6 +24,7 @@ use crate::r::color::parse_color;
 use crate::r::composite::parse_composite;
 use crate::r::drawable::{parse_drawable, DrawableType, ParsedDrawable};
 use crate::r::font::parse_font;
+use crate::r::geometry::{parse_geometry, GeomType, ParsedGeometry};
 use crate::r::shape::parse_shape;
 use crate::r::texture::parse_texture;
 use crate::r::tileset::parse_tileset;
@@ -69,6 +71,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     let mut animations: Vec<(String, ParsedAnimation)> = vec![];
     let mut composites: Vec<(String, ParsedComposite)> = vec![];
     let mut drawables: Vec<(String, ParsedDrawable)> = vec![];
+    let mut geometries: Vec<(String, ParsedGeometry)> = vec![];
 
     if let Some(inner) = rsx.inner() {
         if let XmlValue::Entities(children) = inner {
@@ -98,6 +101,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     "animations" => branch!(animations, parse_animation),
                     "composites" => branch!(composites, parse_composite),
                     "drawables" => branch!(drawables, parse_drawable),
+                    "geometries" => branch!(geometries, parse_geometry),
 
                     _ => panic!("Invalid resource type {ty}")
                 }
@@ -433,6 +437,50 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     };
 
+    let (geometry_struct_ts, _) = extent_resource(
+        is_mv,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        "geometry",
+        "mvutils::once::Lazy<mvengine::ui::styles::enums::Geometry>",
+        geometries,
+        |parsed| {
+            let init_ts = match parsed.geom_type {
+                GeomType::Shape => {
+                    let v = &parsed.thingies[0];
+                    let ident = Ident::new(v, Span::call_site());
+                    quote! { mvengine::ui::styles::enums::Geometry::Shape(#r_ident.shape.#ident) }
+                }
+                GeomType::Adaptive => {
+                    let v = &parsed.thingies[0];
+                    let ident = Ident::new(v, Span::call_site());
+                    quote! { mvengine::ui::styles::enums::Geometry::Adaptive(#r_ident.adaptive.#ident) }
+                }
+            };
+
+            quote! { mvutils::once::Lazy::new(|| #init_ts) }
+        }
+    );
+
+    let geometry_resolve_fn_ts = if !is_mv {
+        quote! {
+            fn resolve_geometry(&self, id: usize) -> Option<&mvengine::ui::styles::enums::Geometry> {
+                if id >= mvengine::ui::res::CR {
+                    self.geometry.geometry_arr.get(id - mvengine::ui::res::CR).map(std::ops::Deref::deref)
+                } else {
+                    self.mv.resolve_geometry(id)
+                }
+            }
+        }
+    } else {
+        quote! {
+             fn resolve_geometry(&self, id: usize) -> Option<&mvengine::ui::styles::enums::Geometry> {
+                self.geometry.geometry_arr.get(id).map(std::ops::Deref::deref)
+            }
+        }
+    };
+
 
     // ########################################
     // ###########  R struct setup ############
@@ -474,6 +522,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             #animation_resolve_fn_ts
             #composite_resolve_fn_ts
             #drawable_resolve_fn_ts
+            #geometry_resolve_fn_ts
 
             fn tick_all_animations(&self) {
                 use std::ops::Deref;
@@ -506,6 +555,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         #animation_struct_ts
         #composite_struct_ts
         #drawable_struct_ts
+        #geometry_struct_ts
 
         #tile_struct_ts
 
@@ -514,7 +564,9 @@ pub fn r(input: TokenStream) -> TokenStream {
 
         impl #r_ident {
             pub fn initialize() {
+                log::info!("Loading resources...");
                 #init_fn_ts
+                log::info!("Resource loading complete.");
             }
         }
 
@@ -535,6 +587,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                 save_res_array_as_vec(saver, &self.animation.animation_arr);
                 save_array_as_vec(saver, &self.composite.composite_arr);
                 save_array_as_vec(saver, &self.drawable.drawable_arr);
+                save_array_as_vec(saver, &self.geometry.geometry_arr);
             }
 
             fn load_res(loader: &mut impl mvutils::save::Loader, resources: &impl mvengine::ui::context::UiResources) -> Result<Self, String> {

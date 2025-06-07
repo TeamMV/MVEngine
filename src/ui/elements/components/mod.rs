@@ -21,7 +21,7 @@ use mvutils::utils::Percentage;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::ui::anim::easing;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::styles::enums::{BackgroundRes, UiShape};
+use crate::ui::styles::enums::{BackgroundRes, Geometry};
 use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 
@@ -181,13 +181,13 @@ impl ElementBody {
         if resolved.is_set() && !resource.is_none() {
             let resolved = resolved.unwrap();
             match resolved.deref().clone() {
-                UiShape::Shape(s) => {
+                Geometry::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
                     if let Some(shape) = shape {
                         Self::draw_background_shape(shape.clone(), elem, ctx, context);
                     }
                 }
-                UiShape::Adaptive(a) => {
+                Geometry::Adaptive(a) => {
                     let shape = get_adaptive!(res, a).ok();
                     if let Some(shape) = shape {
                         Self::draw_background_adaptive(shape, elem, ctx, context);
@@ -201,13 +201,13 @@ impl ElementBody {
         if resolved.is_set() && !resource.is_none() {
             let resolved = resolved.unwrap();
             match resolved.deref().clone() {
-                UiShape::Shape(s) => {
+                Geometry::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
                     if let Some(shape) = shape {
                         Self::draw_border_shape(shape.clone(), elem, ctx, context);
                     }
                 }
-                UiShape::Adaptive(a) => {
+                Geometry::Adaptive(a) => {
                     let shape = get_adaptive!(res, a).ok();
                     if let Some(shape) = shape {
                         Self::draw_border_adaptive(shape, elem, ctx, context);
