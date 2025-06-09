@@ -6,9 +6,7 @@ pub struct EventBus<Event> {
 
 impl<Event> EventBus<Event> {
     pub fn new() -> Self {
-        Self {
-            receivers: vec![],
-        }
+        Self { receivers: vec![] }
     }
 
     pub fn dispatch(&mut self, event: &mut Event) {
@@ -31,7 +29,7 @@ pub trait EventReceiver<Event> {
 }
 
 pub struct EventQueue<Event> {
-    events: VecDeque<Event>
+    events: VecDeque<Event>,
 }
 
 impl<Event> EventQueue<Event> {
@@ -40,7 +38,7 @@ impl<Event> EventQueue<Event> {
             events: VecDeque::new(),
         }
     }
-    
+
     pub fn dispatch_new(&mut self, event: Event) {
         self.events.push_back(event);
     }

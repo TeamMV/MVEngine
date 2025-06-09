@@ -1,3 +1,9 @@
+use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
+use bytebuffer::{ByteBuffer, Endian};
+use crossbeam_channel::Sender;
+use log::{debug, error, info, warn};
+use mvutils::save::Savable;
+use parking_lot::RwLock;
 use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
@@ -5,22 +11,19 @@ use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use bytebuffer::{ByteBuffer, Endian};
-use crossbeam_channel::Sender;
-use log::{debug, error, info, warn};
-use mvutils::save::Savable;
-use parking_lot::RwLock;
-use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
 
 pub struct Client<In: Savable, Out: Savable> {
     _maker: PhantomData<In>,
     _thread: JoinHandle<()>,
     disconnect_sender: Sender<DisconnectReason>,
-    packet_sender: Sender<Out>
+    packet_sender: Sender<Out>,
 }
 
 impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
-    pub fn connect<Handler: ClientHandler<In> + Sync + 'static>(to: impl ToSocketAddrs, handler: Arc<RwLock<Handler>>) -> Option<Self> {
+    pub fn connect<Handler: ClientHandler<In> + Sync + 'static>(
+        to: impl ToSocketAddrs,
+        handler: Arc<RwLock<Handler>>,
+    ) -> Option<Self> {
         let tcp = TcpStream::connect(to);
         if let Err(e) = tcp {
             error!("Could not connect to server, {e}");
@@ -108,7 +111,8 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                             | ErrorKind::UnexpectedEof
                             | ErrorKind::BrokenPipe
                             | ErrorKind::NotConnected => {
-                                if let Err(e) = disconnect_sen.send(DisconnectReason::Disconnected) {
+                                if let Err(e) = disconnect_sen.send(DisconnectReason::Disconnected)
+                                {
                                     warn!("Error when attempting to send disconnect to server thread: {e}");
                                 }
                             }

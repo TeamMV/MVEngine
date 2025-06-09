@@ -69,7 +69,9 @@ impl TryFrom<String> for Unit {
         macro_rules! parse_unit {
             ($inp:ident, $suffix:literal, $variant:ident, $type:ty) => {
                 if let Some(num) = $inp.strip_suffix($suffix) {
-                    return num.trim().parse::<$type>()
+                    return num
+                        .trim()
+                        .parse::<$type>()
                         .map(Unit::$variant)
                         .map_err(|_| format!("Invalid value for unit '{}': '{}'", $suffix, num));
                 }

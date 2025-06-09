@@ -201,7 +201,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     {
                         let tex = mvengine::rendering::texture::NoCtxTexture::new(include_bytes!(#path), #linear);
                         tex
-                    }
+                    },
                 }
             } else {
                 quote! {
@@ -415,7 +415,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                 }
             };
 
-            quote! { mvutils::once::Lazy::new(|| #init_ts) }
+            quote! { mvutils::once::Lazy::new(|| #init_ts), }
         }
     );
 
@@ -459,7 +459,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                 }
             };
 
-            quote! { mvutils::once::Lazy::new(|| #init_ts) }
+            quote! { mvutils::once::Lazy::new(|| #init_ts), }
         }
     );
 

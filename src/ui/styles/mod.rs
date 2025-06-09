@@ -1,26 +1,28 @@
 pub mod enums;
 pub mod groups;
-pub mod types;
 pub mod interpolate;
+pub mod types;
 pub mod unit;
 
 use crate::blanked_partial_ord;
-use crate::color::{RgbColor};
+use crate::color::RgbColor;
 use crate::ui::elements::{UiElement, UiElementState, UiElementStub};
 use crate::ui::res::MVR;
+use crate::ui::styles::enums::Overflow;
+use crate::ui::styles::groups::{ScrollBarStyle, VectorField};
+use crate::ui::styles::interpolate::BasicInterpolatable;
+use crate::ui::styles::types::Dimension;
+use crate::window::Window;
+use enums::{BackgroundRes, ChildAlign, Direction, Geometry, Origin, Position, TextAlign, TextFit};
+use groups::{LayoutField, ShapeStyle, SideStyle, TextStyle, TransformStyle};
+use interpolate::Interpolator;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::{enum_val_ref, lazy};
 use std::any::TypeId;
 use std::rc::Rc;
 use std::str::FromStr;
-use enums::{BackgroundRes, ChildAlign, Direction, Origin, Position, TextAlign, TextFit, Geometry};
-use groups::{LayoutField, ShapeStyle, SideStyle, TextStyle, TransformStyle};
-use interpolate::Interpolator;
 use unit::Unit;
-use crate::ui::styles::groups::VectorField;
-use crate::ui::styles::interpolate::BasicInterpolatable;
-use crate::ui::styles::types::Dimension;
-use crate::window::Window;
+use crate::ui::elements::components::scroll;
 
 lazy! {
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
@@ -65,6 +67,23 @@ lazy! {
             rotate: UiValue::Just(0.0).to_field().to_resolve(),
             origin: UiValue::Just(Origin::BottomLeft).to_field().to_resolve(),
         },
+        overflow_x: UiValue::Just(Overflow::Normal).to_resolve(),
+        overflow_y: UiValue::Just(Overflow::Normal).to_resolve(),
+        scrollbar: ScrollBarStyle {
+            track: ShapeStyle {
+                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
+                color: UiValue::Just(scroll::OUTER_COLOR.clone()).to_resolve(),
+                texture: UiValue::None.to_resolve(),
+                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+            },
+            knob: ShapeStyle {
+                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
+                color: UiValue::Just(scroll::INNER_COLOR.clone()).to_resolve(),
+                texture: UiValue::None.to_resolve(),
+                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+            },
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+        }
     };
 
     pub static EMPTY_STYLE: UiStyle = UiStyle {
@@ -108,6 +127,23 @@ lazy! {
             rotate: UiValue::Unset.to_field().to_resolve(),
             origin: UiValue::Unset.to_field().to_resolve(),
         },
+        overflow_x: UiValue::Unset.to_resolve(),
+        overflow_y: UiValue::Unset.to_resolve(),
+        scrollbar: ScrollBarStyle {
+            track: ShapeStyle {
+                resource: UiValue::Unset.to_resolve(),
+                color: UiValue::Unset.to_resolve(),
+                texture: UiValue::Unset.to_resolve(),
+                shape: UiValue::Unset.to_resolve(),
+            },
+            knob: ShapeStyle {
+                resource: UiValue::Unset.to_resolve(),
+                color: UiValue::Unset.to_resolve(),
+                texture: UiValue::Unset.to_resolve(),
+                shape: UiValue::Unset.to_resolve(),
+            },
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+        }
     };
 }
 
@@ -174,6 +210,10 @@ pub struct UiStyle {
 
     pub text: TextStyle,
     pub transform: TransformStyle,
+
+    pub overflow_x: Resolve<Overflow>,
+    pub overflow_y: Resolve<Overflow>,
+    pub scrollbar: ScrollBarStyle,
 }
 
 unsafe impl Sync for UiStyle {}
@@ -196,8 +236,11 @@ impl UiStyle {
         self.border.merge_unset(&other.border);
         self.text.merge_unset(&other.text);
         self.transform.merge_unset(&other.transform);
+        self.overflow_x.merge_unset(&other.overflow_x);
+        self.overflow_y.merge_unset(&other.overflow_y);
+        self.scrollbar.merge_unset(&other.scrollbar);
     }
-    
+
     pub fn merge_at_set_of(&mut self, to: &UiStyle) {
         self.x.merge_at_set(&to.x);
         self.y.merge_at_set(&to.y);
@@ -214,6 +257,9 @@ impl UiStyle {
         self.border.merge_at_set(&to.border);
         self.text.merge_at_set(&to.text);
         self.transform.merge_at_set(&to.transform);
+        self.overflow_x.merge_at_set(&to.overflow_x);
+        self.overflow_y.merge_at_set(&to.overflow_y);
+        self.scrollbar.merge_at_set(&to.scrollbar);
     }
 }
 
@@ -306,9 +352,9 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
             *self = other.clone();
         }
     }
-    
+
     pub fn merge_at_set(&mut self, to: &Resolve<T>) {
-        if !to.is_unset() { 
+        if !to.is_unset() {
             *self = to.clone();
         }
     }
@@ -357,7 +403,7 @@ impl<T: FromStr + Clone> FromStr for UiValue<T> {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let lower = value.trim().to_lowercase();
-        
+
         match lower.as_str() {
             "unset" => Ok(UiValue::Unset),
             "none" => Ok(UiValue::None),
@@ -365,7 +411,9 @@ impl<T: FromStr + Clone> FromStr for UiValue<T> {
             "inherit" => Ok(UiValue::Inherit),
             _ => {
                 if let Some(num_str) = lower.strip_suffix('%') {
-                    let parsed = num_str.trim().parse::<f32>()
+                    let parsed = num_str
+                        .trim()
+                        .parse::<f32>()
                         .map_err(|_| format!("Invalid percentage: {}", value))?;
                     return Ok(UiValue::Percent(parsed / 100.0));
                 }
@@ -373,8 +421,9 @@ impl<T: FromStr + Clone> FromStr for UiValue<T> {
                 if let Ok(unit) = Unit::try_from(lower.clone()) {
                     return Ok(UiValue::Measurement(unit));
                 }
-                
-                let t = T::from_str(value).map_err(|_| format!("{value} cannot be parsed into string!"))?;
+
+                let t = T::from_str(value)
+                    .map_err(|_| format!("{value} cannot be parsed into string!"))?;
                 Ok(UiValue::Just(t))
             }
         }
@@ -459,7 +508,7 @@ impl ResolveResult<i32> {
         default: &Resolve<i32>,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
-        sup: &impl InheritSupplier
+        sup: &impl InheritSupplier,
     ) -> i32
     where
         F: Fn(&dyn InheritSupplier) -> i32,
@@ -477,7 +526,7 @@ impl ResolveResult<i32> {
         &self,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
-        sup: &impl InheritSupplier
+        sup: &impl InheritSupplier,
     ) -> i32
     where
         F: Fn(&dyn InheritSupplier) -> i32,
@@ -505,12 +554,13 @@ impl ResolveResult<f32> {
         default: &Resolve<f32>,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
+        sup: &impl InheritSupplier
     ) -> f32
     where
-        F: Fn(&UiElementState) -> f32,
+        F: Fn(&dyn InheritSupplier) -> f32,
     {
         if self.is_percent() {
-            return self.resolve_percent(maybe_parent, map);
+            return self.resolve_percent(maybe_parent, map, sup);
         }
         match self {
             Self::Value(t) => t,
@@ -522,16 +572,17 @@ impl ResolveResult<f32> {
         &self,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
+        sup: &impl InheritSupplier
     ) -> f32
     where
-        F: Fn(&UiElementState) -> f32,
+        F: Fn(&dyn InheritSupplier) -> f32,
     {
         if let Some(parent) = maybe_parent {
             let binding = parent.get();
             let total = map(binding.state());
             self.compute_percent(total)
         } else {
-            0.0
+            self.compute_percent(map(sup))
         }
     }
 }
@@ -660,8 +711,13 @@ pub trait InheritSupplier {
     fn y(&self) -> i32;
     fn width(&self) -> i32;
     fn height(&self) -> i32;
-    fn paddings(&self) -> [i32; 4] { [0; 4] }
-    fn margins(&self) -> [i32; 4] { [0; 4] }
+    fn paddings(&self) -> [i32; 4] {
+        [0; 4]
+    }
+    fn margins(&self) -> [i32; 4] {
+        [0; 4]
+    }
+    fn rotation(&self) -> f32 { 0.0 }
 }
 
 impl InheritSupplier for Window {

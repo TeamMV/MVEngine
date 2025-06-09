@@ -1,13 +1,13 @@
-use std::str::FromStr;
-use hashbrown::HashMap;
 use crate::utils::Expect2;
+use hashbrown::HashMap;
+use std::str::FromStr;
 
 pub struct ParsedArgs {
-    args: HashMap<String, String>
+    args: HashMap<String, String>,
 }
 
 impl ParsedArgs {
-    pub fn parse(mut arg_iter: impl Iterator<Item=String>) -> Self {
+    pub fn parse(mut arg_iter: impl Iterator<Item = String>) -> Self {
         let mut arg = arg_iter.next();
         let mut map = HashMap::new();
         let mut last_key = None;
@@ -24,7 +24,9 @@ impl ParsedArgs {
     }
 
     pub fn get(&self, key: &str) -> &str {
-        self.args.get(key).expect(&format!("Argument '{key}' does not exist!"))
+        self.args
+            .get(key)
+            .expect(&format!("Argument '{key}' does not exist!"))
     }
 
     pub fn try_get(&self, key: &str) -> Option<&str> {
@@ -32,7 +34,10 @@ impl ParsedArgs {
     }
 
     pub fn get_as<T: FromStr>(&self, key: &str) -> T {
-        let s = self.args.get(key).expect(&format!("Argument '{key}' does not exist!"));
+        let s = self
+            .args
+            .get(key)
+            .expect(&format!("Argument '{key}' does not exist!"));
         T::from_str(s).expect2("The argument '{key}' couldnt be parsed into T!")
     }
 

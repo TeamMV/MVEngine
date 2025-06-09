@@ -1,9 +1,9 @@
-use std::num::ParseIntError;
-use std::str::FromStr;
 use crate::ui::elements::UiElementState;
+use crate::ui::parse::parse_num;
 use crate::ui::res::MVR;
 use mvutils::{Savable, TryFromString};
-use crate::ui::parse::parse_num;
+use std::num::ParseIntError;
+use std::str::FromStr;
 
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
 pub enum Origin {
@@ -105,7 +105,15 @@ pub enum TextAlign {
     Start,
     #[default]
     Middle,
-    End
+    End,
+}
+
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+pub enum Overflow {
+    Always,
+    Never,
+    #[default]
+    Normal,
 }
 
 #[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
@@ -128,7 +136,9 @@ impl FromStr for ChildAlign {
         let mut in_num = false;
         let mut done = false;
         for c in value.chars() {
-            if done { continue }
+            if done {
+                continue;
+            }
             if in_num {
                 if c == ')' {
                     done = true;
@@ -150,10 +160,16 @@ impl FromStr for ChildAlign {
             "start" => Ok(ChildAlign::Start),
             "end" => Ok(ChildAlign::End),
             "middle" => Ok(ChildAlign::Middle),
-            "start_offset" => Ok(ChildAlign::OffsetStart(parse_num::<i32, ParseIntError>(num.as_str())?)),
-            "end_offset" => Ok(ChildAlign::OffsetEnd(parse_num::<i32, ParseIntError>(num.as_str())?)),
-            "middle_offset" => Ok(ChildAlign::OffsetMiddle(parse_num::<i32, ParseIntError>(num.as_str())?)),
-            _ => Err(format!("ChildAlign '{name}' unknown!"))
+            "start_offset" => Ok(ChildAlign::OffsetStart(parse_num::<i32, ParseIntError>(
+                num.as_str(),
+            )?)),
+            "end_offset" => Ok(ChildAlign::OffsetEnd(parse_num::<i32, ParseIntError>(
+                num.as_str(),
+            )?)),
+            "middle_offset" => Ok(ChildAlign::OffsetMiddle(parse_num::<i32, ParseIntError>(
+                num.as_str(),
+            )?)),
+            _ => Err(format!("ChildAlign '{name}' unknown!")),
         }
     }
 }
@@ -186,7 +202,9 @@ impl FromStr for Geometry {
         let mut in_num = false;
         let mut done = false;
         for c in value.chars() {
-            if done { continue }
+            if done {
+                continue;
+            }
             if in_num {
                 if c == ')' {
                     done = true;
@@ -205,9 +223,13 @@ impl FromStr for Geometry {
         }
 
         match name.as_str() {
-            "shape" => Ok(Geometry::Shape(parse_num::<usize, ParseIntError>(num.as_str())?)),
-            "adaptive" => Ok(Geometry::Adaptive(parse_num::<usize, ParseIntError>(num.as_str())?)),
-            _ => Err(format!("ChildAlign '{name}' unknown!"))
+            "shape" => Ok(Geometry::Shape(parse_num::<usize, ParseIntError>(
+                num.as_str(),
+            )?)),
+            "adaptive" => Ok(Geometry::Adaptive(parse_num::<usize, ParseIntError>(
+                num.as_str(),
+            )?)),
+            _ => Err(format!("ChildAlign '{name}' unknown!")),
         }
     }
 }

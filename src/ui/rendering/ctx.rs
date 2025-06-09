@@ -1,3 +1,4 @@
+use crate::math::vec::Vec4;
 use crate::rendering::control::RenderController;
 use crate::rendering::texture::Texture;
 use crate::rendering::{RenderContext, Transform};
@@ -6,9 +7,8 @@ use crate::ui::rendering::arc::ArcCtx;
 use crate::ui::rendering::rectangle::RectangleCtx;
 use crate::ui::rendering::triangle::TriangleCtx;
 use crate::ui::rendering::UiRenderer;
-use crate::window::Window;
-use crate::math::vec::Vec4;
 use crate::ui::styles::InheritSupplier;
+use crate::window::Window;
 
 pub fn transform() -> TransformCtx {
     TransformCtx::new()
@@ -143,7 +143,7 @@ impl TransformCtx {
 pub struct TextureCtx {
     pub(crate) texture: Option<Texture>,
     pub(crate) blending: f32,
-    pub(crate) uv: Vec4
+    pub(crate) uv: Vec4,
 }
 
 impl TextureCtx {

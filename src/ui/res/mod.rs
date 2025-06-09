@@ -25,10 +25,10 @@ r! {
         </colors>
         <shapes>
             <shape name="rect" src="shapes/rect.msf"/>
-            <shape name="round_rect" src="shapes/round_rect.msf"/>
         </shapes>
         <adaptives>
             <adaptive name="void_rect" src="shapes/void_rect.msf"/>
+            <adaptive name="round_rect" src="shapes/round_rect.msf"/>
         </adaptives>
         <textures>
             <texture name="test" src="textures/img.png"/>
@@ -58,6 +58,8 @@ r! {
         </drawables>
         <geometries>
             <geometry name="rect" type="shape" ref="rect"/>
+            <geometry name="round_rect" type="adaptive" ref="round_rect"/>
+            <geometry name="void_rect" type="adaptive" ref="void_rect"/>
         </geometries>
     </resources>
 }

@@ -1,10 +1,10 @@
 use crate::input::registry::ActionInputProcessor;
 use crate::input::{Input, RawInputEvent};
 use crate::ui::Ui;
+use crate::window::Window;
 use mvutils::unsafe_utils::DangerousCell;
 use parking_lot::Mutex;
 use std::sync::Arc;
-use crate::window::Window;
 
 pub trait InputProcessor {
     fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window);
@@ -24,7 +24,7 @@ pub trait InputProcessor {
 pub struct InputCollector {
     pub(crate) action_processor: ActionInputProcessor,
     targets: Vec<Arc<Mutex<dyn InputProcessor>>>,
-    ui: Arc<DangerousCell<Ui>>
+    ui: Arc<DangerousCell<Ui>>,
 }
 
 impl InputCollector {
@@ -41,8 +41,11 @@ impl InputCollector {
     }
 
     pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
-        self.ui.get_mut().digest_action(action.clone(), input, window);
-        self.action_processor.digest_action(action.clone(), input, window);
+        self.ui
+            .get_mut()
+            .digest_action(action.clone(), input, window);
+        self.action_processor
+            .digest_action(action.clone(), input, window);
         for target in &mut self.targets {
             let mut lock = target.lock();
             if lock.is_enabled() {

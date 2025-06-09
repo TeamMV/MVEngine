@@ -1,54 +1,66 @@
-use std::rc::{Rc, Weak};
-use mvutils::enum_val_ref_mut;
+use crate::input::{Input, RawInputEvent};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
+use crate::ui::elements::components::scroll::ScrollBars;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::UiStyle;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use crate::input::{Input, RawInputEvent};
 use crate::ui::styles::types::Dimension;
+use crate::ui::styles::UiStyle;
+use mvutils::enum_val_ref_mut;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use std::rc::{Rc, Weak};
 
 #[derive(Clone)]
 pub struct Div {
     rc: Weak<DangerousCell<UiElement>>,
-    
+
     context: UiContext,
     attributes: Attributes,
     style: UiStyle,
     state: UiElementState,
     body: ElementBody,
+    scroll: ScrollBars,
 }
 
 impl UiElementCallbacks for Div {
-    fn draw(&mut self, ctx: &mut DrawContext2D) {
+    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
-        self.body.draw(this, ctx, &self.context);
+        self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {
                 Child::String(_) => {}
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx);
+                    guard.draw(ctx, &this.state.content_rect.bounding.create_intersection(crop_area));
                 }
                 Child::State(_) => {}
+                _ => {}
             }
         }
+        self.scroll.draw(this, ctx, &self.context, crop_area);
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
         self.body.on_input(unsafe_self, action.clone(), input);
-        
+
         for elem in &self.state.children {
             if let Child::Element(child) = elem {
                 let child = child.get_mut();
-                child.raw_input(action.clone(), input);
+                if child.raw_input(action.clone(), input) {
+                    return true;
+                }
             }
         }
-        true
+
+        if self.super_input(action.clone(), input) {
+            return true;
+        }
+        
+        false
     }
 }
 
@@ -64,6 +76,7 @@ impl UiElementStub for Div {
             style,
             state: UiElementState::new(),
             body: ElementBody::new(),
+            scroll: ScrollBars {},
         };
 
         let rc = Rc::new(DangerousCell::new(this.wrap()));

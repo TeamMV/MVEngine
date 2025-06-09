@@ -1,13 +1,7 @@
-middle_rect = rect[x20y20w60h60];
-top_strip = rect[x20y80w60h20];
-bottom_strip = rect[x20y0w60h20];
-left_strip = rect[x0y20w20h60];
-right_strip = rect[x80y20w20h60];
-
-bl = arc[c[x20y20]a90r20t[r180o[x20y20]]];
-tl = arc[c[x20y80]a90r20t[r90o[x20y80]]];
-tr = arc[c[x80y80]a90r20t[r0o[x80y80]]];
-br = arc[c[x80y20]a90r20t[r270o[x80y20]]];
+bl = arc[c[x5y5]a90tc3r5t[r180o[x5y5]]];
+tl = arc[c[x5y0]a90tc3r5t[r90o[x5y0]]];
+tr = arc[c[x0y0]a90tc3r5t[r0o[x0y0]]];
+br = arc[c[x0y5]a90tc3r5t[r270o[x0y5]]];
 
 >bl;
 apply;
@@ -18,13 +12,24 @@ apply;
 >br;
 apply;
 
->middle_rect;
-combine top_strip;
-combine bottom_strip;
-combine left_strip;
-combine right_strip;
-combine bl;
-combine tl;
-combine tr;
-combine br;
+r = rect[x0y0w5h5];
+>r;
+export t;
+export l;
+export b;
+export r;
+export c;
+
+>bl;
+export bl;
+
+>tl;
+export tl;
+
+>tr;
+export tr;
+
+>br;
+export br;
+
 export;

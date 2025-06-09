@@ -2,6 +2,7 @@ use crate::input::collect::InputProcessor;
 use crate::input::{Input, RawInputEvent};
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
+use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::window::Window;
 use mvutils::once::CreateOnce;
@@ -38,7 +39,7 @@ impl Ui {
             root_elems: vec![],
         }
     }
-    
+
     pub fn init(&mut self, resources: &'static dyn UiResources) {
         self.context.create(|| UiContext::new(resources));
     }
@@ -67,10 +68,10 @@ impl Ui {
         }
     }
 
-    pub fn draw(&mut self, ctx: &mut DrawContext2D) {
+    pub fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
-            guard.draw(ctx);
+            guard.draw(ctx, crop_area);
         }
     }
 
@@ -78,10 +79,10 @@ impl Ui {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
             guard.compute_styles(ctx);
-            guard.draw(ctx);
+            guard.draw(ctx, &ctx.renderer().area());
         }
     }
-    
+
     pub fn end_frame(&mut self) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();

@@ -3,9 +3,9 @@ use crate::input::{Input, KeyboardAction, MouseAction};
 use crate::ui::elements::child::Child;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::styles::types::Point;
+use crate::window::Window;
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
-use crate::window::Window;
 
 pub struct UiEvents {
     last_inside: bool,
@@ -13,7 +13,7 @@ pub struct UiEvents {
     pub hover_event: Option<UiHoverEvent>,
     pub scroll_event: Option<UiScrollEvent>,
     pub move_event: Option<UiMoveEvent>,
-    pub global_move_event: Option<UiMoveEvent>
+    pub global_move_event: Option<UiMoveEvent>,
 }
 
 impl UiEvents {
@@ -27,7 +27,7 @@ impl UiEvents {
             global_move_event: None,
         }
     }
-    
+
     pub fn after_frame(&mut self) {
         self.click_event = None;
         self.hover_event = None;
@@ -41,11 +41,11 @@ impl UiEvents {
         action: MouseAction,
         elem: &mut UiElement,
         input: &Input,
-        window: &mut Window
-    ) -> bool {        
+        window: &mut Window,
+    ) -> bool {
         let state = elem.state();
         let state = unsafe { Unsafe::cast_static(state) };
-        
+
         let mut used = false;
         for child in &state.children {
             match child {
@@ -53,7 +53,8 @@ impl UiEvents {
                     let child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
                     let child_events: &mut UiEvents = Unsafe::cast_mut_static(child_events);
-                    let res = child_events.mouse_change(action.clone(), &mut *child_guard, input, window);
+                    let res =
+                        child_events.mouse_change(action.clone(), &mut *child_guard, input, window);
                     if res {
                         used = res;
                     }

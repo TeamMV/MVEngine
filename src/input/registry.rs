@@ -1,18 +1,18 @@
 use crate::input::collect::InputProcessor;
 use crate::input::consts::{Key, MouseButton};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::window::Window;
+use bytebuffer::ByteBuffer;
 use hashbrown::{HashMap, HashSet};
+use itertools::Itertools;
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::save::Savable;
+use mvutils::Savable;
 use std::fmt::Debug;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::mem;
-use bytebuffer::ByteBuffer;
-use itertools::Itertools;
-use mvutils::bytebuffer::ByteBufferExtras;
-use mvutils::Savable;
-use mvutils::save::Savable;
-use crate::window::Window;
 
 #[derive(Debug)]
 pub enum State {
@@ -118,7 +118,7 @@ impl ActionInputProcessor {
             inputs: Default::default(),
         }
     }
-    
+
     pub fn is_raw_input(&self, input: RawInput) -> bool {
         self.inputs.contains(&input)
     }

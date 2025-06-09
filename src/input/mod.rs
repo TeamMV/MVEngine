@@ -1,15 +1,15 @@
-use std::fs::File;
-use std::io::{Error, ErrorKind};
-use std::path::PathBuf;
 use crate::input::collect::{InputCollector, InputProcessor};
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::{ActionInputProcessor, InputRegistry};
+use crate::ui::Ui;
 use bitflags::Bits;
-use parking_lot::Mutex;
-use std::sync::Arc;
 use log::error;
 use mvutils::unsafe_utils::DangerousCell;
-use crate::ui::Ui;
+use parking_lot::Mutex;
+use std::fs::File;
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 pub mod collect;
 pub mod consts;
@@ -26,7 +26,7 @@ pub enum KeyboardAction {
     Press(Key),
     Release(Key),
     Type(Key),
-    Char(char)
+    Char(char),
 }
 
 #[derive(Clone, Debug)]
@@ -107,7 +107,10 @@ impl Input {
     pub fn load_actions(&mut self, from: &PathBuf) -> Result<(), String> {
         let mut from = from.clone();
         from.push(FILENAME);
-        let mut file = File::options().read(true).open(&from).map_err(|x| x.to_string())?;
+        let mut file = File::options()
+            .read(true)
+            .open(&from)
+            .map_err(|x| x.to_string())?;
 
         let reg = &mut self.collector.action_processor.registry;
         reg.load_from_file(&mut file)

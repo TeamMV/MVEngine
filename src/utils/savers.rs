@@ -1,7 +1,7 @@
-use std::ops::Deref;
-use std::sync::Arc;
 use bytebuffer::{ByteBuffer, Endian};
 use mvutils::save::{Loader, Savable, Saver};
+use std::ops::Deref;
+use std::sync::Arc;
 
 pub fn save_arc_by_clone<T: Savable>(saver: &mut impl Saver, arc: &Arc<T>) {
     arc.save(saver)
@@ -42,14 +42,12 @@ pub fn save_to_vec<T: Savable>(t: &T) -> Vec<u8> {
 /// assert_ne!(f1, f2);
 /// ```
 pub struct SaveArc<T> {
-    inner: Arc<T>
+    inner: Arc<T>,
 }
 
 impl<T> SaveArc<T> {
     pub fn new(t: T) -> Self {
-        Self {
-            inner: Arc::new(t),
-        }
+        Self { inner: Arc::new(t) }
     }
 
     pub fn arc(&self) -> &Arc<T> {
@@ -86,8 +84,6 @@ impl<T> Clone for SaveArc<T> {
 
 impl<T> From<Arc<T>> for SaveArc<T> {
     fn from(value: Arc<T>) -> Self {
-        Self {
-            inner: value
-        }
+        Self { inner: value }
     }
 }

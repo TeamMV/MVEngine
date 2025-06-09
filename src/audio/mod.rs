@@ -1,21 +1,21 @@
-pub mod mixer;
-pub mod source;
 pub mod decode;
 pub mod dj;
+pub mod mixer;
+pub mod source;
 
-use std::f32::consts::PI;
-use std::sync::Arc;
-use cpal::{Stream};
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use log::{error, info};
-use parking_lot::Mutex;
 use crate::audio::mixer::AudioMixer;
 use crate::audio::source::{Sound, SoundWithAttributes};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::Stream;
+use log::{error, info};
+use parking_lot::Mutex;
+use std::f32::consts::PI;
+use std::sync::Arc;
 
 pub struct AudioEngine {
     mixer: Arc<Mutex<AudioMixer>>,
     _stream: Stream,
-    sample_rate: u32
+    sample_rate: u32,
 }
 
 impl AudioEngine {
@@ -37,27 +37,32 @@ impl AudioEngine {
                 let cloned_mixer = mixer.clone();
 
                 let sample_rate = config.sample_rate().0;
-                
-                let stream = device.build_output_stream(&config.config(), move |data: &mut [f32], _| {
-                    for sample in data.chunks_mut(config.channels() as usize) {
-                        let tone = mixer.lock().get_current_sample(index, sample_rate);
 
-                        sample[0] = tone.0;
-                        sample[1] = tone.1;
+                let stream = device.build_output_stream(
+                    &config.config(),
+                    move |data: &mut [f32], _| {
+                        for sample in data.chunks_mut(config.channels() as usize) {
+                            let tone = mixer.lock().get_current_sample(index, sample_rate);
 
-                        index = index.wrapping_add(1);
-                    }
-                }, |e| {
-                    error!("Error during audio playback: {e}");
-                }, None);
+                            sample[0] = tone.0;
+                            sample[1] = tone.1;
+
+                            index = index.wrapping_add(1);
+                        }
+                    },
+                    |e| {
+                        error!("Error during audio playback: {e}");
+                    },
+                    None,
+                );
 
                 if let Ok(stream) = stream {
                     stream.play().ok()?;
                     return Some(Self {
                         _stream: stream,
                         mixer: cloned_mixer,
-                        sample_rate
-                    })
+                        sample_rate,
+                    });
                 } else {
                     error!("Error playing stream")
                 }
@@ -66,10 +71,9 @@ impl AudioEngine {
             }
         }
 
-
         None
     }
-    
+
     pub fn play_sound(&self, sound: Arc<SoundWithAttributes>) {
         self.mixer.lock().play(sound)
     }
@@ -92,6 +96,6 @@ pub fn gen_sin_wave(freq: u32, rate: u32, duration: u32) -> Arc<Sound> {
         let sample = (2.0 * PI * freq * t).sin();
         samples.push(sample);
     }
-    
+
     Sound::from_raw(1, rate as u32, samples)
 }

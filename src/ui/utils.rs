@@ -103,7 +103,9 @@ impl<T> OptionGetMapOr<T> for Option<T> {
 #[macro_export]
 macro_rules! expect_inner_element_by_id {
     ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
-        let __e = $parent.get().find_element_by_id($id)
+        let __e = $parent
+            .get()
+            .find_element_by_id($id)
             .expect(&format!("Element '{}' is not on parent!", $id));
         let __inner = __e.get();
         let $var = enum_val_ref!(UiElement, __inner, $elem_type);
@@ -114,7 +116,9 @@ macro_rules! expect_inner_element_by_id {
 #[macro_export]
 macro_rules! expect_inner_element_by_id_mut {
     ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
-        let __e = $parent.get().find_element_by_id($id)
+        let __e = $parent
+            .get()
+            .find_element_by_id($id)
             .expect(&format!("Element '{}' is not on parent!", $id));
         let __inner = __e.get_mut();
         let $var = enum_val_ref_mut!(UiElement, __inner, $elem_type);
@@ -124,12 +128,13 @@ macro_rules! expect_inner_element_by_id_mut {
 
 #[macro_export]
 macro_rules! expect_element_by_id {
-    ($parent:expr, $id:literal) => {
-        {
-            let e = $parent.get().find_element_by_id($id).expect(&format!("Element '{}' is not on parent!", $id));
-            e
-        }
-    };
+    ($parent:expr, $id:literal) => {{
+        let e = $parent
+            .get()
+            .find_element_by_id($id)
+            .expect(&format!("Element '{}' is not on parent!", $id));
+        e
+    }};
 }
 
 #[macro_export]

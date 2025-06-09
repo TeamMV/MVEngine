@@ -29,14 +29,27 @@ impl SimpleRect {
     }
 
     pub fn intersects(&self, other: &SimpleRect) -> bool {
-        self.x < other.x + other.width &&
-            self.x + self.width > other.x &&
-            self.y < other.y + other.height &&
-            self.y + self.height > other.y
+        self.x < other.x + other.width
+            && self.x + self.width > other.x
+            && self.y < other.y + other.height
+            && self.y + self.height > other.y
     }
 
     pub fn center(&self) -> (i32, i32) {
         (self.x + self.width / 2, self.y + self.height / 2)
+    }
+
+    pub fn create_intersection(&self, other: &SimpleRect) -> SimpleRect {
+        let x1 = self.x.max(other.x);
+        let y1 = self.y.max(other.y);
+        let x2 = (self.x + self.width).min(other.x + other.width);
+        let y2 = (self.y + self.height).min(other.y + other.height);
+
+        if x2 > x1 && y2 > y1 {
+            SimpleRect::new(x1, y1, x2 - x1, y2 - y1)
+        } else {
+            SimpleRect::new(0, 0, 0, 0)
+        }
     }
 }
 
@@ -212,7 +225,7 @@ impl Rect {
         self.y += transform.translation.y as i32;
         self.update();
     }
-    
+
     pub fn get_transform(&self) -> Transform {
         let mut t = Transform::new();
         t.origin.x = self.origin.0 as f32;

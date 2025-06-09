@@ -1,7 +1,7 @@
-use std::str::FromStr;
 use crate::ui::styles::enums::Origin;
-use mvutils::utils::TetrahedronOp;
 use crate::ui::styles::{Parseable, Resolve, UiValue};
+use mvutils::utils::TetrahedronOp;
+use std::str::FromStr;
 
 pub fn parse_4xi32(s: &str) -> Result<[i32; 4], String> {
     let parts = s
@@ -23,22 +23,28 @@ pub fn parse_4xi32_abstract(s: &str) -> Result<[Resolve<i32>; 4], String> {
         .split(",")
         .map(|x| x.trim().to_string())
         .collect::<Vec<String>>();
-    
+
     if parts.is_empty() {
-        return Err("Oh no! Insufficient data provided to construct 4xi32 (abstract edition)".to_string());
+        return Err(
+            "Oh no! Insufficient data provided to construct 4xi32 (abstract edition)".to_string(),
+        );
     }
 
     let t = UiValue::<i32>::parse(&parts[0])?.to_resolve();
-    
-    [1, 2].map(|_| 0).starts_with(&[0]).then_some(1).expect("how tf would this error");
-    
+
+    [1, 2]
+        .map(|_| 0)
+        .starts_with(&[0])
+        .then_some(1)
+        .expect("how tf would this error");
+
     match parts.len() {
         1 => Ok([0; 4].map(|_| t.clone())),
         2 => {
             let b = UiValue::<i32>::parse(&parts[1])?.to_resolve();
             Ok([t.clone(), t, b.clone(), b])
         }
-        4 =>{
+        4 => {
             let b = UiValue::<i32>::parse(&parts[1])?.to_resolve();
             let l = UiValue::<i32>::parse(&parts[2])?.to_resolve();
             let r = UiValue::<i32>::parse(&parts[3])?.to_resolve();
@@ -89,6 +95,6 @@ pub fn parse_origin(s: &str) -> Result<Origin, String> {
     }
 }
 
-pub fn parse_num<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<T, String> {
+pub fn parse_num<T: FromStr<Err = S>, S: ToString>(s: &str) -> Result<T, String> {
     s.parse().map_err(|e: S| e.to_string())
 }

@@ -3,9 +3,11 @@ pub mod components;
 pub mod events;
 pub mod implementations;
 
+use std::fmt::Pointer;
 pub use implementations::*;
 
-use crate::input::{Input, RawInputEvent};
+use crate::input::consts::MouseButton;
+use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::math::vec::Vec2;
 use crate::rendering::text::Font;
 use crate::rendering::Transform;
@@ -14,28 +16,31 @@ use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::button::Button;
 use crate::ui::elements::child::{Child, ToChild};
+use crate::ui::elements::components::drag::DragAssistant;
+use crate::ui::elements::components::scroll::ScrollBars;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::div::Div;
 use crate::ui::elements::events::UiEvents;
 use crate::ui::elements::textbox::TextBox;
-use crate::ui::geometry::Rect;
+use crate::ui::geometry::{Rect, SimpleRect};
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
-use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Position};
+use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Overflow, Position};
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::{InheritSupplier, ResolveResult};
-use crate::ui::styles::{
-    ResCon, UiStyle,
-    DEFAULT_STYLE,
-};
+use crate::ui::styles::{ResCon, UiStyle, DEFAULT_STYLE};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::ui::elements::text::Text;
 
 pub trait UiElementCallbacks {
-    fn draw(&mut self, ctx: &mut DrawContext2D);
-    
-    fn raw_input(&mut self, _action: RawInputEvent, _input: &Input) -> bool { true }
+    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect);
+
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        false
+    }
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -48,10 +53,12 @@ pub trait UiElementStub: UiElementCallbacks {
         }
     }
 
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element where Self: Sized;
+    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
+    where
+        Self: Sized;
 
     fn wrap(self) -> UiElement;
-    
+
     /// Return a valid reference counter (Rc<>) to this element. Should be implemented by storing a Weak<> inside the struct and upgrading it
     fn wrapped(&self) -> Element;
 
@@ -78,7 +85,13 @@ pub trait UiElementStub: UiElementCallbacks {
         if let Child::Element(e) = &child {
             e.get_mut().state_mut().parent = Some(self.wrapped());
         }
-        self.state_mut().children.push(child);
+        if let Child::Iterator(children) = child {
+            for c in children {
+                self.add_child(c);
+            }
+        } else {
+            self.state_mut().children.push(child);
+        }
     }
 
     fn children(&self) -> &[Child] {
@@ -90,7 +103,7 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     fn body(&self) -> &ElementBody;
-    
+
     fn body_mut(&mut self) -> &mut ElementBody;
 
     /// Checks whether a given point is inside the element
@@ -118,7 +131,6 @@ pub trait UiElementStub: UiElementCallbacks {
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         let (_, style, state) = this.components_mut();
         state.ctx.dpi = ctx.renderer().dpi() as f32;
-        
 
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
@@ -130,29 +142,32 @@ pub trait UiElementStub: UiElementCallbacks {
                 &DEFAULT_STYLE.transform.translate.x,
                 maybe_parent.clone(),
                 |s| s.width(),
-                ctx
+                ctx,
             );
         let transform_translate_y = resolve!(self, transform.translate.y)
             .unwrap_or_default_or_percentage(
                 &DEFAULT_STYLE.transform.translate.y,
                 maybe_parent.clone(),
                 |s| s.height(),
-                ctx
+                ctx,
             );
         let transform_scale_x = resolve!(self, transform.scale.x).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.scale.x,
             maybe_parent.clone(),
-            |s| s.content_rect.width() as f32,
+            |s| s.width() as f32,
+            state
         );
         let transform_scale_y = resolve!(self, transform.scale.y).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.scale.y,
             maybe_parent.clone(),
-            |s| s.content_rect.height() as f32,
+            |s| s.height() as f32,
+            state
         );
         let transform_rotation = resolve!(self, transform.rotate).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.rotate,
             maybe_parent.clone(),
-            |s| s.inner_transforms.rotation,
+            |s| s.rotation(),
+            state
         );
         let transform_origin =
             resolve!(self, transform.origin).unwrap_or_default(&DEFAULT_STYLE.origin);
@@ -164,7 +179,9 @@ pub trait UiElementStub: UiElementCallbacks {
         state.transforms.rotation += transform_rotation;
         state.transforms.origin = transform_origin;
 
-        let padding = style.padding.get(self, |s| &s.padding, |s| s.paddings(), ctx); //t, b, l, r
+        let padding = style
+            .padding
+            .get(self, |s| &s.padding, |s| s.paddings(), ctx); //t, b, l, r
         let margin = style.margin.get(self, |s| &s.margin, |s| s.margins(), ctx); //0, 1, 2, 3
 
         let direction = resolve!(self, direction);
@@ -181,7 +198,8 @@ pub trait UiElementStub: UiElementCallbacks {
         let size = resolve!(self, text.size).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.text.size,
             maybe_parent.clone(),
-            |s| s.content_rect.height() as f32,
+            |s| s.height() as f32,
+            state
         );
         let kerning = resolve!(self, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
@@ -208,6 +226,34 @@ pub trait UiElementStub: UiElementCallbacks {
         } else {
             computed_size.1 + padding[0] + padding[1]
         };
+
+        let overflow_x = resolve!(self, overflow_x).unwrap_or_default(&DEFAULT_STYLE.overflow_x);
+        let overflow_y = resolve!(self, overflow_y).unwrap_or_default(&DEFAULT_STYLE.overflow_y);
+
+        let always_x = if let Overflow::Always = overflow_x { true } else { false };
+        let always_y = if let Overflow::Always = overflow_y { true } else { false };
+
+        if let Overflow::Never = overflow_x {}
+        else {
+            if computed_size.0 > width || always_x {
+                //content overflow
+                state.scroll_x.available = true;
+                state.scroll_x.whole = computed_size.0;
+            } else {
+                state.scroll_x.available = false;
+            }
+        }
+
+        if let Overflow::Never = overflow_y {}
+        else {
+            if computed_size.1 > height || always_y {
+                //content overflow
+                state.scroll_y.available = true;
+                state.scroll_y.whole = computed_size.1;
+            } else {
+                state.scroll_y.available = false;
+            }
+        }
 
         state.rect.set_width(width);
         state.rect.set_height(height);
@@ -334,7 +380,8 @@ pub trait UiElementStub: UiElementCallbacks {
                             }
                             ChildAlign::End => state.content_rect.y() + used_height,
                             ChildAlign::Middle => {
-                                state.content_rect.y() + state.content_rect.height() / 2
+                                state.content_rect.y()
+                                    + state.content_rect.height() / 2
                                     + computed_size.1 / 2
                                     - used_height
                                     - child_state.bounding_rect.bounding.height
@@ -395,21 +442,21 @@ pub trait UiElementStub: UiElementCallbacks {
                             }
                         };
                         let cy = match child_align_y {
-                            ChildAlign::Start => state.content_rect.y(),
-                            ChildAlign::End => {
+                            ChildAlign::Start => {
                                 state.content_rect.y() + state.content_rect.height()
                                     - child_state.bounding_rect.bounding.height
                             }
+                            ChildAlign::End => state.content_rect.y(),
                             ChildAlign::Middle => {
                                 state.content_rect.y() + state.content_rect.height() / 2
                                     - child_state.bounding_rect.bounding.height / 2
                             }
-                            ChildAlign::OffsetStart(o) => state.content_rect.y() + o,
-                            ChildAlign::OffsetEnd(o) => {
+                            ChildAlign::OffsetStart(o) => {
                                 state.content_rect.y() + state.content_rect.height()
                                     - child_state.bounding_rect.bounding.height
                                     + o
                             }
+                            ChildAlign::OffsetEnd(o) => state.content_rect.y() + o,
                             ChildAlign::OffsetMiddle(o) => {
                                 state.content_rect.y() + state.content_rect.height() / 2
                                     - child_state.bounding_rect.bounding.height / 2
@@ -432,14 +479,35 @@ pub trait UiElementStub: UiElementCallbacks {
                     }
                 };
 
-                let child_padding =
-                    child_style
-                        .padding
-                        .get(child_guard.deref(), |s| &s.padding, |s| s.paddings(), ctx);
-                let child_margin =
-                    child_style
-                        .margin
-                        .get(child_guard.deref(), |s| &s.margin, |s| s.margins(), ctx);
+                let child_padding = child_style.padding.get(
+                    child_guard.deref(),
+                    |s| &s.padding,
+                    |s| s.paddings(),
+                    ctx,
+                );
+                let child_margin = child_style.margin.get(
+                    child_guard.deref(),
+                    |s| &s.margin,
+                    |s| s.margins(),
+                    ctx,
+                );
+
+                let x = if state.scroll_x.available {
+                    let screen_offset = (state.scroll_x.offset as f32
+                        / state.content_rect.width() as f32)
+                        * state.scroll_x.whole as f32;
+                    x - screen_offset as i32
+                } else {
+                    x
+                };
+                let y = if state.scroll_y.available {
+                    let screen_offset = (state.scroll_y.offset as f32
+                        / state.content_rect.height() as f32)
+                        * state.scroll_y.whole as f32;
+                    y + screen_offset as i32
+                } else {
+                    y
+                };
 
                 child_state.bounding_rect.set_x(x);
                 child_state.bounding_rect.set_y(y);
@@ -462,14 +530,14 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     fn compute_children_size(
-        state: &UiElementState,
+        state: &mut UiElementState,
         direction: &Direction,
         font: Option<&Font>,
         font_size: f32,
         font_stretch: Dimension<f32>,
         font_skew: f32,
         font_kerning: f32,
-        ctx: &DrawContext2D
+        ctx: &DrawContext2D,
     ) -> (i32, i32)
     where
         Self: Sized,
@@ -479,39 +547,64 @@ pub trait UiElementStub: UiElementCallbacks {
         for child in &state.children {
             match child {
                 Child::String(s) => {
+                    if state.requested_width.is_some() && state.requested_height.is_some() {
+                        w += state.requested_width.unwrap();
+                        h += state.requested_height.unwrap();
+                        continue;
+                    }
+                    
                     if let Some(font) = font {
                         let width = font.get_width(s, font_size);
                         let l = s.len() as f32 - 1f32;
                         let width =
                             width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
-                        w += width as i32;
-                        h = h.max(font_size as i32);
+                        
+                        if let Some(rw) = state.requested_width {
+                            w += rw;
+                        } else {
+                            w += width as i32;
+                        }
+                        if let Some(rh) = state.requested_height {
+                            h += rh;
+                        } else {
+                            h = h.max(font_size as i32);
+                        }
                     }
                 }
                 Child::Element(e) => {
                     let guard = e.get_mut();
                     guard.compute_styles(ctx);
                     let bounding = &guard.state().bounding_rect;
+                    
+                    let cw = guard.state().requested_width.unwrap_or(bounding.bounding.width);
+                    let ch = guard.state().requested_height.unwrap_or(bounding.bounding.height);
+                    
                     match direction {
                         Direction::Vertical => {
                             if !guard.state().is_height_percent {
-                                h += bounding.bounding.height;
+                                h += ch;
                             }
                             if !guard.state().is_width_percent {
-                                w = w.max(bounding.bounding.width);
+                                w = w.max(cw);
                             }
                         }
                         Direction::Horizontal => {
                             if !guard.state().is_width_percent {
-                                w += bounding.bounding.width;
+                                w += cw;
                             }
                             if !guard.state().is_height_percent {
-                                h = h.max(bounding.bounding.height);
+                                h = h.max(ch);
                             }
                         }
                     }
                 }
                 Child::State(s) => {
+                    if state.requested_width.is_some() && state.requested_height.is_some() {
+                        w += state.requested_width.unwrap();
+                        h += state.requested_height.unwrap();
+                        continue;
+                    }
+                    
                     let guard = s.read();
                     let s = guard.deref();
                     if let Some(font) = font {
@@ -519,11 +612,24 @@ pub trait UiElementStub: UiElementCallbacks {
                         let l = s.len() as f32 - 1f32;
                         let width =
                             width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
-                        w += width as i32;
-                        h = h.max(font_size as i32);
+
+                        if let Some(rw) = state.requested_width {
+                            w += rw;
+                        } else {
+                            w += width as i32;
+                        }
+                        if let Some(rh) = state.requested_height {
+                            h += rh;
+                        } else {
+                            h = h.max(font_size as i32);
+                        }
                     }
                 }
+                _ => {}
             }
+
+            state.requested_width = None;
+            state.requested_height = None;
         }
         (w, h)
     }
@@ -565,16 +671,83 @@ pub trait UiElementStub: UiElementCallbacks {
 
         res
     }
+
+    /// This is an internal function and should be called inside raw_input() on the implementation
+    fn super_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        let mut used = false;
+        //Scroll bars
+
+        let state = self.state();
+
+        let bar_extent = resolve!(self, scrollbar.size)
+            .unwrap_or_default_or_percentage(&DEFAULT_STYLE.scrollbar.size, state.parent.clone(), |s| s.width(), state);
+
+        let state = self.state_mut();
+        if state.scroll_x.available {
+            let knob = ScrollBars::x_knob(state, bar_extent);
+            let knob_w = knob.width;
+
+            let assistant = &mut state.scroll_x.assistant;
+            assistant.reference = (state.content_rect.x(), state.content_rect.y());
+            if !assistant.in_drag {
+                assistant.target = knob;
+            }
+            assistant.on_input(action.clone(), input);
+            if assistant.in_drag {
+                state.scroll_x.offset = assistant.global_offset.0;
+            }
+
+            if let RawInputEvent::Mouse(MouseAction::Wheel(dx, _)) = action {
+                if state.rect.inside(input.mouse_x, input.mouse_y) {
+                    state.scroll_x.offset += dx as i32 * 5;
+                    used = true;
+                }
+            }
+
+            state.scroll_x.offset = state
+                .scroll_x
+                .offset
+                .p_clamp(0, state.content_rect.width() - knob_w);
+        }
+
+        if state.scroll_y.available {
+            let knob = ScrollBars::y_knob(state, bar_extent);
+            let knob_h = knob.height;
+
+            let assistant = &mut state.scroll_y.assistant;
+            assistant.reference = (state.content_rect.x(), state.content_rect.y());
+            if !assistant.in_drag {
+                assistant.target = knob;
+            }
+            assistant.on_input(action.clone(), input);
+
+            let max_offset = state.content_rect.height() - knob_h;
+            if assistant.in_drag {
+                state.scroll_y.offset = (state.content_rect.height() - knob_h) - assistant.global_offset.1;
+            }
+
+            if let RawInputEvent::Mouse(MouseAction::Wheel(_, dy)) = action {
+                if state.rect.inside(input.mouse_x, input.mouse_y) {
+                    state.scroll_y.offset -= dy as i32 * 5;
+                    used = true;
+                }
+            }
+
+            state.scroll_y.offset = state.scroll_y.offset.p_clamp(0, max_offset);
+        }
+        
+        used
+    }
 }
 
 pub type Element = Rc<DangerousCell<UiElement>>;
-
 
 #[derive(Clone)]
 pub enum UiElement {
     Div(Div),
     Button(Button),
-    TextBox(TextBox)
+    TextBox(TextBox),
+    Text(Text)
 }
 
 impl ToChild for UiElement {
@@ -589,6 +762,7 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name(),
             UiElement::Button(e) => e.$fn_name(),
             UiElement::TextBox(e) => e.$fn_name(),
+            UiElement::Text(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -596,13 +770,14 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name($($args),*),
             UiElement::Button(e) => e.$fn_name($($args),*),
             UiElement::TextBox(e) => e.$fn_name($($args),*),
+            UiElement::Text(e) => e.$fn_name($($args),*),
         }
     };
 }
 
 impl UiElementCallbacks for UiElement {
-    fn draw(&mut self, ctx: &mut DrawContext2D) {
-        ui_element_fn!(self, draw(ctx));
+    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+        ui_element_fn!(self, draw(ctx, crop_area));
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
@@ -671,6 +846,25 @@ impl UiElementStub for UiElement {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct UiScrollState {
+    pub available: bool,
+    pub offset: i32,
+    pub whole: i32,
+    assistant: DragAssistant,
+}
+
+impl UiScrollState {
+    pub fn new() -> Self {
+        Self {
+            available: false,
+            offset: 0,
+            whole: 0,
+            assistant: DragAssistant::new(MouseButton::Left),
+        }
+    }
+}
+
 pub struct UiElementState {
     pub ctx: ResCon,
     pub parent: Option<Rc<DangerousCell<UiElement>>>,
@@ -695,6 +889,12 @@ pub struct UiElementState {
     pub(crate) base_style: UiStyle,
     pub(crate) is_width_percent: bool,
     pub(crate) is_height_percent: bool,
+
+    pub scroll_x: UiScrollState,
+    pub scroll_y: UiScrollState,
+    
+    pub requested_width: Option<i32>,
+    pub requested_height: Option<i32>,
 }
 
 #[derive(Clone)]
@@ -768,6 +968,10 @@ impl UiElementState {
             base_style: crate::ui::styles::EMPTY_STYLE.clone(),
             is_width_percent: false,
             is_height_percent: false,
+            scroll_x: UiScrollState::new(),
+            scroll_y: UiScrollState::new(),
+            requested_width: None,
+            requested_height: None,
         }
     }
 }
@@ -792,6 +996,10 @@ impl Clone for UiElementState {
             base_style: self.base_style.clone(),
             is_width_percent: self.is_width_percent.clone(),
             is_height_percent: self.is_height_percent.clone(),
+            scroll_x: self.scroll_x.clone(),
+            scroll_y: self.scroll_y.clone(),
+            requested_width: self.requested_width.clone(),
+            requested_height: self.requested_height.clone(),
         }
     }
 }
@@ -819,5 +1027,9 @@ impl InheritSupplier for UiElementState {
 
     fn margins(&self) -> [i32; 4] {
         self.margins
+    }
+
+    fn rotation(&self) -> f32 {
+        self.inner_transforms.rotation
     }
 }

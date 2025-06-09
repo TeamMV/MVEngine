@@ -16,7 +16,7 @@ pub struct CharData {
     pub uv: Vec4,
     pub width: f32,
     pub size: f32,
-    pub y_off: f32
+    pub y_off: f32,
 }
 
 #[derive(Clone, Savable)]
@@ -230,8 +230,14 @@ impl Font {
                 points: [
                     vertex((0.0, 0.0), (tex_coords.x, tex_coords.y + tex_coords.w)),
                     vertex((0.0, scale.y), (tex_coords.x, tex_coords.y)),
-                    vertex((scale.x, scale.y), (tex_coords.x + tex_coords.z, tex_coords.y)),
-                    vertex((scale.x, 0.0), (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w)),
+                    vertex(
+                        (scale.x, scale.y),
+                        (tex_coords.x + tex_coords.z, tex_coords.y),
+                    ),
+                    vertex(
+                        (scale.x, 0.0),
+                        (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w),
+                    ),
                 ],
             };
             controller.controller().push_quad(quad);

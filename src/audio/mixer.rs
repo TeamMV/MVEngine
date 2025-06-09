@@ -1,9 +1,10 @@
-use std::sync::Arc;
 use crate::audio::source::SoundWithAttributes;
+use std::sync::Arc;
 
-pub struct AudioMixer { //gt reference
+pub struct AudioMixer {
+    //gt reference
     playing: Vec<(Arc<SoundWithAttributes>, usize)>,
-    last_idx: usize
+    last_idx: usize,
 }
 
 impl AudioMixer {
@@ -26,8 +27,10 @@ impl AudioMixer {
             mixed.0 += s.0;
             mixed.1 += s.1;
         }
-        
-        self.playing.retain(|(sound, started)| sound.is_looping() || idx - started < sound.sound().total_samples());
+
+        self.playing.retain(|(sound, started)| {
+            sound.is_looping() || idx - started < sound.sound().total_samples()
+        });
 
         // This feels like adding empty sound would just make shit quieter randomly, perhaps just use clamp and sum instead?
         // (clamp(mixed.0, -1.0, 1.0), clamp(mixed.1, -1.0, 1.0))

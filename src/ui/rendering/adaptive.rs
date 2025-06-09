@@ -1,11 +1,12 @@
-use mvutils::Savable;
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
 use crate::rendering::control::RenderController;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiContext;
 use crate::ui::geometry::shape::Shape;
-use crate::ui::geometry::Rect;
+use crate::ui::geometry::{Rect, SimpleRect};
+use mvutils::utils::PClamp;
+use mvutils::Savable;
 
 pub const EDGE_LEFT: usize = 0;
 pub const EDGE_TOP: usize = 1;
@@ -92,6 +93,7 @@ impl AdaptiveShape {
         rect: &Rect,
         fill: AdaptiveFill,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         let controller = ctx.controller();
         let bl = &self.corners[0];
@@ -117,7 +119,15 @@ impl AdaptiveShape {
             bottom_rem -= bl.extent.0;
             left_y = bl.extent.1;
             bottom_x = bl.extent.0;
-            Self::draw_shape(bl, controller, (rect.x(), rect.y()), &fill, rect, context);
+            Self::draw_shape(
+                bl,
+                controller,
+                (rect.x(), rect.y()),
+                &fill,
+                rect,
+                context,
+                crop_area,
+            );
         }
         if let Some(br) = br {
             right_rem -= br.extent.1;
@@ -130,6 +140,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(tl) = tl {
@@ -143,6 +154,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(tr) = tr {
@@ -158,6 +170,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
 
@@ -172,6 +185,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(t) = t {
@@ -185,6 +199,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(r) = r {
@@ -198,6 +213,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(b) = b {
@@ -211,6 +227,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
         if let Some(center) = &self.center {
@@ -228,6 +245,7 @@ impl AdaptiveShape {
                 &fill,
                 rect,
                 context,
+                crop_area,
             );
         }
     }
@@ -239,12 +257,21 @@ impl AdaptiveShape {
         fill: &AdaptiveFill,
         rect: &Rect,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         for triangle in &shape.triangles {
             let mut triangle = triangle.clone();
             for point in &mut triangle.points {
                 point.pos.0 += pos.0 as f32;
                 point.pos.1 += pos.1 as f32;
+                point.pos.0 = point
+                    .pos
+                    .0
+                    .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
+                point.pos.1 = point
+                    .pos
+                    .1
+                    .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
                 point.transform.origin.x = rect.origin().0 as f32;
                 point.transform.origin.y = rect.origin().1 as f32;
                 point.transform.rotation = rect.rotation().to_radians();
@@ -287,6 +314,7 @@ impl AdaptiveShape {
         fill: &AdaptiveFill,
         rect: &Rect,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         for triangle in &shape.triangles {
             let mut triangle = triangle.clone();
@@ -295,6 +323,14 @@ impl AdaptiveShape {
                 point.pos.1 *= scale.1;
                 point.pos.0 += pos.0 as f32;
                 point.pos.1 += pos.1 as f32;
+                point.pos.0 = point
+                    .pos
+                    .0
+                    .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
+                point.pos.1 = point
+                    .pos
+                    .1
+                    .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
                 point.transform.origin.x = rect.origin().0 as f32;
                 point.transform.origin.y = rect.origin().1 as f32;
                 point.transform.rotation = rect.rotation().to_radians();

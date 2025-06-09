@@ -2,48 +2,49 @@ use crate::input::{Input, RawInputEvent};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::text::TextBody;
+use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::styles::types::Dimension;
 use crate::ui::styles::UiStyle;
+use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
-use mvutils::enum_val_ref_mut;
-use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct Button {
     rc: Weak<DangerousCell<UiElement>>,
-    
+
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
-    _initial_style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: TextBody<Button>,
+    text_body: BoringText<Button>,
 }
 
 impl UiElementCallbacks for Button {
-    fn draw(&mut self, ctx: &mut DrawContext2D) {
+    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
-        self.body.draw(this, ctx, &self.context);
+        self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {
                 Child::String(s) => {
-                    self.text_body.draw(s, this, ctx, &self.context);
+                    self.text_body.draw(s, this, ctx, &self.context, crop_area);
                 }
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx);
+                    guard.draw(ctx, crop_area);
                 }
                 Child::State(s) => {
                     let guard = s.read();
                     let s = guard.deref();
-                    self.text_body.draw(s, this, ctx, &self.context);
+                    self.text_body.draw(s, this, ctx, &self.context, crop_area);
                 }
+                _ => {}
             }
         }
     }
@@ -51,7 +52,7 @@ impl UiElementCallbacks for Button {
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
         self.body.on_input(unsafe_self, action, input);
-        true
+        false
     }
 }
 
@@ -59,22 +60,21 @@ impl UiElementStub for Button {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
         Self: Sized,
-    {        
+    {
         let this = Self {
             rc: Weak::new(),
             context: context.clone(),
             state: UiElementState::new(),
             style: style.clone(),
-            _initial_style: style.clone(),
             attributes,
             body: ElementBody::new(),
-            text_body: TextBody::new(),
+            text_body: BoringText::new(),
         };
         let rc = Rc::new(DangerousCell::new(this.wrap()));
         let e = rc.get_mut();
         let btn = enum_val_ref_mut!(UiElement, e, Button);
         btn.rc = Rc::downgrade(&rc);
-        
+
         rc
     }
 

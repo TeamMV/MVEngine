@@ -68,13 +68,9 @@ pub struct Kerning {
 
 impl Into<PreparedAtlasData> for AtlasData {
     fn into(self) -> PreparedAtlasData {
-        let mut glyphs = hashbrown::HashMap::with_capacity(
-            self.glyphs.len(),
-        );
+        let mut glyphs = hashbrown::HashMap::with_capacity(self.glyphs.len());
         let mut kerning: hashbrown::HashMap<u32, Vec<(u32, f64)>> =
-            hashbrown::HashMap::with_capacity(
-                self.kerning.len()
-            );
+            hashbrown::HashMap::with_capacity(self.kerning.len());
 
         for glyph in self.glyphs {
             glyphs.insert(glyph.unicode, glyph);

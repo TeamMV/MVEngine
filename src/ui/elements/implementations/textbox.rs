@@ -5,27 +5,28 @@ use crate::ui::attributes::{Attributes, UiState};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::edittext::EditableTextHelper;
-use crate::ui::elements::components::text::TextBody;
+use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::styles::types::Dimension;
 use crate::ui::styles::UiStyle;
+use mvutils::enum_val_ref_mut;
 use mvutils::state::State;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
-use mvutils::enum_val_ref_mut;
-use crate::ui::styles::types::Dimension;
 
 #[derive(Clone)]
 pub struct TextBox {
     rc: Weak<DangerousCell<UiElement>>,
-    
+
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: TextBody<TextBox>,
+    text_body: BoringText<TextBox>,
     content: UiState,
     placeholder: UiState,
     focused: bool,
@@ -43,14 +44,14 @@ impl TextBox {
 }
 
 impl UiElementCallbacks for TextBox {
-    fn draw(&mut self, ctx: &mut DrawContext2D) {
+    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
-        self.body.draw(this, ctx, &self.context);
+        self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx);
+                    guard.draw(ctx, crop_area);
                 }
                 _ => {}
             }
@@ -59,7 +60,8 @@ impl UiElementCallbacks for TextBox {
         if s.is_empty() {
             if !self.focused {
                 let placeholder = self.placeholder.read();
-                self.text_body.draw(placeholder.as_str(), this, ctx, &self.context);
+                self.text_body
+                    .draw(placeholder.as_str(), this, ctx, &self.context, crop_area);
             } else {
                 self.helper.draw(this, ctx, &self.context);
             }
@@ -67,21 +69,24 @@ impl UiElementCallbacks for TextBox {
             if self.focused {
                 self.helper.draw(this, ctx, &self.context);
             }
-            self.text_body.draw(&s[self.helper.view_range.clone()], this, ctx, &self.context);
+            self.text_body
+                .draw(&s[self.helper.view_range.clone()], this, ctx, &self.context, crop_area);
         }
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
         self.body.on_input(unsafe_self, action.clone(), input);
-        
+
         match action {
             RawInputEvent::Keyboard(ka) => {
                 if self.focused {
                     match ka {
                         KeyboardAction::Release(_) => {}
                         KeyboardAction::Type(key) | KeyboardAction::Press(key) => {
-                            let is_shift = input.action_processor().is_raw_input(RawInput::KeyPress(Key::LShift));
+                            let is_shift = input
+                                .action_processor()
+                                .is_raw_input(RawInput::KeyPress(Key::LShift));
                             if let Key::Back = key {
                                 self.helper.backspace();
                             }
@@ -104,43 +109,42 @@ impl UiElementCallbacks for TextBox {
                     }
                 }
             }
-            RawInputEvent::Mouse(ma) => {
-                match ma {
-                    MouseAction::Press(p) => {
-                        let mx = input.mouse_x;
-                        let my = input.mouse_y;
-                        if let MouseButton::Left = p {
-                            if self.inside(mx, my) {
-                                self.focused = true;
-                            } else {
-                                self.focused = false;
-                            }
+            RawInputEvent::Mouse(ma) => match ma {
+                MouseAction::Press(p) => {
+                    let mx = input.mouse_x;
+                    let my = input.mouse_y;
+                    if let MouseButton::Left = p {
+                        if self.inside(mx, my) {
+                            self.focused = true;
+                            return true;
+                        } else {
+                            self.focused = false;
                         }
                     }
-                    _ => {}
                 }
-            }
+                _ => {}
+            },
         };
 
-        true
+        false
     }
 }
 
 impl UiElementStub for TextBox {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
-        Self: Sized
+        Self: Sized,
     {
         let content = match attributes.attribs.get("content") {
             None => State::new(String::new()).map_identity(),
-            Some(v) => v.as_ui_state()
+            Some(v) => v.as_ui_state(),
         };
 
         let placeholder = match attributes.attribs.get("placeholder") {
             None => State::new(String::new()).map_identity(),
-            Some(v) => v.as_ui_state()
+            Some(v) => v.as_ui_state(),
         };
-        
+
         let this = Self {
             rc: Weak::new(),
             context,
@@ -148,7 +152,7 @@ impl UiElementStub for TextBox {
             style,
             attributes,
             body: ElementBody::new(),
-            text_body: TextBody::new(),
+            text_body: BoringText::new(),
             content: content.clone(),
             placeholder,
             focused: false,

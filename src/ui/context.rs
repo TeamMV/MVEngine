@@ -2,16 +2,16 @@ use crate::color::RgbColor;
 use crate::graphics::animation::GlobalAnimation;
 use crate::graphics::comp::CompositeSprite;
 use crate::graphics::tileset::TileSet;
+use crate::graphics::Drawable;
 use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
 use crate::rendering::texture::Texture;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::adaptive::AdaptiveShape;
+use crate::ui::styles::enums::Geometry;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use crate::graphics::Drawable;
-use crate::ui::styles::enums::Geometry;
 
 #[derive(Clone)]
 pub struct UiContext {

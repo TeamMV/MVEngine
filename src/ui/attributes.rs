@@ -73,10 +73,10 @@ impl AttributeValue {
             AttributeValue::Int(i) => i.to_string(),
             AttributeValue::Float(f) => f.to_string(),
             AttributeValue::Bool(b) => b.to_string(),
-            AttributeValue::Char(c) => c.to_string()
+            AttributeValue::Char(c) => c.to_string(),
         }
     }
-    
+
     pub fn as_ui_state(&self) -> UiState {
         match self {
             AttributeValue::Str(s) => State::new(s.clone()).map_identity(),
@@ -84,7 +84,7 @@ impl AttributeValue {
             AttributeValue::Float(f) => State::new(f.to_string()).map_identity(),
             AttributeValue::Bool(b) => State::new(b.to_string()).map_identity(),
             AttributeValue::Char(c) => State::new(c.to_string()).map_identity(),
-            AttributeValue::State(state) => state.clone()
+            AttributeValue::State(state) => state.clone(),
         }
     }
 }

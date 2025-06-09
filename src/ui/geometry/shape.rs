@@ -1,10 +1,11 @@
 use crate::color::RgbColor;
 use crate::rendering::{Transform, Triangle};
-use crate::ui::geometry::geom;
 use crate::ui::geometry::morph::Morph;
 use crate::ui::geometry::polygon::Polygon;
+use crate::ui::geometry::{geom, SimpleRect};
 use crate::ui::rendering::ctx::TextureCtx;
 use itertools::Itertools;
+use mvutils::utils::PClamp;
 use mvutils::Savable;
 use std::fmt::{Debug, Formatter, Write};
 
@@ -295,6 +296,76 @@ impl Shape {
             }
         }
         println!();
+    }
+
+    pub fn crop_to(&mut self, crop_area: &SimpleRect) {
+        for triangle in &mut self.triangles {
+            let min_x = triangle
+                .points
+                .iter()
+                .map(|p| p.pos.0)
+                .fold(f32::INFINITY, f32::min);
+            let max_x = triangle
+                .points
+                .iter()
+                .map(|p| p.pos.0)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let min_y = triangle
+                .points
+                .iter()
+                .map(|p| p.pos.1)
+                .fold(f32::INFINITY, f32::min);
+            let max_y = triangle
+                .points
+                .iter()
+                .map(|p| p.pos.1)
+                .fold(f32::NEG_INFINITY, f32::max);
+
+            let min_u = triangle
+                .points
+                .iter()
+                .map(|p| p.uv.0)
+                .fold(f32::INFINITY, f32::min);
+            let max_u = triangle
+                .points
+                .iter()
+                .map(|p| p.uv.0)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let min_v = triangle
+                .points
+                .iter()
+                .map(|p| p.uv.1)
+                .fold(f32::INFINITY, f32::min);
+            let max_v = triangle
+                .points
+                .iter()
+                .map(|p| p.uv.1)
+                .fold(f32::NEG_INFINITY, f32::max);
+
+            for point in &mut triangle.points {
+                let orig_x = point.pos.0;
+                let orig_y = point.pos.1;
+
+                point.pos.0 =
+                    orig_x.p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
+                point.pos.1 =
+                    orig_y.p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
+
+                let x_ratio = if max_x != min_x {
+                    (point.pos.0 - min_x) / (max_x - min_x)
+                } else {
+                    0.0
+                };
+                let y_ratio = if max_y != min_y {
+                    (point.pos.1 - min_y) / (max_y - min_y)
+                } else {
+                    0.0
+                };
+
+                point.uv.0 = min_u + x_ratio * (max_u - min_u);
+                point.uv.1 = min_v + y_ratio * (max_v - min_v);
+            }
+        }
     }
 }
 

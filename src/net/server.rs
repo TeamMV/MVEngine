@@ -12,17 +12,17 @@ use std::io::{ErrorKind, Write};
 use std::marker::PhantomData;
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
+use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use std::thread;
 
-pub type ClientId= u64;
+pub type ClientId = u64;
 
 pub struct Server<In: Savable, Out: Savable> {
     _maker: PhantomData<(In, Out)>,
     thread: Option<JoinHandle<()>>,
     stopper: Option<Sender<String>>,
-    clients: Arc<RwLock<HashMap<ClientId, Arc<ClientEndpoint>, U64IdentityHasher>>>
+    clients: Arc<RwLock<HashMap<ClientId, Arc<ClientEndpoint>, U64IdentityHasher>>>,
 }
 
 impl<In: Savable, Out: Savable> Server<In, Out> {
@@ -31,7 +31,9 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
             _maker: PhantomData::default(),
             thread: None,
             stopper: None,
-            clients: Arc::new(RwLock::new(HashMap::with_hasher(U64IdentityHasher::default()))),
+            clients: Arc::new(RwLock::new(HashMap::with_hasher(
+                U64IdentityHasher::default(),
+            ))),
         }
     }
 
@@ -40,7 +42,8 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
         port: u16,
     ) -> Arc<Mutex<Handler>> {
         let (stop_sen, stop_rec) = crossbeam_channel::unbounded::<String>();
-        let (disconnect_sen, disconnect_rec) = crossbeam_channel::unbounded::<(ClientId, DisconnectReason)>();
+        let (disconnect_sen, disconnect_rec) =
+            crossbeam_channel::unbounded::<(ClientId, DisconnectReason)>();
         let clients = self.clients.clone();
 
         let handler = Handler::on_server_start(port);
@@ -112,14 +115,16 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
                         match e {
                             ReadPacketError::FromTcp(tcp_err) => match tcp_err.kind() {
                                 ErrorKind::TimedOut => {
-                                    let _ = disconnect_sen.send((endpoint.id, DisconnectReason::TimedOut));
+                                    let _ = disconnect_sen
+                                        .send((endpoint.id, DisconnectReason::TimedOut));
                                 }
                                 ErrorKind::ConnectionReset
                                 | ErrorKind::ConnectionAborted
                                 | ErrorKind::UnexpectedEof
                                 | ErrorKind::BrokenPipe
                                 | ErrorKind::NotConnected => {
-                                    let _ = disconnect_sen.send((endpoint.id, DisconnectReason::Disconnected));
+                                    let _ = disconnect_sen
+                                        .send((endpoint.id, DisconnectReason::Disconnected));
                                 }
                                 _ => {}
                             },
@@ -148,7 +153,10 @@ impl<In: Savable, Out: Savable> Server<In, Out> {
         }
     }
 
-    pub fn send_to_all_clients(&self, packet: Out) where Out: Clone {
+    pub fn send_to_all_clients(&self, packet: Out)
+    where
+        Out: Clone,
+    {
         let map = self.clients.read();
         for client in map.values() {
             client.send(packet.clone());
@@ -167,11 +175,15 @@ pub trait ServerHandler<In: Savable> {
 pub struct ClientEndpoint {
     id: ClientId,
     tcp: DangerousCell<TcpStream>,
-    disconnect_sender: Sender<(ClientId, DisconnectReason)>
+    disconnect_sender: Sender<(ClientId, DisconnectReason)>,
 }
 
 impl ClientEndpoint {
-    pub(crate) fn new(id: ClientId, stream: TcpStream, disconnect_sender: Sender<(ClientId, DisconnectReason)>) -> Self {
+    pub(crate) fn new(
+        id: ClientId,
+        stream: TcpStream,
+        disconnect_sender: Sender<(ClientId, DisconnectReason)>,
+    ) -> Self {
         Self {
             id,
             tcp: DangerousCell::new(stream),

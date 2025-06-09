@@ -1,10 +1,10 @@
 use crate::color::RgbColor;
+use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, Transform, Triangle};
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx::{TextureCtx, TransformCtx};
 use mvutils::utils::TetrahedronOp;
-use crate::math::vec::Vec4;
 
 pub enum ArcTriPoint {
     Last,

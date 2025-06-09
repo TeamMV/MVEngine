@@ -1,9 +1,9 @@
+use mvutils::save::{Loader, Savable, Saver};
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::Savable;
 use std::fmt::{Debug, Formatter, Write};
 use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
-use mvutils::Savable;
-use mvutils::save::{Loader, Savable, Saver};
-use mvutils::unsafe_utils::Unsafe;
 
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd, Savable)]
 #[repr(C)]

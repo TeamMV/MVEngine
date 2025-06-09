@@ -94,7 +94,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             XmlValue::Str(s) => {
                 quote! {
                     let mut elem_state = #elem_ident.get_mut();
-                    elem_state.state_mut().children.push(
+                    elem_state.add_child(
                         mvengine::ui::elements::child::Child::String(#s.to_string())
                     );
                 }
@@ -111,7 +111,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                             child_state.state_mut().parent = Some(cloned_elem);
                             drop(child_state);
                             let mut elem_state = #elem_ident.get_mut();
-                            elem_state.state_mut().children.push(
+                            elem_state.add_child(
                                 mvengine::ui::elements::child::Child::Element(child)
                             );
                         }
@@ -123,7 +123,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
                     let mut elem_state = #elem_ident.get_mut();
-                    elem_state.state_mut().children.push({#parsed_code}.to_child());
+                    elem_state.add_child({#parsed_code}.to_child());
                     drop(elem_state);
                 }
             }

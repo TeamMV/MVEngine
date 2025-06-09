@@ -9,8 +9,8 @@ use std::str::FromStr;
 
 pub mod animation;
 pub mod comp;
-pub mod tileset;
 pub mod particle;
+pub mod tileset;
 
 #[derive(Clone, Savable)]
 pub enum Drawable {
@@ -35,16 +35,19 @@ impl Drawable {
             Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
             Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
             Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
-            _ => { None }
+            _ => None,
         }
     }
 
-    pub fn get_texture_or_default(&self, res: &'static (impl UiResources + ?Sized)) -> (&'static Texture, Vec4) {
+    pub fn get_texture_or_default(
+        &self,
+        res: &'static (impl UiResources + ?Sized),
+    ) -> (&'static Texture, Vec4) {
         let tex = match self {
             Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
             Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
             Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
-            _ => { None }
+            _ => None,
         };
         if let Some(tex) = tex {
             tex
@@ -54,7 +57,12 @@ impl Drawable {
         }
     }
 
-    pub fn draw(&self, ctx: &mut impl RenderContext, area: Rect, r: &'static (impl UiResources + ?Sized)) {
+    pub fn draw(
+        &self,
+        ctx: &mut impl RenderContext,
+        area: Rect,
+        r: &'static (impl UiResources + ?Sized),
+    ) {
         let controller = ctx.controller();
         match self {
             _ => {
@@ -69,10 +77,15 @@ impl Drawable {
                     texture: tex.id,
                     has_texture: 1.0,
                 };
-                let quad = Quad::from_corner(vertex, uv, (area.width() as f32, area.height() as f32), |v, (x, y)| {
-                    v.pos.0 = x;
-                    v.pos.1 = y;
-                });          
+                let quad = Quad::from_corner(
+                    vertex,
+                    uv,
+                    (area.width() as f32, area.height() as f32),
+                    |v, (x, y)| {
+                        v.pos.0 = x;
+                        v.pos.1 = y;
+                    },
+                );
                 controller.push_quad(quad);
             }
         }

@@ -5,15 +5,15 @@
 #![cfg_attr(not(debug_assertions), deny(clippy::todo))]
 #![warn(clippy::pedantic)]
 
-pub mod net;
+pub mod audio;
 pub mod color;
+pub mod event;
 pub mod game;
 pub mod graphics;
 pub mod input;
 pub mod math;
+pub mod net;
 pub mod rendering;
 pub mod ui;
-pub mod window;
-pub mod event;
 pub mod utils;
-pub mod audio;
+pub mod window;

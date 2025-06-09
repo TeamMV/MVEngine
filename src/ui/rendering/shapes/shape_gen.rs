@@ -269,16 +269,17 @@ impl ShapeGenerator {
                 Command::Assign(name, assignment) => match assignment {
                     Assignment::New(parsed_struct) => {
                         let prim_name = &parsed_struct.name;
-                        let shape =
-                            match prim_name.as_str() {
-                                "tri" => gen_tri(parsed_struct)?,
-                                "rect" => gen_rect(parsed_struct)?,
-                                "arc" => gen_arc(parsed_struct)?,
-                                _ => return Err(format!(
+                        let shape = match prim_name.as_str() {
+                            "tri" => gen_tri(parsed_struct)?,
+                            "rect" => gen_rect(parsed_struct)?,
+                            "arc" => gen_arc(parsed_struct)?,
+                            _ => {
+                                return Err(format!(
                                     "Unknown primitve {prim_name}. Did you mean [tri, rect, arc]?"
                                 )
-                                .to_string()),
-                            };
+                                .to_string())
+                            }
+                        };
                         vars.insert(name, shape);
                     }
                     Assignment::Clone(other) => {
@@ -357,7 +358,7 @@ impl ShapeGenerator {
                                 "Boolean" => {
                                     let res = boolean::compute(current, mod_params, vars2)?;
                                     vars.insert(current_selection.clone(), res);
-                                },
+                                }
                                 _ => return Err(format!("Modifier {name} is not defined!")),
                             }
                         }
@@ -382,16 +383,17 @@ impl ShapeGenerator {
                 Command::Assign(name, assignment) => match assignment {
                     Assignment::New(parsed_struct) => {
                         let prim_name = &parsed_struct.name;
-                        let shape =
-                            match prim_name.as_str() {
-                                "tri" => gen_tri(parsed_struct)?,
-                                "rect" => gen_rect(parsed_struct)?,
-                                "arc" => gen_arc(parsed_struct)?,
-                                _ => return Err(format!(
+                        let shape = match prim_name.as_str() {
+                            "tri" => gen_tri(parsed_struct)?,
+                            "rect" => gen_rect(parsed_struct)?,
+                            "arc" => gen_arc(parsed_struct)?,
+                            _ => {
+                                return Err(format!(
                                     "Unknown primitve {prim_name}. Did you mean [tri, rect, arc]?"
                                 )
-                                .to_string()),
-                            };
+                                .to_string())
+                            }
+                        };
                         vars.insert(name, shape);
                     }
                     Assignment::Clone(other) => {
@@ -483,7 +485,7 @@ impl ShapeGenerator {
                                 "Boolean" => {
                                     let res = boolean::compute(current, mod_params, vars2)?;
                                     vars.insert(current_selection.clone(), res);
-                                },
+                                }
                                 _ => return Err(format!("Modifier {name} is not defined!")),
                             }
                         }

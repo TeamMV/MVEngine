@@ -35,7 +35,10 @@ impl<T: ColorFormat> Clone for Color<T> {
     }
 }
 
-impl<T: ColorFormat> Savable for Color<T> where T::ComponentType: Savable {
+impl<T: ColorFormat> Savable for Color<T>
+where
+    T::ComponentType: Savable,
+{
     fn save(&self, saver: &mut impl Saver) {
         self.components.save(saver);
     }
@@ -44,7 +47,7 @@ impl<T: ColorFormat> Savable for Color<T> where T::ComponentType: Savable {
         let cmps = <[T::ComponentType; 4]>::load(loader)?;
         Ok(Self { components: cmps })
     }
-} 
+}
 
 impl<Fmt: ColorFormat> Color<Fmt> {
     pub fn new(components: [Fmt::ComponentType; 4]) -> Self {
@@ -207,7 +210,7 @@ impl ColorFormat for HsvColorFormat {
 
 impl<F: ColorFormat> FromStr for Color<F> {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_color(s).map(|c| F::from_rgb(c)).map_err(|e| e.1)
     }

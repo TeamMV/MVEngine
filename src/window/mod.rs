@@ -2,8 +2,11 @@ pub mod app;
 
 use crate::input::consts::Key;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::ui::geometry::SimpleRect;
+use crate::ui::styles::InheritSupplier;
 use crate::ui::Ui;
 use crate::window::app::WindowCallbacks;
+use glutin::os::windows::WindowExt;
 use glutin::{
     ContextError, CreationError, ElementState, Event, MouseButton, MouseScrollDelta,
     VirtualKeyCode, WindowBuilder,
@@ -11,11 +14,10 @@ use glutin::{
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use parking_lot::{RwLock};
+use parking_lot::RwLock;
 use std::mem;
 use std::sync::Arc;
 use std::time::SystemTime;
-use glutin::os::windows::WindowExt;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -179,7 +181,10 @@ impl Window {
         }
     }
 
-    pub fn run<T: WindowCallbacks + 'static>(mut self, callbacks: Arc<RwLock<T>>) -> Result<(), Error> {
+    pub fn run<T: WindowCallbacks + 'static>(
+        mut self,
+        callbacks: Arc<RwLock<T>>,
+    ) -> Result<(), Error> {
         let mut window = WindowBuilder::new()
             .with_visibility(false)
             .with_title(self.info.title.clone())
@@ -209,8 +214,10 @@ impl Window {
 
         unsafe {
             if cfg!(windows) {
-                let dpi_awareness_context = winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
-                self.dpi = winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
+                let dpi_awareness_context =
+                    winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
+                self.dpi =
+                    winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
             } else {
                 panic!("Illegal operating system (go buy a copy of windows for 1000$)")
             }
@@ -249,7 +256,9 @@ impl Window {
                     Event::ReceivedCharacter(ch) => {
                         if !ch.is_control() {
                             let action = RawInputEvent::Keyboard(KeyboardAction::Char(ch));
-                            this.input.collector.dispatch_input(action, &self.input, this3);
+                            this.input
+                                .collector
+                                .dispatch_input(action, &self.input, this3);
                         }
                     }
                     Event::Focused(_) => {}
@@ -269,24 +278,35 @@ impl Window {
                                 RawInputEvent::Keyboard(KeyboardAction::Release(code))
                             }
                         };
-                        this.input.collector.dispatch_input(event, &self.input, this3);
+                        this.input
+                            .collector
+                            .dispatch_input(event, &self.input, this3);
                     }
                     Event::MouseMoved(x, y) => {
                         this.input.collector.dispatch_input(
                             RawInputEvent::Mouse(MouseAction::Move(x, self.info.height as i32 - y)),
                             &self.input,
-                            this3
+                            this3,
                         );
                         self.input.mouse_x = x;
                         self.input.mouse_y = self.info.height as i32 - y;
                     }
                     Event::MouseWheel(delta, _, _) => {
-                        if let MouseScrollDelta::PixelDelta(dx, dy) = delta {
-                            this.input.collector.dispatch_input(
-                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
-                                &self.input,
-                                this3
-                            );
+                        match delta {
+                            MouseScrollDelta::LineDelta(dx, dy) => {
+                                this.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                    &self.input,
+                                    this3,
+                                );
+                            }
+                            MouseScrollDelta::PixelDelta(dx, dy) => {
+                                this.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                    &self.input,
+                                    this3,
+                                );
+                            }
                         }
                     }
                     Event::MouseInput(i, d, _) => {
@@ -298,14 +318,14 @@ impl Window {
                                 this.input.collector.dispatch_input(
                                     RawInputEvent::Mouse(MouseAction::Press(button)),
                                     &self.input,
-                                    this3
+                                    this3,
                                 );
                             }
                             ElementState::Released => {
                                 this.input.collector.dispatch_input(
                                     RawInputEvent::Mouse(MouseAction::Release(button)),
                                     &self.input,
-                                    this3
+                                    this3,
                                 );
                             }
                         }
@@ -334,12 +354,12 @@ impl Window {
                 self.time_f = SystemTime::now();
                 self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_t = self.delta_t;
-                
+
                 let mut app_loop = callbacks.write();
                 app_loop.draw(&mut self, delta_t);
                 self.input.collector.end_frame();
                 self.handle.swap_buffers()?;
-                
+
                 self.ui.get_mut().end_frame();
             }
         }
@@ -441,8 +461,14 @@ impl Window {
     pub fn ui_mut(&mut self) -> &mut Ui {
         self.ui.get_mut()
     }
-    
+
     pub fn disable_depth_test(&mut self) {
-        unsafe { gl::Disable(gl::DEPTH_TEST); }
+        unsafe {
+            gl::Disable(gl::DEPTH_TEST);
+        }
+    }
+
+    pub fn area(&self) -> SimpleRect {
+        SimpleRect::new(0, 0, self.width(), self.height())
     }
 }

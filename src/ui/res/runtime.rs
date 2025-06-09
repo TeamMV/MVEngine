@@ -2,20 +2,20 @@ use crate::color::RgbColor;
 use crate::graphics::animation::GlobalAnimation;
 use crate::graphics::comp::CompositeSprite;
 use crate::graphics::tileset::TileSet;
+use crate::graphics::Drawable;
 use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
 use crate::rendering::texture::{NoCtxTexture, Texture};
 use crate::ui::context::UiResources;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::adaptive::AdaptiveShape;
+use crate::ui::res;
 use crate::ui::res::MVR;
+use crate::ui::styles::enums::Geometry;
 use itertools::Itertools;
+use mvutils::once::Lazy;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
-use mvutils::once::Lazy;
-use crate::graphics::Drawable;
-use crate::ui::res;
-use crate::ui::styles::enums::Geometry;
 
 pub struct RuntimeResources<'a> {
     colors: Vec<RgbColor>,
@@ -37,7 +37,10 @@ pub fn save_array_as_vec<T: Savable, const N: usize>(saver: &mut impl Saver, arr
     }
 }
 
-pub fn save_res_array_as_vec<T: ResourceSavable, const N: usize>(saver: &mut impl Saver, arr: &[T; N]) {
+pub fn save_res_array_as_vec<T: ResourceSavable, const N: usize>(
+    saver: &mut impl Saver,
+    arr: &[T; N],
+) {
     (N as u64).save(saver);
     for i in 0..N {
         arr[i].save_res(saver);
@@ -97,19 +100,24 @@ impl Savable for RuntimeResources<'_> {
         let shapes = Vec::<Shape>::load(loader)?;
         let adaptives = Vec::<AdaptiveShape>::load(loader)?;
         let textures = Vec::<NoCtxTexture>::load(loader)?;
-        let textures = textures.into_iter().map(|t| {
-            if let Ok(tex) = Texture::try_from(t) {
-                tex
-            } else {
-                MVR.resolve_texture(MVR.texture.missing).expect("MVR not loaded").clone()
-            }
-        }).collect_vec();
+        let textures = textures
+            .into_iter()
+            .map(|t| {
+                if let Ok(tex) = Texture::try_from(t) {
+                    tex
+                } else {
+                    MVR.resolve_texture(MVR.texture.missing)
+                        .expect("MVR not loaded")
+                        .clone()
+                }
+            })
+            .collect_vec();
         let fonts = Vec::<Font>::load(loader)?;
         let tilesets = Vec::<TileSet>::load(loader)?;
         let composites = Vec::<CompositeSprite>::load(loader)?;
         let drawables = Vec::<Drawable>::load(loader)?;
         let geometries = Vec::<Geometry>::load(loader)?;
-        
+
         let mut this = Self {
             colors,
             shapes,
@@ -120,9 +128,9 @@ impl Savable for RuntimeResources<'_> {
             animations: Vec::new(),
             composites,
             drawables,
-            geometries
+            geometries,
         };
-        
+
         let animations = Vec::<GlobalAnimation>::load_res(loader, &this)?;
         this.animations = animations;
         Ok(this)
@@ -225,7 +233,8 @@ impl UiResources for RuntimeResources<'_> {
                     .cast_mut()
                     .as_mut()
                     .unwrap()
-            }.tick();
+            }
+            .tick();
         }
     }
 }

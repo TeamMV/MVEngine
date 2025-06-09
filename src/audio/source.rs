@@ -1,14 +1,14 @@
-use std::sync::Arc;
-use mvutils::unsafe_utils::DangerousCell;
 use crate::audio::decode::wav::ActuallyUsefulWavData;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
+use mvutils::unsafe_utils::DangerousCell;
+use std::sync::Arc;
 
 // "Fucl u" - v22 (4/6/25)
 // "Fucl you" - v22 (5/6/25)
 // fucl YOU max - v22 right now
 pub struct SoundWithAttributes {
     sound: Arc<Sound>,
-    with_attributes: WithAttributes
+    with_attributes: WithAttributes,
 }
 
 impl SoundWithAttributes {
@@ -21,7 +21,8 @@ impl SoundWithAttributes {
     }
 
     pub fn map_index(&self, index: usize, sample_rate: u32) -> usize {
-        (self.sound.map_index(index, sample_rate) as f32 * self.with_attributes.speed.get_val()).round() as usize
+        (self.sound.map_index(index, sample_rate) as f32 * self.with_attributes.speed.get_val())
+            .round() as usize
     }
 
     pub fn get_sample_mapped(&self, index: usize, sample_rate: u32) -> (f32, f32) {
@@ -48,7 +49,10 @@ impl SoundWithAttributes {
                     index
                 };
                 volume *= self.with_attributes.get_easing_multiplier(idx);
-                (self.sound.samples[idx * 2] * volume, self.sound.samples[idx * 2 + 1] * volume)
+                (
+                    self.sound.samples[idx * 2] * volume,
+                    self.sound.samples[idx * 2 + 1] * volume,
+                )
             }
             1 => {
                 let balance = self.with_attributes.mono_balance.get_val();
@@ -105,13 +109,23 @@ impl SoundWithAttributes {
 
     pub fn set_fade_in(&self, gen: EasingGen, duration_ms: u32) {
         let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
-        self.with_attributes.fade_in.replace(Some(Easing::new(gen, EasingMode::In, 0.0..duration_samples as f32, 0.0..1.0)));
+        self.with_attributes.fade_in.replace(Some(Easing::new(
+            gen,
+            EasingMode::In,
+            0.0..duration_samples as f32,
+            0.0..1.0,
+        )));
     }
 
     pub fn set_fade_out(&self, gen: EasingGen, duration_ms: u32) {
         let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
         let start_sample = self.sound.effective_samples() as u32 - duration_samples;
-        self.with_attributes.fade_out.replace(Some(Easing::new(gen, EasingMode::Out, start_sample as f32..(start_sample + duration_samples) as f32, 1.0..0.0)));
+        self.with_attributes.fade_out.replace(Some(Easing::new(
+            gen,
+            EasingMode::Out,
+            start_sample as f32..(start_sample + duration_samples) as f32,
+            1.0..0.0,
+        )));
     }
 
     pub fn sound(&self) -> Arc<Sound> {
@@ -121,11 +135,11 @@ impl SoundWithAttributes {
     pub fn with_attributes(&self) -> &WithAttributes {
         &self.with_attributes
     }
-    
+
     pub fn full_clone(self: &Arc<Self>) -> Arc<Self> {
         let this = Self {
             sound: self.sound.clone(),
-            with_attributes: self.with_attributes.clone()
+            with_attributes: self.with_attributes.clone(),
         };
         Arc::new(this)
     }
@@ -264,9 +278,7 @@ impl Sound {
             return (0.0, 0.0);
         }
         match self.channels {
-            2 => {
-                (self.samples[index * 2], self.samples[index * 2 + 1])
-            }
+            2 => (self.samples[index * 2], self.samples[index * 2 + 1]),
             1 => {
                 let sample = self.samples[index];
                 (sample * 0.5, sample * 0.5)
@@ -276,7 +288,7 @@ impl Sound {
             }
         }
     }
-    
+
     pub fn channels(&self) -> u8 {
         self.channels
     }

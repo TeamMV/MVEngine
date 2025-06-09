@@ -1,14 +1,14 @@
 // we dont give a fuck WAVE is useless anyways (see: ActuallyUsefulWavData)
 #![allow(non_snake_case)]
 
-use std::sync::Arc;
-use bytebuffer::{ByteBuffer, Endian};
-use mvutils::bytebuffer::ByteBufferExtras;
-use mvutils::Savable;
-use mvutils::save::custom::{raw_vec_save, raw_vec_load};
-use mvutils::save::{Loader, Savable};
 use crate::audio::decode::AudioDecoder;
 use crate::audio::source::Sound;
+use bytebuffer::{ByteBuffer, Endian};
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::save::custom::{raw_vec_load, raw_vec_save};
+use mvutils::save::{Loader, Savable};
+use mvutils::Savable;
+use std::sync::Arc;
 
 pub struct WavDecoder;
 
@@ -43,9 +43,7 @@ impl WavData {
     // NOTE: idk if this works lmao
     // Re: NOTE: i think it does (maybe)
     pub fn validate(&self) -> bool {
-        self.header == *b"RIFF" &&
-            self.WAVE == *b"WAVE" &&
-            self.fmt_null_byte == *b"fmt\0"
+        self.header == *b"RIFF" && self.WAVE == *b"WAVE" && self.fmt_null_byte == *b"fmt\0"
     }
 }
 

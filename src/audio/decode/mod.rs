@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::audio::source::Sound;
+use std::sync::Arc;
 
 pub mod wav;
 

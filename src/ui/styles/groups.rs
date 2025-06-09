@@ -1,17 +1,18 @@
-use std::rc::Rc;
-use std::str::FromStr;
-use mvutils::unsafe_utils::DangerousCell;
-use mvutils::utils::{PClamp, TetrahedronOp};
+use crate::blanked_partial_ord;
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
 use crate::ui::elements::{UiElement, UiElementStub};
 use crate::ui::parse::parse_4xi32_abstract;
 use crate::ui::res::MVR;
-use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
-use crate::ui::styles::enums::{BackgroundRes, Origin, TextAlign, TextFit, Geometry};
+use crate::ui::styles::enums::{BackgroundRes, Geometry, Origin, TextAlign, TextFit};
 use crate::ui::styles::interpolate::{BasicInterpolatable, Interpolator};
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::unit::Unit;
+use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
+use mvutils::unsafe_utils::DangerousCell;
+use mvutils::utils::{PClamp, TetrahedronOp};
+use std::rc::Rc;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct TextStyle {
@@ -342,9 +343,8 @@ impl SideStyle {
         F: Fn(&mut SideStyle),
     {
         f(self);
-        
     }
-    
+
     pub fn all_i32(v: i32) -> Self {
         Self {
             top: UiValue::Just(v).to_field().to_resolve(),
@@ -388,7 +388,13 @@ impl SideStyle {
         self.right = v;
     }
 
-    pub fn get<E, F, PF>(&self, elem: &E, map: F, percent_map: PF, sup: &impl InheritSupplier) -> [i32; 4]
+    pub fn get<E, F, PF>(
+        &self,
+        elem: &E,
+        map: F,
+        percent_map: PF,
+        sup: &impl InheritSupplier,
+    ) -> [i32; 4]
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
@@ -510,5 +516,55 @@ impl ShapeStyle {
         self.resource.merge_at_set(&other.resource);
         self.color.merge_at_set(&other.color);
         self.texture.merge_at_set(&other.texture);
+    }
+}
+
+impl Interpolator<ShapeStyle> for ShapeStyle {
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
+    where
+        E: UiElementStub,
+        F: Fn(&UiStyle) -> &Self,
+    {
+        self.resource
+            .interpolate(&start.resource, &end.resource, percent, elem, |s| {
+                &f(s).resource
+            });
+        self.color
+            .interpolate(&start.color, &end.color, percent, elem, |s| &f(s).color);
+        self.texture
+            .interpolate(&start.texture, &end.texture, percent, elem, |s| {
+                &f(s).texture
+            });
+    }
+}
+
+blanked_partial_ord!(ShapeStyle);
+
+#[derive(Clone)]
+pub struct ScrollBarStyle {
+    pub track: ShapeStyle,
+    pub knob: ShapeStyle,
+    pub size: Resolve<i32>,
+}
+
+impl ScrollBarStyle {
+    pub fn initial() -> Self {
+        Self {
+            track: ShapeStyle::initial(),
+            knob: ShapeStyle::initial(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+        }
+    }
+
+    pub fn merge_unset(&mut self, other: &ScrollBarStyle) {
+        self.track.merge_unset(&other.track);
+        self.knob.merge_unset(&other.knob);
+        self.size.merge_unset(&other.size);
+    }
+
+    pub fn merge_at_set(&mut self, other: &ScrollBarStyle) {
+        self.track.merge_at_set(&other.track);
+        self.knob.merge_at_set(&other.knob);
+        self.size.merge_at_set(&other.size);
     }
 }

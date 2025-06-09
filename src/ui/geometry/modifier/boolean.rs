@@ -3,7 +3,7 @@ use crate::ui::geometry::geom;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::shapes::Param;
-use hashbrown::{HashMap};
+use hashbrown::HashMap;
 use log::warn;
 
 trait Dedup<T: PartialEq + Clone> {

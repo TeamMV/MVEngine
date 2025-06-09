@@ -3,7 +3,7 @@ use crate::ui::utils::AnyType;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use mvutils::lazy;
-use mvutils::utils::{Time};
+use mvutils::utils::Time;
 
 pub struct TimingManager {
     tasks: HashMap<u64, (Box<dyn TimingTask>, Option<Box<dyn FnMut()>>), U64IdentityHasher>,

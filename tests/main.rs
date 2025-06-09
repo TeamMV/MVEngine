@@ -1,6 +1,4 @@
-use mvengine::ui::elements::button::Button;
-use mvengine::ui::elements::textbox::TextBox;
-use mvengine_proc_macro::resolve_resource;
+use mvengine::ui::elements::text::Text;
 use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
@@ -18,7 +16,11 @@ use mvengine::rendering::text::Font;
 use mvengine::rendering::texture::Texture;
 use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
+use mvengine::ui::elements::button::Button;
+use mvengine::ui::elements::child::ToChild;
+use mvengine::ui::elements::child::ToChildFromIterator;
 use mvengine::ui::elements::div::Div;
+use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::geometry::morph::Morph;
 use mvengine::ui::rendering::ctx::DrawContext2D;
@@ -31,12 +33,15 @@ use mvengine::ui::styles::{UiStyle, UiValue};
 use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
+use mvengine_proc_macro::resolve_resource;
 use mvengine_proc_macro::{style_expr, ui};
 use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
 use std::ops::Deref;
 use std::sync::Arc;
+use mvengine::ui::geometry::Rect;
+use mvengine::ui::rendering::adaptive::AdaptiveFill;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -66,7 +71,7 @@ struct Application {
     draw_ctx: CreateOnce<DrawContext2D>,
     morph: CreateOnce<Morph>,
     state: CreateOnce<State<String>>,
-    audio: AudioEngine
+    audio: AudioEngine,
 }
 
 impl Application {
@@ -80,18 +85,25 @@ impl Application {
         wrapped_a.set_volume(1.0);
         wrapped_a.set_balance(1.0);
 
-
         unsafe {
             let cloned = wrapped_a.clone();
-            TIMING_MANAGER.request(PeriodicTask::new(-1, 1000, move |_, i| {
-                if i % 2 == 0 {
-                    cloned.set_balance(1.0);
-                } else {
-                    cloned.set_balance(0.0);
-                }
-            }, AnimationState::empty()), None);
+            TIMING_MANAGER.request(
+                PeriodicTask::new(
+                    -1,
+                    1000,
+                    move |_, i| {
+                        if i % 2 == 0 {
+                            cloned.set_balance(1.0);
+                        } else {
+                            cloned.set_balance(0.0);
+                        }
+                    },
+                    AnimationState::empty(),
+                ),
+                None,
+            );
         }
-        
+
         //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
         // wrapped_a.set_volume(0.3);
@@ -110,8 +122,6 @@ impl Application {
         // audio.play_sound(wrapped_1);
         // audio.play_sound(wrapped_2);
 
-
-        
         Self {
             renderer: CreateOnce::new(),
             camera: CreateOnce::new(),
@@ -144,7 +154,7 @@ impl WindowCallbacks for Application {
                 .triangle_count(5)
                 .create();
 
-            let mut shape = MVR.resolve_shape(MVR.shape.round_rect).unwrap().clone();
+            let mut shape = MVR.resolve_shape(MVR.shape.rect).unwrap().clone();
             shape.invalidate();
 
             let mut renderer = LightOpenGLRenderer::initialize(window);
@@ -205,11 +215,28 @@ impl WindowCallbacks for Application {
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
-                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
-                            <TextBox style="width: 5cm; height: 1cm; text.align_x: start;" placeholder="email"/>
-                            <TextBox style="width: 5cm; height: 1cm; text.align_x: start;" placeholder="password"/>
-                            <Button style="width: 5cm; height: 1cm;">Login</Button>
+                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
+                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical; scrollbar.knob.shape: @MVR.geometry/round_rect; scrollbar.track.shape: @MVR.geometry/round_rect;">
+                            <Div style="width: 10cm; height: 10cm;">
+                                <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
+                            </Div>
+                            <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start;"/>
+                            <Div style="height: 10cm;">
+                                <Text style="width: 6cm;">
+                                    Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+                                </Text>
+                            </Div>
+                            <Div style="direction: vertical; background.color: hsl(23, 1, 1);">
+                                {
+                                    (1..=20).map(|x| {
+                                        ui! {
+                                            <Ui context={window.ui().context()}>
+                                                <Button style="width: 5cm; height: 1cm;">{x.to_string()}</Button>
+                                            </Ui>
+                                        }
+                                    })
+                                }
+                            </Div>
                         </Div>
                     </Div>
                 </Ui>
@@ -224,7 +251,7 @@ impl WindowCallbacks for Application {
             let context = DrawContext2D::new(ui_renderer);
             self.draw_ctx.create(|| context);
 
-            let rr = MVR.resolve_shape(MVR.shape.round_rect).unwrap();
+            let rr = MVR.resolve_shape(MVR.shape.rect).unwrap();
             //for triangle in &rr.triangles {
             //    let pos = triangle.points.iter().map(|v| (v.pos.0, v.pos.1)).collect_array::<3>().unwrap();
             //    println!("{pos:?},");

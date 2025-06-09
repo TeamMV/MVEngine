@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
-use std::ops::Range;
-use std::mem;
 use crate::color::RgbColor;
 use crate::resolve;
 use crate::ui::attributes::UiState;
-use crate::ui::styles::ResolveResult;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
-use crate::ui::styles::DEFAULT_STYLE;
 use crate::ui::styles::enums::TextAlign;
+use crate::ui::styles::ResolveResult;
+use crate::ui::styles::DEFAULT_STYLE;
+use std::marker::PhantomData;
+use std::mem;
+use std::ops::Range;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -19,7 +19,7 @@ pub struct EditableTextHelper<E: UiElementStub> {
     cursor_pos: usize,
     selection: Option<Range<usize>>,
     content: UiState,
-    pub(crate) view_range: Range<usize>
+    pub(crate) view_range: Range<usize>,
 }
 
 impl<E: UiElementStub> EditableTextHelper<E> {
@@ -55,7 +55,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         }
 
         self.cursor_pos -= 1;
-        if self.cursor_pos < self.view_range.start { 
+        if self.cursor_pos < self.view_range.start {
             self.view_range.start -= 1;
         }
     }
@@ -81,7 +81,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
 
         self.cursor_pos += 1;
     }
-    
+
     pub fn move_to_end(&mut self, select: bool) {
         let to_move = self.content.read().len() - self.cursor_pos;
         if select {
@@ -97,13 +97,13 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         } else {
             self.selection = None;
         }
-        
+
         self.cursor_pos += to_move;
     }
-    
+
     pub fn move_to_start(&mut self, select: bool) {
         let to_move = self.cursor_pos;
-        
+
         if select {
             if let Some(range) = self.selection.clone() {
                 if self.cursor_pos >= range.end {
@@ -130,12 +130,12 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         if let Some(range) = self.selection.take() {
             let start = range.start.min(guard.len());
             let end = range.end.min(guard.len());
-            
+
             guard.replace_range(start..end, "");
             guard.insert_str(start, s);
-            
+
             self.cursor_pos = start + s.len();
-            
+
             let replaced_len = end - start;
             let added_len = s.len();
             self.view_range.end = self.view_range.end.saturating_sub(replaced_len);
@@ -150,20 +150,22 @@ impl<E: UiElementStub> EditableTextHelper<E> {
 
     pub fn backspace(&mut self) {
         let mut guard = self.content.write();
-        
+
         if let Some(range) = self.selection.take() {
             let start = range.start.min(guard.len());
             let end = range.end.min(guard.len());
-            
+
             guard.replace_range(start..end, "");
-            
+
             self.cursor_pos = start;
-            
+
             let deleted_len = end - start;
             self.view_range.end = self.view_range.end.saturating_sub(deleted_len);
             self.view_range.start = self.view_range.start.min(self.cursor_pos);
         } else {
-            if self.cursor_pos == 0 { return; }
+            if self.cursor_pos == 0 {
+                return;
+            }
 
             guard.remove(self.cursor_pos - 1);
             self.cursor_pos -= 1;
@@ -183,8 +185,10 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         if let Some(font) = ui_ctx.resources.resolve_font(font) {
             let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
             let size = resolve!(elem, text.size).unwrap_or_default(&DEFAULT_STYLE.text.size);
-            let kerning = resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
-            let stretch = resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
+            let kerning =
+                resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
+            let stretch =
+                resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
             let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
             let state = elem.state();
@@ -193,7 +197,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
 
             let content_width = elem.state().content_rect.bounding.width;
 
-            if self.view_range.start > self.view_range.end { 
+            if self.view_range.start > self.view_range.end {
                 mem::swap(&mut self.view_range.start, &mut self.view_range.end);
             }
 
@@ -201,7 +205,9 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let viewed_string = &viewed_string[self.view_range.clone()];
             let viewed_len = viewed_string.len();
 
-            let viewed_width = font.get_width(viewed_string, font_size) * stretch.width + skew * 2.0 + kerning * (viewed_len as f32 - 1.0);
+            let viewed_width = font.get_width(viewed_string, font_size) * stretch.width
+                + skew * 2.0
+                + kerning * (viewed_len as f32 - 1.0);
             let viewed_width = viewed_width as i32;
 
             let content_ref = self.content.read();
@@ -227,37 +233,48 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 }
                 self.view_range.end += 1;
             }
-            
+
             if !self.view_range.contains(&self.cursor_pos) {
                 if self.cursor_pos >= self.view_range.end {
                     let diff = self.cursor_pos - self.view_range.end;
                     self.view_range.end += diff;
                     self.view_range.start += diff;
                 } else if self.cursor_pos < self.view_range.start {
-                    let diff =  self.view_range.start - self.cursor_pos + 1;
+                    let diff = self.view_range.start - self.cursor_pos + 1;
                     self.view_range.start = self.view_range.start.saturating_sub(diff);
                     self.view_range.end = self.view_range.end.saturating_sub(diff);
                 }
             }
-            
+
             self.view_range.end = self.view_range.end.min(self.content.read().len());
-            
+
             let text_x = match text_align_x {
                 TextAlign::Start => state.content_rect.x(),
-                TextAlign::Middle => state.content_rect.x() + state.content_rect.width() / 2 - viewed_width / 2,
-                TextAlign::End => state.content_rect.x() + state.content_rect.width() - viewed_width,
+                TextAlign::Middle => {
+                    state.content_rect.x() + state.content_rect.width() / 2 - viewed_width / 2
+                }
+                TextAlign::End => {
+                    state.content_rect.x() + state.content_rect.width() - viewed_width
+                }
             };
 
             let text_y = match text_align_y {
                 TextAlign::Start => state.content_rect.y(),
-                TextAlign::Middle => state.content_rect.y() + state.content_rect.height() / 2 - text_height / 2,
-                TextAlign::End => state.content_rect.y() + state.content_rect.height() - text_height,
+                TextAlign::Middle => {
+                    state.content_rect.y() + state.content_rect.height() / 2 - text_height / 2
+                }
+                TextAlign::End => {
+                    state.content_rect.y() + state.content_rect.height() - text_height
+                }
             };
 
             let string_to_cursor = self.content.read();
             let string_to_cursor = &string_to_cursor[self.view_range.start..self.cursor_pos];
-            let string_to_cursor_width = font.get_width(string_to_cursor, font_size) * stretch.width + skew * 2.0 + kerning * (string_to_cursor.len() as f32 - 1.0);
-            
+            let string_to_cursor_width = font.get_width(string_to_cursor, font_size)
+                * stretch.width
+                + skew * 2.0
+                + kerning * (string_to_cursor.len() as f32 - 1.0);
+
             let cursor_x = text_x + string_to_cursor_width as i32;
             let cursor_y = text_y;
 
@@ -268,32 +285,38 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             if let Some(selection) = &self.selection {
                 let mut a = selection.start;
                 let mut b = selection.end;
-                
-                if a > b { 
+
+                if a > b {
                     mem::swap(&mut a, &mut b);
                 }
-                
+
                 let a = a.max(self.view_range.start);
                 let b = b.min(self.view_range.end);
-                
+
                 let string_to_selection = self.content.read();
                 let string_to_selection_a = &string_to_selection[self.view_range.start..a];
                 let string_to_selection_b = &string_to_selection[self.view_range.start..b];
-                let string_to_selection_a_width = font.get_width(string_to_selection_a, font_size) * stretch.width + skew * 2.0 + kerning * (string_to_selection_a.len() as f32 - 1.0);
-                let string_to_selection_b_width = font.get_width(string_to_selection_b, font_size) * stretch.width + skew * 2.0 + kerning * (string_to_selection_b.len() as f32 - 1.0);
-                
+                let string_to_selection_a_width = font.get_width(string_to_selection_a, font_size)
+                    * stretch.width
+                    + skew * 2.0
+                    + kerning * (string_to_selection_a.len() as f32 - 1.0);
+                let string_to_selection_b_width = font.get_width(string_to_selection_b, font_size)
+                    * stretch.width
+                    + skew * 2.0
+                    + kerning * (string_to_selection_b.len() as f32 - 1.0);
+
                 let rect = ctx::rectangle()
                     .xywh(
                         text_x + string_to_selection_a_width as i32,
                         cursor_y,
                         (string_to_selection_b_width - string_to_selection_a_width) as i32,
-                        cursor_height
+                        cursor_height,
                     )
                     .color(RgbColor::blue())
                     .create();
                 draw_ctx.shape(rect);
             }
-            
+
             let rect = ctx::rectangle()
                 .xywh(cursor_x, cursor_y, cursor_width as i32, cursor_height)
                 .color(cursor_color)

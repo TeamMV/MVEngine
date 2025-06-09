@@ -1,29 +1,33 @@
 // yeah fuck this shit I know my code will work safely (50% accuracy on that statement)
 #![allow(static_mut_refs)]
 
-pub mod text;
+pub mod drag;
 pub mod edittext;
+pub mod scroll;
+pub mod boring;
+pub mod text;
 
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
+use crate::input::{Input, MouseAction, RawInputEvent};
+use crate::ui::anim::easing;
 use crate::ui::context::UiContext;
+use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::Shape;
+use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::adaptive::{AdaptiveFill, AdaptiveShape};
 use crate::ui::rendering::ctx;
 use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::err::{ResType, UiResErr};
-use crate::ui::styles::{ResolveResult, UiStyle};
-use crate::{get_adaptive, get_shape, resolve};
-use std::ops::Deref;
-use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::Percentage;
-use crate::input::{Input, MouseAction, RawInputEvent};
-use crate::ui::anim::easing;
-use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::styles::enums::{BackgroundRes, Geometry};
 use crate::ui::styles::interpolate::Interpolator;
+use crate::ui::styles::{ResolveResult, UiStyle};
 use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+use crate::{get_adaptive, get_shape, resolve};
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::Percentage;
+use std::ops::Deref;
 
 #[derive(Clone)]
 enum State {
@@ -37,7 +41,7 @@ pub struct ElementBody {
     hover_style: Option<UiStyle>,
     hover_state: State,
     easing: Easing,
-    initial_style: Option<UiStyle>
+    initial_style: Option<UiStyle>,
 }
 
 impl ElementBody {
@@ -50,39 +54,42 @@ impl ElementBody {
             initial_style: None,
         }
     }
-    
-    
-    
-    pub fn on_input<E: UiElementStub + 'static>(&mut self, e: &mut E, action: RawInputEvent, _: &Input) {
+
+    pub fn on_input<E: UiElementStub + 'static>(
+        &mut self,
+        e: &mut E,
+        action: RawInputEvent,
+        _: &Input,
+    ) {
         match action {
             RawInputEvent::Keyboard(_) => {}
-            RawInputEvent::Mouse(ma) => {
-                match ma {
-                    MouseAction::Wheel(_, _) => {}
-                    MouseAction::Move(x, y) => {
-                        if e.inside(x, y) {
-                            if let State::Out = self.hover_state {
-                                self.hover_state = State::In;
-                                self.start_animation_in(e);
-                            }
-                        } else {
-                            if let State::In = self.hover_state {
-                                self.hover_state = State::Out;
-                                self.start_animation_out(e);
-                            }
+            RawInputEvent::Mouse(ma) => match ma {
+                MouseAction::Wheel(_, _) => {}
+                MouseAction::Move(x, y) => {
+                    if e.inside(x, y) {
+                        if let State::Out = self.hover_state {
+                            self.hover_state = State::In;
+                            self.start_animation_in(e);
+                        }
+                    } else {
+                        if let State::In = self.hover_state {
+                            self.hover_state = State::Out;
+                            self.start_animation_out(e);
                         }
                     }
-                    MouseAction::Press(_) => {}
-                    MouseAction::Release(_) => {}
                 }
-            }
+                MouseAction::Press(_) => {}
+                MouseAction::Release(_) => {}
+            },
         };
     }
 
     fn start_animation_in<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        if self.hover_style.is_none() { return; }
+        if self.hover_style.is_none() {
+            return;
+        }
         let hover_style = self.hover_style.as_ref().unwrap();
-        
+
         unsafe {
             if TIMING_MANAGER.is_present(elem.state().last_animation) {
                 TIMING_MANAGER.cancel(elem.state().last_animation);
@@ -97,7 +104,7 @@ impl ElementBody {
 
         let fade_time = self.fade_time;
         let easing = self.easing.clone();
-        
+
         let id = unsafe {
             TIMING_MANAGER.request(
                 DurationTask::new(
@@ -128,7 +135,9 @@ impl ElementBody {
     }
 
     fn start_animation_out<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        if self.initial_style.is_none() { return; }
+        if self.initial_style.is_none() {
+            return;
+        }
         let initial_style = self.initial_style.as_ref().unwrap();
 
         unsafe {
@@ -173,7 +182,13 @@ impl ElementBody {
         elem.state_mut().last_animation = id;
     }
 
-    pub fn draw<E: UiElementStub>(&mut self, elem: &E, ctx: &mut DrawContext2D, context: &UiContext) {
+    pub fn draw<E: UiElementStub>(
+        &mut self,
+        elem: &E,
+        ctx: &mut DrawContext2D,
+        context: &UiContext,
+        crop_area: &SimpleRect,
+    ) {
         let res = context.resources;
 
         let resolved = resolve!(elem, background.shape);
@@ -184,13 +199,13 @@ impl ElementBody {
                 Geometry::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
                     if let Some(shape) = shape {
-                        Self::draw_background_shape(shape.clone(), elem, ctx, context);
+                        Self::draw_background_shape(shape.clone(), elem, ctx, context, crop_area);
                     }
                 }
                 Geometry::Adaptive(a) => {
                     let shape = get_adaptive!(res, a).ok();
                     if let Some(shape) = shape {
-                        Self::draw_background_adaptive(shape, elem, ctx, context);
+                        Self::draw_background_adaptive(shape, elem, ctx, context, crop_area);
                     }
                 }
             }
@@ -204,13 +219,13 @@ impl ElementBody {
                 Geometry::Shape(s) => {
                     let shape = get_shape!(res, s).ok();
                     if let Some(shape) = shape {
-                        Self::draw_border_shape(shape.clone(), elem, ctx, context);
+                        Self::draw_border_shape(shape.clone(), elem, ctx, context, crop_area);
                     }
                 }
                 Geometry::Adaptive(a) => {
                     let shape = get_adaptive!(res, a).ok();
                     if let Some(shape) = shape {
-                        Self::draw_border_adaptive(shape, elem, ctx, context);
+                        Self::draw_border_adaptive(shape, elem, ctx, context, crop_area);
                     }
                 }
             }
@@ -222,6 +237,7 @@ impl ElementBody {
         elem: &E,
         ctx: &mut DrawContext2D,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         let state = elem.state();
         let style = elem.style();
@@ -255,10 +271,8 @@ impl ElementBody {
                     if let ResolveResult::Value(tex) = tex {
                         let tex = tex.deref().clone();
                         if let Some((tex, uv)) = tex.get_texture(context.resources) {
-                            background_shape.set_texture(ctx::texture()
-                                .source(Some(tex.clone()))
-                                .uv(uv)
-                            );
+                            background_shape
+                                .set_texture(ctx::texture().source(Some(tex.clone())).uv(uv));
                         } else {
                             bg_empty = true;
                         }
@@ -276,6 +290,7 @@ impl ElementBody {
             background_shape.apply_transformations();
             let ui_transform = state.inner_transforms.as_render_transform(state);
             background_shape.set_transform(ui_transform);
+            background_shape.crop_to(crop_area);
             ctx.shape(background_shape);
         }
     }
@@ -285,6 +300,7 @@ impl ElementBody {
         elem: &E,
         ctx: &mut DrawContext2D,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         let state = elem.state();
         let style = elem.style();
@@ -317,10 +333,8 @@ impl ElementBody {
                     if let ResolveResult::Value(tex) = tex {
                         let tex = tex.deref().clone();
                         if let Some((tex, uv)) = tex.get_texture(context.resources) {
-                            border_shape.set_texture(ctx::texture()
-                                .source(Some(tex.clone()))
-                                .uv(uv)
-                            );
+                            border_shape
+                                .set_texture(ctx::texture().source(Some(tex.clone())).uv(uv));
                         } else {
                             bd_empty = true;
                         }
@@ -338,6 +352,7 @@ impl ElementBody {
             border_shape.apply_transformations();
             let ui_transform = state.inner_transforms.as_render_transform(state);
             border_shape.set_transform(ui_transform);
+            border_shape.crop_to(crop_area);
             ctx.shape(border_shape);
         }
     }
@@ -347,6 +362,7 @@ impl ElementBody {
         elem: &E,
         ctx: &mut DrawContext2D,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         let mut rect = elem.state().rect.clone();
         let res = resolve!(elem, background.resource).unwrap_or(BackgroundRes::Color.into());
@@ -357,14 +373,18 @@ impl ElementBody {
                 AdaptiveFill::Color(color)
             }
             BackgroundRes::Texture => {
-                let texture = resolve!(elem, background.texture).unwrap_or(Drawable::missing().into());
+                let texture =
+                    resolve!(elem, background.texture).unwrap_or(Drawable::missing().into());
                 let texture = texture.deref().clone();
                 AdaptiveFill::Drawable(texture)
             }
         };
-        let transform = elem.state().inner_transforms.as_render_transform(elem.state());
+        let transform = elem
+            .state()
+            .inner_transforms
+            .as_render_transform(elem.state());
         rect.transform(&transform);
-        bg_shape.draw(ctx, &rect, fill, context);
+        bg_shape.draw(ctx, &rect, fill, context, crop_area);
     }
 
     fn draw_border_adaptive<E: UiElementStub>(
@@ -372,6 +392,7 @@ impl ElementBody {
         elem: &E,
         ctx: &mut DrawContext2D,
         context: &UiContext,
+        crop_area: &SimpleRect,
     ) {
         let mut rect = elem.state().rect.clone();
         let res = resolve!(elem, border.resource).unwrap_or(BackgroundRes::Color.into());
@@ -387,9 +408,12 @@ impl ElementBody {
                 AdaptiveFill::Drawable(texture)
             }
         };
-        let transform = elem.state().inner_transforms.as_render_transform(elem.state());
+        let transform = elem
+            .state()
+            .inner_transforms
+            .as_render_transform(elem.state());
         rect.transform(&transform);
-        bd_shape.draw(ctx, &rect, fill, context);
+        bd_shape.draw(ctx, &rect, fill, context, crop_area);
     }
 
     pub fn set_fade_time(&mut self, fade_time: u32) {
@@ -424,4 +448,3 @@ impl ElementBody {
         &mut self.initial_style
     }
 }
-

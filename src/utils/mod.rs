@@ -6,23 +6,19 @@ use std::ops::{Deref, DerefMut};
 
 ///CAUTION!!! UNSAFE
 pub struct CloneMut<'a, T> {
-    inner: &'a mut T
+    inner: &'a mut T,
 }
 
 impl<'a, T> CloneMut<'a, T> {
     pub fn new(t: &'a mut T) -> Self {
-        Self {
-            inner: t,
-        }
+        Self { inner: t }
     }
 }
 
 impl<'a, T> Clone for CloneMut<'a, T> {
     fn clone(&self) -> Self {
         let cast = mvutils::unsafe_cast_mut!(self, Self);
-        Self {
-            inner: cast.inner,
-        }
+        Self { inner: cast.inner }
     }
 }
 

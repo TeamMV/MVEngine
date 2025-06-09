@@ -9,7 +9,7 @@ use mvutils::Savable;
 pub struct Texture {
     pub id: GLuint,
     pub dimensions: (u32, u32),
-    sampler: bool
+    sampler: bool,
 }
 
 impl Texture {
@@ -94,10 +94,26 @@ impl Texture {
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, smooth.yn(gl::LINEAR, gl::NEAREST) as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                smooth.yn(gl::LINEAR, gl::NEAREST) as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                smooth.yn(gl::LINEAR, gl::NEAREST) as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_EDGE as GLint,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_EDGE as GLint,
+            );
 
             gl::TexImage2D(
                 gl::TEXTURE_2D,
@@ -126,7 +142,12 @@ impl Texture {
     }
 
     pub fn get_uv_inner(&self, outer_uv: Vec4) -> [(f32, f32); 4] {
-        [(outer_uv.x, outer_uv.y), (outer_uv.x + outer_uv.z, outer_uv.y), (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w), (outer_uv.x, outer_uv.y + outer_uv.w)]
+        [
+            (outer_uv.x, outer_uv.y),
+            (outer_uv.x + outer_uv.z, outer_uv.y),
+            (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w),
+            (outer_uv.x, outer_uv.y + outer_uv.w),
+        ]
     }
 }
 
@@ -167,7 +188,7 @@ impl Savable for Texture {
 #[derive(Savable)]
 pub struct NoCtxTexture {
     raw_data: Vec<u8>,
-    smooth: bool
+    smooth: bool,
 }
 
 impl NoCtxTexture {

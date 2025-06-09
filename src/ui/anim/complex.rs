@@ -83,7 +83,7 @@ impl KeyframeAnimation {
                 FillMode::Keep,
                 animation_mode.clone(),
             );
-            
+
             let static_self = Unsafe::cast_static(self);
 
             let next_index = index + 1;

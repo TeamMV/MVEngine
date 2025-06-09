@@ -1,7 +1,7 @@
 pub mod dom;
 
 use crate::ui::attributes::Attributes;
-use crate::ui::elements::{UiElement};
+use crate::ui::elements::UiElement;
 use crate::ui::styles::UiStyle;
 use crate::ui::uix::dom::VNode;
 use mvutils::state::State;

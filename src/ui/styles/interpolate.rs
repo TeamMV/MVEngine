@@ -1,11 +1,11 @@
-use std::ops::{Deref, DerefMut};
-use mvutils::unsafe_utils::Unsafe;
-use std::cmp::Ordering;
-use std::str::FromStr;
-use mvutils::utils::TetrahedronOp;
 use crate::color::{Color, ColorFormat};
 use crate::ui::elements::UiElementStub;
 use crate::ui::styles::{Resolve, UiStyle, UiValue};
+use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::TetrahedronOp;
+use std::cmp::Ordering;
+use std::ops::{Deref, DerefMut};
+use std::str::FromStr;
 
 pub trait Interpolator<T: PartialOrd + Clone + 'static> {
     fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
@@ -109,9 +109,11 @@ impl<T: FromStr + Clone> FromStr for BasicInterpolatable<T> {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        T::from_str(s).map(|t| BasicInterpolatable::from(t)).map_err(|_| format!("{s} cannot be parsed!"))
+        T::from_str(s)
+            .map(|t| BasicInterpolatable::from(t))
+            .map_err(|_| format!("{s} cannot be parsed!"))
     }
-} 
+}
 
 impl Interpolator<UiStyle> for UiStyle {
     fn interpolate<E, F>(&mut self, start: &Self, end: &UiStyle, percent: f32, elem: &E, f: F)
@@ -288,6 +290,32 @@ impl Interpolator<UiStyle> for UiStyle {
         );
         self.transform.origin =
             (percent > 50.0).yn(end.transform.origin.clone(), start.transform.origin.clone());
+
+        self.overflow_x = (percent > 50.0).yn(end.overflow_x.clone(), start.overflow_x.clone());
+
+        self.overflow_y = (percent > 50.0).yn(end.overflow_y.clone(), start.overflow_y.clone());
+
+        self.scrollbar.track.interpolate(
+            &start.scrollbar.track,
+            &end.scrollbar.track,
+            percent,
+            elem,
+            |s| &f(s).scrollbar.track,
+        );
+        self.scrollbar.knob.interpolate(
+            &start.scrollbar.knob,
+            &end.scrollbar.knob,
+            percent,
+            elem,
+            |s| &f(s).scrollbar.knob,
+        );
+        self.scrollbar.size.interpolate(
+            &start.scrollbar.size,
+            &end.scrollbar.size,
+            percent,
+            elem,
+            |s| &f(s).scrollbar.size,
+        );
     }
 }
 

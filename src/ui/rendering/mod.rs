@@ -9,6 +9,7 @@ use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
 use crate::rendering::{OpenGLRenderer, Quad, RenderContext, Triangle};
+use crate::ui::geometry::SimpleRect;
 use crate::window::Window;
 
 pub struct UiRenderer {
@@ -39,8 +40,10 @@ impl UiRenderer {
             }
         }
     }
-    
-    
+
+    pub fn area(&self) -> SimpleRect {
+        SimpleRect::new(0, 0, self.dimension.0 as i32, self.dimension.1 as i32)
+    }
 
     pub(crate) fn gen_z(&mut self) -> f32 {
         let z = self.last_z;
