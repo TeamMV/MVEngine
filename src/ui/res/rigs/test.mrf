@@ -1,20 +1,14 @@
-;Comment
-
 #PARTS
-static = 0
-center = 1
+base: 100, 100
+rotor: 100, 100
 
-#BOUNDS
-static = [100, 100]
-center = [100, 100]
+#CONSTRAINTS
+base > rotor //base is parent of rotor
 
-#ANIMATIONS
-+rotate
-:pre
-center.origin = [50, 50]
-:keyframes
+#ANIMATION: rotate
+>init
+rotor.origin: 50, 50
 >0
-center.rotation = 0
+rotor.rotation: 0
 >100
-center.rotation = 350
-hello
+rotor.rotation: 360

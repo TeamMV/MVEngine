@@ -4,9 +4,11 @@ pub mod morph;
 pub mod polygon;
 pub mod shape;
 
+use mvutils::Savable;
+use crate::math::vec::Vec2;
 use crate::rendering::Transform;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Savable)]
 pub struct SimpleRect {
     pub x: i32,
     pub y: i32,
@@ -230,8 +232,37 @@ impl Rect {
         let mut t = Transform::new();
         t.origin.x = self.origin.0 as f32;
         t.origin.y = self.origin.1 as f32;
-        t.rotation = self.rotation;
+        t.rotation = self.rotation.to_radians();
         t
+    }
+    
+    pub fn set_transform(&mut self, transform: Transform) {
+        self.origin = transform.origin.as_i32_tuple();
+        self.rotation = transform.rotation;
+        self.x = transform.translation.x as i32;
+        self.y = transform.translation.y as i32;
+
+        let mut trans_x = self.x - self.origin.0;
+        let mut trans_y = self.y - self.origin.1;
+        trans_x = (trans_x as f32 * transform.scale.x) as i32;
+        trans_y = (trans_y as f32 * transform.scale.x) as i32;
+        self.width = (self.width as f32 * transform.scale.x) as i32;
+        self.height = (self.height as f32 * transform.scale.y) as i32;
+        self.x = trans_x + self.origin.0;
+        self.y = trans_y + self.origin.1;
+        self.update();
+    }
+
+    pub fn project(&mut self, source: &SimpleRect, target: &SimpleRect) {
+        let pos = geom::remap_point(Vec2::new(self.x as f32, self.y as f32), source, target);
+        let x_scale = target.width as f32 / source.width as f32;
+        let y_scale = target.height as f32 / source.height as f32;
+        self.x = pos.x as i32;
+        self.y = pos.y as i32;
+        self.width = (self.width as f32 * x_scale) as i32;
+        self.height = (self.height as f32 * y_scale) as i32;
+        let or = geom::remap_point(Vec2::new(self.origin.0 as f32, self.origin.1 as f32), source, target);
+        self.origin = or.as_i32_tuple();
     }
 }
 

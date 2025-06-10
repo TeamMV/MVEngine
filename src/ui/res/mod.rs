@@ -22,6 +22,8 @@ r! {
             <color name="magenta" val="magenta"/>
             <color name="cyan" val="cyan"/>
             <color name="transparent" val="transparent"/>
+    
+            <color name="bone_debug" val="red"/>
         </colors>
         <shapes>
             <shape name="rect" src="shapes/rect.msf"/>
@@ -42,19 +44,25 @@ r! {
                 <entry name="happy" index="4"/>
                 <fps value="24"/>
             </tileset>
+            <tileset name="turret" atlas="textures/turret.png" width="16" height="16" count="2">
+                <entry name="base" index="0"/>
+                <entry name="canon" index="1"/>
+            </tileset>
         </tilesets>
         <animations>
             <animation name="smiley" tileset="smiley" range="..8" fps="12"/>
         </animations>
         <composites>
-            <composite name="test" rig="rigs/test.mrf">
-                <part res="animation.smiley"/>
-                <part res="tile.smiley.happy"/>
-                <part res="texture.test"/>
+            <composite name="turret" rig="rigs/bone.mrf">
+                <part name="base" res="drawable.turret_base"/>
+                <part name="canon_1" res="drawable.turret_canon"/>
+                <part name="canon_2" res="drawable.turret_canon"/>
             </composite>
         </composites>
         <drawables>
             <drawable name="test" type="texture" ref="test"/>
+            <drawable name="turret_base" type="tileset" ref="turret" tileref="base"/>
+            <drawable name="turret_canon" type="tileset" ref="turret" tileref="canon"/>
         </drawables>
         <geometries>
             <geometry name="rect" type="shape" ref="rect"/>

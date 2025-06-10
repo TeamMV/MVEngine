@@ -1,0 +1,22 @@
+#PARTS
+base: 100,100 anchor 50,50
+canon_1: 36,50 anchor 18,5
+canon_2: 36,50 anchor 18,5
+
+#BONES
+root: 50,50 > 50,75
+left_arm: root > 10,75
+right_arm: root > 90,75
+left_turret: left_arm > 0,150
+right_turret: right_arm > 100,150
+
+#ATTACH
+base > root
+canon_1 > left_turret
+canon_2 > right_turret
+
+#JOINTS
+left_middle: root > left_arm
+right_middle: root > right_arm
+left_turret: left_arm > left_turret
+right_turret: right_arm > right_turret

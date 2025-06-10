@@ -1,14 +1,13 @@
 use ui_parsing::xml::{Entity, XmlValue};
 
-pub enum PartRes {
-    Texture(String),
-    Anim(String),
-    TileSet(String, String)
-}
-
 pub struct ParsedComposite {
     pub(crate) rig: String,
-    pub(crate) parts: Vec<PartRes>
+    pub(crate) parts: Vec<CompositePart>
+}
+
+pub struct CompositePart {
+    pub(crate) name: String,
+    pub(crate) res: String
 }
 
 pub fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
@@ -26,17 +25,12 @@ pub fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
                 if child.name() == "part" {
                     let res = child.get_attrib("res");
                     if let Some(XmlValue::Str(res)) = res {
-                        let (beginning, rem) = res.split_once('.').expect("Invalid resource!");
-                        let p_res =  match beginning {
-                            "texture" => PartRes::Texture(res.to_string()),
-                            "animation" => PartRes::Anim(res.to_string()),
-                            "tile" => {
-                                let (ts, _) = rem.split_once('.').expect("Expected valid tileset");
-                                PartRes::TileSet(ts.to_string(), res.to_string())
-                            },
-                            _ => panic!("Unsupported resource")
-                        };
-                        parts.push(p_res);
+                        if let Some(XmlValue::Str(name)) = child.get_attrib("name") {
+                            parts.push(CompositePart {
+                                name: name.clone(),
+                                res: res.clone(),
+                            });
+                        }
                     }
                 }
             }
@@ -46,6 +40,6 @@ pub fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
             parts,
         })
     } else {
-        panic!("Animation must contain 'tileset', 'name' and 'fps' attributes");
+        panic!("Illegal Composite setup!");
     }
 }

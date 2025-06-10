@@ -1,0 +1,21 @@
+<rig>
+    <parts>
+        <part name="base" size="100, 100"/>
+        <part name="rotor" size="100, 100" parent="base"/>
+    </parts>
+    <animations>
+        <animation name="rotate">
+            <init>
+                <prop name="rotor.origin" value="50, 50"/>
+            </init>
+            <keyframes>
+                <keyframe at="0%">
+                    <prop name="rotor.rotation" value="0"/>
+                </keyframe>
+                <keyframe at="100%">
+                    <prop name="rotor.rotation" value="360"/>
+                </keyframe>
+            </keyframes>
+        </animation>
+    </animations>
+</rig>

@@ -6,6 +6,7 @@ use crate::ui::geometry::Rect;
 use crate::ui::res::MVR;
 use mvutils::Savable;
 use std::str::FromStr;
+use crate::color::RgbColor;
 
 pub mod animation;
 pub mod comp;
@@ -71,8 +72,8 @@ impl Drawable {
                 let (tex, uv) = self.get_texture_or_default(r);
                 let vertex = InputVertex {
                     transform: trans,
-                    pos: (area.x() as f32, area.y() as f32, 0.0),
-                    color: Default::default(),
+                    pos: (area.x() as f32, area.y() as f32, 10.0),
+                    color: RgbColor::transparent().as_vec4(),
                     uv: (0.0, 0.0),
                     texture: tex.id,
                     has_texture: 1.0,
@@ -84,6 +85,7 @@ impl Drawable {
                     |v, (x, y)| {
                         v.pos.0 = x;
                         v.pos.1 = y;
+                        v.pos.2 = 10.0;
                     },
                 );
                 controller.push_quad(quad);

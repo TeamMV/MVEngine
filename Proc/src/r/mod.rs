@@ -9,15 +9,6 @@ mod tileset;
 mod drawable;
 mod geometry;
 
-use proc_macro::TokenStream;
-use mvutils::utils::TetrahedronOp;
-use proc_macro2::{Ident, Span};
-use quote::quote;
-use syn::{parse_str, Expr, Path};
-use animation::ParsedAnimation;
-use composite::{ParsedComposite, PartRes};
-use tileset::ParsedTileSet;
-use ui_parsing::xml::{parse_rsx, XmlValue};
 use crate::r::adaptive::parse_adaptive;
 use crate::r::animation::parse_animation;
 use crate::r::color::parse_color;
@@ -28,6 +19,15 @@ use crate::r::geometry::{parse_geometry, GeomType, ParsedGeometry};
 use crate::r::shape::parse_shape;
 use crate::r::texture::parse_texture;
 use crate::r::tileset::parse_tileset;
+use animation::ParsedAnimation;
+use composite::ParsedComposite;
+use mvutils::utils::TetrahedronOp;
+use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
+use quote::quote;
+use syn::{parse_str, Expr, Path};
+use tileset::ParsedTileSet;
+use ui_parsing::xml::{parse_rsx, XmlValue};
 
 pub fn r(input: TokenStream) -> TokenStream {
     let content = input.to_string();
@@ -329,22 +329,16 @@ pub fn r(input: TokenStream) -> TokenStream {
         |composite| {
 
             let mut vec_ts = quote! {};
-            for res in &composite.parts {
-                let ts = match res {
-                    PartRes::Texture(tex) => {
-                        let ident: Expr = parse_str(tex).unwrap();
-                        quote! { mvengine::graphics::Drawable::Texture(#r_ident.#ident), }
-                    }
-                    PartRes::Anim(anim) => {
-                        let ident: Expr = parse_str(anim).unwrap();
-                        quote! { mvengine::graphics::Drawable::Animation(#r_ident.#ident), }
-                    }
-                    PartRes::TileSet(tileset, tile) => {
-                        let ident_ts: Expr = parse_str(tileset).unwrap();
-                        let ident_t: Expr = parse_str(tile).unwrap();
+            for part in &composite.parts {
+                let mut n = struct_name.to_string();
+                n.push('.');
+                n.push_str(&part.res);
 
-                        quote! { mvengine::graphics::Drawable::TileSet(#r_ident.tileset.#ident_ts, #r_ident.#ident_t), }
-                    }
+                let name = &part.name;
+
+                let e: Expr = parse_str(n.as_str()).unwrap();
+                let ts = quote! {
+                    comp.add_drawable(#name, #e);
                 };
                 vec_ts.extend(ts);
             }
@@ -354,8 +348,10 @@ pub fn r(input: TokenStream) -> TokenStream {
             quote! {
                 {
                     mvutils::once::Lazy::new(|| {
-                        let comp = mvengine::graphics::comp::CompositeSprite::from_expr_and_resources(include_str!(#rig), vec![#vec_ts]);
-                        comp.unwrap()
+                        let comp = mvengine::graphics::comp::CompositeSprite::from_rig(include_str!(#rig));
+                        let mut comp = comp.unwrap();
+                        #vec_ts
+                        comp
                     })
                 },
             }
@@ -411,7 +407,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     let v1 = &parsed.thingies[1];
                     let ident = Ident::new(v, Span::call_site());
                     let ident2 = Ident::new(v1, Span::call_site());
-                    quote! { mvengine::graphics::Drawable::TileSet(#r_ident.tileset.#v, #r_ident.tile.#ident.#ident2) }
+                    quote! { mvengine::graphics::Drawable::TileSet(#r_ident.tileset.#ident, #r_ident.tile.#ident.#ident2) }
                 }
             };
 

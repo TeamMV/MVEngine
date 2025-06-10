@@ -1,10 +1,11 @@
-use mvengine::ui::elements::text::Text;
-use log::LevelFilter;
+use log::{error, LevelFilter};
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::source::SoundWithAttributes;
 use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::color::RgbColor;
+use mvengine::graphics::comp::parse::parser::MRFParser;
+use mvengine::graphics::comp::rig::Rig;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
 use mvengine::rendering::camera::OrthographicCamera;
@@ -20,16 +21,14 @@ use mvengine::ui::elements::button::Button;
 use mvengine::ui::elements::child::ToChild;
 use mvengine::ui::elements::child::ToChildFromIterator;
 use mvengine::ui::elements::div::Div;
+use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::geometry::morph::Morph;
+use mvengine::ui::geometry::SimpleRect;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
 use mvengine::ui::res::MVR;
-use mvengine::ui::styles::enums::{Direction, Origin, Position};
-use mvengine::ui::styles::groups::SideStyle;
-use mvengine::ui::styles::types::Dimension;
-use mvengine::ui::styles::{UiStyle, UiValue};
 use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
@@ -40,11 +39,10 @@ use mvutils::state::State;
 use parking_lot::RwLock;
 use std::ops::Deref;
 use std::sync::Arc;
-use mvengine::ui::geometry::Rect;
-use mvengine::ui::rendering::adaptive::AdaptiveFill;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
+
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -265,23 +263,45 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
+        //window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);
         //self.morph.debug_draw(&mut self.draw_ctx);
         //frame.set_translate(300, 400);
         //self.draw_ctx.shape(frame);
-
-        let mx = window.input.mouse_x;
-        let my = window.input.mouse_y;
-        let w = mx - 100;
-        let h = my - 100;
-
+        
         //let mut rect = Rect::simple(100, 100, w, h);
         //rect.set_origin(rect.center());
         //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
         //ad.draw(&mut *self.draw_ctx, &rect, AdaptiveFill::Drawable(Drawable::Texture(MVR.texture.test)), &window.ui.context());
+
+        let mx = window.input.mouse_x as f32;
+        let my = window.input.mouse_y as f32;
+        let mouse_pos = Vec2::new(mx, my);
+
+        if let Some(composite) = MVR.resolve_composite(MVR.composite.turret) {
+            if let Some(bone) = composite.rig.skeleton.bones.get("left_turret") {
+                let mut l = bone.write();
+                l.set_aim(mouse_pos);
+            }
+            if let Some(bone) = composite.rig.skeleton.bones.get("right_turret") {
+                let mut l = bone.write();
+                l.set_aim(mouse_pos);
+            }
+            {
+                let mut l = composite.rig.root_bone.write();
+                l.rotate(0.5f32.to_radians());
+            }
+
+            let rect = SimpleRect::new(250, 250, 300, 300);
+            composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
+            composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
+            
+            
+            //TODO: have RenderContext have a next_z() method
+        }
+
 
         OpenGLRenderer::clear();
         self.draw_ctx.draw(window);

@@ -134,6 +134,12 @@ impl TransformCtx {
         self.transform.scale.y = y;
         self
     }
+    
+    pub fn of(mut self, transform: Transform) -> Self {
+        self.transform = transform;
+        self.origin_set = true;
+        self
+    }
 
     pub fn get(&self) -> Transform {
         self.transform.clone()

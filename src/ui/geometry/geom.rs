@@ -1,5 +1,11 @@
 use crate::math::vec::Vec2;
 use std::cmp::Ordering;
+use std::f32::consts::{FRAC_1_PI, FRAC_2_PI, PI, TAU};
+use crate::ui::geometry::SimpleRect;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// This module is a collection of useful math stuff from math websites without css or stackoverflow //
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 trait Closeable {
     const EPSILON: Self;
@@ -166,4 +172,79 @@ pub fn get_distance_to_line(l1: Vec2, l2: Vec2, p: Vec2) -> f32 {
     let x2d = l2.x - l1.x;
 
     (y2d * p.x - x2d * p.y + l2.x * l1.y - l2.y * l1.x).abs() / (y2d * y2d + x2d * x2d).sqrt()
+}
+
+pub fn length(v: Vec2) -> f32 {
+    (v.x * v.x + v.y * v.y).sqrt()
+}
+
+pub fn normalize(v: Vec2) -> Vec2 {
+    let len = length(v);
+    if len == 0.0 {
+        v
+    } else {
+        Vec2 { x: v.x / len, y: v.y / len }
+    }
+}
+
+pub fn perpendicular(v: Vec2) -> Vec2 {
+    Vec2 { x: -v.y, y: v.x }
+}
+
+pub fn add(a: Vec2, b: Vec2) -> Vec2 {
+    Vec2 { x: a.x + b.x, y: a.y + b.y }
+}
+
+pub fn sub(a: Vec2, b: Vec2) -> Vec2 {
+    Vec2 { x: a.x - b.x, y: a.y - b.y }
+}
+
+pub fn scale(v: Vec2, factor: f32) -> Vec2 {
+    Vec2 { x: v.x * factor, y: v.y * factor }
+}
+
+pub fn scale_xy(v: Vec2, x: f32, y: f32) -> Vec2 {
+    Vec2 { x: v.x * x, y: v.y * y }
+}
+
+pub fn remap_point(pt: Vec2, from: &SimpleRect, to: &SimpleRect) -> Vec2 {
+    let norm_x = (pt.x - from.x as f32) / from.width as f32;
+    let norm_y = (pt.y - from.y as f32) / from.height as f32;
+
+    Vec2 {
+        x: to.x as f32 + norm_x * to.width as f32,
+        y: to.y as f32 + norm_y * to.height as f32,
+    }
+}
+
+pub fn angle_between_points(a: Vec2, b: Vec2) -> f32 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+
+    let angle = dy.atan2(dx) - PI / 2.0;
+
+    angle
+}
+
+pub fn vector_angle(v: Vec2) -> f32 {
+    let angle = v.y.atan2(v.x) - std::f32::consts::FRAC_PI_2;
+    
+    (angle + TAU) % TAU
+}
+
+pub fn rotate_vector(v: Vec2, angle: f32) -> Vec2 {
+    let cos_theta = angle.cos();
+    let sin_theta = angle.sin();
+
+    Vec2 {
+        x: v.x * cos_theta - v.y * sin_theta,
+        y: v.x * sin_theta + v.y * cos_theta,
+    }
+}
+
+pub fn invert(v: Vec2) -> Vec2 {
+    Vec2 {
+        x: -v.x,
+        y: -v.y,
+    }
 }
