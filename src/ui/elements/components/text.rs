@@ -30,7 +30,6 @@ impl TextBody {
             let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
             let mut y = 0f32;
-            let mut triangles = vec![];
 
             let lines = self.split_up(state.content_rect.width(), text_size, s, font);
             for line in lines.iter().rev() {
@@ -65,18 +64,19 @@ impl TextBody {
                     height = height.max(data.size as i32);
                     quad.points[0].transform.translation.x -= skew;
                     quad.points[2].transform.translation.x += skew;
-                    triangles.extend(quad.triangles());
+
+                    let mut shape = Shape::new(quad.triangles().to_vec());
+                    shape.is_quad = true;
+                    let mut shape = shape.translated(state.content_rect.x(), state.content_rect.y());
+                    shape.apply_transformations();
+                    shape.crop_to(crop_area);
+                    ctx.shape(shape);
+
                     x += data.width * stretch.width + kerning + skew * 2f32;
                 }
 
                 y += text_size + 2f32;
             }
-
-            let mut shape = Shape::new(triangles);
-            let mut shape = shape.translated(state.content_rect.x(), state.content_rect.y());
-            shape.apply_transformations();
-            shape.crop_to(crop_area);
-            ctx.shape(shape);
             
             elem.state_mut().requested_height = Some(y as i32);
         }

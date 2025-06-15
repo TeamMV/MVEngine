@@ -337,12 +337,15 @@ impl ShapeGenerator {
                         }
                     }
                     "export" => {
+                        let is_quad = params.iter().any(|p| p.is_str("quad"));
+
                         let all_param = Param::Str("all".to_string());
                         let first = params.get(0).unwrap_or(&all_param);
                         if let Param::Str(_) = first {}
                         let current = vars
                             .get_mut(&current_selection)
                             .ok_or("No shape selected".to_string())?;
+                        current.is_quad = is_quad;
                         return Ok(current.clone());
                     }
                     "modifier" => {
@@ -451,12 +454,17 @@ impl ShapeGenerator {
                         }
                     }
                     "export" => {
+                        let is_full = params.iter().any(|p| p.is_str("full"));
+                        //TODO: impl full
+                        let is_quad = params.iter().any(|p| p.is_str("quad"));
+
                         let all_param = Param::Str("finish".to_string());
                         let first = params.get(0).unwrap_or(&all_param);
                         if let Param::Str(export) = first {
                             let current = vars
-                                .get(&current_selection)
+                                .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;
+                            current.is_quad = is_quad;
                             match export.as_str() {
                                 "finish" => return Ok(AdaptiveShape::from_arr(parts)),
                                 "bl" | "bottom_left" => parts[0] = Some(current.clone()),

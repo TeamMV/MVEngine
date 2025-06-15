@@ -93,6 +93,34 @@ pub trait UiElementStub: UiElementCallbacks {
             self.state_mut().children.push(child);
         }
     }
+    
+    fn remove_child_by_id(&mut self, id: &str) {
+        self.state_mut().children.retain(|c| {
+            if let Child::Element(e) = c {
+                let r = e.get().attributes().id.as_ref().is_some_and(|a| a == id);
+                if r {
+                    e.get_mut().state_mut().parent = None;
+                }
+                !r
+            } else {
+                true
+            }
+        });
+    }
+    
+    fn remove_child_by_class(&mut self, class: &str) {
+        self.state_mut().children.retain(|c| {
+            if let Child::Element(e) = c {
+                let r = e.get().attributes().classes.iter().any(|s| s == class);
+                if r {
+                    e.get_mut().state_mut().parent = None;
+                }
+                !r
+            } else {
+                true
+            }
+        });
+    }
 
     fn children(&self) -> &[Child] {
         &self.state().children

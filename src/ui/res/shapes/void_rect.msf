@@ -1,15 +1,12 @@
-corner = rect[x0y0w2h2];
->corner;
-export bl;
-export br;
-export tr;
-export tl;
-
 bar = rect[x0y0w2h2];
 >bar;
-export t;
-export l;
-export b;
-export r;
+export t quad;
+export l quad;
+export b quad;
+export r quad;
+
+# So we are using a very hacky fix here to make it more efficient in rendering.
+# We DONT export corners which makes their size 0 which makes the bars overlap. when the color is solid with full alpha. there will be no difference
+# and even with alpha its barely noticeable. its just a performance improvement for the cost of a small detail.
 
 export;

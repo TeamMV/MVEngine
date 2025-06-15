@@ -11,6 +11,7 @@ use std::fmt::{Debug, Formatter, Write};
 
 #[derive(Clone, Savable)]
 pub struct Shape {
+    pub is_quad: bool,
     pub triangles: Vec<Triangle>,
     pub extent: (i32, i32),
     outline: ShapeOutline,
@@ -30,6 +31,7 @@ impl Debug for Shape {
 impl Shape {
     pub fn new(triangles: Vec<Triangle>) -> Self {
         Self {
+            is_quad: false,
             triangles,
             extent: (0, 0),
             outline: ShapeOutline { points: vec![] },
@@ -38,6 +40,7 @@ impl Shape {
 
     pub fn new_with_extent(triangles: Vec<Triangle>, extent: (i32, i32)) -> Self {
         Self {
+            is_quad: false,
             triangles,
             extent,
             outline: ShapeOutline { points: vec![] },

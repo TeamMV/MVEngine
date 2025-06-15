@@ -44,14 +44,14 @@ impl NumberLit {
     }
 }
 
-pub struct TokenStream<'a> {
+pub struct MSFLexer<'a> {
     chars: Peekable<Chars<'a>>,
     in_struct: bool,
     bracket_depth: i32,
     putback: VecDeque<Token>,
 }
 
-impl<'a> TokenStream<'a> {
+impl<'a> MSFLexer<'a> {
     pub fn tokenize(shape_expr: &'a str) -> Self {
         Self {
             chars: shape_expr.chars().peekable(),
@@ -162,7 +162,7 @@ impl<'a> TokenStream<'a> {
     }
 }
 
-impl Iterator for TokenStream<'_> {
+impl Iterator for MSFLexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -182,7 +182,7 @@ impl Iterator for TokenStream<'_> {
             }
             next = n.unwrap();
         }
-        if next == '#' {
+        while next == '#' {
             while next != '\n' {
                 let n = self.chars.next();
                 if n.is_none() {
@@ -197,6 +197,14 @@ impl Iterator for TokenStream<'_> {
                 }
                 next = n.unwrap();
             }
+        }
+
+        while next.is_whitespace() {
+            let n = self.chars.next();
+            if n.is_none() {
+                return None;
+            }
+            next = n.unwrap();
         }
 
         match next {

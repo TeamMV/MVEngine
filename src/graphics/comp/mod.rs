@@ -1,13 +1,12 @@
 pub mod parse;
 pub mod rig;
 
-use log::{info, warn};
 use crate::graphics::comp::parse::parser::MRFParser;
 use crate::graphics::comp::rig::Rig;
-use mvutils::Savable;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiResources;
 use crate::ui::geometry::SimpleRect;
+use mvutils::Savable;
 
 #[derive(Savable, Clone)]
 pub struct CompositeSprite {

@@ -9,7 +9,6 @@ use mvutils::Savable;
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
-use crate::rendering::texture::Texture;
 
 pub mod batch;
 pub mod camera;
@@ -67,20 +66,6 @@ impl Transform {
         self.translation.x += dx;
         self.translation.y += dy;
         self
-    }
-
-    pub fn origin_self(mut self, dx: f32, dy: f32) -> Self {
-        self.origin.x += dx;
-        self.origin.y += dy;
-        self
-    }
-
-    pub fn transform(&mut self, by: &Transform) {
-        self.translation.x += by.translation.x;
-        self.translation.y += by.translation.y;
-        self.scale.x *= by.scale.x;
-        self.scale.y *= by.scale.y;
-        self.rotation += by.rotation;
     }
 }
 
@@ -180,7 +165,7 @@ impl Quad {
 
         let vertex = || -> InputVertex {
             InputVertex {
-                transform: bottom_left.transform.clone(),
+                transform: Transform::new(),
                 pos: (0.0, 0.0, f32::INFINITY),
                 color: color.clone(),
                 uv: (0.0, 0.0),
@@ -203,12 +188,10 @@ impl Quad {
         positioner(&mut tr, (x2, y2));
         positioner(&mut br, (x2, y1));
 
-        let uv = Texture::get_uv_inner_static(uv);
-
-        bottom_left.uv = uv[1];
-        tl.uv = uv[2];
-        tr.uv = uv[3];
-        br.uv = uv[0];
+        bottom_left.uv = (uv.x, uv.y - uv.w);
+        tl.uv = (uv.x, uv.y);
+        tr.uv = (uv.x + uv.z, uv.y);
+        br.uv = (uv.x + uv.z, uv.y - uv.w);
 
         Self {
             points: [bottom_left, tl, tr, br],

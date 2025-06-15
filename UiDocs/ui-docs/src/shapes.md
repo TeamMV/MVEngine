@@ -52,6 +52,8 @@ A circular arc defined by its center, radius, and angle.
 ---
 
 ## Syntax
+Comments can be made with a `#`.
+
 ### **Shape Selection**
 Use the `>` symbol followed by the shape name to select a shape.
 
@@ -78,6 +80,17 @@ Adds another shape to the currently selected shape, merging their geometries.
 
 ### **5. `export`**
 Exports the current shape and exits the program. This step is required to finalize the shape manipulation process.
+There is an additional parameter which can be set: `quad` makes the shape a quad.
+This means that for rendering, the first 2 triangles are being used to form a Quad more efficient.
+
+Example:
+```
+r = rect[x100y100w100h100];
+# create a simple rectangle
+
+>r;
+export quad; #export it using the quad flag to maximise performance.
+```
 
 ### **6. `modifier (Modifier Expression)`**
 Calls the given modifier expression. Example:

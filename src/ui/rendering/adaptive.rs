@@ -1,7 +1,7 @@
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
 use crate::rendering::control::RenderController;
-use crate::rendering::RenderContext;
+use crate::rendering::{InputVertex, Quad, RenderContext};
 use crate::ui::context::UiContext;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::geometry::{Rect, SimpleRect};
@@ -259,36 +259,35 @@ impl AdaptiveShape {
         context: &UiContext,
         crop_area: &SimpleRect,
     ) {
-        for triangle in &shape.triangles {
-            let mut triangle = triangle.clone();
-            for point in &mut triangle.points {
-                point.pos.0 += pos.0 as f32;
-                point.pos.1 += pos.1 as f32;
-                point.pos.0 = point
-                    .pos
-                    .0
-                    .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
-                point.pos.1 = point
-                    .pos
-                    .1
-                    .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
-                point.transform.origin.x = rect.origin().0 as f32;
-                point.transform.origin.y = rect.origin().1 as f32;
-                point.transform.rotation = rect.rotation().to_radians();
-                point.pos.2 = 90.0;
-                match fill {
-                    AdaptiveFill::Color(color) => {
-                        point.color = color.as_vec4();
-                        point.has_texture = 0.0;
-                    }
-                    AdaptiveFill::Drawable(draw) => {
-                        if let Drawable::Color(c) = draw {
-                            if let Some(color) = context.resources.resolve_color(*c) {
-                                point.color = color.as_vec4();
-                                point.has_texture = 0.0;
-                                continue;
-                            }
+        let pt_fn = |point: &mut InputVertex| {
+            point.pos.0 += pos.0 as f32;
+            point.pos.1 += pos.1 as f32;
+
+            point.pos.0 = point
+                .pos
+                .0
+                .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
+            point.pos.1 = point
+                .pos
+                .1
+                .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
+            
+            point.transform.origin.x = rect.origin().0 as f32;
+            point.transform.origin.y = rect.origin().1 as f32;
+            point.transform.rotation = rect.rotation().to_radians();
+            point.pos.2 = 90.0;
+            match fill {
+                AdaptiveFill::Color(color) => {
+                    point.color = color.as_vec4();
+                    point.has_texture = 0.0;
+                }
+                AdaptiveFill::Drawable(draw) => {
+                    if let Drawable::Color(c) = draw {
+                        if let Some(color) = context.resources.resolve_color(*c) {
+                            point.color = color.as_vec4();
+                            point.has_texture = 0.0;
                         }
+                    } else {
                         if let Some((tex, uv)) = draw.get_texture(context.resources) {
                             point.has_texture = 1.0;
                             point.texture = tex.id;
@@ -302,7 +301,30 @@ impl AdaptiveShape {
                     }
                 }
             }
-            ctx.push_triangle(triangle);
+        };
+        
+        if shape.is_quad { 
+            if shape.triangles.len() >= 2 {
+                let mut p1 = shape.triangles[0].points[0].clone();
+                let mut p2 = shape.triangles[0].points[1].clone();
+                let mut p3 = shape.triangles[0].points[2].clone();
+                let mut p4 = shape.triangles[1].points[2].clone();
+                
+                pt_fn(&mut p1);
+                pt_fn(&mut p2);
+                pt_fn(&mut p3);
+                pt_fn(&mut p4);
+                
+                ctx.push_quad(Quad { points: [p1, p2, p3, p4] });
+            }
+        } else {
+            for triangle in &shape.triangles {
+                let mut triangle = triangle.clone();
+                for point in &mut triangle.points {                    
+                    pt_fn(point);
+                }
+                ctx.push_triangle(triangle);
+            }
         }
     }
 
@@ -316,38 +338,35 @@ impl AdaptiveShape {
         context: &UiContext,
         crop_area: &SimpleRect,
     ) {
-        for triangle in &shape.triangles {
-            let mut triangle = triangle.clone();
-            for point in &mut triangle.points {
-                point.pos.0 *= scale.0;
-                point.pos.1 *= scale.1;
-                point.pos.0 += pos.0 as f32;
-                point.pos.1 += pos.1 as f32;
-                point.pos.0 = point
-                    .pos
-                    .0
-                    .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
-                point.pos.1 = point
-                    .pos
-                    .1
-                    .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
-                point.transform.origin.x = rect.origin().0 as f32;
-                point.transform.origin.y = rect.origin().1 as f32;
-                point.transform.rotation = rect.rotation().to_radians();
-                point.pos.2 = 90.0;
-                match fill {
-                    AdaptiveFill::Color(color) => {
-                        point.color = color.as_vec4();
-                        point.has_texture = 0.0;
-                    }
-                    AdaptiveFill::Drawable(draw) => {
-                        if let Drawable::Color(c) = draw {
-                            if let Some(color) = context.resources.resolve_color(*c) {
-                                point.color = color.as_vec4();
-                                point.has_texture = 0.0;
-                                continue;
-                            }
+        let pt_fn = |point: &mut InputVertex| {
+            point.pos.0 += pos.0 as f32;
+            point.pos.1 += pos.1 as f32;
+
+            point.pos.0 = point
+                .pos
+                .0
+                .p_clamp(crop_area.x as f32, (crop_area.x + crop_area.width) as f32);
+            point.pos.1 = point
+                .pos
+                .1
+                .p_clamp(crop_area.y as f32, (crop_area.y + crop_area.height) as f32);
+            
+            point.transform.origin.x = rect.origin().0 as f32;
+            point.transform.origin.y = rect.origin().1 as f32;
+            point.transform.rotation = rect.rotation().to_radians();
+            point.pos.2 = 90.0;
+            match fill {
+                AdaptiveFill::Color(color) => {
+                    point.color = color.as_vec4();
+                    point.has_texture = 0.0;
+                }
+                AdaptiveFill::Drawable(draw) => {
+                    if let Drawable::Color(c) = draw {
+                        if let Some(color) = context.resources.resolve_color(*c) {
+                            point.color = color.as_vec4();
+                            point.has_texture = 0.0;
                         }
+                    } else {
                         if let Some((tex, uv)) = draw.get_texture(context.resources) {
                             point.has_texture = 1.0;
                             point.texture = tex.id;
@@ -361,7 +380,42 @@ impl AdaptiveShape {
                     }
                 }
             }
-            ctx.push_triangle(triangle);
+        };
+        
+        if shape.is_quad {
+            if shape.triangles.len() >= 2 {
+                let mut p1 = shape.triangles[0].points[0].clone();
+                let mut p2 = shape.triangles[0].points[1].clone();
+                let mut p3 = shape.triangles[0].points[2].clone();
+                let mut p4 = shape.triangles[1].points[2].clone();
+
+                p1.pos.0 *= scale.0;
+                p1.pos.1 *= scale.1;
+                p2.pos.0 *= scale.0;
+                p2.pos.1 *= scale.1;
+                p3.pos.0 *= scale.0;
+                p3.pos.1 *= scale.1;
+                p4.pos.0 *= scale.0;
+                p4.pos.1 *= scale.1;
+                
+                pt_fn(&mut p1);
+                pt_fn(&mut p2);
+                pt_fn(&mut p3);
+                pt_fn(&mut p4);
+
+                ctx.push_quad(Quad { points: [p1, p2, p3, p4] });
+            }
+        } else {
+            for triangle in &shape.triangles {
+                let mut triangle = triangle.clone();
+                for point in &mut triangle.points {
+                    point.pos.0 *= scale.0;
+                    point.pos.1 *= scale.1;
+                    
+                    pt_fn(point);
+                }
+                ctx.push_triangle(triangle);
+            }
         }
     }
 }

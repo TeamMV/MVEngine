@@ -38,11 +38,24 @@ use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
 use std::ops::Deref;
+use std::process::exit;
 use std::sync::Arc;
+use mvengine::ui::mss::parse::lexer::{MSSLexer, MSSToken};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
 
+    let s = include_str!("test.mss");
+    let mut lexer = MSSLexer::new(s);
+    loop {
+        let token = lexer.next();
+        if let MSSToken::EOF = token {
+            break;
+        }
+        println!("{token:?}");
+    }
+    
+    exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -235,6 +248,7 @@ impl WindowCallbacks for Application {
                                     })
                                 }
                             </Div>
+                            <Div style="width: 10bc; height: 5bf;"/>
                         </Div>
                     </Div>
                 </Ui>
@@ -263,7 +277,7 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        //window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
+        window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);
@@ -295,11 +309,9 @@ impl WindowCallbacks for Application {
             }
 
             let rect = SimpleRect::new(250, 250, 300, 300);
-            composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
-            composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
-            
-            
-            //TODO: have RenderContext have a next_z() method
+            //composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
+            //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
+
         }
 
 

@@ -1,7 +1,7 @@
 use crate::math::vec::Vec4;
 use crate::rendering::control::RenderController;
 use crate::rendering::texture::Texture;
-use crate::rendering::{RenderContext, Transform};
+use crate::rendering::{Quad, RenderContext, Transform};
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::arc::ArcCtx;
 use crate::ui::rendering::rectangle::RectangleCtx;
@@ -40,13 +40,37 @@ impl DrawContext2D {
     }
 
     pub fn shape(&mut self, shape: Shape) {
-        for mut triangle in shape.triangles {
-            if triangle.points[0].pos.2.is_infinite() {
+        if shape.is_quad {
+            if shape.triangles.len() >= 2 {
+                let tri1 = shape.triangles[0].points.clone();
+                let tri2 = shape.triangles[1].points.clone();
+                
                 let z = self.renderer.gen_z();
-                triangle.points.iter_mut().for_each(|v| v.pos.2 = z);
+                let tri1 = tri1.map(|mut v| { v.pos.2 = z; v });
+                let tri2 = tri2.map(|mut v| { v.pos.2 = z; v });
+                
+                let [p11, p12, p13] = tri1;
+                let [_, p22, _] = tri2;
+                
+                let quad = Quad {
+                    points: [
+                        p11,
+                        p12,
+                        p13,
+                        p22
+                    ],
+                };
+                self.renderer.add_quad(quad);
             }
+        } else {
+            for mut triangle in shape.triangles {
+                if triangle.points[0].pos.2.is_infinite() {
+                    let z = self.renderer.gen_z();
+                    triangle.points.iter_mut().for_each(|v| v.pos.2 = z);
+                }
 
-            self.renderer.add_triangle(triangle);
+                self.renderer.add_triangle(triangle);
+            }
         }
     }
 

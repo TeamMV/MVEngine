@@ -5,6 +5,7 @@ pub type UiState = MappedState<String, String>;
 
 #[derive(Clone)]
 pub struct Attributes {
+    pub elem_type: String,
     pub classes: Vec<String>,
     pub id: Option<String>,
     pub attribs: HashMap<String, AttributeValue>,
@@ -13,8 +14,9 @@ pub struct Attributes {
 }
 
 impl Attributes {
-    pub fn new() -> Self {
+    pub fn new(elem_type: &str) -> Self {
         Self {
+            elem_type: elem_type.to_string(),
             classes: vec![],
             id: None,
             attribs: HashMap::new(),

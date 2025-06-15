@@ -36,15 +36,16 @@ pub fn ui(input: TokenStream) -> TokenStream {
 }
 
 fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
+    let name = entity.name();
+    
     let new_ui_style: XmlValue =
         XmlValue::Code("mvengine::ui::styles::UiStyle::default()".to_string());
     let new_attributes: XmlValue =
-        XmlValue::Code("mvengine::ui::attributes::Attributes::new()".to_string());
+        XmlValue::Code(format!("mvengine::ui::attributes::Attributes::new(\"{name}\")"));
 
     let id = mvutils::utils::next_id("MVEngine::ui::proc_parse_entity").to_string();
     let attribs_ident = Ident::new(&format!("__attributes_{}__", id), Span::call_site());
-
-    let name = entity.name();
+    
     let style_xml = entity.get_attrib("style").unwrap_or(&new_ui_style);
     let style_code = xml_value_as_style(style_xml);
 

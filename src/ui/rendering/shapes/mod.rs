@@ -1,4 +1,4 @@
-use crate::ui::rendering::shapes::lexer::{NumberLit, Token, TokenStream};
+use crate::ui::rendering::shapes::lexer::{NumberLit, Token, MSFLexer};
 use hashbrown::HashMap;
 
 pub mod lexer;
@@ -39,13 +39,22 @@ impl Param {
             Param::Struct(s) => s,
         }
     }
+    
+    pub fn is_str(&self, s: &str) -> bool {
+        match self {
+            Param::Str(ss) => {
+                ss == s
+            },
+            Param::Struct(_) => false
+        }
+    }
 }
 
 pub struct ShapeParser;
 
 impl ShapeParser {
     pub fn parse(shape_expr: &str) -> Result<Ast, String> {
-        let mut tokens = TokenStream::tokenize(shape_expr);
+        let mut tokens = MSFLexer::tokenize(shape_expr);
 
         let mut ast = Ast::new();
 
@@ -118,7 +127,7 @@ impl ShapeParser {
         Ok(ast)
     }
 
-    fn parse_struct(stream: &mut TokenStream) -> Result<ParsedStruct, String> {
+    fn parse_struct(stream: &mut MSFLexer) -> Result<ParsedStruct, String> {
         let struct_name = stream.expect_next_ident()?;
         let mut parsed_struct = ParsedStruct::new(struct_name);
 
