@@ -31,16 +31,13 @@ pub(crate) fn try_read_packet<P: Savable>(stream: &mut TcpStream) -> Result<P, R
     stream
         .read_exact(&mut len)
         .map_err(ReadPacketError::FromTcp)?;
-    trace!("Packet length: {len:?}");
     let len = u32::from_le_bytes(len);
     let mut buffer = vec![0u8; len as usize];
-    trace!("Begin read packet of length {len}");
-    stream.set_nonblocking(false).map_err(ReadPacketError::FromTcp)?;
+    stream.set_nonblocking(false).unwrap();
     stream
         .read_exact(&mut buffer)
         .map_err(ReadPacketError::FromTcp)?;
-    stream.set_nonblocking(true).map_err(ReadPacketError::FromTcp)?;
-    trace!("End read packet of length {len}");
+    stream.set_nonblocking(true).unwrap();
 
     let mut buffer = ByteBuffer::from_vec_le(buffer);
 

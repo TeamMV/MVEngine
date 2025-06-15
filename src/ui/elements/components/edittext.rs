@@ -11,7 +11,7 @@ use crate::ui::styles::ResolveResult;
 use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
 use std::mem;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -178,6 +178,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
     }
 
     pub fn draw(&mut self, elem: &E, draw_ctx: &mut DrawContext2D, ui_ctx: &UiContext) {
+
         let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
         let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
         let font = resolve!(elem, text.font).unwrap_or(MVR.font.default);
@@ -197,11 +198,25 @@ impl<E: UiElementStub> EditableTextHelper<E> {
 
             let content_width = elem.state().content_rect.bounding.width;
 
+            fn clamp_range_to_str(s: &str, range: Range<usize>) -> Range<usize> {
+                let len = s.len();
+
+                let start = range.start.clamp(0, len);
+                let end = range.end.clamp(0, len);
+
+                start.min(end)..start.max(end)
+            }
+
+            self.view_range = clamp_range_to_str(self.content.read().deref(), self.view_range.clone());
+            self.cursor_pos = self.cursor_pos.clamp(0, self.view_range.end);
+
+
             if self.view_range.start > self.view_range.end {
                 mem::swap(&mut self.view_range.start, &mut self.view_range.end);
             }
 
             let viewed_string = self.content.read();
+
             let viewed_string = &viewed_string[self.view_range.clone()];
             let viewed_len = viewed_string.len();
 
@@ -209,6 +224,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 + skew * 2.0
                 + kerning * (viewed_len as f32 - 1.0);
             let viewed_width = viewed_width as i32;
+
 
             let content_ref = self.content.read();
             while self.view_range.end > self.view_range.start {

@@ -192,20 +192,26 @@ impl ClientEndpoint {
     }
 
     pub fn send<Out: Savable>(&self, packet: Out) {
+        println!("after send data?");
         //build data (len_u32+bytes)
         let mut buffer = ByteBuffer::new();
         buffer.set_endian(Endian::LittleEndian);
+        println!("a");
         packet.save(&mut buffer);
+        println!("b");
         let len = buffer.len() as u32;
         let len_bytes: [u8; 4] = len.to_le_bytes();
         let mut vec = len_bytes.to_vec();
         vec.extend(buffer.into_vec());
 
         //write data
+        println!("before write");
         let stream = self.tcp.get_mut();
+        println!("start write");
         if let Err(e) = stream.write_all(&vec) {
             warn!("Error when attempting to write packet: {e}");
         }
+        println!("end write");
     }
 
     pub fn disconnect(&self, reason: DisconnectReason) {

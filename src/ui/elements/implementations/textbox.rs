@@ -41,6 +41,10 @@ impl TextBox {
     pub fn placeholder(&self) -> UiState {
         self.placeholder.clone()
     }
+    
+    pub fn focus_now(&mut self) {
+        self.focused = true;
+    }
 }
 
 impl UiElementCallbacks for TextBox {
