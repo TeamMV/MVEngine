@@ -85,7 +85,7 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                     buffer.set_endian(Endian::LittleEndian);
                     packet.save(&mut buffer);
                     let len = buffer.len() as u32;
-                    let len_bytes: [u8; 4] = len.to_be_bytes();
+                    let len_bytes: [u8; 4] = len.to_le_bytes();
                     let mut vec = len_bytes.to_vec();
                     vec.extend(buffer.into_vec());
 
