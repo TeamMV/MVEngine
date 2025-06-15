@@ -118,6 +118,7 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                             }
                             _ => {
                                 //WouldBlock
+                                debug!("WouldBlock on read packet");
                             }
                         }
                     } else {
