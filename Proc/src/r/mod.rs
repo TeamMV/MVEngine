@@ -16,7 +16,7 @@ use crate::r::composite::parse_composite;
 use crate::r::drawable::{parse_drawable, DrawableType, ParsedDrawable};
 use crate::r::font::parse_font;
 use crate::r::geometry::{parse_geometry, GeomType, ParsedGeometry};
-use crate::r::shape::parse_shape;
+use crate::r::shape::{parse_shape, ParsedShape, ShapeLan};
 use crate::r::texture::parse_texture;
 use crate::r::tileset::parse_tileset;
 use animation::ParsedAnimation;
@@ -63,7 +63,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     }
 
     let mut colors: Vec<(String, String)> = vec![];
-    let mut shapes: Vec<(String, String)> = vec![];
+    let mut shapes: Vec<(String, ParsedShape)> = vec![];
     let mut adaptives: Vec<(String, String)> = vec![];
     let mut textures: Vec<(String, String)> = vec![];
     let mut fonts: Vec<(String, String)> = vec![];
@@ -152,14 +152,21 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine::ui::geometry::shape::Shape",
         shapes,
         |lit| {
-            let path = get_src(cdir.as_str(), lit);
-            quote! {
-                {
-                    let ast = mvengine::ui::rendering::shapes::ShapeParser::parse(include_str!(#path)).unwrap();
-                    let mut shape = mvengine::ui::rendering::shapes::shape_gen::ShapeGenerator::generate(ast).unwrap();
-                    shape.invalidate();
-                    shape
-                },
+            let path = get_src(cdir.as_str(), &lit.file);
+            match lit.language {
+                ShapeLan::MSF => {
+                    quote! {
+                        {
+                            let ast = mvengine::ui::geometry::shape::msf::ShapeParser::parse(include_str!(#path)).unwrap();
+                            let mut shape = mvengine::ui::geometry::shape::msf::shape_gen::ShapeGenerator::generate(ast).unwrap();
+                            shape.recompute();
+                            shape
+                        },
+                    }
+                }
+                ShapeLan::MSFX => {
+                    panic!("MSFX is currently in the works and is not ready for use yet!");
+                }
             }
         }
     );
@@ -176,8 +183,8 @@ pub fn r(input: TokenStream) -> TokenStream {
             let path = get_src(cdir.as_str(), lit);
             quote! {
                 {
-                    let ast = mvengine::ui::rendering::shapes::ShapeParser::parse(include_str!(#path)).unwrap();
-                    mvengine::ui::rendering::shapes::shape_gen::ShapeGenerator::generate_adaptive(ast).unwrap()
+                    let ast = mvengine::ui::geometry::shape::msf::ShapeParser::parse(include_str!(#path)).unwrap();
+                    mvengine::ui::geometry::shape::msf::shape_gen::ShapeGenerator::generate_adaptive(ast).unwrap()
                 },
             }
         }

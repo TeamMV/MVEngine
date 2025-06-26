@@ -2,7 +2,7 @@ use crate::math::vec::Vec2;
 use crate::ui::geometry::geom;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::ctx;
-use crate::ui::rendering::shapes::Param;
+use crate::ui::geometry::shape::msf::Param;
 use hashbrown::HashMap;
 use log::warn;
 

@@ -1,10 +1,10 @@
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
 use crate::ui::geometry::modifier::boolean;
-use crate::ui::geometry::shape::Shape;
+use crate::ui::geometry::shape::{Shape, VertexStream};
 use crate::ui::rendering::adaptive::AdaptiveShape;
 use crate::ui::rendering::ctx;
-use crate::ui::rendering::shapes::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
+use crate::ui::geometry::shape::msf::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
 use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
 
@@ -117,7 +117,7 @@ fn gen_tri(parsed_struct: ParsedStruct) -> Result<Shape, String> {
         .point(p2, None)
         .point(p3, None)
         .create();
-    triangle.set_transform(transform);
+    triangle.stream().transform(transform).compute();
     Ok(triangle)
 }
 
@@ -192,7 +192,7 @@ fn gen_rect(parsed_struct: ParsedStruct) -> Result<Shape, String> {
     }
 
     let mut rectangle = ctx::rectangle().xyxy(p1.0, p1.1, p2.0, p2.1).create();
-    rectangle.set_transform(transform);
+    rectangle.stream().transform(transform).compute();
     Ok(rectangle)
 }
 
@@ -252,7 +252,7 @@ fn gen_arc(parsed_struct: ParsedStruct) -> Result<Shape, String> {
         .radius(radius)
         .triangle_count(triangle_count as u32)
         .create();
-    arc.set_transform(transform);
+    arc.stream().transform(transform).compute();
     Ok(arc)
 }
 
@@ -307,14 +307,14 @@ impl ShapeGenerator {
                             .ok_or("tranform needs one transformation struct".to_string())?;
                         if let Param::Struct(parsed_struct) = first {
                             let transform = parse_transform(parsed_struct)?;
-                            current.set_transform(transform);
+                            current.stream().transform(transform).compute();
                         }
                     }
                     "apply" => {
-                        let current = vars
-                            .get_mut(&current_selection)
-                            .ok_or("No shape selected".to_string())?;
-                        current.apply_transformations();
+                        //let current = vars
+                        //    .get_mut(&current_selection)
+                        //    .ok_or("No shape selected".to_string())?;
+                        //current.apply_transformations();
                     }
                     "recenter" => {
                         let current = vars
@@ -345,7 +345,6 @@ impl ShapeGenerator {
                         let current = vars
                             .get_mut(&current_selection)
                             .ok_or("No shape selected".to_string())?;
-                        current.is_quad = is_quad;
                         return Ok(current.clone());
                     }
                     "modifier" => {
@@ -424,14 +423,14 @@ impl ShapeGenerator {
                             .ok_or("tranform needs one transformation struct".to_string())?;
                         if let Param::Struct(parsed_struct) = first {
                             let transform = parse_transform(parsed_struct)?;
-                            current.set_transform(transform);
+                            current.stream().transform(transform).compute();
                         }
                     }
                     "apply" => {
-                        let current = vars
-                            .get_mut(&current_selection)
-                            .ok_or("No shape selected".to_string())?;
-                        current.apply_transformations();
+                        //let current = vars
+                        //    .get_mut(&current_selection)
+                        //    .ok_or("No shape selected".to_string())?;
+                        //current.apply_transformations();
                     }
                     "recenter" => {
                         let current = vars
@@ -464,7 +463,6 @@ impl ShapeGenerator {
                             let current = vars
                                 .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;
-                            current.is_quad = is_quad;
                             match export.as_str() {
                                 "finish" => return Ok(AdaptiveShape::from_arr(parts)),
                                 "bl" | "bottom_left" => parts[0] = Some(current.clone()),

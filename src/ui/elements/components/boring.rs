@@ -1,18 +1,17 @@
 use crate::color::RgbColor;
 use crate::rendering::text::Font;
-use crate::rendering::{InputVertex, Quad, Transform};
+use crate::rendering::{InputVertex, Quad, RenderContext, Transform};
 use crate::resolve;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
-use crate::ui::geometry::shape::Shape;
-use crate::ui::rendering::ctx::DrawContext2D;
+use crate::ui::geometry::shape::{Indices, Shape, VertexStream};
+use crate::ui::geometry::SimpleRect;
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::TextAlign;
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::ResolveResult;
 use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
-use crate::ui::geometry::SimpleRect;
 
 #[derive(Clone)]
 pub struct BoringText<E: UiElementStub> {
@@ -26,7 +25,7 @@ impl<E: UiElementStub> BoringText<E> {
         }
     }
 
-    pub fn draw(&self, text: &str, elem: &E, ctx: &mut DrawContext2D, context: &UiContext, crop_area: &SimpleRect) {
+    pub fn draw(&self, text: &str, elem: &E, ctx: &mut impl RenderContext, context: &UiContext, crop_area: &SimpleRect) {
         let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
         let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
         let font = resolve!(elem, text.font);
@@ -39,11 +38,11 @@ impl<E: UiElementStub> BoringText<E> {
             let stretch =
                 resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
             let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
-            let shape = Self::create_shape(text, color, size, kerning, stretch, skew, font);
+            let mut shape = Self::create_shape(text, color, size, kerning, stretch, skew, font);
             let state = elem.state();
 
-            let w = shape.extent.0;
-            let h = shape.extent.1;
+            let w = shape.extent.width;
+            let h = shape.extent.height;
 
             let text_x = match text_align_x {
                 TextAlign::Start => state.content_rect.x(),
@@ -60,11 +59,11 @@ impl<E: UiElementStub> BoringText<E> {
                 }
                 TextAlign::End => state.content_rect.y() + state.content_rect.height() - h,
             };
-
-            let mut shape = shape.translated(text_x, text_y);
-            shape.apply_transformations();
-            shape.crop_to(crop_area);
-            ctx.shape(shape);
+            
+            shape.draw(ctx, |v| {
+                v.transform.translation.x = text_x as f32;
+                v.transform.translation.y = text_y as f32;
+            })
         }
     }
 
@@ -114,12 +113,14 @@ impl<E: UiElementStub> BoringText<E> {
             height = height.max(data.size as i32);
             quad.points[0].transform.translation.x -= skew;
             quad.points[2].transform.translation.x += skew;
-            triangles.extend(quad.triangles());
+            triangles.extend(quad.points);
             x += data.width * stretch.width + kerning + skew * 2f32;
         }
+        //This could be made way more efficiently but for the boring text it doesnt really matter tbh
         Shape::new_with_extent(
             triangles,
-            (width as i32, (height as f32 * stretch.height) as i32),
+            Indices::Triangles,
+            SimpleRect::new(0, 0, width as i32, (height as f32 * stretch.height) as i32),
         )
     }
 }

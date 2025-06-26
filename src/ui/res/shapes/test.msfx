@@ -1,0 +1,35 @@
+//features: custom indices mode + expressions + variable system + prebuild math functions + loops
+
+let TRIANGLE_STRIP = 0;
+let TRIANGLE_LIST = 1;
+
+input size of number;
+
+let size = 100;
+let rect = rect[x: 100, y: 100, w: size + 2, h: size + 2];
+
+let shape = begin[mode: TRIANGLE_STRIP]:
+    for i begin[start: 0, end: 5]:
+        let x = sin[i] * 2;
+        vertex[x: i, y: 2];
+    end;
+end;
+
+export shape as tl;
+
+if a isn't 5 begin:
+
+end;
+
+let a = 10;
+
+end;
+
+let t = transform[t: vec2[x: 50]];
+
+if, else, let, for, while, break, continue, export, input, of, end, number, vec2, transform, adaptive
+
+export adaptive:
+rect, rect, rect,
+rect, #,    rect,
+rect, rect, rect;

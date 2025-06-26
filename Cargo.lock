@@ -1059,9 +1059,9 @@ dependencies = [
 
 [[package]]
 name = "mvutils"
-version = "1.4.3"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e0e68830a5ea6b7b643ef8b16615756f6b041ca264f936d3d92fc15cd560b34"
+checksum = "8b39ebf6ede2a4364923691be1909c4f958c8378ea1d0715e71c0464c38a1591"
 dependencies = [
  "bytebuffer",
  "hashbrown",

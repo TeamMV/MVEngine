@@ -1,7 +1,7 @@
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{PrimitiveRenderer, Quad, Triangle, Vertex};
+use crate::rendering::{PrimitiveRenderer, Quad, InputVertex, Vertex, Triangle};
 use crate::window::Window;
 use gl::types::GLuint;
 
@@ -121,6 +121,45 @@ impl RenderBatch {
         self.vertex_index += 4;
     }
 
+    pub fn push_raw<F: Fn(&mut InputVertex)>(&mut self, vertices: &[InputVertex], indices: &[usize], modifier: Option<F>) {
+        for mut vertex in vertices.to_vec() {
+            if let Some(ref modify) = modifier {
+                modify(&mut vertex);
+            }
+            
+            let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
+            
+            if r_vertex.has_texture > 0.0 {
+                let req_id = vertex.texture;
+                if let Some(idx) = self.texture_data.iter().position(|id| *id == req_id) {
+                    r_vertex.texture = idx as f32;
+                } else {
+                    r_vertex.texture = self.texture_index as f32;
+                    self.texture_data[self.texture_index] = req_id;
+                    self.texture_index += 1;
+                }
+            }
+            
+            unsafe {
+                let src_ptr = &r_vertex as *const Vertex as *const u8;
+                let dst_ptr = self.vertex_data.as_mut_ptr().add(self.vertex_data_index) as *mut u8;
+
+                std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, VERTEX_SIZE_BYTES);
+
+                self.vertex_data_index += VERTEX_SIZE_BYTES;
+            }
+        }
+        
+        let base_index = self.vertex_index as u32;
+        for &i in indices {
+            self.index_data[self.index_index] = base_index + i as u32;
+            self.index_index += 1;
+        }
+        
+        self.triangle_index += indices.len() / 3;
+        self.vertex_index += vertices.len();
+    }
+
     fn has_texture(&self, id: GLuint) -> bool {
         self.texture_data.contains(&id)
     }
@@ -156,6 +195,34 @@ impl RenderBatch {
         let mut needed_tex = 0;
         let mut seen = Vec::new();
         for vertex in &quad.points {
+            if vertex.has_texture > 0.0 {
+                if !seen.contains(&vertex.texture) && !self.has_texture(vertex.texture) {
+                    needed_tex += 1;
+                    seen.push(vertex.texture);
+                }
+            }
+        }
+
+        if self.texture_index + needed_tex > MAX_TEXTURES {
+            return false;
+        }
+
+        true
+    }
+    
+    pub fn can_hold_vertices(&self, vertices: &[InputVertex], has_tex: bool) -> bool {
+        let len = vertices.len();
+        if self.vertex_index + len > BATCH_VERTEX_AMOUNT { 
+            return false;
+        }
+        
+        if !has_tex {
+            return true;
+        }
+
+        let mut needed_tex = 0;
+        let mut seen = Vec::new();
+        for vertex in vertices {
             if vertex.has_texture > 0.0 {
                 if !seen.contains(&vertex.texture) && !self.has_texture(vertex.texture) {
                     needed_tex += 1;

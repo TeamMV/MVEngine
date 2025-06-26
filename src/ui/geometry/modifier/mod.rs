@@ -1,7 +1,7 @@
 pub mod boolean;
 
 use crate::ui::geometry::shape::Shape;
-use crate::ui::rendering::shapes::Param;
+use crate::ui::geometry::shape::msf::Param;
 use hashbrown::HashMap;
 use mvutils::lazy;
 

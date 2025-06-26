@@ -21,11 +21,17 @@ pub mod texture;
 
 pub trait RenderContext {
     fn controller(&mut self) -> &mut RenderController;
+    
+    fn next_z(&mut self) -> f32;
 }
 
 impl RenderContext for RenderController {
     fn controller(&mut self) -> &mut RenderController {
         self
+    }
+
+    fn next_z(&mut self) -> f32 {
+        self.request_new_z()
     }
 }
 
@@ -48,9 +54,9 @@ impl Transform {
         }
     }
 
-    pub fn apply_for_point(&self, point: (i32, i32)) -> (i32, i32) {
-        let translated_x = point.0 as f32 - self.origin.x;
-        let translated_y = point.1 as f32 - self.origin.y;
+    pub fn apply_for_point(&self, point: Vec2) -> Vec2 {
+        let translated_x = point.x - self.origin.x;
+        let translated_y = point.y - self.origin.y;
         let scaled_x = translated_x * self.scale.x;
         let scaled_y = translated_y * self.scale.y;
         let cos_theta = self.rotation.cos();
@@ -59,7 +65,7 @@ impl Transform {
         let rotated_y = scaled_x * sin_theta + scaled_y * cos_theta;
         let translated_x = rotated_x + self.origin.x + self.translation.x;
         let translated_y = rotated_y + self.origin.y + self.translation.y;
-        (translated_x as i32, translated_y as i32)
+        Vec2::new(translated_x, translated_y)
     }
 
     pub fn translate_self(mut self, dx: f32, dy: f32) -> Self {

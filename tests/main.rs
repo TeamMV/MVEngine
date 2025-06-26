@@ -1,11 +1,9 @@
-use log::{error, LevelFilter};
+use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::source::SoundWithAttributes;
 use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::color::RgbColor;
-use mvengine::graphics::comp::parse::parser::MRFParser;
-use mvengine::graphics::comp::rig::Rig;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
 use mvengine::rendering::camera::OrthographicCamera;
@@ -25,6 +23,7 @@ use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::geometry::morph::Morph;
+use mvengine::ui::geometry::shape::{shapes, VertexStream};
 use mvengine::ui::geometry::SimpleRect;
 use mvengine::ui::rendering::ctx::DrawContext2D;
 use mvengine::ui::rendering::{ctx, UiRenderer};
@@ -40,20 +39,19 @@ use parking_lot::RwLock;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
-use mvengine::ui::mss::parse::lexer::{MSSLexer, MSSToken};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
-
-    let s = include_str!("test.mss");
-    let mut lexer = MSSLexer::new(s);
-    loop {
-        let token = lexer.next();
-        if let MSSToken::EOF = token {
-            break;
-        }
-        println!("{token:?}");
-    }
+    
+    //let s = include_str!("test.mss");
+    //let mut lexer = MSSLexer::new(s);
+    //loop {
+    //    let token = lexer.next();
+    //    if let MSSToken::EOF = token {
+    //        break;
+    //    }
+    //    println!("{token:?}");
+    //}
     
     exit(0);
 

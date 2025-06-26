@@ -1,14 +1,9 @@
 pub mod adaptive;
-pub mod arc;
-pub mod ctx;
-pub mod rectangle;
-pub mod shapes;
-pub mod triangle;
 
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
-use crate::rendering::{OpenGLRenderer, Quad, RenderContext, Triangle};
+use crate::rendering::{OpenGLRenderer, Quad, RenderContext, InputVertex, Triangle};
 use crate::ui::geometry::SimpleRect;
 use crate::window::Window;
 
@@ -105,6 +100,10 @@ impl UiRenderer {
 impl RenderContext for UiRenderer {
     fn controller(&mut self) -> &mut RenderController {
         &mut self.controller
+    }
+
+    fn next_z(&mut self) -> f32 {
+        self.controller.next_z()
     }
 }
 

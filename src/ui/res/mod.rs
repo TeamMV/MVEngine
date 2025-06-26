@@ -26,7 +26,7 @@ r! {
             <color name="bone_debug" val="red"/>
         </colors>
         <shapes>
-            <shape name="rect" src="shapes/rect.msf"/>
+            <shape name="rect" src="shapes/rect.msf" language="MSF"/>
         </shapes>
         <adaptives>
             <adaptive name="void_rect" src="shapes/void_rect.msf"/>

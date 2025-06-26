@@ -3,8 +3,6 @@ use crate::resolve;
 use crate::ui::attributes::UiState;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
-use crate::ui::rendering::ctx;
-use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::TextAlign;
 use crate::ui::styles::ResolveResult;
@@ -12,6 +10,8 @@ use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, Range};
+use crate::rendering::RenderContext;
+use crate::ui::geometry::shape::shapes;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -177,8 +177,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         }
     }
 
-    pub fn draw(&mut self, elem: &E, draw_ctx: &mut DrawContext2D, ui_ctx: &UiContext) {
-
+    pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext) {
         let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
         let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
         let font = resolve!(elem, text.font).unwrap_or(MVR.font.default);
@@ -321,23 +320,23 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                     + skew * 2.0
                     + kerning * (string_to_selection_b.len() as f32 - 1.0);
 
-                let rect = ctx::rectangle()
-                    .xywh(
-                        text_x + string_to_selection_a_width as i32,
-                        cursor_y,
-                        (string_to_selection_b_width - string_to_selection_a_width) as i32,
-                        cursor_height,
-                    )
-                    .color(RgbColor::blue())
-                    .create();
-                draw_ctx.shape(rect);
+                let rect = shapes::rectangle0(
+                    text_x + string_to_selection_a_width as i32,
+                    cursor_y,
+                    (string_to_selection_b_width - string_to_selection_a_width) as i32,
+                    cursor_height
+                );
+                rect.draw(draw_ctx, |v| {
+                    v.has_texture = 0.0;
+                    v.color = RgbColor::blue().as_vec4();
+                });
             }
 
-            let rect = ctx::rectangle()
-                .xywh(cursor_x, cursor_y, cursor_width as i32, cursor_height)
-                .color(cursor_color)
-                .create();
-            draw_ctx.shape(rect);
+            let rect = shapes::rectangle0(cursor_x, cursor_y, cursor_width as i32, cursor_height);
+            rect.draw(draw_ctx, |v| {
+                v.has_texture = 0.0;
+                v.color = cursor_color.as_vec4();
+            });
         }
     }
 }

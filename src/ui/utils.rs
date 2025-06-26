@@ -1,6 +1,6 @@
 use crate::color::{Color, ColorFormat, RgbColor};
-use crate::ui::elements::UiElementState;
-use crate::ui::styles::{Resolve, UiStyle};
+use crate::ui::elements::{UiElementState, UiElementStub};
+use crate::ui::styles::{Resolve, ResolveResult, UiStyle};
 #[macro_export]
 macro_rules! blanked_partial_ord {
     ($t:ty) => {
@@ -174,4 +174,13 @@ macro_rules! find_element_by_id {
     ($parent:expr, $id:literal) => {{
         $parent.get().find_element_by_id($id)
     }};
+}
+
+pub fn resolve_resolve<T, E, F>(res: &Resolve<T>, elem: &E, map: F) -> ResolveResult<T>
+where
+    T: PartialOrd + Clone + 'static,
+    E: UiElementStub + 'static,
+    F: Fn(&UiStyle) -> &Resolve<T>,
+{
+    res.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |f| map(f))
 }

@@ -2,7 +2,7 @@ use crate::rendering::batch::RenderBatch;
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{PrimitiveRenderer, Quad, Triangle};
+use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Triangle};
 use crate::window::Window;
 use gl::types::GLuint;
 
@@ -10,6 +10,7 @@ pub struct RenderController {
     default_shader: GLuint,
     batches: Vec<RenderBatch>,
     batch_index: usize,
+    z: f32
 }
 
 impl RenderController {
@@ -19,6 +20,7 @@ impl RenderController {
                 default_shader,
                 batches: vec![RenderBatch::new(default_shader)],
                 batch_index: 0,
+                z: 99.0,
             }
         }
     }
@@ -50,6 +52,25 @@ impl RenderController {
             }
         }
     }
+    
+    pub fn push_raw<F: Fn(&mut InputVertex)>(&mut self, vertices: &[InputVertex], indices: &[usize], has_tex: bool, modifier: Option<F>) {
+        unsafe {
+            let current = &mut self.batches[self.batch_index];
+            if current.can_hold_vertices(vertices, has_tex) {
+                current.push_raw(vertices, indices, modifier);
+            } else {
+                self.batches
+                    .push(RenderBatch::new(self.default_shader.clone()));
+                self.batch_index += 1;
+                self.push_raw(vertices, indices, has_tex, modifier);
+            }
+        }
+    }
+    
+    pub fn request_new_z(&mut self) -> f32 {
+        self.z -= 0.001;
+        self.z
+    }
 
     pub fn draw(
         &mut self,
@@ -66,6 +87,7 @@ impl RenderController {
         }
         self.batch_index = 0;
         renderer.end_frame();
+        self.z = 99.0;
     }
 
     pub fn draw_to_target(
@@ -92,6 +114,7 @@ impl RenderController {
         }
         renderer.end_frame_to_target(&mut render_target);
         self.batch_index = 0;
+        self.z = 99.0;
         render_target
     }
 }

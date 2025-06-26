@@ -1,4 +1,4 @@
-use crate::ui::rendering::shapes::lexer::{NumberLit, Token, MSFLexer};
+use crate::ui::geometry::shape::msf::lexer::{NumberLit, Token, MSFLexer};
 use hashbrown::HashMap;
 
 pub mod lexer;

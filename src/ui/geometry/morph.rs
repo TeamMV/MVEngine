@@ -1,6 +1,6 @@
 use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
-use crate::rendering::{InputVertex, Transform, Triangle};
+use crate::rendering::{InputVertex, Transform, InputVertex};
 use crate::ui::geometry::geom;
 use crate::ui::geometry::polygon::Polygon;
 use crate::ui::geometry::shape::Shape;
@@ -176,7 +176,7 @@ fn sdf_to_shape(sdf: &SDF) -> Shape {
     let triangles = triangle_vertices
         .into_iter()
         .map(|verts| {
-            Triangle {
+            InputVertex {
                 points: [
                     InputVertex {
                         transform: Transform::new(), // Default transform
