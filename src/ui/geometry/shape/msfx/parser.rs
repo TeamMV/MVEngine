@@ -1,4 +1,4 @@
-use crate::ui::geometry::shape::msfx::ast::{AssignStmt, BinaryExpr, ExportAdaptiveStmt, ExportShapeStmt, ExportTarget, FnExpr, ForStmt, IfStmt, LetStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
+use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, ExportTarget, FnExpr, ForStmt, IfStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXLexer, MSFXOperator, MSFXToken};
 use hashbrown::HashMap;
 
@@ -48,7 +48,7 @@ impl<'a> MSFXParser<'a> {
                     let mode = arguments.into_values().next().unwrap();
                     let maybe_block = self.parse_stmt()?;
                     if let MSFXStmt::Block(block) = maybe_block {
-                        Ok(MSFXStmt::Let(LetStmt {
+                        Ok(MSFXStmt::Let(DeclStmt {
                             name,
                             expr: MSFXExpr::Shape(ShapeExpr {
                                 mode: Box::new(mode),
@@ -62,7 +62,7 @@ impl<'a> MSFXParser<'a> {
                     self.lexer.putback(maybe_begin);
                     let expr = self.parse_expression()?;
                     self.lexer.next_token(MSFXToken::Semicolon)?;
-                    Ok(MSFXStmt::Let(LetStmt {
+                    Ok(MSFXStmt::Let(DeclStmt {
                         name,
                         expr,
                     }))
@@ -81,7 +81,7 @@ impl<'a> MSFXParser<'a> {
                     }),
                     _ => unreachable!()
                 };
-                Ok(MSFXStmt::Assign(AssignStmt {
+                Ok(MSFXStmt::Assign(DeclStmt {
                     name,
                     expr: asignee,
                 }))
@@ -212,6 +212,7 @@ impl<'a> MSFXParser<'a> {
         self.parse_expression_with_precedence(0)
     }
 
+    // TODO: this fucks itself when OperatorAssign is used
     fn parse_expression_with_precedence(&mut self, min_precedence: u8) -> Result<MSFXExpr, String> {
         let mut lhs = self.parse_primary_expression()?;
         let mut token = self.lexer.next();

@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 use mvutils::TryFromString;
-use crate::ui::geometry::shape::msfx::lexer::{ExportTarget, MSFXKeyword, MSFXOperator};
+use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXOperator};
 
 pub struct MSFXAST {
     pub elements: Vec<MSFXStmt>
@@ -9,8 +9,8 @@ pub struct MSFXAST {
 #[derive(Debug, Clone)]
 pub enum MSFXStmt {
     Block(Vec<MSFXStmt>),
-    Let(LetStmt),
-    Assign(AssignStmt),
+    Let(DeclStmt),
+    Assign(DeclStmt),
     For(ForStmt),
     While(WhileStmt),
     If(IfStmt),
@@ -23,13 +23,7 @@ pub enum MSFXStmt {
 }
 
 #[derive(Debug, Clone)]
-pub struct LetStmt {
-    pub name: String,
-    pub expr: MSFXExpr
-}
-
-#[derive(Debug, Clone)]
-pub struct AssignStmt {
+pub struct DeclStmt {
     pub name: String,
     pub expr: MSFXExpr
 }

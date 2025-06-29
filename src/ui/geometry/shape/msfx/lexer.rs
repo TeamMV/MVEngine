@@ -115,6 +115,14 @@ impl MSFXToken {
             _ => Err(format!("Expected Ident, found: {self:?}"))
         }
     }
+
+    pub fn op(&self) -> Option<MSFXOperator> {
+        match self {
+            Self::Operator(o) => Some(o.clone()),
+            Self::OperatorAssign(o) => Some(o.clone()),
+            _ => None
+        }
+    }
 }
 
 pub struct MSFXLexer<'a> {

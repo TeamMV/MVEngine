@@ -8,6 +8,7 @@ mod listener;
 mod style_expr;
 mod multiline_str_into;
 mod resolve_resource;
+mod msfx_function;
 
 #[proc_macro]
 pub fn generate_get_components(input: TokenStream) -> TokenStream {
@@ -47,4 +48,9 @@ pub fn multiline_str_into(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn resolve_resource(input: TokenStream) -> TokenStream {
     resolve_resource::resolve_resource(input)
+}
+
+#[proc_macro_attribute]
+pub fn msfx_fn(_: TokenStream, body: TokenStream) -> TokenStream {
+    msfx_function::msfx_fn(body)
 }
