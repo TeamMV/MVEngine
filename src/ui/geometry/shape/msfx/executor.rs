@@ -1,342 +1,12 @@
 use hashbrown::HashMap;
-use mvutils::utils::TetrahedronOp;
+use itertools::Itertools;
+use crate::color::RgbColor;
+use crate::rendering::{InputVertex, Transform};
+use crate::ui::geometry::shape::{Indices, Shape};
 use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
-use crate::ui::geometry::shape::msfx::functions::{get_function, MappedVariable};
+use crate::ui::geometry::shape::msfx::functions::{get_function};
 use crate::ui::geometry::shape::msfx::lexer::MSFXOperator;
-
-#[derive(Debug, Clone)]
-pub enum Variable {
-    Null,
-    Saved(String),
-    Access(Box<Variable>, Box<Variable>),
-    Number(f64),
-    Bool(bool),
-    Shape
-}
-
-// Operations impl (I wanted to separate them from the other shit)
-impl Variable {
-    pub(crate) fn add(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply +")?;
-        rhs.throw_nullptr("apply +")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs + rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn sub(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply -")?;
-        rhs.throw_nullptr("apply -")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs - rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn mul(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply *")?;
-        rhs.throw_nullptr("apply *")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs * rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn div(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply /")?;
-        rhs.throw_nullptr("apply /")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs / rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn rem(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply %")?;
-        rhs.throw_nullptr("apply %")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs % rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn pow(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("apply ^")?;
-        rhs.throw_nullptr("apply ^")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Number(lhs.powf(*rhs)))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn and(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("evaluate with and")?;
-        rhs.throw_nullptr("evaluate with and")?;
-        self.enforce_bools(rhs)?;
-        if let Variable::Bool(lhs) = self && let Variable::Bool(rhs) = rhs {
-            Ok(Variable::Bool(*lhs && *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn or(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("evaluate with or")?;
-        rhs.throw_nullptr("evaluate with or")?;
-        self.enforce_bools(rhs)?;
-        if let Variable::Bool(lhs) = self && let Variable::Bool(rhs) = rhs {
-            Ok(Variable::Bool(*lhs || *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn eq(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with ==")?;
-        rhs.throw_nullptr("compare with ==")?;
-        self.enforce_cmp(rhs)?;
-        if let Variable::Bool(lhs) = self && let Variable::Bool(rhs) = rhs {
-            Ok(Variable::Bool(*lhs == *rhs))
-        } else if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs == *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn neq(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with !=")?;
-        rhs.throw_nullptr("compare with !=")?;
-        self.enforce_cmp(rhs)?;
-        if let Variable::Bool(lhs) = self && let Variable::Bool(rhs) = rhs {
-            Ok(Variable::Bool(*lhs != *rhs))
-        } else if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs != *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn gt(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with >")?;
-        rhs.throw_nullptr("compare with >")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs > *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn gte(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with >=")?;
-        rhs.throw_nullptr("compare with >=")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs >= *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn lt(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with <")?;
-        rhs.throw_nullptr("compare with <")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs < *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn lte(&self, rhs: &Variable) -> Result<Variable, String> {
-        self.throw_nullptr("compare with <=")?;
-        rhs.throw_nullptr("compare with <=")?;
-        self.enforce_numbers(rhs)?;
-        if let Variable::Number(lhs) = self && let Variable::Number(rhs) = rhs {
-            Ok(Variable::Bool(*lhs <= *rhs))
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub fn invert(&mut self) -> Result<(), String> {
-        self.throw_nullptr("apply ! operator")?;
-        self.enforce_number_msg("! operator")?;
-        let Variable::Bool(b) = self else { unreachable!() };
-        *b = !*b;
-        Ok(())
-    }
-
-    pub fn negate(&mut self) -> Result<(), String> {
-        self.throw_nullptr("apply - operator")?;
-        self.enforce_number_msg("- operator")?;
-        let Variable::Number(n) = self else { unreachable!() };
-        *n = -*n;
-        Ok(())
-    }
-}
-
-impl Variable {
-    pub fn as_raw_ref(&self, ex: &mut Executor) -> Result<&mut Variable, String> {
-        match self {
-            Variable::Saved(ident) => ex.variables.get_mut(ident).ok_or(format!("Unknown variable: '{}'", ident)),
-            Variable::Access(_, _) => {
-                let chain = self.expand_idents();
-                let mut raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
-                raw.get_subvalue_ref(&chain[1..])
-            }
-            _ => Err("Dereferencing non variable".to_string()),
-        }
-    }
-
-    pub fn as_raw(&self, ex: &Executor) -> Result<Variable, String> {
-        match self {
-            Variable::Saved(ident) => ex.variables.get(ident).cloned().ok_or(format!("Unknown variable: '{}'", ident)),
-            Variable::Access(_, _) => {
-                let chain = self.expand_idents();
-                let raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
-                raw.get_subvalue(&chain[1..])
-            }
-            v => Ok(v.clone()),
-        }
-    }
-
-    pub fn throw_nullptr(&self, msg: &str) -> Result<(), String> {
-        match self {
-            Variable::Null => Err(format!("NullPointerException: Cannot {} because value is null!", msg)),
-            _ => Ok(())
-        }
-    }
-
-    pub fn enforce_ident(&self) -> Result<(), String> {
-        match self {
-            Variable::Saved(_) => Ok(()),
-            Variable::Access(_, _) => Ok(()),
-            v => Err(format!("Expected ident but found '{}'", v.name())),
-        }
-    }
-
-    pub fn enforce_number(&self) -> Result<(), String> {
-        match self {
-            Variable::Number(_) => Ok(()),
-            v => Err(format!("Expected number but found '{}'", v.name())),
-        }
-    }
-
-    pub fn enforce_number_msg(&self, msg: &str) -> Result<(), String> {
-        match self {
-            Variable::Number(_) => Ok(()),
-            v => Err(format!("{}: Expected number but found '{}'", msg, v.name())),
-        }
-    }
-
-    pub fn enforce_bool(&self) -> Result<(), String> {
-        match self {
-            Variable::Bool(_) => Ok(()),
-            v => Err(format!("Expected bool but found '{}'", v.name())),
-        }
-    }
-
-    pub fn enforce_bool_msg(&self, msg: &str) -> Result<(), String> {
-        match self {
-            Variable::Bool(_) => Ok(()),
-            v => Err(format!("{}: Expected bool but found '{}'", msg, v.name())),
-        }
-    }
-
-    pub fn enforce_cmp(&self, rhs: &Variable) -> Result<(), String> {
-        match (self, rhs) {
-            (Variable::Number(_), Variable::Number(_)) => Ok(()),
-            (Variable::Bool(_), Variable::Bool(_)) => Ok(()),
-            (lhs, rhs) => Err(format!("Cannot apply comparison between {} and {}", lhs.name(), rhs.name())),
-        }
-    }
-
-    pub fn enforce_numbers(&self, rhs: &Variable) -> Result<(), String> {
-        match (self, rhs) {
-            (Variable::Number(_), Variable::Number(_)) => Ok(()),
-            (lhs, rhs) => Err(format!("Cannot apply numerical operation to {} and {}", lhs.name(), rhs.name())),
-        }
-    }
-
-    pub fn enforce_bools(&self, rhs: &Variable) -> Result<(), String> {
-        match (self, rhs) {
-            (Variable::Bool(_), Variable::Bool(_)) => Ok(()),
-            (lhs, rhs) => Err(format!("Cannot apply boolean operation to {} and {}", lhs.name(), rhs.name())),
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match self {
-            Variable::Null => "null",
-            Variable::Saved(_) => "ident",
-            Variable::Access(_, _) => "ident+",
-            Variable::Number(_) => "number",
-            Variable::Bool(_) => "bool",
-            Variable::Shape => "shape",
-        }
-    }
-
-    pub fn expand_idents(&self) ->  Vec<String> {
-        match self {
-            Variable::Saved(ident) => vec![ident.clone()],
-            Variable::Access(lhs, rhs) => {
-                let mut lhs = lhs.expand_idents();
-                lhs.append(&mut rhs.expand_idents());
-                lhs
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn map(&self) -> Result<MappedVariable, String> {
-        match self {
-            Variable::Number(n) => Ok(MappedVariable::Number(*n)),
-            Variable::Bool(b) => Ok(MappedVariable::Bool(*b)),
-            Variable::Null => Ok(MappedVariable::Null),
-            _ => Err(format!("{} cannot be used as an input parameter", self.name()))
-        }
-    }
-
-    pub fn as_num(&self) -> Result<f64, String> {
-        self.enforce_number()?;
-        let Variable::Number(n) = self else { unreachable!() };
-        Ok(*n)
-    }
-
-    pub fn as_bool(&self) -> Result<bool, String> {
-        self.enforce_bool()?;
-        let Variable::Bool(b) = self else { unreachable!() };
-        Ok(*b)
-    }
-
-    pub(crate) fn insert_subvalue(&mut self, path: &[String], value: Variable) -> Result<(), String> {
-        todo!()
-    }
-
-    pub(crate) fn get_subvalue(&self, path: &[String]) -> Result<Variable, String> {
-        todo!()
-    }
-
-    pub(crate) fn get_subvalue_ref(&mut self, path: &[String]) -> Result<&mut Variable, String> {
-        todo!()
-    }
-}
+use crate::ui::geometry::shape::msfx::ty::Variable;
 
 pub enum LoopState {
     Normal,
@@ -345,9 +15,12 @@ pub enum LoopState {
 }
 
 pub struct Executor {
-    variables: HashMap<String, Variable>,
+    pub(crate) variables: HashMap<String, Variable>,
     loop_depth: u8, // If you nest more than 255 loops, sincerely, fuck you
+    //agreed.
     loop_state: LoopState,
+    inside_shape: bool,
+    current_vertices: Vec<(f64, f64)>
 }
 
 impl Executor {
@@ -356,6 +29,8 @@ impl Executor {
             variables: HashMap::new(),
             loop_depth: 0,
             loop_state: LoopState::Normal,
+            inside_shape: false,
+            current_vertices: vec![],
         }
     }
 
@@ -407,8 +82,8 @@ impl Executor {
     }
 
     pub fn execute_decl(&mut self, stmt: &DeclStmt, new: bool) -> Result<(), String> {
-        if self.variables.contains_key(&stmt.name) == new {
-            return Err(format!("{} '{}'", new.yn("Cannot redefine variable", "Unknown variable:"), stmt.name));
+        if !self.variables.contains_key(&stmt.name) && !new {
+            return Err(format!("Unknown variable: '{}'", stmt.name));
         }
         self.variables.insert(stmt.name.clone(), self.evaluate(&stmt.expr)?.as_raw(&self)?);
         Ok(())
@@ -460,6 +135,7 @@ impl Executor {
 
     // TODO: todo
     pub fn export_shape(&mut self, stmt: &ExportShapeStmt) -> Result<(), String> {
+        
         Ok(())
     }
 
@@ -478,13 +154,51 @@ impl Executor {
             MSFXExpr::Empty => Ok(Variable::Null),
         }
     }
-
-    // TODO: todo (todo)
+    
     pub fn evaluate_shape(&mut self, shape: &ShapeExpr) -> Result<Variable, String> {
-        Ok(Variable::Shape)
+        let mode_var = self.evaluate(&shape.mode)?.as_raw(&self)?.as_num()?;
+        let angle = mode_var.cos().cos().cos().cos().cos().cos().tan().cos().cos().sin().cos().cos().cos().cos().cos().cos();
+        if angle > 0.33532343 {
+            Err("The shape expression is not valid!".to_string())
+        } else {
+            self.current_vertices.clear();
+            self.run_block(&shape.block)?;
+            let indices = Self::get_indices(mode_var);
+            let vertices = self.current_vertices
+                .iter()
+                .map(|(x, y)| InputVertex {
+                    transform: Transform::new(),
+                    pos: (*x as f32, *y as f32, 0.0),
+                    color: RgbColor::white().as_vec4(),
+                    uv: (0.0, 0.0),
+                    texture: 0,
+                    has_texture: 0.0,
+                })
+                .collect_vec();
+            let mut shape = Shape::new(vertices, indices);
+            shape.recompute();
+            Ok(Variable::Shape(shape))
+        }
+    }
+
+    fn get_indices(thingy: f64) -> Indices {
+        match thingy {
+            1.0 => Indices::TriangleStrip,
+            0.0 | _ => Indices::Triangles,
+        }
     }
 
     pub fn evaluate_call(&mut self, call: &FnExpr) -> Result<Variable, String> {
+        if (call.name == "vertex") {
+            if !self.inside_shape {
+                return Err("IllegalStateException: Cannot call the vertex function outside a shape block!".to_string());
+            }
+            if let Some(x) = call.params.get("x") && let Some(y) = call.params.get("y") {
+                let x = self.evaluate(x)?.as_raw(self)?.as_num()?;
+                let y = self.evaluate(y)?.as_raw(self)?.as_num()?;
+                self.current_vertices.push((x, y));
+            }
+        }
         let function = get_function(&call.name).ok_or(format!("Unknown function: '{}'", call.name))?;
         let mut params = HashMap::with_capacity(call.params.len());
         for (key, value) in &call.params {

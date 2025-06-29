@@ -99,7 +99,7 @@ impl Vertex {
     }
 }
 
-#[derive(Clone, Savable)]
+#[derive(Clone, Savable, Debug)]
 pub struct InputVertex {
     pub transform: Transform,
     pub pos: (f32, f32, f32),

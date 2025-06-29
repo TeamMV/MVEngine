@@ -123,6 +123,13 @@ impl MSFXToken {
             _ => None
         }
     }
+
+    pub fn assign(&self) -> bool {
+        match self {
+            Self::OperatorAssign(_) => true,
+            _ => false
+        }
+    }
 }
 
 pub struct MSFXLexer<'a> {

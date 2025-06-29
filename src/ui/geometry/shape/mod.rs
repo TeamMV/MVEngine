@@ -54,7 +54,7 @@ impl Indices {
 
 pub const SF_TEXTURE: u8 = 1;
 
-#[derive(Clone, Savable)]
+#[derive(Clone, Savable, Debug)]
 pub struct Shape {
     pub vertices: Vec<InputVertex>,
     pub indices: Vec<usize>,

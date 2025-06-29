@@ -1,6 +1,7 @@
 use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, ExportTarget, FnExpr, ForStmt, IfStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXLexer, MSFXOperator, MSFXToken};
 use hashbrown::HashMap;
+use mvutils::utils::TetrahedronOp;
 
 pub struct MSFXParser<'a> {
     lexer: MSFXLexer<'a>
@@ -211,28 +212,26 @@ impl<'a> MSFXParser<'a> {
     fn parse_expression(&mut self) -> Result<MSFXExpr, String> {
         self.parse_expression_with_precedence(0)
     }
-
-    // TODO: this fucks itself when OperatorAssign is used
+    
     fn parse_expression_with_precedence(&mut self, min_precedence: u8) -> Result<MSFXExpr, String> {
         let mut lhs = self.parse_primary_expression()?;
         let mut token = self.lexer.next();
-        while let MSFXToken::Operator(op) = token {
-            let precedence = op.precedence();
+        while let Some(op) = token.op() {
+            let is_assign = token.assign();
+            let precedence = is_assign.yn(0, op.precedence());
 
-            if precedence < min_precedence {
-                token = MSFXToken::Operator(op);
+            if precedence < min_precedence && !is_assign {
                 break;
             }
 
             let mut rhs = self.parse_primary_expression()?;
 
             let mut inner_token = self.lexer.next();
-            while let MSFXToken::Operator(inner_op) = inner_token {
+            while let Some(inner_op) = inner_token.op() {
+                let inner_is_assign = inner_token.assign();
                 let inner_precedence = inner_op.precedence();
 
-                if inner_precedence <= precedence {
-                    self.lexer.putback(MSFXToken::Operator(inner_op));
-                    inner_token = self.lexer.next();
+                if inner_precedence <= precedence && !inner_is_assign {
                     break;
                 }
 
@@ -245,11 +244,25 @@ impl<'a> MSFXParser<'a> {
                 inner_token = self.lexer.next();
             }
             self.lexer.putback(inner_token);
-            lhs = MSFXExpr::Binary(BinaryExpr {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs)
-            });
+            if is_assign {
+                lhs = MSFXExpr::Binary(BinaryExpr {
+                    lhs: Box::new(lhs.clone()),
+                    op: MSFXOperator::Assign,
+                    rhs: Box::new(MSFXExpr::Binary(BinaryExpr {
+                        lhs: Box::new(lhs),
+                        op,
+                        rhs: Box::new(rhs)
+                    })),
+                });
+                token = self.lexer.next();
+                break;
+            } else {
+                lhs = MSFXExpr::Binary(BinaryExpr {
+                    lhs: Box::new(lhs),
+                    op,
+                    rhs: Box::new(rhs)
+                });
+            }
             token = self.lexer.next();
         }
         self.lexer.putback(token);
