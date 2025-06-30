@@ -123,6 +123,7 @@ impl<'a> MSFXParser<'a> {
                 let false_block = if matches!(maybe_else, MSFXToken::Keyword(MSFXKeyword::Else)) {
                     Box::new(self.parse_stmt()?)
                 } else {
+                    self.lexer.putback(maybe_else);
                     Box::new(MSFXStmt::Nop)
                 };
                 Ok(MSFXStmt::If(IfStmt {

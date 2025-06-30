@@ -123,18 +123,125 @@ pub trait ApplyBrain {
     fn gte(&self, other: &Variable) -> Result<Variable, String>;
     fn lt(&self, other: &Variable) -> Result<Variable, String>;
     fn lte(&self, other: &Variable) -> Result<Variable, String>;
-    fn invert(&self, other: &Variable) -> Result<Variable, String>;
-    fn negate(&self, other: &Variable) -> Result<Variable, String>;
 }
 
 impl ApplyBrain for f64 {
-    
+    fn add(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self + other.as_num()?))
+    }
+
+    fn sub(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self - other.as_num()?))
+    }
+
+    fn mul(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self * other.as_num()?))
+    }
+
+    fn div(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self / other.as_num()?))
+    }
+
+    fn rem(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self % other.as_num()?))
+    }
+
+    fn pow(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Number(self.powf(other.as_num()?)))
+    }
+
+    fn and(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply and to number!".to_string())
+    }
+
+    fn or(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply or to number!".to_string())
+    }
+
+    fn eq(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self == other.as_num()?))
+    }
+
+    fn neq(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self != other.as_num()?))
+    }
+
+    fn gt(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self > other.as_num()?))
+    }
+
+    fn gte(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self >= other.as_num()?))
+    }
+
+    fn lt(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self < other.as_num()?))
+    }
+
+    fn lte(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self <= other.as_num()?))
+    }
 }
 
 impl ApplyBrain for bool {
-    
+    fn add(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply + to boolean!".to_string())
+    }
+
+    fn sub(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply - to boolean!".to_string())
+    }
+
+    fn mul(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply * to boolean!".to_string())
+    }
+
+    fn div(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply / to boolean!".to_string())
+    }
+
+    fn rem(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply % to boolean!".to_string())
+    }
+
+    fn pow(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply ^ to boolean (it's pow, not xor)!".to_string())
+    }
+
+    fn and(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self && other.as_bool()?))
+    }
+
+    fn or(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self || other.as_bool()?))
+    }
+
+    fn eq(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self == other.as_bool()?))
+    }
+
+    fn neq(&self, other: &Variable) -> Result<Variable, String> {
+        Ok(Variable::Bool(*self != other.as_bool()?))
+    }
+
+    fn gt(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply > to boolean!".to_string())
+    }
+
+    fn gte(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply >= to boolean!".to_string())
+    }
+
+    fn lt(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply < to boolean!".to_string())
+    }
+
+    fn lte(&self, _: &Variable) -> Result<Variable, String> {
+        Err("Cannot apply <= to boolean!".to_string())
+    }
 }
 
+// TODO: v22 hello
 impl ApplyBrain for Shape {
     
 }
