@@ -14,7 +14,7 @@ pub enum LoopState {
     Break,
 }
 
-pub struct Executor {
+pub struct MSFXExecutor {
     pub(crate) variables: HashMap<String, Variable>,
     loop_depth: u8, // If you nest more than 255 loops, sincerely, fuck you
     //agreed.
@@ -23,9 +23,9 @@ pub struct Executor {
     current_vertices: Vec<(f64, f64)>
 }
 
-impl Executor {
-    pub fn new() -> Executor {
-        Executor {
+impl MSFXExecutor {
+    pub fn new() -> MSFXExecutor {
+        MSFXExecutor {
             variables: HashMap::new(),
             loop_depth: 0,
             loop_state: LoopState::Normal,
@@ -34,9 +34,13 @@ impl Executor {
         }
     }
 
-    pub fn run(&mut self, ast: &MSFXAST)-> Result<(), String> {
+    pub fn run(&mut self, ast: &MSFXAST)-> Result<HashMap<String, Variable>, String> {
         self.run_block(&ast.elements)?;
-        Ok(())
+        self.loop_state = LoopState::Normal;
+        self.loop_depth = 0;
+        self.inside_shape = false;
+        self.current_vertices = vec![];
+        Ok(self.variables.drain().collect())
     }
 
     pub fn run_block(&mut self, block: &[MSFXStmt]) -> Result<(), String> {
@@ -85,7 +89,8 @@ impl Executor {
         if !self.variables.contains_key(&stmt.name) && !new {
             return Err(format!("Unknown variable: '{}'", stmt.name));
         }
-        self.variables.insert(stmt.name.clone(), self.evaluate(&stmt.expr)?.as_raw(&self)?);
+        let value = self.evaluate(&stmt.expr)?.as_raw(&self)?;
+        self.variables.insert(stmt.name.clone(), value);
         Ok(())
     }
 
@@ -94,8 +99,18 @@ impl Executor {
         let end = self.evaluate(&stmt.end)?.as_raw(&self)?.as_num()?;
 
         let mut i = self.evaluate(&stmt.start)?.as_raw(&self)?.as_num()?;
+
+        fn a(i: f64, end: f64) -> bool {
+            i < end
+        }
+        fn b(i: f64, end: f64) -> bool {
+            i > end
+        }
+
+        let f = if step < 0.0 { b } else { a };
+
         self.loop_depth += 1;
-        while (i - end < 0.0) == (step < 0.0) {
+        while f(i, end) {
             self.variables.insert(stmt.varname.clone(), Variable::Number(i));
             self.execute_stmt(&stmt.block)?;
             i += step;
@@ -204,7 +219,7 @@ impl Executor {
         for (key, value) in &call.params {
             params.insert(key.clone(), self.evaluate(value)?.as_raw(&self)?.map()?);
         }
-        function.call(params).map(|v| v.unmap())
+        function.call_ordered(params, &call.order).map(|v| v.unmap())
     }
 
     pub fn evaluate_uexpr(&mut self, uexpr: &UnaryExpr) -> Result<Variable, String> {
@@ -229,9 +244,11 @@ impl Executor {
             Ok(Variable::Access(Box::new(lhs), Box::new(rhs)))
         } else if let MSFXOperator::Assign = bexpr.op {
             lhs.enforce_ident()?;
+            let rhs_raw = rhs.as_raw(self)?;
             let chain = lhs.expand_idents();
-            let mut raw = Variable::Saved(chain[0].clone()).as_raw_ref(&mut self)?;
-            raw.insert_subvalue(&chain[1..], rhs.as_raw(&self)?)?;
+            let mut base_var = Variable::Saved(chain[0].clone());
+            let mut raw = base_var.as_raw_ref(self)?;
+            raw.insert_subvalue(&chain[1..], rhs_raw)?;
             Ok(Variable::Null)
         } else {
             let lhs = lhs.as_raw(&self)?;

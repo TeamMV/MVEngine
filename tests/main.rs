@@ -39,6 +39,9 @@ use std::sync::Arc;
 use mvengine::game::ecs::{EcsStorage, ECS};
 use mvengine::game::ecs::entity::{Entity, EntityBehavior, EntityId, LocalComponent, NoBehavior};
 use mvengine::game::ecs::system::System;
+use mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor;
+use mvengine::ui::geometry::shape::msfx::lexer::MSFXLexer;
+use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -52,6 +55,19 @@ pub fn main() -> Result<(), Error> {
     //    }
     //    println!("{token:?}");
     //}
+
+    let data = include_str!("test.msfx");
+    let ast = MSFXParser::parse(data).unwrap();
+    println!("{:?}", ast);
+    let mut executor = MSFXExecutor::new();
+    let variables = executor.run(&ast).unwrap();
+
+    println!("Variables:");
+    for (name, variable) in variables {
+        println!("{name} = {:?}", variable);
+    }
+
+    exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();

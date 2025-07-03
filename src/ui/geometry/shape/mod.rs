@@ -1,7 +1,7 @@
 pub mod transform;
 pub mod visual;
 pub mod geometry;
-//pub mod msfx;
+pub mod msfx;
 pub mod msf;
 pub mod shapes;
 pub mod utils;

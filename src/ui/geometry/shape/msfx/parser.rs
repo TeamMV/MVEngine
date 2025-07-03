@@ -15,8 +15,11 @@ impl<'a> MSFXParser<'a> {
         };
 
         let mut stmts = vec![];
-        while let Ok(stmt) = this.parse_stmt() {
-            stmts.push(stmt);
+        let mut next = this.lexer.next();
+        while !matches!(next, MSFXToken::EOF) {
+            this.lexer.putback(next);
+            stmts.push(this.parse_stmt()?);
+            next = this.lexer.next();
         }
 
         Ok(MSFXAST {
@@ -42,7 +45,7 @@ impl<'a> MSFXParser<'a> {
                 self.lexer.next_token(MSFXToken::Operator(MSFXOperator::Assign))?;
                 let maybe_begin = self.lexer.next();
                 if matches!(maybe_begin, MSFXToken::Keyword(MSFXKeyword::Begin)) {
-                    let arguments = self.parse_arguments()?;
+                    let (arguments, _) = self.parse_arguments()?;
                     if arguments.len() != 1 {
                         return Err("Amount of arguments for `begin` must be 1 in context of shape definition".to_string());
                     }
@@ -89,16 +92,16 @@ impl<'a> MSFXParser<'a> {
             }
             MSFXToken::Keyword(MSFXKeyword::For) => {
                 let varname = self.lexer.next_ident()?;
-                let begin = self.lexer.next_ident()?;
-                if begin != "begin" {
+                self.lexer.next_token(MSFXToken::Keyword(MSFXKeyword::In))?;
+                let maybe_begin = self.lexer.next();
+                if !matches!(maybe_begin, MSFXToken::Keyword(MSFXKeyword::Begin)) {
                     return Err("Expected a begin[] call with for!".to_string());
                 }
                 self.lexer.next_token(MSFXToken::LBrack)?;
-                let args = self.parse_arguments()?;
+                let (args, _) = self.parse_arguments()?;
                 let start = args.get("start").cloned().unwrap_or(MSFXExpr::Literal(0.0));
                 let end = args.get("end").cloned().ok_or("The begin[] call requires an 'end' field!")?;
                 let step = args.get("step").cloned().unwrap_or(MSFXExpr::Literal(1.0));
-                self.lexer.next_token(MSFXToken::Colon)?;
                 let block = self.parse_stmt()?;
                 Ok(MSFXStmt::For(ForStmt {
                     varname,
@@ -197,9 +200,20 @@ impl<'a> MSFXParser<'a> {
                     }
                 }
             }
-            MSFXToken::Keyword(MSFXKeyword::Break) => Ok(MSFXStmt::Break),
-            MSFXToken::Keyword(MSFXKeyword::Continue) => Ok(MSFXStmt::Continue),
-            _ => Ok(MSFXStmt::Expr(self.parse_expression()?)),
+            MSFXToken::Keyword(MSFXKeyword::Break) => {
+                self.lexer.next_token(MSFXToken::Semicolon)?;
+                Ok(MSFXStmt::Break)
+            }
+            MSFXToken::Keyword(MSFXKeyword::Continue) => {
+                self.lexer.next_token(MSFXToken::Semicolon)?;
+                Ok(MSFXStmt::Continue)
+            }
+            tkn => {
+                self.lexer.putback(tkn);
+                let expr = self.parse_expression()?;
+                self.lexer.next_token(MSFXToken::Semicolon)?;
+                Ok(MSFXStmt::Expr(expr))
+            }
         }
     }
 
@@ -284,11 +298,12 @@ impl<'a> MSFXParser<'a> {
             MSFXToken::Ident(name) => {
                 let token = self.lexer.next();
                 match token {
-                    MSFXToken::LParen => {
-                        let arguments = self.parse_arguments()?;
+                    MSFXToken::LBrack => {
+                        let (arguments, order) = self.parse_arguments()?;
                         Ok(MSFXExpr::Call(FnExpr {
                             name,
                             params: arguments,
+                            order
                         }))
                     }
                     _ => {
@@ -308,31 +323,44 @@ impl<'a> MSFXParser<'a> {
         }
     }
 
-    fn parse_arguments(&mut self) -> Result<HashMap<String, MSFXExpr>, String> {
-        self.lexer.next_token(MSFXToken::LBrack)?;
+    fn parse_arguments(&mut self) -> Result<(HashMap<String, MSFXExpr>, Vec<String>), String> {
         let mut map = HashMap::new();
+        let mut order = Vec::new();
         loop {
             let next = self.lexer.next_some()?;
             if let MSFXToken::RBrack = &next {
-                return Ok(map);
+                return Ok((map, order));
             } else {
                 self.lexer.putback(next);
                 let maybe_ident = self.lexer.next_some()?;
                 let maybe_colon = self.lexer.next_some()?;
                 if let MSFXToken::Colon = maybe_colon {
                     let exp = self.parse_expression()?;
-                    let ident = maybe_ident.to_ident()?;
-                    map.insert(ident, exp);
+                    if let MSFXToken::Keyword(MSFXKeyword::End) = maybe_ident {
+                        order.push("end".to_string());
+                        if map.insert("end".to_string(), exp).is_some() {
+                            return Err("Duplicate function argument: 'end'".to_string());
+                        }
+                    } else {
+                        let ident = maybe_ident.to_ident()?;
+                        order.push(ident.clone());
+                        if map.insert(ident.clone(), exp).is_some() {
+                            return Err(format!("Duplicate function argument: '{}'", ident));
+                        }
+                    }
                 } else {
-                    self.lexer.putback(maybe_ident);
                     self.lexer.putback(maybe_colon);
+                    self.lexer.putback(maybe_ident);
                     let exp = self.parse_expression()?;
-                    map.insert("_".to_string(), exp);
+                    order.push("_".to_string());
+                    if map.insert("_".to_string(), exp).is_some() {
+                        return Err("Passing more than one unnamed argument to a function is not allowed".to_string());
+                    }
                 }
 
                 let maybe_brack = self.lexer.next_some()?;
                 if let MSFXToken::RBrack = maybe_brack {
-                    return Ok(map);
+                    return Ok((map, order));
                 }
                 self.lexer.putback(maybe_brack);
                 self.lexer.next_token(MSFXToken::Comma)?;

@@ -2,6 +2,7 @@ use hashbrown::HashMap;
 use mvutils::TryFromString;
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXOperator};
 
+#[derive(Debug)]
 pub struct MSFXAST {
     pub elements: Vec<MSFXStmt>
 }
@@ -106,7 +107,8 @@ pub struct ShapeExpr {
 #[derive(Debug, Clone)]
 pub struct FnExpr {
     pub name: String,
-    pub params: HashMap<String, MSFXExpr>
+    pub params: HashMap<String, MSFXExpr>,
+    pub order: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

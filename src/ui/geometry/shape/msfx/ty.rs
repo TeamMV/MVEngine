@@ -1,4 +1,5 @@
-use crate::ui::geometry::shape::msfx::executor::Executor;
+use std::fmt::{Debug, Display, Formatter};
+use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::geometry::SimpleRect;
 
@@ -80,6 +81,17 @@ impl MappedVariable {
             MappedVariable::Bool(b) => f(b),
             MappedVariable::Shape(s) => f(s),
             MappedVariable::Null => unreachable!(),
+        }
+    }
+}
+
+impl Display for MappedVariable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MappedVariable::Number(n) => Display::fmt(n, f),
+            MappedVariable::Bool(b) => Display::fmt(b, f),
+            MappedVariable::Shape(s) => s.fmt(f),
+            MappedVariable::Null => f.write_str("null"),
         }
     }
 }
@@ -241,9 +253,62 @@ impl ApplyBrain for bool {
     }
 }
 
-// TODO: v22 hello
 impl ApplyBrain for Shape {
-    
+    fn add(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn sub(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn mul(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn div(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn rem(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn pow(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn and(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn or(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn eq(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn neq(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn gt(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn gte(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn lt(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
+
+    fn lte(&self, other: &Variable) -> Result<Variable, String> {
+        Err("Shape cannot be like done shit to".to_string())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -299,7 +364,7 @@ impl Variable {
         Ok(())
     }
 
-    pub fn as_raw_ref(&self, ex: &mut Executor) -> Result<&mut Variable, String> {
+    pub fn as_raw_ref<'a>(&self, ex: &'a mut MSFXExecutor) -> Result<&'a mut Variable, String> {
         match self {
             Variable::Saved(ident) => ex.variables.get_mut(ident).ok_or(format!("Unknown variable: '{}'", ident)),
             // Variable::Access(_, _) => {
@@ -311,7 +376,7 @@ impl Variable {
         }
     }
 
-    pub fn as_raw(&self, ex: &Executor) -> Result<Variable, String> {
+    pub fn as_raw(&self, ex: &MSFXExecutor) -> Result<Variable, String> {
         match self {
             Variable::Saved(ident) => ex.variables.get(ident).cloned().ok_or(format!("Unknown variable: '{}'", ident)),
             Variable::Access(_, _) => {

@@ -16,7 +16,7 @@ pub enum MSFXKeyword {
     Continue,
     Export,
     Input,
-    Of,
+    In,
     End,
     Number,
     Vec2,
@@ -185,7 +185,10 @@ impl<'a> MSFXLexer<'a> {
     }
 
     fn collect_until<P: Fn(char) -> bool>(&mut self, predicate: P) -> String {
-        let mut s = String::new();
+        self.collect_until_with(String::new(), predicate)
+    }
+
+    fn collect_until_with<P: Fn(char) -> bool>(&mut self, mut s: String, predicate: P) -> String {
         let mut next = self.chars.peek().cloned();
         while let Some(n) = next {
             if predicate(n) {
@@ -200,7 +203,7 @@ impl<'a> MSFXLexer<'a> {
 
     pub fn next(&mut self) -> MSFXToken {
         if !self.putback.is_empty() {
-            return self.putback.pop_front().unwrap();
+            return self.putback.pop_back().unwrap();
         }
 
         let _ = self.collect_until(|x| !x.is_whitespace());
@@ -232,7 +235,7 @@ impl<'a> MSFXLexer<'a> {
         if let Some(n) = next {
             match n {
                 d if d.is_numeric() => {
-                    let data = self.collect_until(|c| !(c.is_numeric() || c == '.' || c == 'e' || c == '_'));
+                    let data = self.collect_until_with(d.to_string(), |c| !(c.is_numeric() || c == '.' || c == 'e' || c == '_'));
                     return parse::parse_num::<f64, ParseFloatError>(&data)
                         .map(MSFXToken::Literal)
                         .unwrap_or_else(MSFXToken::Error);
@@ -268,6 +271,7 @@ impl<'a> MSFXLexer<'a> {
                 '(' => return MSFXToken::LParen,
                 ')' => return MSFXToken::RParen,
                 '.' => return MSFXToken::Dot,
+                ':' => return MSFXToken::Colon,
 
                 '+' => potentially_assign!(Add),
                 '-' => potentially_assign!(Sub),
@@ -285,9 +289,8 @@ impl<'a> MSFXLexer<'a> {
                 }
 
                 _ => {
-                    let mut s = String::new();
-                    s.push(n);
-                    s += &*self.collect_until(|x| !(x.is_alphanumeric() || x == '_' || x == '\''));
+                    const ALLOWED_SPECIAL: [char; 14] = ['_', '\'', '{', '}', '?', '$', '\\', '€', '@', '|', '&', '~', '😱', '🚨'];
+                    let s = self.collect_until_with(n.to_string(), |x| !(x.is_alphanumeric() || x == '_' || x == '\'' || ALLOWED_SPECIAL.contains(&x)));
                     if let Ok(keyword) = MSFXKeyword::from_str(&s) {
                         macro_rules! keyword_op {
                             ($keyword_val:ident, $op_val: ident) => {

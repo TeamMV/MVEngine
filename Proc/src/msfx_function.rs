@@ -44,6 +44,16 @@ pub fn msfx_fn(body: TokenStream) -> TokenStream {
         }
     }
 
+    let map = if function.sig.output.to_token_stream().to_string().trim().starts_with("-> Result") {
+        quote!{
+            Self::#name(#args).map(Into::into)
+        }
+    } else {
+        quote! {
+            Ok(Self::#name(#args).into())
+        }
+    };
+
     let ts = quote! {
         pub struct #s_name;
 
@@ -54,7 +64,7 @@ pub fn msfx_fn(body: TokenStream) -> TokenStream {
         impl MSFXFunction for #s_name {
             fn call(&self, arguments: HashMap<String, MappedVariable>) -> Result<MappedVariable, String> {
                 #mapping
-                Self::#name(#args).map(Into::into)
+                #map
             }
         }
     };
