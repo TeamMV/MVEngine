@@ -304,6 +304,8 @@ impl<'a> MSFXLexer<'a> {
                     } else {
                         if s.to_lowercase() == "isn't" {
                             return MSFXToken::Operator(MSFXOperator::Neq);
+                        } else if s.to_lowercase() == "null" {
+                            return MSFXToken::Hashtag;
                         }
                         return MSFXToken::Ident(s);
                     }
