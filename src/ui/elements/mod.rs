@@ -10,7 +10,7 @@ use crate::input::consts::MouseButton;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::math::vec::Vec2;
 use crate::rendering::text::Font;
-use crate::rendering::Transform;
+use crate::rendering::{RenderContext, Transform};
 use crate::resolve;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
@@ -23,7 +23,6 @@ use crate::ui::elements::div::Div;
 use crate::ui::elements::events::UiEvents;
 use crate::ui::elements::textbox::TextBox;
 use crate::ui::geometry::{Rect, SimpleRect};
-use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Overflow, Position};
 use crate::ui::styles::types::Dimension;
@@ -34,9 +33,10 @@ use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use crate::ui::elements::text::Text;
+use crate::ui::rendering::{UiRenderer, WideRenderContext};
 
 pub trait UiElementCallbacks {
-    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect);
+    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect);
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         false
@@ -152,13 +152,13 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     /// Computes all the styles and sets up the state. Should be called before draw()
-    fn compute_styles(&mut self, ctx: &DrawContext2D)
+    fn compute_styles(&mut self, ctx: &impl WideRenderContext)
     where
         Self: Sized,
     {
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         let (_, style, state) = this.components_mut();
-        state.ctx.dpi = ctx.renderer().dpi() as f32;
+        state.ctx.dpi = ctx.dpi() as f32;
 
         let mut style = style.clone();
         style.merge_unset(&DEFAULT_STYLE);
@@ -565,7 +565,7 @@ pub trait UiElementStub: UiElementCallbacks {
         font_stretch: Dimension<f32>,
         font_skew: f32,
         font_kerning: f32,
-        ctx: &DrawContext2D,
+        ctx: &impl WideRenderContext,
     ) -> (i32, i32)
     where
         Self: Sized,
@@ -804,7 +804,7 @@ macro_rules! ui_element_fn {
 }
 
 impl UiElementCallbacks for UiElement {
-    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
         ui_element_fn!(self, draw(ctx, crop_area));
     }
 

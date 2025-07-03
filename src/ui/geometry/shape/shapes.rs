@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
-use crate::math::vec::Vec4;
-use crate::rendering::{InputVertex, Transform};
+use crate::math::vec::{Vec2, Vec4};
+use crate::rendering::{InputVertex, Transform, Triangle};
 use crate::ui::geometry::shape::{Indices, Shape};
 use crate::ui::geometry::SimpleRect;
 
@@ -96,4 +96,29 @@ pub fn circle0(cx: i32, cy: i32, radius: i32, tri_count: i32) -> Shape {
 
 pub fn ellipse0(cx: i32, cy: i32, radius_x: i32, radius_y: i32, tri_count: i32) -> Shape {
     arc1(cx, cy, radius_x, radius_y, 0.0, PI + PI, tri_count)
+}
+
+pub fn triangle0(x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32) -> Shape {
+    let v1 = vertex(x1, y1);
+    let v2 = vertex(x2, y2);
+    let v3 = vertex(x3, y3);
+    Shape::new(vec![v1, v2, v3], Indices::Triangles)
+}
+
+pub fn triangle1(p1: (i32, i32), p2: (i32, i32), p3: (i32, i32)) -> Shape {
+    let v1 = vertex(p1.0, p1.1);
+    let v2 = vertex(p2.0, p2.1);
+    let v3 = vertex(p3.0, p3.1);
+    Shape::new(vec![v1, v2, v3], Indices::Triangles)
+}
+
+pub fn triangle2(v1: Vec2, v2: Vec2, v3: Vec2) -> Shape {
+    let (x1, y1) = v1.as_i32_tuple();
+    let (x2, y2) = v2.as_i32_tuple();
+    let (x3, y3) = v3.as_i32_tuple();
+    triangle0(x1, y1, x2, y2, x3, y3)
+}
+
+pub fn triangle3(triangle: Triangle) -> Shape {
+    Shape::new(triangle.points.to_vec(), Indices::Triangles)
 }

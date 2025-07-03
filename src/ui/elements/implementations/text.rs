@@ -4,14 +4,15 @@ use crate::ui::context::UiContext;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
-use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::styles::UiStyle;
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
 use crate::input::{Input, RawInputEvent};
+use crate::rendering::RenderContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::text::TextBody;
+use crate::ui::rendering::UiRenderer;
 
 #[derive(Clone)]
 pub struct Text {
@@ -28,14 +29,14 @@ pub struct Text {
 }
 
 impl Text {
-    fn draw_string(&mut self, s: &str, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+    fn draw_string(&mut self, s: &str, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_mut_static(self) };
         self.text.draw(this, s, ctx, crop_area);
     }
 }
 
 impl UiElementCallbacks for Text {
-    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_mut_static(self) };
         for children in &self.state.children {
             match children {

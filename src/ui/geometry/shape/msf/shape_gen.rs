@@ -1,9 +1,8 @@
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
 use crate::ui::geometry::modifier::boolean;
-use crate::ui::geometry::shape::{Shape, VertexStream};
+use crate::ui::geometry::shape::{shapes, Shape, VertexStream};
 use crate::ui::rendering::adaptive::AdaptiveShape;
-use crate::ui::rendering::ctx;
 use crate::ui::geometry::shape::msf::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
 use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
@@ -112,11 +111,7 @@ fn gen_tri(parsed_struct: ParsedStruct) -> Result<Shape, String> {
             _ => return Err(format!("Unrecognized parameter {skey}")),
         }
     }
-    let mut triangle = ctx::triangle()
-        .point(p1, None)
-        .point(p2, None)
-        .point(p3, None)
-        .create();
+    let mut triangle = shapes::triangle1(p1, p2, p3);
     triangle.stream().transform(transform).compute();
     Ok(triangle)
 }
@@ -191,13 +186,14 @@ fn gen_rect(parsed_struct: ParsedStruct) -> Result<Shape, String> {
         p2.1 = p1.1 + wh.1;
     }
 
-    let mut rectangle = ctx::rectangle().xyxy(p1.0, p1.1, p2.0, p2.1).create();
+    let mut rectangle = shapes::rectangle1(p1.0, p1.1, p2.0, p2.1);
     rectangle.stream().transform(transform).compute();
     Ok(rectangle)
 }
 
 fn gen_arc(parsed_struct: ParsedStruct) -> Result<Shape, String> {
     let mut angle = 0.0;
+    let mut offset = 0.0;
     let mut radius = 0;
     let mut triangle_count = 50;
     let mut center = (0, 0);
@@ -211,7 +207,14 @@ fn gen_arc(parsed_struct: ParsedStruct) -> Result<Shape, String> {
                 if let StructValue::Number(num) = value {
                     angle = num.as_f32();
                 } else {
-                    return Err("rotation can only be a number, found struct".to_string());
+                    return Err("angle can only be a number, found struct".to_string());
+                }
+            }
+            "o" => {
+                if let StructValue::Number(num) = value {
+                    offset = num.as_f32();
+                } else {
+                    return Err("offset can only be a number, found struct".to_string());
                 }
             }
             "r" => {
@@ -225,33 +228,28 @@ fn gen_arc(parsed_struct: ParsedStruct) -> Result<Shape, String> {
                 if let StructValue::Number(num) = value {
                     triangle_count = num.as_i32();
                 } else {
-                    return Err("rotation can only be a number, found struct".to_string());
+                    return Err("tri-count can only be a number, found struct".to_string());
                 }
             }
             "c" => {
                 if let StructValue::Struct(parsed_struct) = value {
                     center = parse_vec2(parsed_struct.as_ref())?.as_i32_tuple();
                 } else {
-                    return Err("p1 can only be a struct, found number".to_string());
+                    return Err("center can only be a struct, found number".to_string());
                 }
             }
             "t" => {
                 if let StructValue::Struct(parsed_struct) = value {
                     transform = parse_transform(parsed_struct.as_ref())?;
                 } else {
-                    return Err("p3 can only be a struct, found number".to_string());
+                    return Err("transform can only be a struct, found number".to_string());
                 }
             }
             _ => return Err(format!("Unrecognized parameter {skey}")),
         }
     }
 
-    let mut arc = ctx::arc()
-        .center(center.0, center.1)
-        .angle(angle)
-        .radius(radius)
-        .triangle_count(triangle_count as u32)
-        .create();
+    let mut arc = shapes::arc0(center.0, center.1, radius, offset, angle, triangle_count);
     arc.stream().transform(transform).compute();
     Ok(arc)
 }

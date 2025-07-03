@@ -1,17 +1,18 @@
-use crate::game::ecs::entity::{Entity, EntityBehavior, EntityType};
+use crate::game::ecs::entity::{Entity, EntityBehavior, EntityId};
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use crate::game::ecs::EcsStorage;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::any::TypeId;
+use crate::game::ecs::mem::storage::ComponentIdx;
 
 pub struct World {
     storage: EcsStorage,
-    entities: Vec<EntityType>,
+    entities: Vec<EntityId>,
     behaviors: HashMap<TypeId, (ContinuousBlob, std::ptr::DynMetadata<dyn EntityBehavior>)>,
-    behavior_indices: HashMap<EntityType, usize, U64IdentityHasher>,
-    behavior_indices_rev: HashMap<u64, EntityType, U64IdentityHasher>,
+    behavior_indices: HashMap<EntityId, ComponentIdx, U64IdentityHasher>,
+    behavior_indices_rev: HashMap<ComponentIdx, EntityId, U64IdentityHasher>,
 }
 
 impl World {
@@ -39,7 +40,7 @@ impl World {
     pub fn create_entity<B: EntityBehavior + 'static, C>(
         &mut self,
         entity: fn(EcsStorage) -> Entity<B, C>,
-    ) -> Option<()> {
+    ) -> Option<EntityId> {
         let entity = entity(self.storage.clone());
         let type_id = TypeId::of::<B>();
         let entity_ty = entity.ty;
@@ -63,11 +64,24 @@ impl World {
                 .get_mut::<B>(idx)
                 .unwrap();
             self.behavior_indices.insert(entity_ty, idx);
-            self.behavior_indices_rev.insert(idx as u64, entity_ty);
+            self.behavior_indices_rev.insert(idx, entity_ty);
             br.start(entity_ty);
             self.entities.push(entity_ty);
         }
 
-        Some(())
+        Some(entity_ty)
+    }
+
+    pub fn obliterate_entity_using_dewalt_d25980k_68_lb_pavement_demolition_hammer_with_shocks_active_vibration_control<B: EntityBehavior + 'static>(&mut self, id: EntityId) {
+        self.storage.get_mut().remove_entity(id);
+        let type_id = TypeId::of::<B>();
+        if let Some((blob, _)) = self.behaviors.get_mut(&type_id) &&
+            let Some(idx) = self.behavior_indices.remove(&id) {
+            self.behavior_indices_rev.remove(&idx);
+            blob.remove(idx);
+        }
+        if let Ok(idx) = self.entities.binary_search(&id) {
+            self.entities.remove(idx);
+        }
     }
 }

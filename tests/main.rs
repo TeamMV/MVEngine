@@ -22,13 +22,10 @@ use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::UiElementStub;
-use mvengine::ui::geometry::morph::Morph;
-use mvengine::ui::geometry::shape::{shapes, VertexStream};
+use mvengine::ui::geometry::shape::VertexStream;
 use mvengine::ui::geometry::SimpleRect;
-use mvengine::ui::rendering::ctx::DrawContext2D;
-use mvengine::ui::rendering::{ctx, UiRenderer};
+use mvengine::ui::rendering::UiRenderer;
 use mvengine::ui::res::MVR;
-use mvengine::ui::timing::{AnimationState, PeriodicTask, TIMING_MANAGER};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvengine_proc_macro::resolve_resource;
@@ -39,6 +36,9 @@ use parking_lot::RwLock;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
+use mvengine::game::ecs::{EcsStorage, ECS};
+use mvengine::game::ecs::entity::{Entity, EntityBehavior, EntityId, LocalComponent, NoBehavior};
+use mvengine::game::ecs::system::System;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -77,8 +77,7 @@ struct Application {
     test_texture2: CreateOnce<Texture>,
     font: CreateOnce<Font>,
     rot: f32,
-    draw_ctx: CreateOnce<DrawContext2D>,
-    morph: CreateOnce<Morph>,
+    draw_ctx: CreateOnce<UiRenderer>,
     state: CreateOnce<State<String>>,
     audio: AudioEngine,
 }
@@ -94,23 +93,56 @@ impl Application {
         wrapped_a.set_volume(1.0);
         wrapped_a.set_balance(1.0);
 
-        unsafe {
-            let cloned = wrapped_a.clone();
-            TIMING_MANAGER.request(
-                PeriodicTask::new(
-                    -1,
-                    1000,
-                    move |_, i| {
-                        if i % 2 == 0 {
-                            cloned.set_balance(1.0);
-                        } else {
-                            cloned.set_balance(0.0);
-                        }
-                    },
-                    AnimationState::empty(),
-                ),
-                None,
-            );
+
+        #[derive(Clone, Default)]
+        struct Health {
+            health: f32,
+        }
+
+        #[derive(Clone, Default)]
+        struct Pos {
+            x: f32,
+            y: f32,
+        }
+
+        #[derive(Clone, Default)]
+        struct Name {
+            name: String,
+        }
+
+        struct PlayerBehavior {
+            health: LocalComponent<Health>,
+            pos: LocalComponent<Pos>
+        }
+
+        impl EntityBehavior for PlayerBehavior {
+            fn new(storage: EcsStorage) -> Self
+            where
+                Self: Sized
+            {
+                Self {
+                    health: LocalComponent::new(storage.clone()),
+                    pos: LocalComponent::new(storage),
+                }
+            }
+
+            fn start(&mut self, entity: EntityId) {
+                self.health.aquire(entity);
+                self.pos.aquire(entity);
+            }
+
+            fn update(&mut self, entity: EntityId) {
+
+            }
+        }
+
+        type Player = Entity<PlayerBehavior, (Health, Pos, Name)>;
+        let mut ecs = ECS::new();
+        let player = ecs.world_mut().create_entity(|s| Player::new(s));
+
+        let system = System::<(Health, Name)>::new(ecs.storage());
+        for (entity, health, name) in system.iter() {
+
         }
 
         //audio.play_sound(wrapped_a);
@@ -143,7 +175,6 @@ impl Application {
             font: CreateOnce::new(),
             rot: 0.0,
             draw_ctx: CreateOnce::new(),
-            morph: CreateOnce::new(),
             state: CreateOnce::new(),
             audio,
         }
@@ -155,16 +186,6 @@ impl WindowCallbacks for Application {
         unsafe {
             MVR::initialize();
             window.ui_mut().init(MVR.deref().deref());
-
-            let shape = ctx::arc()
-                .center(30, 30)
-                .radius(50)
-                .angle(45.0)
-                .triangle_count(5)
-                .create();
-
-            let mut shape = MVR.resolve_shape(MVR.shape.rect).unwrap().clone();
-            shape.invalidate();
 
             let mut renderer = LightOpenGLRenderer::initialize(window);
             renderer.push_light(Light {
@@ -258,17 +279,7 @@ impl WindowCallbacks for Application {
             window.ui_mut().add_root(button);
 
             let ui_renderer = UiRenderer::new(window);
-            let context = DrawContext2D::new(ui_renderer);
-            self.draw_ctx.create(|| context);
-
-            let rr = MVR.resolve_shape(MVR.shape.rect).unwrap();
-            //for triangle in &rr.triangles {
-            //    let pos = triangle.points.iter().map(|v| (v.pos.0, v.pos.1)).collect_array::<3>().unwrap();
-            //    println!("{pos:?},");
-            //}
-            let r = MVR.resolve_shape(MVR.shape.rect).unwrap();
-            let morph = rr.create_morph(r);
-            self.morph.create(|| morph);
+            self.draw_ctx.create(|| ui_renderer);
         }
     }
 
@@ -317,10 +328,6 @@ impl WindowCallbacks for Application {
         self.draw_ctx.draw(window);
 
         self.rot += 0.5;
-
-        unsafe {
-            TIMING_MANAGER.post_frame(1.0, 1);
-        }
     }
 
     fn exiting(&mut self, window: &mut Window) {}

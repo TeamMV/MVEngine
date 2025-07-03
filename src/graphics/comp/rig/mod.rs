@@ -5,8 +5,6 @@ use crate::rendering::RenderContext;
 use crate::ui::context::UiResources;
 use crate::ui::geometry::{geom, Rect, SimpleRect};
 use crate::ui::rendering::adaptive::AdaptiveFill;
-use crate::ui::rendering::ctx;
-use crate::ui::rendering::ctx::DrawContext2D;
 use crate::ui::res::MVR;
 use crate::utils::savers::SaveArc;
 use crate::window::Window;
@@ -16,6 +14,7 @@ use mvutils::unsafe_utils::Unsafe;
 use mvutils::Savable;
 use parking_lot::RwLock;
 use std::fmt::{Debug, Formatter};
+use crate::ui::geometry::shape::{shapes, VertexStream};
 
 /// Yeah the savable will be broken as hell because each arc will have its own instance behind it
 #[derive(Clone, Savable)]
@@ -47,7 +46,7 @@ impl Rig {
         }
     }
 
-    pub fn debug_draw(&self, ctx: &mut DrawContext2D, area: &SimpleRect, window: &Window) {
+    pub fn debug_draw(&self, ctx: &mut impl RenderContext, area: &SimpleRect, window: &Window) {
         let skeleton_rect = &self.skeleton.area;
         for bone in self.skeleton.bones.values() {
             bone.write().debug_draw(ctx, area, skeleton_rect, window);
@@ -218,7 +217,7 @@ impl Bone {
         }
     }
 
-    pub fn debug_draw(&mut self, ctx: &mut DrawContext2D, area: &SimpleRect, skeleton_area: &SimpleRect, window: &Window) {
+    pub fn debug_draw(&mut self, ctx: &mut impl RenderContext, area: &SimpleRect, skeleton_area: &SimpleRect, window: &Window) {
         self.before_draw(area, skeleton_area);
         
         let width = 6.0;
@@ -233,20 +232,20 @@ impl Bone {
         let base_right = geom::remap_point(base_right, skeleton_area, area);
         let tip = geom::remap_point(tip, skeleton_area, area);
 
-        let tri = ctx::triangle()
-            .color(MVR.resolve_color(MVR.color.bone_debug).unwrap().clone())
-            .point(base_left.as_i32_tuple(), None)
-            .point(base_right.as_i32_tuple(), None)
-            .point(tip.as_i32_tuple(), None)
-            .create();
+        let tri = shapes::triangle2(base_left, base_right, tip);
 
-        ctx.shape(tri);
+        let color = MVR.resolve_color(MVR.color.bone_debug).unwrap().clone();
+        
+        tri.draw(ctx, |v| {
+            v.color = color.as_vec4();
+            v.has_texture = 0.0;
+        });
 
         for part in &self.parts {
             let mut rect = part.read().create_rect();
             rect.project(skeleton_area, area);
             if let Some(void_rect) = MVR.resolve_adaptive(MVR.adaptive.void_rect) {
-                void_rect.draw(&mut *ctx, &rect, AdaptiveFill::Color(RgbColor::blue()), &window.ui().context(), &window.area());
+                void_rect.draw(&mut *ctx, &rect.bounding, AdaptiveFill::Color(RgbColor::blue()), &window.ui().context());
             }
         }
     }

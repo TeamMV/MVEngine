@@ -3,7 +3,7 @@ use crate::ui::anim::{AnimationMode, FillMode};
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::{Element, UiElementStub};
 use crate::ui::styles::UiStyle;
-use crate::ui::timing::{AnimationState, DelayTask, TIMING_MANAGER};
+use crate::game::timing::{AnimationState, DelayTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::Percentage;
 use num_traits::Zero;

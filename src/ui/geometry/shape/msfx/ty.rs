@@ -128,7 +128,7 @@ pub trait ApplyBrain {
 }
 
 impl ApplyBrain for f64 {
-    
+
 }
 
 impl ApplyBrain for bool {

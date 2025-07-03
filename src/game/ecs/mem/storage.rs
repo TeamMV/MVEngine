@@ -1,17 +1,16 @@
-use crate::game::ecs::entity::EntityType;
+use crate::game::ecs::entity::EntityId;
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
 use mvengine_proc_macro::generate_get_components;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 pub(crate) type ComponentIdx = u64;
 
 pub struct ComponentStorage {
     components: HashMap<TypeId, ContinuousBlob>,
-    entity_components:
-        HashMap<EntityType, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
+    entity_components: HashMap<EntityId, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
 }
 
 impl ComponentStorage {
@@ -22,29 +21,29 @@ impl ComponentStorage {
         }
     }
 
-    pub fn get_component<T: Sized + 'static>(&self, entity: EntityType) -> Option<&T> {
+    pub fn get_component<T: Sized + 'static>(&self, entity: EntityId) -> Option<&T> {
         if let Some(map) = self.entity_components.get(&entity) {
             if let Some(idx) = map.get(&TypeId::of::<T>()) {
                 if let Some(blob) = self.components.get(&TypeId::of::<T>()) {
-                    return blob.get(*idx as usize);
+                    return blob.get(*idx);
                 }
             }
         }
         None
     }
 
-    pub fn get_component_mut<T: Sized + 'static>(&mut self, entity: EntityType) -> Option<&mut T> {
+    pub fn get_component_mut<T: Sized + 'static>(&mut self, entity: EntityId) -> Option<&mut T> {
         if let Some(map) = self.entity_components.get_mut(&entity) {
             if let Some(idx) = map.get_mut(&TypeId::of::<T>()) {
                 if let Some(blob) = self.components.get_mut(&TypeId::of::<T>()) {
-                    return blob.get_mut(*idx as usize);
+                    return blob.get_mut(*idx);
                 }
             }
         }
         None
     }
 
-    pub fn set_component<T: Sized + 'static>(&mut self, entity: EntityType, component: T) {
+    pub fn set_component<T: Sized + 'static>(&mut self, entity: EntityId, component: T) {
         let blob = if let Some(blob) = self.components.get_mut(&TypeId::of::<T>()) {
             blob
         } else {
@@ -63,6 +62,25 @@ impl ComponentStorage {
             };
 
             map.insert(TypeId::of::<T>(), idx as ComponentIdx);
+        }
+    }
+
+    pub fn remove_component<T: Sized + 'static>(&mut self, entity: EntityId) {
+        let type_id = TypeId::of::<T>();
+        if let Some(blob) = self.components.get_mut(&type_id) && 
+            let Some(map) = self.entity_components.get(&entity) && 
+            let Some(idx) = map.get(&type_id) {
+            blob.remove(*idx);
+        }
+    }
+
+    pub fn remove_entity(&mut self, entity: EntityId) {
+        if let Some(components) = self.entity_components.remove(&entity) {
+            for (ty, idx) in components {
+                if let Some(blob) = self.components.get_mut(&ty) {
+                    blob.remove(*idx);
+                }
+            }
         }
     }
 

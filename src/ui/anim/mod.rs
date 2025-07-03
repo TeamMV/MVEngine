@@ -7,12 +7,12 @@ use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::{Element, UiElement, UiElementStub};
 use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::styles::UiStyle;
-use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+use crate::game::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::Percentage;
 
-pub fn easing(gen: EasingGen, mode: EasingMode) -> Easing {
-    Easing::new(gen, mode, 0.0..100.0, 0.0..100.0)
+pub fn easing(ease_gen: EasingGen, mode: EasingMode) -> Easing {
+    Easing::new(ease_gen, mode, 0.0..100.0, 0.0..100.0)
 }
 
 ///Specifies if the end result of the animation should be kept or reverted to the initial style

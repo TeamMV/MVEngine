@@ -304,8 +304,8 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
         F: Fn(&mut UiValue<T>),
     {
         match self {
-            Resolve::UiValue(ref mut v) => f(v),
-            Resolve::LayoutField(ref mut l) => f(&mut l.value),
+            Resolve::UiValue(v) => f(v),
+            Resolve::LayoutField(l) => f(&mut l.value),
         }
     }
 
@@ -314,7 +314,7 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
         F: Fn(&mut LayoutField<T>),
     {
         match self {
-            Resolve::LayoutField(ref mut l) => f(l),
+            Resolve::LayoutField(l) => f(l),
             _ => {}
         }
     }

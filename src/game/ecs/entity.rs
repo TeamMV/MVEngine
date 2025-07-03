@@ -4,14 +4,14 @@ use mvutils::utils;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-pub type EntityType = u64;
+pub type EntityId = u64;
 
 pub trait EntityBehavior {
     fn new(storage: EcsStorage) -> Self
     where
         Self: Sized;
-    fn start(&mut self, entity: EntityType);
-    fn update(&mut self, entity: EntityType);
+    fn start(&mut self, entity: EntityId);
+    fn update(&mut self, entity: EntityId);
 }
 
 #[derive(Clone)]
@@ -25,9 +25,9 @@ impl EntityBehavior for NoBehavior {
         Self {}
     }
 
-    fn start(&mut self, _entity: EntityType) {}
+    fn start(&mut self, _entity: EntityId) {}
 
-    fn update(&mut self, _entity: EntityType) {}
+    fn update(&mut self, _entity: EntityId) {}
 }
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl<C: Sized + 'static> LocalComponent<C> {
         }
     }
 
-    pub fn aquire(&mut self, entity: EntityType) {
+    pub fn aquire(&mut self, entity: EntityId) {
         let c =
             self.storage.get().get_component::<C>(entity).expect(
                 "Entity does not have component X, but it was aquired from LocalComponent!",
@@ -73,7 +73,7 @@ impl<C> DerefMut for LocalComponent<C> {
 
 pub struct Entity<B, C> {
     phantom: PhantomData<C>,
-    pub(crate) ty: EntityType,
+    pub(crate) ty: EntityId,
     storage: EcsStorage,
     pub(crate) behavior: Option<B>,
 }
@@ -122,10 +122,10 @@ impl<B: EntityBehavior, C> Entity<B, C> {
 }
 
 macro_rules! impl_entity_tuples {
-    ($first:ident) => {};
+    ($first:ident,) => {};
 
-    ($first:ident $($rest:ident)*) => {
-        impl_entity_tuples!($($rest)*);
+    ($first:ident, $($rest:ident, )*) => {
+        impl_entity_tuples!($($rest,)*);
 
         impl<B: EntityBehavior, $first: Sized + Default + 'static, $($rest: Sized + Default + 'static),*> Entity<B, ($first, $($rest),*)> {
             pub fn new(storage: EcsStorage) -> Self {
@@ -162,7 +162,7 @@ macro_rules! impl_entity_tuples {
     };
 }
 
-impl_entity_tuples!(C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15);
+impl_entity_tuples!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15,);
 
 impl<B: EntityBehavior, C: Sized + Default + 'static> Entity<B, (C,)> {
     pub fn new(storage: EcsStorage) -> Self {

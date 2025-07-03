@@ -6,8 +6,7 @@ use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
-use crate::ui::rendering::ctx::DrawContext2D;
-use crate::ui::styles::types::Dimension;
+use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::UiStyle;
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
@@ -27,7 +26,7 @@ pub struct Button {
 }
 
 impl UiElementCallbacks for Button {
-    fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {

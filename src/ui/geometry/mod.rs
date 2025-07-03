@@ -1,6 +1,5 @@
 pub mod geom;
 pub mod modifier;
-pub mod morph;
 pub mod polygon;
 pub mod shape;
 

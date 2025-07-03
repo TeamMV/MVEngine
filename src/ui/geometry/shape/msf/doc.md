@@ -44,7 +44,8 @@ A rectangle defined by two points and additional parameters.
 A circular arc defined by its center, radius, and angle.
 - `c (Vec2)`: Center of the arc
 - `r (i32)`: Radius of the arc
-- `a (f32)`: Angle of the arc (in degrees)
+- `a (f32)`: Angle range of the arc (in degrees)
+- `o (f32)`: Start angle of the arc (in degrees)
 - `tc (i32)`: Number of triangles used to approximate the arc
 - `t (Transform)`: Transformation
 

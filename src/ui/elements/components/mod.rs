@@ -15,7 +15,7 @@ use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::{shape, SimpleRect};
 use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::styles::UiStyle;
-use crate::ui::timing::{AnimationState, DurationTask, TIMING_MANAGER};
+use crate::game::timing::{AnimationState, DurationTask, TIMING_MANAGER};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::Percentage;
 use std::ops::Deref;

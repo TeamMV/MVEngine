@@ -4,16 +4,16 @@ use std::ops::Range;
 
 #[derive(Clone)]
 pub struct Easing {
-    gen: EasingGen,
+    ease_gen: EasingGen,
     mode: EasingMode,
     x_range: Range<f32>,
     y_range: Range<f32>,
 }
 
 impl Easing {
-    pub fn new(gen: EasingGen, mode: EasingMode, x_range: Range<f32>, y_range: Range<f32>) -> Self {
+    pub fn new(ease_gen: EasingGen, mode: EasingMode, x_range: Range<f32>, y_range: Range<f32>) -> Self {
         Self {
-            gen,
+            ease_gen,
             mode,
             x_range,
             y_range,
@@ -27,7 +27,7 @@ impl Easing {
         if pos > self.x_range.end {
             return self.y_range.end;
         }
-        match &self.gen {
+        match &self.ease_gen {
             EasingGen::Linear(e) => e.get(
                 pos,
                 self.x_range.clone(),

@@ -1,7 +1,7 @@
 // fuck this compiler who gives a shit about naming conventions
 #![allow(non_snake_case)]
 
-use crate::game::ecs::entity::EntityType;
+use crate::game::ecs::entity::EntityId;
 use crate::game::ecs::EcsStorage;
 use std::marker::PhantomData;
 use std::mem;
@@ -22,18 +22,18 @@ impl<C> System<C> {
 
 pub struct Components<'a, C> {
     phantom: PhantomData<&'a C>,
-    data: Vec<(EntityType, &'a C)>,
+    data: Vec<(EntityId, &'a C)>,
     index: usize,
 }
 
 pub struct ComponentsMut<'a, C> {
     phantom: PhantomData<&'a mut C>,
-    data: Vec<(EntityType, &'a mut C)>,
+    data: Vec<(EntityId, &'a mut C)>,
     index: usize,
 }
 
 impl<'a, C> Iterator for Components<'a, C> {
-    type Item = (EntityType, &'a C);
+    type Item = (EntityId, &'a C);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.data.len() {
@@ -47,7 +47,7 @@ impl<'a, C> Iterator for Components<'a, C> {
 }
 
 impl<'a, C> Iterator for ComponentsMut<'a, C> {
-    type Item = (EntityType, &'a mut C);
+    type Item = (EntityId, &'a mut C);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.data.len() {
@@ -91,19 +91,19 @@ impl<C: Sized + 'static> System<(C,)> {
 macro_rules! impl_system_tuples {
     ($($name:ident)*, $method:ident, $method_mut:ident, $iterator:ident, $iterator_mut:ident) => {
         pub struct $iterator<'a, $($name: Sized + 'static),*> {
-            data: Vec<(EntityType, $(&'a $name),*)>,
+            data: Vec<(EntityId, $(&'a $name),*)>,
             index: usize,
             _marker: PhantomData<&'a ($($name),*)>,
         }
 
         pub struct $iterator_mut<'a, $($name: Sized + 'static),*> {
-            data: Vec<(EntityType, $(&'a mut $name),*)>,
+            data: Vec<(EntityId, $(&'a mut $name),*)>,
             index: usize,
             _marker: PhantomData<&'a mut ($($name),*)>,
         }
 
         impl<'a, $($name: Sized + 'static),*> Iterator for $iterator<'a, $($name),*> {
-            type Item = (EntityType, $(&'a $name),*);
+            type Item = (EntityId, $(&'a $name),*);
 
             fn next(&mut self) -> Option<Self::Item> {
                 if self.index < self.data.len() {
@@ -117,7 +117,7 @@ macro_rules! impl_system_tuples {
         }
 
         impl<'a, $($name: Sized + 'static),*> Iterator for $iterator_mut<'a, $($name),*> {
-            type Item = (EntityType, $(&'a mut $name),*);
+            type Item = (EntityId, $(&'a mut $name),*);
 
             fn next(&mut self) -> Option<Self::Item> {
                 if self.index < self.data.len() {

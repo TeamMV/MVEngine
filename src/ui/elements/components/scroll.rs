@@ -6,11 +6,10 @@ use crate::color::RgbColor;
 use crate::ui::context::UiContext;
 use crate::ui::elements::{UiElementState, UiElementStub};
 use crate::ui::geometry::{Rect, SimpleRect};
-use crate::ui::rendering::ctx;
-use crate::ui::rendering::ctx::DrawContext2D;
 use mvutils::lazy;
 use crate::{get_adaptive, get_shape, resolve};
 use crate::graphics::Drawable;
+use crate::rendering::RenderContext;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::rendering::adaptive::{AdaptiveFill, AdaptiveShape};
 use crate::ui::styles::enums::{BackgroundRes, Geometry};
@@ -27,7 +26,7 @@ impl ScrollBars {
     pub fn draw<E: UiElementStub + 'static>(
         &mut self,
         elem: &E,
-        ctx: &mut DrawContext2D,
+        ctx: &mut impl RenderContext,
         context: &UiContext,
         crop_area: &SimpleRect
     ) {

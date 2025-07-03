@@ -3,12 +3,13 @@ use crate::input::{Input, RawInputEvent};
 use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
 use crate::ui::geometry::SimpleRect;
-use crate::ui::rendering::ctx::DrawContext2D;
 use crate::window::Window;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::rendering::RenderContext;
+use crate::ui::rendering::{UiRenderer, WideRenderContext};
 
 pub mod anim;
 pub mod attributes;
@@ -21,7 +22,6 @@ pub mod prelude;
 pub mod rendering;
 pub mod res;
 pub mod styles;
-pub mod timing;
 pub mod uix;
 pub mod utils;
 pub mod mss;
@@ -62,25 +62,25 @@ impl Ui {
         });
     }
 
-    pub fn compute_styles(&mut self, ctx: &DrawContext2D) {
+    pub fn compute_styles(&mut self, ctx: &mut impl WideRenderContext) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
             guard.compute_styles(ctx);
         }
     }
 
-    pub fn draw(&mut self, ctx: &mut DrawContext2D, crop_area: &SimpleRect) {
+    pub fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
             guard.draw(ctx, crop_area);
         }
     }
 
-    pub fn compute_styles_and_draw(&mut self, ctx: &mut DrawContext2D) {
+    pub fn compute_styles_and_draw(&mut self, ctx: &mut UiRenderer) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
             guard.compute_styles(ctx);
-            guard.draw(ctx, &ctx.renderer().area());
+            guard.draw(ctx, &ctx.area());
         }
     }
 

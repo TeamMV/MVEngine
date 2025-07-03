@@ -237,23 +237,22 @@ impl Executor {
             let lhs = lhs.as_raw(&self)?;
             let rhs = rhs.as_raw(&self)?;
             match bexpr.op {
-                MSFXOperator::Add => lhs.add(&rhs)?,
-                MSFXOperator::Sub => lhs.sub(&rhs)?,
-                MSFXOperator::Mul => lhs.mul(&rhs)?,
-                MSFXOperator::Div => lhs.div(&rhs)?,
-                MSFXOperator::Mod => lhs.rem(&rhs)?,
-                MSFXOperator::Pow => lhs.pow(&rhs)?,
-                MSFXOperator::And => lhs.and(&rhs)?,
-                MSFXOperator::Or => lhs.or(&rhs)?,
-                MSFXOperator::Eq => lhs.eq(&rhs)?,
-                MSFXOperator::Neq => lhs.neq(&rhs)?,
-                MSFXOperator::Gt => lhs.gt(&rhs)?,
-                MSFXOperator::Gte => lhs.gte(&rhs)?,
-                MSFXOperator::Lt => lhs.lt(&rhs)?,
-                MSFXOperator::Lte => lhs.lte(&rhs)?,
+                MSFXOperator::Add => lhs.add(&rhs),
+                MSFXOperator::Sub => lhs.sub(&rhs),
+                MSFXOperator::Mul => lhs.mul(&rhs),
+                MSFXOperator::Div => lhs.div(&rhs),
+                MSFXOperator::Mod => lhs.rem(&rhs),
+                MSFXOperator::Pow => lhs.pow(&rhs),
+                MSFXOperator::And => lhs.and(&rhs),
+                MSFXOperator::Or => lhs.or(&rhs),
+                MSFXOperator::Eq => lhs.eq(&rhs),
+                MSFXOperator::Neq => lhs.neq(&rhs),
+                MSFXOperator::Gt => lhs.gt(&rhs),
+                MSFXOperator::Gte => lhs.gte(&rhs),
+                MSFXOperator::Lt => lhs.lt(&rhs),
+                MSFXOperator::Lte => lhs.lte(&rhs),
                 _ => unreachable!()
             }
-            todo!()
         }
     }
 }

@@ -106,22 +106,22 @@ impl SoundWithAttributes {
     pub fn set_speed(&self, speed: f32) {
         self.with_attributes.speed.replace(speed);
     }
-
-    pub fn set_fade_in(&self, gen: EasingGen, duration_ms: u32) {
+    
+    pub fn set_fade_in(&self, ease_gen: EasingGen, duration_ms: u32) {
         let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
         self.with_attributes.fade_in.replace(Some(Easing::new(
-            gen,
+            ease_gen,
             EasingMode::In,
             0.0..duration_samples as f32,
             0.0..1.0,
         )));
     }
 
-    pub fn set_fade_out(&self, gen: EasingGen, duration_ms: u32) {
+    pub fn set_fade_out(&self, ease_gen: EasingGen, duration_ms: u32) {
         let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
         let start_sample = self.sound.effective_samples() as u32 - duration_samples;
         self.with_attributes.fade_out.replace(Some(Easing::new(
-            gen,
+            ease_gen,
             EasingMode::Out,
             start_sample as f32..(start_sample + duration_samples) as f32,
             1.0..0.0,
