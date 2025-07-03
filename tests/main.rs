@@ -52,8 +52,6 @@ pub fn main() -> Result<(), Error> {
     //    }
     //    println!("{token:?}");
     //}
-    
-    exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -246,7 +244,7 @@ impl WindowCallbacks for Application {
             let button = ui! {
                 <Ui context={window.ui().context()}>
                     <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
-                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical; scrollbar.knob.shape: @MVR.geometry/round_rect; scrollbar.track.shape: @MVR.geometry/round_rect;">
+                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>

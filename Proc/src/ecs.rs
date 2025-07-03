@@ -46,7 +46,7 @@ pub fn generate_get_components(input: TokenStream) -> TokenStream {
         let method_name = Ident::new(&format!("get_components{}", n), proc_macro2::Span::call_site());
         let immutable_method = quote! {
             pub fn #method_name< #( #generics : Sized + 'static ),* >(&self)
-                -> Option<Vec<(EntityType, #( & #generics ),*)>> {
+                -> Option<Vec<(EntityId, #( & #generics ),*)>> {
 
                 #fetch_components
 
@@ -85,7 +85,7 @@ pub fn generate_get_components(input: TokenStream) -> TokenStream {
         let method_name_mut = Ident::new(&format!("get_components{}_mut", n), proc_macro2::Span::call_site());
         let mutable_method = quote! {
             pub fn #method_name_mut< #( #generics : Sized + 'static ),* >(&mut self)
-                -> Option<Vec<(EntityType, #( &mut #generics ),*)>> {
+                -> Option<Vec<(EntityId, #( &mut #generics ),*)>> {
 
                 #fetch_components_mut
 

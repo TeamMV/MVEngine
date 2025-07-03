@@ -4,6 +4,9 @@ pub mod savers;
 
 use std::ops::{Deref, DerefMut};
 
+/// This type is just an f64 which is expected to be between 0 and 1. Mostly used for percentages.
+pub type F0To1 = f64;
+
 ///CAUTION!!! UNSAFE
 pub struct CloneMut<'a, T> {
     inner: &'a mut T,

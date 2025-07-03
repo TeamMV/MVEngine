@@ -245,7 +245,8 @@ impl Bone {
             let mut rect = part.read().create_rect();
             rect.project(skeleton_area, area);
             if let Some(void_rect) = MVR.resolve_adaptive(MVR.adaptive.void_rect) {
-                void_rect.draw(&mut *ctx, &rect.bounding, AdaptiveFill::Color(RgbColor::blue()), &window.ui().context());
+                //TODO: make draw2 which takes a Rect and applies the transforms
+                void_rect.draw(&mut *ctx, &rect.bounding, AdaptiveFill::Color(RgbColor::blue()), &window.ui().context(), area);
             }
         }
     }

@@ -183,8 +183,8 @@ pub trait VertexStream: Sized {
         OriginChangeStep { base: self, new_origin: delta }
     }
 
-    fn crop(self, crop_area: SimpleRect) -> CropStep<Self> {
-        CropStep { base: self, crop_area }
+    fn crop(self, draw_area: SimpleRect, crop_area: SimpleRect) -> CropStep<Self> {
+        CropStep { base: self, crop_area, draw_area }
     }
 
     fn color(self, color: RgbColor) -> ColorStep<Self> {

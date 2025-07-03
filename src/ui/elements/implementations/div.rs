@@ -74,7 +74,7 @@ impl UiElementStub for Div {
             context: context.clone(),
             attributes,
             style,
-            state: UiElementState::new(),
+            state: UiElementState::new(context),
             body: ElementBody::new(),
             scroll: ScrollBars {},
         };

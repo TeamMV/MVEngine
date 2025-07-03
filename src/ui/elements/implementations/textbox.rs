@@ -152,8 +152,8 @@ impl UiElementStub for TextBox {
 
         let this = Self {
             rc: Weak::new(),
-            context,
-            state: UiElementState::new(),
+            context: context.clone(),
+            state: UiElementState::new(context),
             style,
             attributes,
             body: ElementBody::new(),

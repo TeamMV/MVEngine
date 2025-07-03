@@ -66,7 +66,7 @@ impl UiElementStub for Text {
         let this = Self {
             rc: Weak::new(),
             context: context.clone(),
-            state: UiElementState::new(),
+            state: UiElementState::new(context),
             style: style.clone(),
             attributes,
             body: ElementBody::new(),

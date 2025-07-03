@@ -32,6 +32,7 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::ui::anim::ElementAnimator;
 use crate::ui::elements::text::Text;
 use crate::ui::rendering::{UiRenderer, WideRenderContext};
 
@@ -140,23 +141,14 @@ pub trait UiElementStub: UiElementCallbacks {
         state.rect.inside(x, y)
     }
 
-    /// Overrides the values that are not Unset in all styles used by this element.
-    fn override_styles(&mut self, to: &UiStyle) {
-        self.style_mut().merge_at_set_of(to);
-        if let Some(style) = self.body_mut().initial_style_mut() {
-            style.merge_at_set_of(to);
-        }
-        if let Some(style) = self.body_mut().initial_style_mut() {
-            style.merge_at_set_of(to);
-        }
-    }
-
     /// Computes all the styles and sets up the state. Should be called before draw()
     fn compute_styles(&mut self, ctx: &impl WideRenderContext)
     where
-        Self: Sized,
+        Self: Sized + 'static,
     {
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
+        this.state_mut().animator.tick(self);
+
         let (_, style, state) = this.components_mut();
         state.ctx.dpi = ctx.dpi() as f32;
 
@@ -907,19 +899,17 @@ pub struct UiElementState {
     pub paddings: [i32; 4],
 
     pub events: UiEvents,
-    pub is_animating: bool,
-    pub last_animation: u64,
-    pub last_style: Option<UiStyle>,
 
     pub transforms: UiTransformations,
     pub inner_transforms: UiTransformations,
 
-    pub(crate) base_style: UiStyle,
     pub(crate) is_width_percent: bool,
     pub(crate) is_height_percent: bool,
 
     pub scroll_x: UiScrollState,
     pub scroll_y: UiScrollState,
+
+    pub animator: ElementAnimator,
     
     pub requested_width: Option<i32>,
     pub requested_height: Option<i32>,
@@ -977,7 +967,7 @@ impl UiTransformations {
 }
 
 impl UiElementState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(context: UiContext) -> Self {
         Self {
             ctx: ResCon { dpi: 0.0 },
             parent: None,
@@ -988,16 +978,13 @@ impl UiElementState {
             margins: [0; 4],
             paddings: [0; 4],
             events: UiEvents::create(),
-            is_animating: false,
-            last_animation: 0,
-            last_style: None,
             transforms: UiTransformations::new(),
             inner_transforms: UiTransformations::new(),
-            base_style: crate::ui::styles::EMPTY_STYLE.clone(),
             is_width_percent: false,
             is_height_percent: false,
             scroll_x: UiScrollState::new(),
             scroll_y: UiScrollState::new(),
+            animator: ElementAnimator::new(context),
             requested_width: None,
             requested_height: None,
         }
@@ -1016,16 +1003,13 @@ impl Clone for UiElementState {
             margins: self.margins.clone(),
             paddings: self.paddings.clone(),
             events: UiEvents::create(),
-            is_animating: self.is_animating,
-            last_animation: self.last_animation,
-            last_style: self.last_style.clone(),
             transforms: self.transforms.clone(),
             inner_transforms: self.inner_transforms.clone(),
-            base_style: self.base_style.clone(),
             is_width_percent: self.is_width_percent.clone(),
             is_height_percent: self.is_height_percent.clone(),
             scroll_x: self.scroll_x.clone(),
             scroll_y: self.scroll_y.clone(),
+            animator: self.animator.clone(),
             requested_width: self.requested_width.clone(),
             requested_height: self.requested_height.clone(),
         }

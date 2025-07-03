@@ -72,7 +72,7 @@ impl World {
         Some(entity_ty)
     }
 
-    pub fn obliterate_entity_using_dewalt_d25980k_68_lb_pavement_demolition_hammer_with_shocks_active_vibration_control<B: EntityBehavior + 'static>(&mut self, id: EntityId) {
+    pub fn destroy_entity<B: EntityBehavior + 'static>(&mut self, id: EntityId) {
         self.storage.get_mut().remove_entity(id);
         let type_id = TypeId::of::<B>();
         if let Some((blob, _)) = self.behaviors.get_mut(&type_id) &&

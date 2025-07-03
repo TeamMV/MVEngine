@@ -91,6 +91,7 @@ impl AdaptiveShape {
         rect: &SimpleRect,
         fill: AdaptiveFill,
         context: &UiContext,
+        crop: &SimpleRect
     ) {
         let bl = &self.corners[0];
         let tl = &self.corners[1];
@@ -114,19 +115,19 @@ impl AdaptiveShape {
         
         if let Some(shape) = tl {
             let r = SimpleRect { x, y, width: tlw, height: tlh };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = tr {
             let r = SimpleRect { x: x + w - trw, y, width: trw, height: trh };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = bl {
             let r = SimpleRect { x, y: y + h - blh, width: blw, height: blh };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = br {
             let r = SimpleRect { x: x + w - brw, y: y + h - brh, width: brw, height: brh };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         
         if let Some(shape) = t {
@@ -137,7 +138,7 @@ impl AdaptiveShape {
                 width: w - tlw - trw,
                 height: edge_h,
             };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = b {
             let edge_h = shape.extent.height;
@@ -147,7 +148,7 @@ impl AdaptiveShape {
                 width: w - blw - brw,
                 height: edge_h,
             };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = l {
             let edge_w = shape.extent.width;
@@ -157,7 +158,7 @@ impl AdaptiveShape {
                 width: edge_w,
                 height: h - tlh - blh,
             };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = r {
             let edge_w = shape.extent.width;
@@ -167,7 +168,7 @@ impl AdaptiveShape {
                 width: edge_w,
                 height: h - trh - brh,
             };
-            Self::draw_shape(shape, ctx, &r, fill.clone(), context);
+            Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         
         if let Some(shape) = &self.center {
@@ -177,7 +178,7 @@ impl AdaptiveShape {
                 width: w - tlw - trw,
                 height: h - tlh - blh,
             };
-            Self::draw_shape(shape, ctx, &r, fill, context);
+            Self::draw_shape(shape, ctx, &r, fill, context, crop);
         }        
     }
     
@@ -186,15 +187,16 @@ impl AdaptiveShape {
         ctx: &mut impl RenderContext,
         rect: &SimpleRect,
         fill: AdaptiveFill,
-        context: &UiContext) {
+        context: &UiContext,
+        crop: &SimpleRect) {
         
         match fill {
             AdaptiveFill::Color(col) => {
-                shape::utils::draw_shape_color(ctx, shape, col, rect);
+                shape::utils::draw_shape_color(ctx, shape, col, rect, crop);
             }
             AdaptiveFill::Drawable(draw) => {
                 let (tex, uv) = draw.get_texture_or_default(context.resources);
-                shape::utils::draw_shape_textured(ctx, shape, tex, uv, rect);
+                shape::utils::draw_shape_textured(ctx, shape, tex, uv, rect, crop);
             }
         }
     }

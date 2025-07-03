@@ -16,30 +16,42 @@ fn vertex(x: i32, y: i32) -> InputVertex {
 }
 
 pub fn rectangle0(x: i32, y: i32, w: i32, h: i32) -> Shape {
-    Shape::new_with_extent(vec![
-        vertex(x, y),
-        vertex(x, y + h),
-        vertex(x + w, y + h),
-        vertex(x + w, y),
-    ], Indices::TriangleStrip, SimpleRect::new(x, y, w, h))
+    Shape::new_with_extent(
+        vec![
+            vertex(x, y),
+            vertex(x, y + h),
+            vertex(x + w, y),
+            vertex(x + w, y + h),
+        ],
+        Indices::TriangleStrip,
+        SimpleRect::new(x, y, w, h),
+    )
 }
 
 pub fn rectangle1(x1: i32, y1: i32, x2: i32, y2: i32) -> Shape {
-    Shape::new_with_extent(vec![
-        vertex(x1, y1),
-        vertex(x1, y2),
-        vertex(x2, y2),
-        vertex(x2, y1),
-    ], Indices::TriangleStrip, SimpleRect::new(x1, y1, x2 - x1, y2 - y1))
+    Shape::new_with_extent(
+        vec![
+            vertex(x1, y1),
+            vertex(x1, y2),
+            vertex(x2, y1),
+            vertex(x2, y2),
+        ],
+        Indices::TriangleStrip,
+        SimpleRect::new(x1, y1, x2 - x1, y2 - y1),
+    )
 }
 
 pub fn rectangle2(rect: SimpleRect) -> Shape {
-    Shape::new_with_extent(vec![
-        vertex(rect.x, rect.y),
-        vertex(rect.x, rect.y + rect.height),
-        vertex(rect.x + rect.width, rect.y + rect.height),
-        vertex(rect.x + rect.width, rect.y),
-    ], Indices::TriangleStrip, rect)
+    Shape::new_with_extent(
+        vec![
+            vertex(rect.x, rect.y),
+            vertex(rect.x, rect.y + rect.height),
+            vertex(rect.x + rect.width, rect.y),
+            vertex(rect.x + rect.width, rect.y + rect.height),
+        ],
+        Indices::TriangleStrip,
+        rect,
+    )
 }
 
 pub fn arc0(cx: i32, cy: i32, radius: i32, offset: f32, range: f32, tri_count: i32) -> Shape {

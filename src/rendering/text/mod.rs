@@ -162,7 +162,7 @@ impl Font {
         let atlas = &self.atlas;
 
         let font_scale = self.get_scale(height);
-        let space_advance = atlas.find_glyph(' ').unwrap().advance; // TODO
+        let space_advance = atlas.find_glyph(' ').unwrap().advance;
 
         let mut x = 0.0;
         let mut y = 0.0;

@@ -78,7 +78,7 @@ impl ComponentStorage {
         if let Some(components) = self.entity_components.remove(&entity) {
             for (ty, idx) in components {
                 if let Some(blob) = self.components.get_mut(&ty) {
-                    blob.remove(*idx);
+                    blob.remove(idx);
                 }
             }
         }

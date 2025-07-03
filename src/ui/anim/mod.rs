@@ -1,171 +1,113 @@
-// womp fucking WOMP compiler imma switch to C++ for my next project
-#![allow(static_mut_refs)]
-
-pub mod complex;
-
+use std::convert::identity;
+use mvutils::unsafe_utils::Unsafe;
+use crate::game::timing::{DurationTask, TaskId};
+use crate::ui::context::UiContext;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::{Element, UiElement, UiElementStub};
+use crate::ui::elements::UiElementStub;
 use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::styles::UiStyle;
-use crate::game::timing::{AnimationState, DurationTask, TIMING_MANAGER};
-use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::Percentage;
 
 pub fn easing(ease_gen: EasingGen, mode: EasingMode) -> Easing {
-    Easing::new(ease_gen, mode, 0.0..100.0, 0.0..100.0)
+    Easing::new(ease_gen, mode, 0.0..1.0, 0.0..1.0)
 }
 
-///Specifies if the end result of the animation should be kept or reverted to the initial style
-#[derive(Clone)]
-pub enum FillMode {
-    Keep,
-    Revert,
+pub struct ElementAnimator {
+    context: UiContext,
+    anims: Vec<UiAnim>
 }
 
-///Specifies how to handle an animation call, when this element is being animated already
-#[derive(Clone)]
-pub enum AnimationMode {
-    StartOver,
-    BlockNew,
-    KeepProgress,
+impl Clone for ElementAnimator {
+    fn clone(&self) -> Self {
+        Self {
+            context: self.context.clone(),
+            anims: vec![]
+        }
+    }
 }
 
-///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
-pub fn animate_self(
-    elem: Element,
-    target: &UiStyle,
-    time_ms: u32,
-    easing: Easing,
-    fill_mode: FillMode,
-    animation_mode: AnimationMode,
-) -> u64 {
-    let unwrapped = elem.get_mut();
-    let style = unsafe { Unsafe::cast_mut_static(unwrapped.style_mut()) };
-    animate(
-        elem,
-        style,
-        target,
-        time_ms,
-        easing,
-        fill_mode,
-        animation_mode,
-    )
-}
-
-///MAKE SURE TO NOT DROP ELEM DURING ANIMATION
-pub fn animate(
-    elem: Element,
-    initial: &mut UiStyle,
-    target: &UiStyle,
-    time_ms: u32,
-    easing: Easing,
-    fill_mode: FillMode,
-    animation_mode: AnimationMode,
-) -> u64 {
-    let elem = elem.get_mut();
-    if !elem.state().is_animating {
-        elem.state_mut().is_animating = true;
-    } else {
-        match animation_mode {
-            AnimationMode::StartOver => {
-                unsafe {
-                    if TIMING_MANAGER.is_present(elem.state().last_animation) {
-                        //extra check cuz why not and i dont want crash or smth
-                        TIMING_MANAGER.cancel(elem.state().last_animation);
-                    }
-
-                    if elem.state().last_style.is_some() {
-                        let backup = Unsafe::cast_static(elem.state().last_style.as_ref().unwrap());
-                        elem.style_mut().clone_from(backup);
-                    }
-                }
-            }
-            AnimationMode::KeepProgress => {
-                unsafe {
-                    if TIMING_MANAGER.is_present(elem.state().last_animation) {
-                        //extra check cuz why not and i dont want crash or smth
-                        TIMING_MANAGER.cancel(elem.state().last_animation);
-                    }
-                }
-            }
-            AnimationMode::BlockNew => return elem.state().last_animation,
+impl ElementAnimator {
+    pub fn new(context: UiContext) -> Self {
+        Self {
+            context,
+            anims: vec![],
         }
     }
 
-    elem.state_mut().last_style = Some(initial.clone());
+    pub fn animate(&mut self, mut anim: UiAnim, s: &UiStyle) {
+        match &mut anim {
+            UiAnim::Simple(simple) => { simple.start(s, &mut self.context) }
+            UiAnim::Complex => {}
+        }
+        self.anims.push(anim);
+    }
 
-    let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+    pub fn tick<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
+        self.anims.retain(|a| {
+           match a {
+               UiAnim::Simple(simple) => {
+                   simple.tick(elem)
+               }
+               UiAnim::Complex => { false }
+           }
+        });
+    }
+}
 
-    let id = unsafe {
-        TIMING_MANAGER.request(
-            DurationTask::new(
-                time_ms,
-                move |state, time| match state.element {
-                    None => {}
-                    Some(ref mut em) => {
-                        let percent = (time as f32).percentage(time_ms as f32);
-                        let percent = em.easing.get(percent);
+pub enum UiAnim {
+    Simple(SimpleAnim),
+    Complex
+}
 
-                        let backup_style = em.elem.state().last_style.as_ref().unwrap();
+impl UiAnim {
+    pub fn new_simple(target: UiStyle, easing: Easing, duration_ms: u64) -> Self {
+        Self::Simple(SimpleAnim {
+            task: None,
+            target,
+            initial: None,
+            easing,
+            duration_ms,
+        })
+    }
+}
 
-                        let elem_ref = em.elem;
-                        em.initial
-                            .interpolate(backup_style, em.target, percent, elem_ref, |s| s);
+pub struct SimpleAnim {
+    task: Option<TaskId>,
+    target: UiStyle,
+    initial: Option<UiStyle>,
+    easing: Easing,
+    duration_ms: u64
+}
 
-                        if percent >= 100.0 {
-                            match em.fill_mode {
-                                FillMode::Keep => {
-                                    //let elem_style = guard.style_mut();
-                                    em.initial.clone_from(em.target);
-                                }
-                                FillMode::Revert => {
-                                    //let elem_style = guard.style_mut();
-                                    em.initial.clone_from(backup_style);
-                                }
-                            }
-                        }
+impl SimpleAnim {
+    pub fn start(&mut self, initial: &UiStyle, context: &mut UiContext) {
+        self.initial = Some(initial.clone());
+        let scheduler = &mut context.scheduler;
+        let id = scheduler.queue(DurationTask::new(self.duration_ms));
+        self.task = Some(id);
+    }
+
+    pub fn tick<E: UiElementStub + 'static>(&self, elem: &mut E) -> bool {
+        let mut context = elem.context().clone();
+        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+        let style = static_elem.style_mut();
+        if let Some(id) = self.task && let Some(mut handle) = context.scheduler.handle(id) {
+            if handle.tick() {
+                let pg = handle.progress();
+                let pg = self.easing.get(pg as f32);
+                if pg >= 1.0 {
+                    style.clone_from(&self.target);
+                    false
+                } else {
+                    if let Some(init) = &self.initial {
+                        style.interpolate(init, &self.target, pg * 100.0, elem, |s| s);
                     }
-                },
-                AnimationState::element(ElementAnimationInfo::new(
-                    time_ms, fill_mode, easing, initial, target, elem,
-                )),
-            ),
-            Some(Box::new(move || {
-                static_elem.state_mut().is_animating = false
-            })),
-        )
-    };
-    elem.state_mut().last_animation = id;
-    id
-}
-
-pub struct ElementAnimationInfo {
-    pub(crate) fill_mode: FillMode,
-    pub(crate) _duration: u32,
-    pub(crate) easing: Easing,
-    pub(crate) initial: &'static mut UiStyle,
-    pub(crate) target: &'static UiStyle,
-    pub(crate) elem: &'static UiElement,
-}
-
-impl ElementAnimationInfo {
-    pub(crate) fn new(
-        duration_ms: u32,
-        fill_mode: FillMode,
-        easing: Easing,
-        initial: &mut UiStyle,
-        target: &UiStyle,
-        elem: &UiElement,
-    ) -> Self {
-        unsafe {
-            Self {
-                fill_mode,
-                _duration: duration_ms,
-                easing,
-                initial: Unsafe::cast_mut_static(initial),
-                target: Unsafe::cast_static(target),
-                elem: Unsafe::cast_static(elem),
+                    true
+                }
+            } else {
+                false
             }
+        } else {
+            false
         }
     }
 }
