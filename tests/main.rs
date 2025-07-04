@@ -26,7 +26,7 @@ use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::geometry::SimpleRect;
-use mvengine::ui::geometry::shape::VertexStream;
+use mvengine::ui::geometry::shape::{Shape, VertexStream};
 use mvengine::ui::geometry::shape::msfx::executor::{MSFXExecutor, Return};
 use mvengine::ui::geometry::shape::msfx::lexer::MSFXLexer;
 use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
@@ -43,6 +43,7 @@ use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
 use hashbrown::HashMap;
+use mvengine::utils::noop;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -56,40 +57,6 @@ pub fn main() -> Result<(), Error> {
     //    }
     //    println!("{token:?}");
     //}
-
-    let data = include_str!("test.msfx");
-    let ast = MSFXParser::parse(data).unwrap();
-    println!("{:?}", ast);
-    let mut executor = MSFXExecutor::new();
-    let mut inputs = HashMap::new();
-    inputs.insert("num".to_string(), 1.0.into());
-    println!("\nOutput:");
-    let result = executor.run_debug(&ast, inputs);
-    println!();
-
-    match result {
-        Ok((ret, variables)) => {
-            println!("Variables:");
-            for (name, variable) in variables {
-                println!("{name} = {:?}", variable);
-            }
-            println!("Return:");
-            match ret {
-                Return::Shape(s) => println!("{:?}", s),
-                Return::Adaptive(a) => println!("{:?}", a),
-            }
-        }
-        Err((err, variables)) => {
-            println!("Variables:");
-            for (name, variable) in variables {
-                println!("{name} = {:?}", variable);
-            }
-            println!("Error:");
-            println!("{err}");
-        }
-    }
-
-    exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -116,6 +83,8 @@ struct Application {
     draw_ctx: CreateOnce<UiRenderer>,
     state: CreateOnce<State<String>>,
     audio: AudioEngine,
+
+    shape: Shape
 }
 
 impl Application {
@@ -129,52 +98,21 @@ impl Application {
         wrapped_a.set_volume(1.0);
         wrapped_a.set_balance(1.0);
 
-        #[derive(Clone, Default)]
-        struct Health {
-            health: f32,
-        }
+        let data = include_str!("test.msfx");
+        let ast = MSFXParser::parse(data).unwrap();
+        println!("{:?}", ast);
+        let mut executor = MSFXExecutor::new();
+        let mut inputs = HashMap::new();
+        inputs.insert("size".to_string(), 50.0.into());
+        let result = executor.run(&ast, inputs).unwrap();
+        let mut shape = match result {
+            Return::Shape(s) => { s }
+            Return::Adaptive(_) => { panic!("Expected shape, found adaptive") }
+        };
 
-        #[derive(Clone, Default)]
-        struct Pos {
-            x: f32,
-            y: f32,
-        }
-
-        #[derive(Clone, Default)]
-        struct Name {
-            name: String,
-        }
-
-        struct PlayerBehavior {
-            health: LocalComponent<Health>,
-            pos: LocalComponent<Pos>,
-        }
-
-        impl EntityBehavior for PlayerBehavior {
-            fn new(storage: EcsStorage) -> Self
-            where
-                Self: Sized,
-            {
-                Self {
-                    health: LocalComponent::new(storage.clone()),
-                    pos: LocalComponent::new(storage),
-                }
-            }
-
-            fn start(&mut self, entity: EntityId) {
-                self.health.aquire(entity);
-                self.pos.aquire(entity);
-            }
-
-            fn update(&mut self, entity: EntityId) {}
-        }
-
-        type Player = Entity<PlayerBehavior, (Health, Pos, Name)>;
-        let mut ecs = ECS::new();
-        let player = ecs.world_mut().create_entity(|s| Player::new(s));
-
-        let system = System::<(Health, Name)>::new(ecs.storage());
-        for (entity, health, name) in system.iter() {}
+        shape.stream()
+            .color(RgbColor::red())
+            .compute();
 
         //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
@@ -208,6 +146,7 @@ impl Application {
             draw_ctx: CreateOnce::new(),
             state: CreateOnce::new(),
             audio,
+            shape,
         }
     }
 }
@@ -317,7 +256,8 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
+        self.shape.draw(&mut *self.draw_ctx, |_| {});
+        //window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);

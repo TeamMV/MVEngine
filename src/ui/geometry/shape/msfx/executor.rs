@@ -150,16 +150,16 @@ impl MSFXExecutor {
         if !self.variables.contains_key(&stmt.name) && !new {
             return Err(format!("Unknown variable: '{}'", stmt.name));
         }
-        let value = self.evaluate(&stmt.expr)?.as_raw(&self)?;
+        let value = self.evaluate(&stmt.expr)?.as_raw(self)?;
         self.variables.insert(stmt.name.clone(), value);
         Ok(())
     }
 
     pub fn execute_for(&mut self, stmt: &ForStmt) -> Result<(), String> {
-        let step = self.evaluate(&stmt.step)?.as_raw(&self)?.as_num()?;
-        let end = self.evaluate(&stmt.end)?.as_raw(&self)?.as_num()?;
+        let step = self.evaluate(&stmt.step)?.as_raw(self)?.as_num()?;
+        let end = self.evaluate(&stmt.end)?.as_raw(self)?.as_num()?;
 
-        let mut i = self.evaluate(&stmt.start)?.as_raw(&self)?.as_num()?;
+        let mut i = self.evaluate(&stmt.start)?.as_raw(self)?.as_num()?;
 
         fn a(i: f64, end: f64) -> bool {
             i < end
@@ -189,7 +189,7 @@ impl MSFXExecutor {
 
     pub fn execute_while(&mut self, stmt: &WhileStmt) -> Result<(), String> {
         self.loop_depth += 1;
-        while self.evaluate(&stmt.cond)?.as_raw(&self)?.as_bool()? {
+        while self.evaluate(&stmt.cond)?.as_raw(self)?.as_bool()? {
             self.execute_stmt(&stmt.block)?;
             if let LoopState::Break = self.loop_state {
                 self.loop_state = LoopState::Normal;
@@ -202,7 +202,7 @@ impl MSFXExecutor {
     }
 
     pub fn execute_if(&mut self, stmt: &IfStmt) -> Result<(), String> {
-        if self.evaluate(&stmt.cond)?.as_raw(&self)?.as_bool()? {
+        if self.evaluate(&stmt.cond)?.as_raw(self)?.as_bool()? {
             self.execute_stmt(&stmt.true_block)?;
         } else {
             self.execute_stmt(&stmt.false_block)?;
@@ -212,7 +212,7 @@ impl MSFXExecutor {
 
     pub fn export_shape(&mut self, stmt: &ExportShapeStmt) -> Result<(), String> {
         self.halt = true;
-        let r = self.evaluate(&stmt.shape)?.as_raw(&self)?;
+        let r = self.evaluate(&stmt.shape)?.as_raw(self)?;
         match r {
             Variable::Shape(s) => {
                 self.the_return = Some(Return::Shape(s));
@@ -228,7 +228,7 @@ impl MSFXExecutor {
     }
 
     fn expect_shape(&mut self, exp: &MSFXExpr) -> Result<Shape, String> {
-        let r = self.evaluate(exp)?.as_raw(&self)?;
+        let r = self.evaluate(exp)?.as_raw(self)?;
         match r {
             Variable::Shape(s) => Ok(s),
             a => Err(format!(
@@ -271,7 +271,7 @@ impl MSFXExecutor {
     }
 
     pub fn evaluate_shape(&mut self, shape: &ShapeExpr) -> Result<Variable, String> {
-        let mode_var = self.evaluate(&shape.mode)?.as_raw(&self)?.as_num()?;
+        let mode_var = self.evaluate(&shape.mode)?.as_raw(self)?.as_num()?;
         self.current_vertices.clear();
         self.run_block(&shape.block)?;
         let indices = Self::get_indices(mode_var);
@@ -319,7 +319,7 @@ impl MSFXExecutor {
             get_function(&call.name).ok_or(format!("Unknown function: '{}'", call.name))?;
         let mut params = HashMap::with_capacity(call.params.len());
         for (key, value) in &call.params {
-            params.insert(key.clone(), self.evaluate(value)?.as_raw(&self)?.map()?);
+            params.insert(key.clone(), self.evaluate(value)?.as_raw(self)?.map()?);
         }
         function
             .call_ordered(params, &call.order)
@@ -327,7 +327,7 @@ impl MSFXExecutor {
     }
 
     pub fn evaluate_uexpr(&mut self, uexpr: &UnaryExpr) -> Result<Variable, String> {
-        let mut value = self.evaluate(&uexpr.inner)?.as_raw(&self)?;
+        let mut value = self.evaluate(&uexpr.inner)?.as_raw(self)?;
 
         match uexpr.op {
             MSFXOperator::Sub => value.negate()?,
@@ -339,34 +339,81 @@ impl MSFXExecutor {
     }
 
     pub fn evaluate_bexpr(&mut self, bexpr: &BinaryExpr) -> Result<Variable, String> {
-        let lhs = self.evaluate(&bexpr.lhs)?;
-        let rhs = self.evaluate(&bexpr.rhs)?;
+        let mut lhs = self.evaluate(&bexpr.lhs)?;
+        let mut rhs = self.evaluate(&bexpr.rhs)?;
 
         if let MSFXOperator::Dot = bexpr.op {
-            lhs.enforce_ident()?;
-            rhs.enforce_ident()?;
-            Ok(Variable::Access(Box::new(lhs), Box::new(rhs)))
-        } else if let MSFXOperator::Assign = bexpr.op {
-            lhs.enforce_ident()?;
-            let rhs_raw = rhs.as_raw(self)?;
-            let chain = lhs.expand_idents();
-            if chain.len() == 0 {
-                return Err("Variable access chain is of length 0, this is a compiler bug".to_string());
-            }
-            if chain.len() == 1 {
-                if !self.variables.contains_key(&chain[0]) {
-                    return Err(format!("Unknown variable: '{}'", chain[0]));
+            match lhs {
+                Variable::Saved(s) => {
+                    rhs.enforce_ident()?;
+                    Ok(Variable::Access(Box::new(Variable::Saved(s)), Box::new(rhs)))
                 }
-                self.variables.insert(chain[0].clone(), rhs);
-            } else {
-                let mut base_var = Variable::Saved(chain[0].clone());
-                let mut raw = base_var.as_raw_ref(self)?;
-                raw.insert_subvalue(&chain[1..], rhs_raw)?;
+                // rip Variable::Access (2025-2025)
+                // nvm welcome back (2025-unknown)
+                Variable::Access(v, f) => {
+                    rhs.enforce_ident()?;
+                    // ok im honestly not even sure we need to impl this
+                    // i honestly cant tell if it will get evaled right away or not
+                    // unlucky.
+                    // id rather it be right away
+                    // wait...
+                    // waiting.....................................................................
+                    // .....................................................
+                    // there
+                    // done
+                    // erhm buddy, v doesnt exist
+                    // actually then I dont think I even need ident+
+                    // ok im doing projhect search for Access
+                    // ye now we never make one
+                    // i can remove
+                    // this comment of code will forever remain in our memories
+                    // nvm welcome back Variable::Access
+                    // ok now i need to figure out what to do here
+                    // or more so if this can even be reached
+                    // yes it can
+                    // but smth else needs changed
+                    Ok(Variable::Access(Box::new(Variable::Access(v, f)), Box::new(rhs)))
+                }
+                mut v if v.has_fields() => {
+                    let ident = rhs.as_ident()?;
+                    let v_ref = v.as_ref();
+                    Ok(v_ref.get_subvalue(&ident)?)
+                }
+                v => {
+                    Err(format!("Cannot access fields on object of type {} because it has none", v.name()))
+                }
             }
-            Ok(Variable::Null)
+        } else if let MSFXOperator::Assign = bexpr.op {
+            let rhs_raw = rhs.as_raw(self)?;
+            match lhs {
+                Variable::Saved(s) => {
+                    if !self.variables.contains_key(&s) {
+                        return Err(format!("Unknown variable: '{}'", s));
+                    }
+                    self.variables.insert(s, rhs);
+                    Ok(Variable::Null)
+                }
+                Variable::Access(mut v, f) => {
+                    //whats the issue
+                    // if I have just ident I get to set value but its set on copy of value, not on the one in the hashmap
+                    // &mut exists
+                    // we need Variable:: for fields
+                    // as in:
+                    // somehow map our thingy to a ref
+                    // vec2.x => Variable::Number
+                    // but i dont want to do it like that directly
+                    //isnt that exactly the code below
+                    // yes but look into as_raw_ref
+                    // only exists if self is Saved
+                    let mut raw = v.as_raw_ref(self)?;
+                    raw.insert_subvalue(&f.as_ident()?, rhs_raw)?;
+                    Ok(Variable::Null)
+                }
+                _ => Err("Cannot assign to not identifier".to_string())
+            }
         } else {
-            let lhs = lhs.as_raw(&self)?;
-            let rhs = rhs.as_raw(&self)?;
+            let lhs = lhs.as_raw(self)?;
+            let rhs = rhs.as_raw(self)?;
             match bexpr.op {
                 MSFXOperator::Add => lhs.add(&rhs),
                 MSFXOperator::Sub => lhs.sub(&rhs),

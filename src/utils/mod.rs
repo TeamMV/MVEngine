@@ -2,40 +2,58 @@ pub mod args;
 pub mod mapto;
 pub mod savers;
 
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// This type is just an f64 which is expected to be between 0 and 1. Mostly used for percentages.
 pub type F0To1 = f64;
 
-///CAUTION!!! UNSAFE
-pub struct CloneMut<'a, T> {
-    inner: &'a mut T,
+pub fn noop<T>(_: T) {}
+
+/// CAUTION!!! UNSAFE
+pub struct CopyMut<'a, T> {
+    inner: *mut T,
+    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, T> CloneMut<'a, T> {
+impl<'a, T> CopyMut<'a, T> {
     pub fn new(t: &'a mut T) -> Self {
-        Self { inner: t }
+        Self {
+            inner: t as *mut _,
+            _phantom: PhantomData::default()
+        }
     }
 }
 
-impl<'a, T> Clone for CloneMut<'a, T> {
+impl<'a, T> From<&'a mut T> for CopyMut<'a, T> {
+    fn from(value: &'a mut T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<'a, T> Clone for CopyMut<'a, T> {
     fn clone(&self) -> Self {
         let cast = mvutils::unsafe_cast_mut!(self, Self);
-        Self { inner: cast.inner }
+        Self {
+            inner: cast.inner,
+            _phantom: PhantomData::default(),
+        }
     }
 }
 
-impl<'a, T> Deref for CloneMut<'a, T> {
+impl<T> Copy for CopyMut<'_, T> {}
+
+impl<'a, T: 'a> Deref for CopyMut<'a, T> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target {
-        self.inner
+    fn deref(&self) -> &'a Self::Target {
+        unsafe { &*self.inner }
     }
 }
 
-impl<'a, T> DerefMut for CloneMut<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.inner
+impl<'a, T: 'a> DerefMut for CopyMut<'a, T> {
+    fn deref_mut(&mut self) -> &'a mut Self::Target {
+        unsafe { &mut *self.inner }
     }
 }
 

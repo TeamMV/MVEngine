@@ -1,7 +1,8 @@
-use crate::ui::geometry::SimpleRect;
-use crate::ui::geometry::shape::Shape;
 use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
+use crate::ui::geometry::shape::Shape;
+use crate::utils::{pointee_mut, pointer};
 use std::fmt::{Debug, Display, Formatter, Write};
+use std::marker::PhantomData;
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 #[repr(C)]
@@ -550,6 +551,15 @@ pub enum Variable {
     Vec2(Vec2),
 }
 
+#[derive(Copy, Clone)]
+pub enum MutVar<'a> {
+    Null(PhantomData<&'a ()>),
+    Number(usize),
+    Bool(usize),
+    Shape(usize),
+    Vec2(usize),
+}
+
 impl From<InputVariable> for Variable {
     fn from(value: InputVariable) -> Self {
         match value {
@@ -611,33 +621,48 @@ impl Variable {
         Ok(())
     }
 
-    pub fn as_raw_ref<'a>(&self, ex: &'a mut MSFXExecutor) -> Result<&'a mut Variable, String> {
+    pub fn as_ref(&mut self) -> MutVar {
         match self {
-            Variable::Saved(ident) => ex
-                .variables
-                .get_mut(ident)
-                .ok_or(format!("Unknown variable: '{}'", ident)),
-            // This should theoretically never be needed (but saving in case I'm wrong)
-            // Variable::Access(_, _) => {
-            //     let chain = self.expand_idents();
-            //     let mut raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
-            //     raw.get_subvalue_ref(&chain[1..])
-            // }
+            Variable::Null => MutVar::Null(PhantomData::default()),
+            Variable::Number(n) => MutVar::Number(pointer(n)),
+            Variable::Bool(b) => MutVar::Bool(pointer(b)),
+            Variable::Shape(s) => MutVar::Shape(pointer(s)),
+            Variable::Vec2(v) => MutVar::Vec2(pointer(v)),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn as_raw_ref<'a>(&'a mut self, ex: &'a mut MSFXExecutor) -> Result<MutVar<'a>, String> {
+        match self {
+            Variable::Saved(ident) => {
+                let var = ex
+                    .variables
+                    .get_mut(ident)
+                    .ok_or(format!("Unknown variable: '{}'", ident))?;
+                Ok(var.as_ref())
+            },
+            // This is now suddenly needed
+            Variable::Access(base, f) => {
+                let mut base_ref: MutVar<'a> = base.as_raw_ref(ex)?;
+                let field = f.as_ident()?;
+                let field_ref = base_ref.get_subvalue_ref(&field)?;
+                Ok(field_ref)
+            }
             _ => Err("Dereferencing non single-chain variable".to_string()),
         }
     }
 
-    pub fn as_raw(&self, ex: &MSFXExecutor) -> Result<Variable, String> {
+    pub fn as_raw(&mut self, ex: &mut MSFXExecutor) -> Result<Variable, String> {
         match self {
             Variable::Saved(ident) => ex
                 .variables
                 .get(ident)
                 .cloned()
                 .ok_or(format!("Unknown variable: '{}'", ident)),
-            Variable::Access(_, _) => {
-                let chain = self.expand_idents();
-                let raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
-                raw.get_subvalue(&chain[1..])
+            Variable::Access(base, f) => {
+                let mut base_ref = base.as_raw_ref(ex)?;
+                let field = f.as_ident()?;
+                Ok(base_ref.get_subvalue(&field)?)
             }
             v => Ok(v.clone()),
         }
@@ -656,7 +681,6 @@ impl Variable {
     pub fn enforce_ident(&self) -> Result<(), String> {
         match self {
             Variable::Saved(_) => Ok(()),
-            Variable::Access(_, _) => Ok(()),
             v => Err(format!("Expected ident but found '{}'", v.name())),
         }
     }
@@ -709,15 +733,10 @@ impl Variable {
         }
     }
 
-    pub fn expand_idents(&self) -> Vec<String> {
+    pub fn as_ident(&self) -> Result<String, String> {
         match self {
-            Variable::Saved(ident) => vec![ident.clone()],
-            Variable::Access(lhs, rhs) => {
-                let mut lhs = lhs.expand_idents();
-                lhs.append(&mut rhs.expand_idents());
-                lhs
-            }
-            _ => unreachable!(),
+            Variable::Saved(ident) => Ok(ident.clone()),
+            v => Err(format!("Expected ident but found {}", v.name())),
         }
     }
 
@@ -751,7 +770,7 @@ impl Variable {
         Ok(*b)
     }
 
-    pub fn as_vec(&self) -> Result<Vec2, String> {
+    pub fn as_vec2(&self) -> Result<Vec2, String> {
         self.enforce_vec2()?;
         let Variable::Vec2(v) = self else {
             unreachable!();
@@ -759,50 +778,107 @@ impl Variable {
         Ok(*v)
     }
 
+    pub fn as_shape(&self) -> Result<Shape, String> {
+        self.enforce_vec2()?;
+        let Variable::Shape(s) = self else {
+            unreachable!();
+        };
+        Ok(s.clone())
+    }
+
+    pub(crate) fn has_fields(&self) -> bool {
+        match self {
+            Variable::Vec2(_) => true,
+            _ => false
+        }
+    }
+}
+
+impl<'a> MutVar<'a> {
+    pub(crate) fn assign(&mut self, value: Variable) -> Result<(), String> {
+        match self {
+            MutVar::Null(_) => Err("Cannot assign value to null".to_string()),
+            MutVar::Number(n) => {
+                let n = pointee_mut::<'a, f64>(*n);
+                *n = value.as_num()?;
+                Ok(())
+            }
+            MutVar::Bool(b) => {
+                let b = pointee_mut::<'a, bool>(*b);
+                *b = value.as_bool()?;
+                Ok(())
+            }
+            MutVar::Shape(s) => {
+                let s = pointee_mut::<'a, Shape>(*s);
+                *s = value.as_shape()?;
+                Ok(())
+            }
+            MutVar::Vec2(v) => {
+                let v = pointee_mut::<'a, Vec2>(*v);
+                *v = value.as_vec2()?;
+                Ok(())
+            }
+        }
+    }
+
     pub(crate) fn insert_subvalue(
         &mut self,
-        path: &[String],
+        path: &str,
         value: Variable,
     ) -> Result<(), String> {
-        if path.len() == 0 {
-            return Err("Subfield path length of 0, this is a compiler bug".to_string());
-        }
         match self {
-            Variable::Vec2(v) => {
-                if path.len() > 1 {
-                    return Err(format!("Variable vec2.{} does not have any children", path[0]));
-                }
-                match path[0].as_str() {
+            MutVar::Vec2(v) => {
+                let v = pointee_mut::<'a, Vec2>(*v);
+                match path {
                     "x" => {
                         v.x = value.as_num()?;
                     }
                     "y" => {
                         v.y = value.as_num()?;
                     }
-                    _ => return Err(format!("Vec2 does not have subfield {}", path[0]))
+                    _ => return Err(format!("Vec2 does not have subfield {}", path))
                 }
                 Ok(())
             }
-            s => Err(format!("Cannot access subfield {} on parameter of type {}", path[0], s.name())),
+            s => Err(format!("Cannot access subfield {} on parameter of type {}", path, s.name())),
         }
     }
 
-    pub(crate) fn get_subvalue(&self, path: &[String]) -> Result<Variable, String> {
-        if path.len() == 0 {
-            return Err("Subfield path length of 0, this is a compiler bug".to_string());
-        }
+    pub(crate) fn get_subvalue(&self, path: &str) -> Result<Variable, String> {
         match self {
-            Variable::Vec2(v) => {
-                if path.len() > 1 {
-                    return Err(format!("Variable vec2.{} does not have any children", path[0]));
-                }
-                match path[0].as_str() {
+            MutVar::Vec2(v) => {
+                let v = pointee_mut::<'a, Vec2>(*v);
+                match path {
                     "x" => Ok(Variable::Number(v.x)),
                     "y" => Ok(Variable::Number(v.y)),
-                    _ => Err(format!("Vec2 does not have subfield {}", path[0]))
+                    _ => Err(format!("Vec2 does not have subfield {}", path))
                 }
             }
-            s => Err(format!("Cannot access subfield {} on parameter of type {}", path[0], s.name())),
+            s => Err(format!("Cannot access subfield {} on parameter of type {}", path, s.name())),
+        }
+    }
+
+    pub(crate) fn get_subvalue_ref<'b>(&'b mut self, path: &str) -> Result<MutVar<'a>, String> {
+        match self {
+            MutVar::Vec2(v) => {
+                let v = pointee_mut::<'a, Vec2>(*v);
+                match path {
+                    "x" => Ok(MutVar::Number(pointer(&mut v.x))),
+                    "y" => Ok(MutVar::Number(pointer(&mut v.y))),
+                    _ => Err(format!("Vec2 does not have subfield {}", path))
+                }
+            }
+            s => Err(format!("Cannot access subfield {} on parameter of type {}", path, s.name())),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            MutVar::Null(_) => "null",
+            MutVar::Number(_) => "number",
+            MutVar::Bool(_) => "bool",
+            MutVar::Shape(_) => "shape",
+            MutVar::Vec2(_) => "vec2",
         }
     }
 }

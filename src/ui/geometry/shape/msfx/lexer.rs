@@ -81,7 +81,6 @@ pub enum MSFXToken {
     RBrack,
     LParen,
     RParen,
-    Dot,
     Hashtag,
 
     Keyword(MSFXKeyword),
@@ -211,15 +210,6 @@ impl<'a> MSFXLexer<'a> {
 
     pub fn next(&mut self) -> MSFXToken {
         if !self.putback.is_empty() {
-            return self._next();
-        }
-        let tkn = self._next();
-        println!("{:?}", tkn);
-        tkn
-    }
-
-    pub fn _next(&mut self) -> MSFXToken {
-        if !self.putback.is_empty() {
             return self.putback.pop_back().unwrap();
         }
 
@@ -287,7 +277,7 @@ impl<'a> MSFXLexer<'a> {
                 ']' => return MSFXToken::RBrack,
                 '(' => return MSFXToken::LParen,
                 ')' => return MSFXToken::RParen,
-                '.' => return MSFXToken::Dot,
+                '.' => return MSFXToken::Operator(MSFXOperator::Dot),
                 ':' => return MSFXToken::Colon,
 
                 '+' => potentially_assign!(Add),

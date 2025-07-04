@@ -247,24 +247,27 @@ impl<'a> MSFXParser<'a> {
 
             let mut rhs = self.parse_primary_expression()?;
 
-            let mut inner_token = self.lexer.next();
-            while let Some(inner_op) = inner_token.op() {
-                let inner_is_assign = inner_token.assign();
-                let inner_precedence = inner_op.precedence();
+            if !matches!(op, MSFXOperator::Dot) {
+                let mut inner_token = self.lexer.next();
+                while let Some(inner_op) = inner_token.op() {
+                    let inner_is_assign = inner_token.assign();
+                    let inner_precedence = inner_op.precedence();
 
-                if inner_precedence <= precedence && !inner_is_assign {
-                    break;
+                    if inner_precedence <= precedence && !inner_is_assign {
+                        break;
+                    }
+
+                    let extra = self.parse_expression_with_precedence(inner_precedence)?;
+                    rhs = MSFXExpr::Binary(BinaryExpr {
+                        lhs: Box::new(rhs),
+                        op: inner_op,
+                        rhs: Box::new(extra),
+                    });
+                    inner_token = self.lexer.next();
                 }
-
-                let extra = self.parse_expression_with_precedence(inner_precedence)?;
-                rhs = MSFXExpr::Binary(BinaryExpr {
-                    lhs: Box::new(rhs),
-                    op: inner_op,
-                    rhs: Box::new(extra),
-                });
-                inner_token = self.lexer.next();
+                self.lexer.putback(inner_token);
             }
-            self.lexer.putback(inner_token);
+
             if is_assign {
                 lhs = MSFXExpr::Binary(BinaryExpr {
                     lhs: Box::new(lhs.clone()),
