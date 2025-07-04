@@ -146,7 +146,7 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "string",
-        "&'static str",
+        "#&'static str",
         strings,
         |lit| {
             match lit {
@@ -730,6 +730,13 @@ fn extent_resource<F, T>(
     let struct_ident = Ident::new(&format!("{struct_name}_{res_name}"), Span::call_site());
     let field_ident = Ident::new(res_name, Span::call_site());
     let res_arr_ident = Ident::new(&format!("{res_name}_arr"), Span::call_site());
+    let mut noref = false;
+    let res_type = if res_type.starts_with('#') {
+        noref = true;
+        res_type.strip_prefix('#').unwrap()
+    } else {
+        res_type
+    };
     let type_path: syn::Type = syn::parse_str(res_type).unwrap();
 
     let mut arr_ts = quote! {};
@@ -768,20 +775,50 @@ fn extent_resource<F, T>(
 
     let fn_ident = Ident::new(&format!("resolve_{res_name}"), Span::call_site());
 
-    let res_fn_ts = if !is_mv {
+    let type_ts = if noref {
         quote! {
-            fn #fn_ident(&self, id: usize) -> Option<&#type_path> {
-                if id >= mvengine::ui::res::CR {
-                    self.#field_ident.#res_arr_ident.get(id - mvengine::ui::res::CR)
-                } else {
-                    self.mv.#fn_ident(id)
+            Option<#type_path>
+        }
+    } else {
+        quote! {
+            Option<&#type_path>
+        }
+    };
+
+    let res_fn_ts = if !is_mv {
+        if noref {
+            quote! {
+                fn #fn_ident(&self, id: usize) -> #type_ts {
+                    if id >= mvengine::ui::res::CR {
+                        self.#field_ident.#res_arr_ident.get(id - mvengine::ui::res::CR).map(|x| *x)
+                    } else {
+                        self.mv.#fn_ident(id)
+                    }
+                }
+            }
+        } else {
+            quote! {
+                fn #fn_ident(&self, id: usize) -> #type_ts {
+                    if id >= mvengine::ui::res::CR {
+                        self.#field_ident.#res_arr_ident.get(id - mvengine::ui::res::CR)
+                    } else {
+                        self.mv.#fn_ident(id)
+                    }
                 }
             }
         }
     } else {
-        quote! {
-            fn #fn_ident(&self, id: usize) -> Option<&#type_path> {
-                self.#field_ident.#res_arr_ident.get(id)
+        if noref {
+            quote! {
+                fn #fn_ident(&self, id: usize) -> #type_ts {
+                   self.#field_ident.#res_arr_ident.get(id).map(|x| *x)
+                }
+            }
+        } else {
+            quote! {
+                fn #fn_ident(&self, id: usize) -> #type_ts {
+                    self.#field_ident.#res_arr_ident.get(id)
+                }
             }
         }
     };

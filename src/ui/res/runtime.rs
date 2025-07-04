@@ -146,12 +146,12 @@ impl Savable for RuntimeResources<'_> {
     }
 }
 
-impl UiResources for RuntimeResources<'_> {
+impl<'a> UiResources for RuntimeResources<'a> {
     fn resolve_string(&self, id: usize) -> Option<&str> {
         if id < res::CR {
             MVR.resolve_string(id)
         } else {
-            self.strings.get(id - res::CR)
+            self.strings.get(id - res::CR).map(|x| x.as_str())
         }
     }
 
