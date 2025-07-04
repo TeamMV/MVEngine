@@ -21,7 +21,7 @@ pub enum LoopState {
     Break,
 }
 
-enum Return {
+pub enum Return {
     Shape(Shape),
     Adaptive(AdaptiveShape),
 }
@@ -57,25 +57,29 @@ impl MSFXExecutor {
         ast: &MSFXAST,
         inputs: HashMap<String, InputVariable>,
     ) -> Result<Return, String> {
-        self.run_debug(ast, inputs).map(|r| r.0)
+        self.run_debug(ast, inputs).map(|r| r.0).map_err(|r| r.0)
     }
 
     pub fn run_debug(
         &mut self,
         ast: &MSFXAST,
         inputs: HashMap<String, InputVariable>,
-    ) -> Result<(Return, HashMap<String, Variable>), String> {
+    ) -> Result<(Return, HashMap<String, Variable>), (String, HashMap<String, Variable>)> {
         self.inputs = inputs;
-        self.run_block(&ast.elements)?;
+        let result = self.run_block(&ast.elements);
         self.loop_state = LoopState::Normal;
         self.loop_depth = 0;
         self.inside_shape = false;
         self.current_vertices = vec![];
-        self.halt = false;
-        let ret = self.the_return.take().ok_or(
-            "MSFX missing return, you must call export at the end of your code!".to_string(),
-        )?;
-        Ok((ret, self.variables.drain().collect()))
+        let vars = self.variables.drain().collect();
+        if let Err(err) = result {
+            Err((err, vars))
+        } else if let Some(ret) = self.the_return.take() {
+            self.halt = false;
+            Ok((ret, vars))
+        } else {
+            Err(("MSFX missing return, you must call export at the end of your code!".to_string(), vars))
+        }
     }
 
     pub fn run_block(&mut self, block: &[MSFXStmt]) -> Result<(), String> {
@@ -248,7 +252,7 @@ impl MSFXExecutor {
         if shapes.len() != 9 {
             return Err("Illegal amount of shapes exported as adaptive! Please export exactly 9 parts and use the # wildcard to skip!".to_string());
         }
-        let arr: [Option<Shape>; 9] = array::from_fn(|i| shapes[i]);
+        let arr: [Option<Shape>; 9] = array::from_fn(|i| shapes[i].clone());
         self.the_return = Some(Return::Adaptive(AdaptiveShape::from_arr(arr)));
 
         Ok(())
@@ -346,9 +350,19 @@ impl MSFXExecutor {
             lhs.enforce_ident()?;
             let rhs_raw = rhs.as_raw(self)?;
             let chain = lhs.expand_idents();
-            let mut base_var = Variable::Saved(chain[0].clone());
-            let mut raw = base_var.as_raw_ref(self)?;
-            raw.insert_subvalue(&chain[1..], rhs_raw)?;
+            if chain.len() == 0 {
+                return Err("Variable access chain is of length 0, this is a compiler bug".to_string());
+            }
+            if chain.len() == 1 {
+                if !self.variables.contains_key(&chain[0]) {
+                    return Err(format!("Unknown variable: '{}'", chain[0]));
+                }
+                self.variables.insert(chain[0].clone(), rhs);
+            } else {
+                let mut base_var = Variable::Saved(chain[0].clone());
+                let mut raw = base_var.as_raw_ref(self)?;
+                raw.insert_subvalue(&chain[1..], rhs_raw)?;
+            }
             Ok(Variable::Null)
         } else {
             let lhs = lhs.as_raw(&self)?;

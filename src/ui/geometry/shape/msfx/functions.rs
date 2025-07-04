@@ -1,6 +1,4 @@
-use crate::math::vec::Vec2;
-use crate::ui::geometry::SimpleRect;
-use crate::ui::geometry::shape::msfx::ty::MappedVariable;
+use crate::ui::geometry::shape::msfx::ty::{MappedVariable, Vec2};
 use crate::ui::geometry::shape::{Shape, shapes};
 use hashbrown::HashMap;
 use mvengine_proc_macro::msfx_fn;
@@ -371,11 +369,23 @@ fn triangle0(x1: f64, y1: f64, x2: f64, y2: f64, x3: f64, y3: f64) -> Shape {
     )
 }
 
-// TODO: scream at max until he implements vecs
-// #[msfx_fn]
-// fn triangle2(v1: Vec2, v2: Vec2, v3: Vec2) -> Shape {
-//     shapes::triangle2(v1, v2, v3)
-// }
+#[msfx_fn]
+fn triangle2(v1: Vec2, v2: Vec2, v3: Vec2) -> Shape {
+    shapes::triangle2(v1.as_mvengine(), v2.as_mvengine(), v3.as_mvengine())
+}
+
+#[msfx_fn(Vec2Fn)]
+fn vec2(__actual_literal_underscore_lmao: Option<f64>, value: Option<f64>, x: Option<f64>, y: Option<f64>) -> Result<Vec2, String> {
+    if let Some(x) = x && let Some(y) = y {
+        Ok(Vec2::new(x, y))
+    } else if let Some(value) = __actual_literal_underscore_lmao {
+        Ok(Vec2::splat(value))
+    } else if let Some(value) = value {
+        Ok(Vec2::splat(value))
+    } else {
+        Err("vec2 function requires either unnamed variable or BOTH 'x' and 'y' variables".to_string())
+    }
+}
 
 pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
     match name {
@@ -419,13 +429,14 @@ pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
         "is_infinite" => Some(Box::new(IsInfinite)),
         "rect0" => Some(Box::new(Rect0)),
         "rect1" => Some(Box::new(Rect1)),
-        // "rect2" => Some(Box::new(Rect2)), // commented out as in original code
+        // "rect2" => Some(Box::new(Rect2)),
         "arc0" => Some(Box::new(Arc0)),
         "arc1" => Some(Box::new(Arc1)),
         "circle0" => Some(Box::new(Circle0)),
         "ellipse0" => Some(Box::new(Ellipse0)),
         "triangle0" => Some(Box::new(Triangle0)),
-        // "triangle2" => Some(Box::new(Triangle2)),
+        "triangle2" => Some(Box::new(Triangle2)),
+        "vec2" => Some(Box::new(Vec2Fn)),
         _ => None,
     }
 }

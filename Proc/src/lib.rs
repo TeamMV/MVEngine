@@ -51,6 +51,6 @@ pub fn resolve_resource(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn msfx_fn(_: TokenStream, body: TokenStream) -> TokenStream {
-    msfx_function::msfx_fn(body)
+pub fn msfx_fn(attr: TokenStream, body: TokenStream) -> TokenStream {
+    msfx_function::msfx_fn(attr, body)
 }

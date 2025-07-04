@@ -12,11 +12,17 @@ fn map_type(ty: &str) -> String {
     }
 }
 
-pub fn msfx_fn(body: TokenStream) -> TokenStream {
+pub fn msfx_fn(attr: TokenStream, body: TokenStream) -> TokenStream {
     let function = parse_macro_input!(body as ItemFn);
 
+    let attr = attr.to_string();
+
     let name = &function.sig.ident;
-    let s_name = name.to_string().split('_').map(|w| { let mut c = w.chars(); c.next().map(|f| f.to_ascii_uppercase()).into_iter().chain(c).collect::<String>() }).collect::<String>();
+    let s_name = if attr.is_empty() {
+        name.to_string().split('_').map(|w| { let mut c = w.chars(); c.next().map(|f| f.to_ascii_uppercase()).into_iter().chain(c).collect::<String>() }).collect::<String>()
+    } else {
+        attr
+    };
     let s_name = proc_macro2::TokenStream::from_str(&s_name).unwrap();
 
     let mut mapping = quote! {};
@@ -39,8 +45,13 @@ pub fn msfx_fn(body: TokenStream) -> TokenStream {
             let name = name.trim();
             let ty_fn = map_type(ty.trim());
 
-            args.extend(proc_macro2::TokenStream::from_str(&format!("{name}, ")));
-            mapping.extend(proc_macro2::TokenStream::from_str(&format!("let {name} = get_named(&arguments, \"{name}\").{ty_fn}()?;")));
+            if name == "__actual_literal_underscore_lmao" {
+                args.extend(proc_macro2::TokenStream::from_str(&format!("{name}, ")));
+                mapping.extend(proc_macro2::TokenStream::from_str(&format!("let {name} = get_named(&arguments, \"_\").{ty_fn}()?;")));
+            } else {
+                args.extend(proc_macro2::TokenStream::from_str(&format!("{name}, ")));
+                mapping.extend(proc_macro2::TokenStream::from_str(&format!("let {name} = get_named(&arguments, \"{name}\").{ty_fn}()?;")));
+            }
         }
     }
 

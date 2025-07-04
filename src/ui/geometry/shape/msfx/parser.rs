@@ -172,6 +172,7 @@ impl<'a> MSFXParser<'a> {
                     t => {
                         self.lexer.putback(t);
                         let expr = self.parse_expression()?;
+                        self.lexer.next_token(MSFXToken::Semicolon)?;
                         Ok(MSFXStmt::ExportShape(ExportShapeStmt { shape: expr }))
                     }
                 }
@@ -291,7 +292,10 @@ impl<'a> MSFXParser<'a> {
     }
 
     fn parse_primary_expression(&mut self) -> Result<MSFXExpr, String> {
-        let token = self.lexer.next();
+        let mut token = self.lexer.next();
+        if matches!(token, MSFXToken::Keyword(MSFXKeyword::Vec2)) {
+            token = MSFXToken::Ident("vec2".to_string());
+        }
         match token {
             MSFXToken::Operator(op) if op.is_unary() => {
                 let operand = self.parse_expression()?;

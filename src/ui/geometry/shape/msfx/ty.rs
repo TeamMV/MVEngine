@@ -1,7 +1,36 @@
 use crate::ui::geometry::SimpleRect;
 use crate::ui::geometry::shape::Shape;
 use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Write};
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
+#[repr(C)]
+pub(in crate::ui::geometry::shape::msfx) struct Vec2 {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Vec2 {
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+
+    pub fn splat(val: f64) -> Self {
+        Self { x: val, y: val }
+    }
+
+    pub fn as_mvengine(&self) -> crate::math::vec::Vec2 {
+        crate::math::vec::Vec2::new(self.x as f32, self.y as f32)
+    }
+}
+
+impl Display for Vec2 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_char('(')?;
+        f.write_str(&format!("{}, {}", self.x, self.y))?;
+        f.write_char(')')
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MSFXType {
@@ -14,7 +43,7 @@ pub enum MSFXType {
 pub enum InputVariable {
     Number(f64),
     Bool(bool),
-    Vec2,
+    Vec2(Vec2),
 }
 
 impl InputVariable {
@@ -22,7 +51,7 @@ impl InputVariable {
         match self {
             InputVariable::Number(_) => MSFXType::Number,
             InputVariable::Bool(_) => MSFXType::Bool,
-            InputVariable::Vec2 => MSFXType::Vec2,
+            InputVariable::Vec2(_) => MSFXType::Vec2,
         }
     }
 }
@@ -39,11 +68,18 @@ impl From<bool> for InputVariable {
     }
 }
 
+impl From<crate::math::vec::Vec2> for InputVariable {
+    fn from(value: crate::math::vec::Vec2) -> Self {
+        InputVariable::Vec2(Vec2::new(value.x as f64, value.y as f64))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum MappedVariable {
     Number(f64),
     Bool(bool),
     Shape(Shape),
+    Vec2(Vec2),
     Null,
 }
 
@@ -54,6 +90,9 @@ impl MappedVariable {
             MappedVariable::Bool(_) => {
                 Err("Invalid argument: Expected number but found bool!".to_string())
             }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
+            }
             MappedVariable::Shape(_) => {
                 Err("Invalid argument: Expected number but found shape!".to_string())
             }
@@ -63,11 +102,32 @@ impl MappedVariable {
         }
     }
 
+    pub fn as_vec2(&self) -> Result<Vec2, String> {
+        match self {
+            MappedVariable::Vec2(n) => Ok(*n),
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected vec2 but found bool!".to_string())
+            }
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected vec2 but found number!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected vec2 but found shape!".to_string())
+            }
+            MappedVariable::Null => {
+                Err("Invalid argument: Expected vec2 but found null!".to_string())
+            }
+        }
+    }
+
     pub fn as_bool(&self) -> Result<bool, String> {
         match self {
             MappedVariable::Bool(b) => Ok(*b),
             MappedVariable::Number(_) => {
                 Err("Invalid argument: Expected bool but found number!".to_string())
+            }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
             }
             MappedVariable::Shape(_) => {
                 Err("Invalid argument: Expected bool but found shape!".to_string())
@@ -84,6 +144,9 @@ impl MappedVariable {
             MappedVariable::Number(_) => {
                 Err("Invalid argument: Expected shape but found number!".to_string())
             }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
+            }
             MappedVariable::Bool(_) => {
                 Err("Invalid argument: Expected shape but found bool!".to_string())
             }
@@ -99,8 +162,27 @@ impl MappedVariable {
             MappedVariable::Bool(_) => {
                 Err("Invalid argument: Expected number but found bool!".to_string())
             }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
+            }
             MappedVariable::Shape(_) => {
                 Err("Invalid argument: Expected number but found shape!".to_string())
+            }
+            MappedVariable::Null => Ok(None),
+        }
+    }
+
+    pub fn as_vec2_nullable(&self) -> Result<Option<Vec2>, String> {
+        match self {
+            MappedVariable::Vec2(n) => Ok(Some(*n)),
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected vec2 but found bool!".to_string())
+            }
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected vec2 but found number!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected vec2 but found shape!".to_string())
             }
             MappedVariable::Null => Ok(None),
         }
@@ -111,6 +193,9 @@ impl MappedVariable {
             MappedVariable::Bool(b) => Ok(Some(*b)),
             MappedVariable::Number(_) => {
                 Err("Invalid argument: Expected bool but found number!".to_string())
+            }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
             }
             MappedVariable::Shape(_) => {
                 Err("Invalid argument: Expected bool but found shape!".to_string())
@@ -125,6 +210,9 @@ impl MappedVariable {
             MappedVariable::Number(_) => {
                 Err("Invalid argument: Expected shape but found number!".to_string())
             }
+            MappedVariable::Vec2(_) => {
+                Err("Invalid argument: Expected number but found vec2!".to_string())
+            }
             MappedVariable::Bool(_) => {
                 Err("Invalid argument: Expected shape but found bool!".to_string())
             }
@@ -137,6 +225,7 @@ impl MappedVariable {
             MappedVariable::Number(n) => Variable::Number(*n),
             MappedVariable::Bool(b) => Variable::Bool(*b),
             MappedVariable::Shape(s) => Variable::Shape(s.clone()),
+            MappedVariable::Vec2(v) => Variable::Vec2(*v),
             MappedVariable::Null => Variable::Null,
         }
     }
@@ -149,6 +238,7 @@ impl MappedVariable {
             MappedVariable::Number(n) => f(n),
             MappedVariable::Bool(b) => f(b),
             MappedVariable::Shape(s) => f(s),
+            MappedVariable::Vec2(v) => f(v),
             MappedVariable::Null => unreachable!(),
         }
     }
@@ -160,6 +250,7 @@ impl Display for MappedVariable {
             MappedVariable::Number(n) => Display::fmt(n, f),
             MappedVariable::Bool(b) => Display::fmt(b, f),
             MappedVariable::Shape(s) => s.fmt(f),
+            MappedVariable::Vec2(v) => Display::fmt(v, f),
             MappedVariable::Null => f.write_str("null"),
         }
     }
@@ -180,6 +271,12 @@ impl From<bool> for MappedVariable {
 impl From<Shape> for MappedVariable {
     fn from(value: Shape) -> Self {
         MappedVariable::Shape(value)
+    }
+}
+
+impl From<Vec2> for MappedVariable {
+    fn from(value: Vec2) -> Self {
+        MappedVariable::Vec2(value)
     }
 }
 
@@ -322,6 +419,68 @@ impl ApplyBrain for bool {
     }
 }
 
+impl ApplyBrain for Vec2 {
+    fn add(&self, other: &Variable) -> Result<Variable, String> {
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x + *n, self.y + *n))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x + v.x, self.y + v.y))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
+    }
+
+    fn sub(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn mul(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn div(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn rem(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn pow(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn and(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn or(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn eq(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn neq(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn gt(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn gte(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn lt(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+
+    fn lte(&self, other: &Variable) -> Result<Variable, String> {
+        todo!()
+    }
+}
+
 impl ApplyBrain for Shape {
     fn add(&self, other: &Variable) -> Result<Variable, String> {
         Err("Shape cannot be like done shit to".to_string())
@@ -388,6 +547,7 @@ pub enum Variable {
     Number(f64),
     Bool(bool),
     Shape(Shape),
+    Vec2(Vec2),
 }
 
 impl From<InputVariable> for Variable {
@@ -395,7 +555,7 @@ impl From<InputVariable> for Variable {
         match value {
             InputVariable::Number(n) => Variable::Number(n),
             InputVariable::Bool(b) => Variable::Bool(b),
-            InputVariable::Vec2 => Variable::Null,
+            InputVariable::Vec2(v) => Variable::Vec2(v),
         }
     }
 }
@@ -429,7 +589,7 @@ impl Variable {
 
     pub fn invert(&mut self) -> Result<(), String> {
         self.throw_nullptr("apply ! operator")?;
-        self.enforce_number_msg("! operator")?;
+        self.enforce_bool_msg("! operator")?;
         let Variable::Bool(b) = self else {
             unreachable!()
         };
@@ -438,12 +598,16 @@ impl Variable {
     }
 
     pub fn negate(&mut self) -> Result<(), String> {
-        self.throw_nullptr("apply - operator")?;
-        self.enforce_number_msg("- operator")?;
-        let Variable::Number(n) = self else {
+        self.throw_nullptr("apply - unary operator")?;
+        self.enforce_number_or_vec_msg("- unary operator")?;
+        if let Variable::Number(n) = self {
+            *n = -*n;
+        } else if let Variable::Vec2(v) = self {
+            v.x = -v.x;
+            v.y = -v.y;
+        } else {
             unreachable!()
         };
-        *n = -*n;
         Ok(())
     }
 
@@ -453,6 +617,7 @@ impl Variable {
                 .variables
                 .get_mut(ident)
                 .ok_or(format!("Unknown variable: '{}'", ident)),
+            // This should theoretically never be needed (but saving in case I'm wrong)
             // Variable::Access(_, _) => {
             //     let chain = self.expand_idents();
             //     let mut raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
@@ -503,9 +668,17 @@ impl Variable {
         }
     }
 
-    pub fn enforce_number_msg(&self, msg: &str) -> Result<(), String> {
+    pub fn enforce_vec2(&self) -> Result<(), String> {
+        match self {
+            Variable::Vec2(_) => Ok(()),
+            v => Err(format!("Expected number but found '{}'", v.name())),
+        }
+    }
+
+    pub fn enforce_number_or_vec_msg(&self, msg: &str) -> Result<(), String> {
         match self {
             Variable::Number(_) => Ok(()),
+            Variable::Vec2(_) => Ok(()),
             v => Err(format!("{}: Expected number but found '{}'", msg, v.name())),
         }
     }
@@ -532,6 +705,7 @@ impl Variable {
             Variable::Number(_) => "number",
             Variable::Bool(_) => "bool",
             Variable::Shape(_) => "shape",
+            Variable::Vec2(_) => "vec2",
         }
     }
 
@@ -552,6 +726,7 @@ impl Variable {
             Variable::Number(n) => Ok(MappedVariable::Number(*n)),
             Variable::Bool(b) => Ok(MappedVariable::Bool(*b)),
             Variable::Shape(s) => Ok(MappedVariable::Shape(s.clone())),
+            Variable::Vec2(v) => Ok(MappedVariable::Vec2(*v)),
             Variable::Null => Ok(MappedVariable::Null),
             _ => Err(format!(
                 "{} cannot be used as an input parameter",
@@ -576,15 +751,58 @@ impl Variable {
         Ok(*b)
     }
 
+    pub fn as_vec(&self) -> Result<Vec2, String> {
+        self.enforce_vec2()?;
+        let Variable::Vec2(v) = self else {
+            unreachable!();
+        };
+        Ok(*v)
+    }
+
     pub(crate) fn insert_subvalue(
         &mut self,
         path: &[String],
         value: Variable,
     ) -> Result<(), String> {
-        todo!()
+        if path.len() == 0 {
+            return Err("Subfield path length of 0, this is a compiler bug".to_string());
+        }
+        match self {
+            Variable::Vec2(v) => {
+                if path.len() > 1 {
+                    return Err(format!("Variable vec2.{} does not have any children", path[0]));
+                }
+                match path[0].as_str() {
+                    "x" => {
+                        v.x = value.as_num()?;
+                    }
+                    "y" => {
+                        v.y = value.as_num()?;
+                    }
+                    _ => return Err(format!("Vec2 does not have subfield {}", path[0]))
+                }
+                Ok(())
+            }
+            s => Err(format!("Cannot access subfield {} on parameter of type {}", path[0], s.name())),
+        }
     }
 
     pub(crate) fn get_subvalue(&self, path: &[String]) -> Result<Variable, String> {
-        todo!()
+        if path.len() == 0 {
+            return Err("Subfield path length of 0, this is a compiler bug".to_string());
+        }
+        match self {
+            Variable::Vec2(v) => {
+                if path.len() > 1 {
+                    return Err(format!("Variable vec2.{} does not have any children", path[0]));
+                }
+                match path[0].as_str() {
+                    "x" => Ok(Variable::Number(v.x)),
+                    "y" => Ok(Variable::Number(v.y)),
+                    _ => Err(format!("Vec2 does not have subfield {}", path[0]))
+                }
+            }
+            s => Err(format!("Cannot access subfield {} on parameter of type {}", path[0], s.name())),
+        }
     }
 }

@@ -192,7 +192,33 @@ impl<'a> MSFXLexer<'a> {
         s
     }
 
+    fn collect_until_newline(&mut self) {
+        while let Some(&c) = self.chars.peek() {
+            if c == '\n' {
+                self.chars.next();
+                break;
+            } else if c == '\r' {
+                self.chars.next();
+                if let Some(&'\n') = self.chars.peek() {
+                    self.chars.next();
+                }
+                break;
+            } else {
+                self.chars.next();
+            }
+        }
+    }
+
     pub fn next(&mut self) -> MSFXToken {
+        if !self.putback.is_empty() {
+            return self._next();
+        }
+        let tkn = self._next();
+        println!("{:?}", tkn);
+        tkn
+    }
+
+    pub fn _next(&mut self) -> MSFXToken {
         if !self.putback.is_empty() {
             return self.putback.pop_back().unwrap();
         }
@@ -204,7 +230,8 @@ impl<'a> MSFXLexer<'a> {
             match self.chars.peek() {
                 Some(&'/') => {
                     self.chars.next();
-                    self.collect_until(|x| x.is_control());
+                    self.collect_until_newline();
+                    return self.next();
                 }
                 _ => {}
             }

@@ -16,7 +16,7 @@ pub const CORNER_TL: usize = 1;
 pub const CORNER_TR: usize = 2;
 pub const CORNER_BR: usize = 3;
 
-#[derive(Clone, Savable)]
+#[derive(Debug, Clone, Savable)]
 pub struct AdaptiveShape {
     pub edges: [Option<Shape>; 4],   //l, t, r, b
     pub corners: [Option<Shape>; 4], //bl, tl, tr, br
