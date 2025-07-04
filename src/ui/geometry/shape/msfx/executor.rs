@@ -13,7 +13,7 @@ use hashbrown::HashMap;
 use itertools::Itertools;
 use std::array;
 
-pub use crate::ui::geometry::shape::msfx::ty::InputVariable;
+pub use crate::ui::geometry::shape::msfx::ty::{InputVariable, SavedDebugVariable};
 
 pub enum LoopState {
     Normal,
@@ -64,14 +64,14 @@ impl MSFXExecutor {
         &mut self,
         ast: &MSFXAST,
         inputs: HashMap<String, InputVariable>,
-    ) -> Result<(Return, HashMap<String, Variable>), (String, HashMap<String, Variable>)> {
+    ) -> Result<(Return, HashMap<String, SavedDebugVariable>), (String, HashMap<String, SavedDebugVariable>)> {
         self.inputs = inputs;
         let result = self.run_block(&ast.elements);
         self.loop_state = LoopState::Normal;
         self.loop_depth = 0;
         self.inside_shape = false;
         self.current_vertices = vec![];
-        let vars = self.variables.drain().collect();
+        let vars = self.variables.drain().map(|(n, v)| (n, v.into())).collect();
         if let Err(err) = result {
             Err((err, vars))
         } else if let Some(ret) = self.the_return.take() {
@@ -126,20 +126,27 @@ impl MSFXExecutor {
                 self.evaluate(e)?;
             }
             MSFXStmt::Input(input) => {
-                let var = self
-                    .inputs
-                    .get(&input.name)
-                    .ok_or(format!("Missing input variable: {}", input.name))?
-                    .clone();
-                if var.ty() != input.ty {
-                    return Err(format!(
-                        "Mismatched input type for '{}', expected {:?} but got {:?}",
-                        input.name,
-                        input.ty,
-                        var.ty()
-                    ));
+                match self.inputs.get(&input.name).cloned() {
+                    None => {
+                        if let Some(default) = &input.default {
+                            let value = self.evaluate(default)?.as_raw(self)?;
+                            self.variables.insert(input.name.clone(), value);
+                        } else {
+                            return Err(format!("Missing input parameter '{}'", input.name));
+                        }
+                    }
+                    Some(var) => {
+                        if var.ty() != input.ty {
+                            return Err(format!(
+                                "Mismatched input type for '{}', expected {:?} but got {:?}",
+                                input.name,
+                                input.ty,
+                                var.ty()
+                            ));
+                        }
+                        self.variables.insert(input.name.clone(), var.into());
+                    }
                 }
-                self.variables.insert(input.name.clone(), var.into());
             }
             MSFXStmt::Nop => {}
         }

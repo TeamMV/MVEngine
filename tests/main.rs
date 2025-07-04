@@ -1,15 +1,12 @@
 use log::LevelFilter;
-use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::decode::wav::WavDecoder;
+use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::source::SoundWithAttributes;
-use mvengine::audio::{AudioEngine, gen_sin_wave};
+use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::color::RgbColor;
-use mvengine::game::ecs::entity::{Entity, EntityBehavior, EntityId, LocalComponent, NoBehavior};
-use mvengine::game::ecs::system::System;
-use mvengine::game::ecs::{ECS, EcsStorage};
+use mvengine::game::ecs::entity::EntityBehavior;
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
-use mvengine::rendering::OpenGLRenderer;
 use mvengine::rendering::camera::OrthographicCamera;
 use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
@@ -17,19 +14,17 @@ use mvengine::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShad
 use mvengine::rendering::shader::light::LightOpenGLShader;
 use mvengine::rendering::text::Font;
 use mvengine::rendering::texture::Texture;
+use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
-use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::elements::button::Button;
 use mvengine::ui::elements::child::ToChild;
 use mvengine::ui::elements::child::ToChildFromIterator;
 use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
-use mvengine::ui::geometry::SimpleRect;
+use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::geometry::shape::{Shape, VertexStream};
-use mvengine::ui::geometry::shape::msfx::executor::{MSFXExecutor, Return};
-use mvengine::ui::geometry::shape::msfx::lexer::MSFXLexer;
-use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
+use mvengine::ui::geometry::SimpleRect;
 use mvengine::ui::rendering::UiRenderer;
 use mvengine::ui::res::MVR;
 use mvengine::window::app::WindowCallbacks;
@@ -40,10 +35,9 @@ use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
 use std::ops::Deref;
-use std::process::exit;
 use std::sync::Arc;
 use hashbrown::HashMap;
-use mvengine::utils::noop;
+use mvengine::ui::parse::{parse_2xf64, parse_num, parse_num_abstract};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -83,8 +77,6 @@ struct Application {
     draw_ctx: CreateOnce<UiRenderer>,
     state: CreateOnce<State<String>>,
     audio: AudioEngine,
-
-    shape: Shape
 }
 
 impl Application {
@@ -97,22 +89,6 @@ impl Application {
         wrapped_a.set_looping(true);
         wrapped_a.set_volume(1.0);
         wrapped_a.set_balance(1.0);
-
-        let data = include_str!("test.msfx");
-        let ast = MSFXParser::parse(data).unwrap();
-        println!("{:?}", ast);
-        let mut executor = MSFXExecutor::new();
-        let mut inputs = HashMap::new();
-        inputs.insert("size".to_string(), 50.0.into());
-        let result = executor.run(&ast, inputs).unwrap();
-        let mut shape = match result {
-            Return::Shape(s) => { s }
-            Return::Adaptive(_) => { panic!("Expected shape, found adaptive") }
-        };
-
-        shape.stream()
-            .color(RgbColor::red())
-            .compute();
 
         //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
@@ -146,7 +122,6 @@ impl Application {
             draw_ctx: CreateOnce::new(),
             state: CreateOnce::new(),
             audio,
-            shape,
         }
     }
 }
@@ -256,7 +231,11 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        self.shape.draw(&mut *self.draw_ctx, |_| {});
+        if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
+            s.draw(&mut *self.draw_ctx, |v| {
+                v.color = RgbColor::red().as_vec4();
+            })
+        }
         //window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));

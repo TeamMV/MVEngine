@@ -7,6 +7,7 @@ pub struct MSFXAST {
     pub elements: Vec<MSFXStmt>,
 }
 
+// TODO: tell max he should implement functions or else...
 #[derive(Debug, Clone)]
 pub enum MSFXStmt {
     Input(InputStmt),
@@ -28,6 +29,7 @@ pub enum MSFXStmt {
 pub struct InputStmt {
     pub name: String,
     pub ty: MSFXType,
+    pub default: Option<MSFXExpr>,
 }
 
 #[derive(Debug, Clone)]

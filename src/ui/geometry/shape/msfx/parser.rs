@@ -208,8 +208,16 @@ impl<'a> MSFXParser<'a> {
                         ));
                     }
                 };
-                self.lexer.next_token(MSFXToken::Semicolon)?;
-                Ok(MSFXStmt::Input(InputStmt { name, ty }))
+                let token = self.lexer.next();
+                if let MSFXToken::Operator(MSFXOperator::Assign) = token {
+                    let expr = self.parse_expression()?;
+                    self.lexer.next_token(MSFXToken::Semicolon)?;
+                    Ok(MSFXStmt::Input(InputStmt { name, ty, default: Some(expr) }))
+                } else {
+                    self.lexer.putback(token);
+                    self.lexer.next_token(MSFXToken::Semicolon)?;
+                    Ok(MSFXStmt::Input(InputStmt { name, ty, default: None }))
+                }
             }
             tkn => {
                 self.lexer.putback(tkn);

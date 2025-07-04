@@ -1,0 +1,2 @@
+input size: number = 100;
+export rect0[x: 0, y: 0, width: size, height: size];

@@ -3,6 +3,8 @@ use crate::ui::geometry::shape::Shape;
 use crate::utils::{pointee_mut, pointer};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::marker::PhantomData;
+use std::str::FromStr;
+use crate::ui::parse::{parse_2xf64, parse_num};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 #[repr(C)]
@@ -41,10 +43,48 @@ pub enum MSFXType {
 }
 
 #[derive(Debug, Clone)]
+pub enum SavedDebugVariable {
+    Null,
+    Number(f64),
+    Bool(bool),
+    Vec2(crate::math::vec::Vec2),
+    Shape(Shape)
+}
+
+impl From<Variable> for SavedDebugVariable {
+    fn from(value: Variable) -> Self {
+        match value {
+            Variable::Null => SavedDebugVariable::Null,
+            Variable::Number(n) => SavedDebugVariable::Number(n),
+            Variable::Bool(b) => SavedDebugVariable::Bool(b),
+            Variable::Shape(s) => SavedDebugVariable::Shape(s),
+            Variable::Vec2(v) => SavedDebugVariable::Vec2(v.as_mvengine()),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum InputVariable {
     Number(f64),
     Bool(bool),
     Vec2(Vec2),
+}
+
+impl FromStr for InputVariable {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(num) = parse_num(s) {
+            Ok(InputVariable::Number(num))
+        } else if let Ok(b) = s.parse::<bool>() {
+            Ok(InputVariable::Bool(b))
+        } else if let Ok(v) = parse_2xf64(s) {
+            Ok(InputVariable::Vec2(Vec2::new(v[0], v[1])))
+        } else {
+            Err(format!("Cannot parse '{s}' as either a number, a boolean or a vec2!"))
+        }
+    }
 }
 
 impl InputVariable {

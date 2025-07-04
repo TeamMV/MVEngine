@@ -22,6 +22,7 @@ use mvutils::{enum_val_ref, lazy};
 use std::any::TypeId;
 use std::rc::Rc;
 use std::str::FromStr;
+use mvutils::save::{Loader, Savable, Saver};
 use unit::Unit;
 
 lazy! {
@@ -275,6 +276,46 @@ pub enum Resolve<T: PartialOrd + Clone + 'static> {
     LayoutField(LayoutField<T>),
 }
 
+//This guys proc macro is not fancy enough to support generics 🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣
+impl<T: Savable + PartialOrd + Clone + 'static> Savable for Resolve<T> {
+    fn save(&self, saver: &mut impl Saver) {
+        match self {
+            Resolve::UiValue(v) => {
+                0u8.save(saver);
+                v.save(saver);
+            }
+            Resolve::LayoutField(l) => {
+                1u8.save(saver);
+                l.value.save(saver);
+                l.min.save(saver);
+                l.max.save(saver);
+            }
+        }
+    }
+
+    fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let id = u8::load(loader)?;
+        match id {
+            0 => {
+                let v = UiValue::<T>::load(loader)?;
+                Ok(Self::UiValue(v))
+            },
+            1 => {
+                let val = UiValue::<T>::load(loader)?;
+                let min = UiValue::<T>::load(loader)?;
+                let max = UiValue::<T>::load(loader)?;
+                let f = LayoutField {
+                    value: val,
+                    min,
+                    max
+                };
+                Ok(Self::LayoutField(f))
+            },
+            _ => Err("Illegal id for Resolve when loading!".to_string())
+        }
+    }
+}
+
 impl<T: PartialOrd + Clone + 'static> Resolve<T> {
     pub fn resolve<F>(
         &self,
@@ -396,6 +437,43 @@ pub enum UiValue<T: Clone + 'static> {
     Just(T),
     Measurement(Unit),
     Percent(f32),
+}
+
+impl<T: Savable + Clone + 'static> Savable for UiValue<T> {
+    fn save(&self, saver: &mut impl Saver) {
+        match self {
+            UiValue::Unset => { 0u8.save(saver); }
+            UiValue::None => { 1u8.save(saver); }
+            UiValue::Auto => { 2u8.save(saver); }
+            UiValue::Inherit => { 3u8.save(saver); }
+            UiValue::Just(j) => {
+                4u8.save(saver);
+                j.save(saver);
+            }
+            UiValue::Measurement(u) => {
+                5u8.save(saver);
+                u.save(saver);
+            }
+            UiValue::Percent(p) => {
+                6u8.save(saver);
+                p.save(saver);
+            }
+        }
+    }
+
+    fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let id = u8::load(loader)?;
+        match id {
+            0 => Ok(UiValue::Unset),
+            1 => Ok(UiValue::None),
+            2 => Ok(UiValue::Auto),
+            3 => Ok(UiValue::Inherit),
+            4 => Ok(UiValue::Just(T::load(loader)?)),
+            5 => Ok(UiValue::Measurement(Unit::load(loader)?)),
+            6 => Ok(UiValue::Percent(f32::load(loader)?)),
+            _ => Err("Illegal id for UiValue when loading!".to_string())
+        }
+    }
 }
 
 impl<T: FromStr + Clone> FromStr for UiValue<T> {

@@ -8,6 +8,8 @@ mod composite;
 mod tileset;
 mod drawable;
 mod geometry;
+mod string;
+mod dimension;
 
 use crate::r::adaptive::parse_adaptive;
 use crate::r::animation::parse_animation;
@@ -28,6 +30,8 @@ use quote::quote;
 use syn::{parse_str, Expr, Path};
 use tileset::ParsedTileSet;
 use ui_parsing::xml::{parse_rsx, XmlValue};
+use crate::r::dimension::parse_dimension;
+use crate::r::string::{parse_string, ParsedString};
 
 pub fn r(input: TokenStream) -> TokenStream {
     let content = input.to_string();
@@ -62,9 +66,11 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     }
 
+    let mut strings: Vec<(String, ParsedString)> = vec![];
+    let mut dimensions: Vec<(String, String)> = vec![];
     let mut colors: Vec<(String, String)> = vec![];
     let mut shapes: Vec<(String, ParsedShape)> = vec![];
-    let mut adaptives: Vec<(String, String)> = vec![];
+    let mut adaptives: Vec<(String, ParsedShape)> = vec![];
     let mut textures: Vec<(String, String)> = vec![];
     let mut fonts: Vec<(String, String)> = vec![];
     let mut tilesets: Vec<(String, ParsedTileSet)> = vec![];
@@ -92,6 +98,8 @@ pub fn r(input: TokenStream) -> TokenStream {
                 let name = child.name();
                 let ty = name.as_str();
                 match ty {
+                    "strings" => branch!(strings, parse_string),
+                    "dimensions" => branch!(dimensions, parse_dimension),
                     "colors" => branch!(colors, parse_color),
                     "shapes" => branch!(shapes, parse_shape),
                     "adaptives" => branch!(adaptives, parse_adaptive),
@@ -132,6 +140,37 @@ pub fn r(input: TokenStream) -> TokenStream {
     // ########## Extending the resources ##############
     // #################################################
 
+    let (string_struct_ts, string_resolve_fn_ts) = extent_resource(
+        is_mv,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        "string",
+        "&'static str",
+        strings,
+        |lit| {
+            match lit {
+                ParsedString::S(s) => {
+                    quote! { #s, }
+                }
+                ParsedString::File(f) => {
+                    quote! { include_str!(#f), }
+                }
+            }
+        }
+    );
+
+    let (dimension_struct_ts, dimension_resolve_fn_ts) = extent_resource(
+        is_mv,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        "dimension",
+        "mvengine::ui::styles::Resolve<i32>",
+        dimensions,
+        |lit| { quote! { mvengine::ui::parse::parse_num_abstract(#lit).unwrap(), } }
+    );
+
     let (color_struct_ts, color_resolve_fn_ts) = extent_resource(
         is_mv,
         &mut r_fields_ts,
@@ -153,6 +192,23 @@ pub fn r(input: TokenStream) -> TokenStream {
         shapes,
         |lit| {
             let path = get_src(cdir.as_str(), &lit.file);
+
+            let mut inputs_ts = quote! {
+                use std::str::FromStr;
+                let mut input_map = hashbrown::HashMap::new();
+            };
+
+            for (name, val) in &lit.inputs {
+                let ts = quote! {
+                    input_map.insert(#name.to_string(), {mvengine::ui::geometry::shape::msfx::ty::InputVariable::from_str(#val).unwrap()});
+                };
+                inputs_ts.extend(ts);
+            }
+
+            inputs_ts.extend(quote! {
+                input_map
+            });
+
             match lit.language {
                 ShapeLan::MSF => {
                     quote! {
@@ -165,7 +221,17 @@ pub fn r(input: TokenStream) -> TokenStream {
                     }
                 }
                 ShapeLan::MSFX => {
-                    panic!("MSFX is currently in the works and is not ready for use yet!");
+                    quote! {
+                        {
+                            let ast = mvengine::ui::geometry::shape::msfx::parser::MSFXParser::parse(include_str!(#path)).unwrap();
+                            let mut executor = mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor::new();
+                            let res = executor.run(&ast, {#inputs_ts}).unwrap();
+                            match res {
+                                mvengine::ui::geometry::shape::msfx::executor::Return::Shape(s) => s,
+                                _ => panic!("The specified msfx code didnt result in a shape!")
+                            }
+                        },
+                    }
                 }
             }
         }
@@ -180,12 +246,47 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine::ui::rendering::adaptive::AdaptiveShape",
         adaptives,
         |lit| {
-            let path = get_src(cdir.as_str(), lit);
-            quote! {
-                {
-                    let ast = mvengine::ui::geometry::shape::msf::ShapeParser::parse(include_str!(#path)).unwrap();
-                    mvengine::ui::geometry::shape::msf::shape_gen::ShapeGenerator::generate_adaptive(ast).unwrap()
-                },
+            let path = get_src(cdir.as_str(), &lit.file);
+
+            let mut inputs_ts = quote! {
+                use std::str::FromStr;
+                let mut input_map = hashbrown::HashMap::new();
+            };
+
+            for (name, val) in &lit.inputs {
+                let ts = quote! {
+                    input_map.insert(#name.to_string(), {mvengine::ui::geometry::shape::msfx::ty::InputVariable::from_str(#val).unwrap()});
+                };
+                inputs_ts.extend(ts);
+            }
+
+            inputs_ts.extend(quote! {
+                input_map
+            });
+
+            match lit.language {
+                ShapeLan::MSF => {
+                    quote! {
+                        {
+                            let ast = mvengine::ui::geometry::shape::msf::ShapeParser::parse(include_str!(#path)).unwrap();
+                            let mut shape = mvengine::ui::geometry::shape::msf::shape_gen::ShapeGenerator::generate_adaptive(ast).unwrap();
+                            shape
+                        },
+                    }
+                }
+                ShapeLan::MSFX => {
+                    quote! {
+                        {
+                            let ast = mvengine::ui::geometry::shape::msfx::parser::MSFXParser::parse(include_str!(#path)).unwrap();
+                            let mut executor = mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor::new();
+                            let res = executor.run(&ast, {#inputs_ts}).unwrap();
+                            match res {
+                                mvengine::ui::geometry::shape::msfx::executor::Return::Adaptive(s) => s,
+                                _ => panic!("The specified msfx code didnt result in an adaptive!")
+                            }
+                        },
+                    }
+                }
             }
         }
     );
@@ -515,6 +616,8 @@ pub fn r(input: TokenStream) -> TokenStream {
     } else {
         quote! {
             impl mvengine::ui::context::UiResources for #r_ident {
+            #string_resolve_fn_ts
+            #dimension_resolve_fn_ts
             #color_resolve_fn_ts
             #shape_resolve_fn_ts
             #adaptive_resolve_fn_ts
@@ -549,6 +652,8 @@ pub fn r(input: TokenStream) -> TokenStream {
             #r_fields_ts
         }
 
+        #string_struct_ts
+        #dimension_struct_ts
         #color_struct_ts
         #shape_struct_ts
         #adaptive_struct_ts
@@ -580,6 +685,8 @@ pub fn r(input: TokenStream) -> TokenStream {
                 use mvengine::ui::res::runtime::save_array_as_vec;
                 use mvengine::ui::res::runtime::save_res_array_as_vec;
 
+                save_array_as_vec(saver, &self.string.string_arr);
+                save_array_as_vec(saver, &self.dimension.dimension_arr);
                 save_array_as_vec(saver, &self.color.color_arr);
                 save_array_as_vec(saver, &self.shape.shape_arr);
                 save_array_as_vec(saver, &self.adaptive.adaptive_arr);
@@ -623,7 +730,7 @@ fn extent_resource<F, T>(
     let struct_ident = Ident::new(&format!("{struct_name}_{res_name}"), Span::call_site());
     let field_ident = Ident::new(res_name, Span::call_site());
     let res_arr_ident = Ident::new(&format!("{res_name}_arr"), Span::call_site());
-    let type_path: Path = syn::parse_str(res_type).unwrap();
+    let type_path: syn::Type = syn::parse_str(res_type).unwrap();
 
     let mut arr_ts = quote! {};
     let mut gens_ts = quote! {};

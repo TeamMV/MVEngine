@@ -12,6 +12,13 @@ use crate::ui::context::UiResources;
 
 r! {
     <resources structName="MVR" cdir="./" superSecretTagWhichSpecifiesThisIsTheMVResourceStruct="andItsSuperSecretValue">
+        <strings>
+            <string name="greet" val="hello world"/>
+            <string name="something" file="shapes/rect.msf"/>
+        </strings>
+        <dimensions>
+            <dimension name="height" val="1cm"/>
+        </dimensions>
         <colors>
             <color name="white" val="white"/>
             <color name="black" val="black"/>
@@ -26,7 +33,10 @@ r! {
             <color name="bone_debug" val="red"/>
         </colors>
         <shapes>
-            <shape name="rect" src="shapes/rect.msf" language="MSF"/>
+            <shape name="rect" src="shapes/rect.msf"/>
+            <shape name="rect1" src="shapes/square.msfx" language="MSFX">
+                <size val="200"/>
+            </shape>
         </shapes>
         <adaptives>
             <adaptive name="void_rect" src="shapes/void_rect.msf"/>

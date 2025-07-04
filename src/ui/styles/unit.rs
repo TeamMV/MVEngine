@@ -1,4 +1,6 @@
-#[derive(Clone, Copy)]
+use mvutils::Savable;
+
+#[derive(Clone, Copy, Savable)]
 pub enum Unit {
     Px(i32),             // px
     MM(f32),             // mm

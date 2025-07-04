@@ -1,4 +1,4 @@
-input size: number;
+input size: number = 100;
 
 let pos = vec2[x: 100, y: 200];
 

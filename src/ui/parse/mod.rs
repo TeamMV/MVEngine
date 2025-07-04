@@ -18,6 +18,20 @@ pub fn parse_4xi32(s: &str) -> Result<[i32; 4], String> {
     }
 }
 
+pub fn parse_2xf64(s: &str) -> Result<[f64; 2], String> {
+    let parts = s
+        .split(",")
+        .map(|x| x.trim().parse::<f64>())
+        .collect::<Result<Vec<f64>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    match parts.len() {
+        1 => Ok([parts[0]; 2]),
+        2 => Ok([parts[0], parts[1]]),
+        _ => Err(format!("Invalid number of parts: {}", parts.len())),
+    }
+}
+
 pub fn parse_4xi32_abstract(s: &str) -> Result<[Resolve<i32>; 4], String> {
     let parts = s
         .split(",")
@@ -97,4 +111,8 @@ pub fn parse_origin(s: &str) -> Result<Origin, String> {
 
 pub fn parse_num<T: FromStr<Err = S>, S: ToString>(s: &str) -> Result<T, String> {
     s.parse().map_err(|e: S| e.to_string())
+}
+
+pub fn parse_num_abstract(s: &str) -> Result<Resolve<i32>, String> {
+    Ok(UiValue::<i32>::parse(s)?.to_resolve())
 }

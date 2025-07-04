@@ -16,8 +16,11 @@ use itertools::Itertools;
 use mvutils::once::Lazy;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
+use crate::ui::styles::Resolve;
 
 pub struct RuntimeResources<'a> {
+    strings: Vec<String>,
+    dimensions: Vec<Resolve<i32>>,
     colors: Vec<RgbColor>,
     shapes: Vec<Shape>,
     adaptives: Vec<AdaptiveShape>,
@@ -83,6 +86,8 @@ impl<T: ResourceSavable> ResourceSavable for Lazy<T> {
 
 impl Savable for RuntimeResources<'_> {
     fn save(&self, saver: &mut impl Saver) {
+        self.strings.save(saver);
+        self.dimensions.save(saver);
         self.colors.save(saver);
         self.shapes.save(saver);
         self.adaptives.save(saver);
@@ -96,6 +101,8 @@ impl Savable for RuntimeResources<'_> {
     }
 
     fn load(loader: &mut impl Loader) -> Result<Self, String> {
+        let strings = Vec::<String>::load(loader)?;
+        let dimensions = Vec::<Resolve<i32>>::load(loader)?;
         let colors = Vec::<RgbColor>::load(loader)?;
         let shapes = Vec::<Shape>::load(loader)?;
         let adaptives = Vec::<AdaptiveShape>::load(loader)?;
@@ -119,6 +126,8 @@ impl Savable for RuntimeResources<'_> {
         let geometries = Vec::<Geometry>::load(loader)?;
 
         let mut this = Self {
+            strings,
+            dimensions,
             colors,
             shapes,
             adaptives,
@@ -138,6 +147,22 @@ impl Savable for RuntimeResources<'_> {
 }
 
 impl UiResources for RuntimeResources<'_> {
+    fn resolve_string(&self, id: usize) -> Option<&str> {
+        if id < res::CR {
+            MVR.resolve_string(id)
+        } else {
+            self.strings.get(id - res::CR)
+        }
+    }
+
+    fn resolve_dimension(&self, id: usize) -> Option<&Resolve<i32>> {
+        if id < res::CR {
+            MVR.resolve_dimension(id)
+        } else {
+            self.dimensions.get(id - res::CR)
+        }
+    }
+
     fn resolve_color(&self, id: usize) -> Option<&RgbColor> {
         if id < res::CR {
             MVR.resolve_color(id)
