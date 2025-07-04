@@ -3,8 +3,8 @@ pub mod components;
 pub mod events;
 pub mod implementations;
 
-use std::fmt::Pointer;
 pub use implementations::*;
+use std::fmt::Pointer;
 
 use crate::input::consts::MouseButton;
 use crate::input::{Input, MouseAction, RawInputEvent};
@@ -12,29 +12,29 @@ use crate::math::vec::Vec2;
 use crate::rendering::text::Font;
 use crate::rendering::{RenderContext, Transform};
 use crate::resolve;
+use crate::ui::anim::ElementAnimator;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::button::Button;
 use crate::ui::elements::child::{Child, ToChild};
+use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::drag::DragAssistant;
 use crate::ui::elements::components::scroll::ScrollBars;
-use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::div::Div;
 use crate::ui::elements::events::UiEvents;
+use crate::ui::elements::text::Text;
 use crate::ui::elements::textbox::TextBox;
 use crate::ui::geometry::{Rect, SimpleRect};
+use crate::ui::rendering::{UiRenderer, WideRenderContext};
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Overflow, Position};
 use crate::ui::styles::types::Dimension;
+use crate::ui::styles::{DEFAULT_STYLE, ResCon, UiStyle};
 use crate::ui::styles::{InheritSupplier, ResolveResult};
-use crate::ui::styles::{ResCon, UiStyle, DEFAULT_STYLE};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::ui::anim::ElementAnimator;
-use crate::ui::elements::text::Text;
-use crate::ui::rendering::{UiRenderer, WideRenderContext};
 
 pub trait UiElementCallbacks {
     fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect);
@@ -94,7 +94,7 @@ pub trait UiElementStub: UiElementCallbacks {
             self.state_mut().children.push(child);
         }
     }
-    
+
     fn remove_child_by_id(&mut self, id: &str) {
         self.state_mut().children.retain(|c| {
             if let Child::Element(e) = c {
@@ -108,7 +108,7 @@ pub trait UiElementStub: UiElementCallbacks {
             }
         });
     }
-    
+
     fn remove_child_by_class(&mut self, class: &str) {
         self.state_mut().children.retain(|c| {
             if let Child::Element(e) = c {
@@ -175,19 +175,19 @@ pub trait UiElementStub: UiElementCallbacks {
             &DEFAULT_STYLE.transform.scale.x,
             maybe_parent.clone(),
             |s| s.width() as f32,
-            state
+            state,
         );
         let transform_scale_y = resolve!(self, transform.scale.y).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.scale.y,
             maybe_parent.clone(),
             |s| s.height() as f32,
-            state
+            state,
         );
         let transform_rotation = resolve!(self, transform.rotate).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.transform.rotate,
             maybe_parent.clone(),
             |s| s.rotation(),
-            state
+            state,
         );
         let transform_origin =
             resolve!(self, transform.origin).unwrap_or_default(&DEFAULT_STYLE.origin);
@@ -219,7 +219,7 @@ pub trait UiElementStub: UiElementCallbacks {
             &DEFAULT_STYLE.text.size,
             maybe_parent.clone(),
             |s| s.height() as f32,
-            state
+            state,
         );
         let kerning = resolve!(self, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
@@ -250,11 +250,19 @@ pub trait UiElementStub: UiElementCallbacks {
         let overflow_x = resolve!(self, overflow_x).unwrap_or_default(&DEFAULT_STYLE.overflow_x);
         let overflow_y = resolve!(self, overflow_y).unwrap_or_default(&DEFAULT_STYLE.overflow_y);
 
-        let always_x = if let Overflow::Always = overflow_x { true } else { false };
-        let always_y = if let Overflow::Always = overflow_y { true } else { false };
+        let always_x = if let Overflow::Always = overflow_x {
+            true
+        } else {
+            false
+        };
+        let always_y = if let Overflow::Always = overflow_y {
+            true
+        } else {
+            false
+        };
 
-        if let Overflow::Never = overflow_x {}
-        else {
+        if let Overflow::Never = overflow_x {
+        } else {
             if computed_size.0 > width || always_x {
                 //content overflow
                 state.scroll_x.available = true;
@@ -264,8 +272,8 @@ pub trait UiElementStub: UiElementCallbacks {
             }
         }
 
-        if let Overflow::Never = overflow_y {}
-        else {
+        if let Overflow::Never = overflow_y {
+        } else {
             if computed_size.1 > height || always_y {
                 //content overflow
                 state.scroll_y.available = true;
@@ -572,13 +580,13 @@ pub trait UiElementStub: UiElementCallbacks {
                         h += state.requested_height.unwrap();
                         continue;
                     }
-                    
+
                     if let Some(font) = font {
                         let width = font.get_width(s, font_size);
                         let l = s.len() as f32 - 1f32;
                         let width =
                             width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
-                        
+
                         if let Some(rw) = state.requested_width {
                             w += rw;
                         } else {
@@ -595,10 +603,16 @@ pub trait UiElementStub: UiElementCallbacks {
                     let guard = e.get_mut();
                     guard.compute_styles(ctx);
                     let bounding = &guard.state().bounding_rect;
-                    
-                    let cw = guard.state().requested_width.unwrap_or(bounding.bounding.width);
-                    let ch = guard.state().requested_height.unwrap_or(bounding.bounding.height);
-                    
+
+                    let cw = guard
+                        .state()
+                        .requested_width
+                        .unwrap_or(bounding.bounding.width);
+                    let ch = guard
+                        .state()
+                        .requested_height
+                        .unwrap_or(bounding.bounding.height);
+
                     match direction {
                         Direction::Vertical => {
                             if !guard.state().is_height_percent {
@@ -624,7 +638,7 @@ pub trait UiElementStub: UiElementCallbacks {
                         h += state.requested_height.unwrap();
                         continue;
                     }
-                    
+
                     let guard = s.read();
                     let s = guard.deref();
                     if let Some(font) = font {
@@ -699,8 +713,12 @@ pub trait UiElementStub: UiElementCallbacks {
 
         let state = self.state();
 
-        let bar_extent = resolve!(self, scrollbar.size)
-            .unwrap_or_default_or_percentage(&DEFAULT_STYLE.scrollbar.size, state.parent.clone(), |s| s.width(), state);
+        let bar_extent = resolve!(self, scrollbar.size).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.scrollbar.size,
+            state.parent.clone(),
+            |s| s.width(),
+            state,
+        );
 
         let state = self.state_mut();
         if state.scroll_x.available {
@@ -743,7 +761,8 @@ pub trait UiElementStub: UiElementCallbacks {
 
             let max_offset = state.content_rect.height() - knob_h;
             if assistant.in_drag {
-                state.scroll_y.offset = (state.content_rect.height() - knob_h) - assistant.global_offset.1;
+                state.scroll_y.offset =
+                    (state.content_rect.height() - knob_h) - assistant.global_offset.1;
             }
 
             if let RawInputEvent::Mouse(MouseAction::Wheel(_, dy)) = action {
@@ -755,7 +774,7 @@ pub trait UiElementStub: UiElementCallbacks {
 
             state.scroll_y.offset = state.scroll_y.offset.p_clamp(0, max_offset);
         }
-        
+
         used
     }
 }
@@ -767,7 +786,7 @@ pub enum UiElement {
     Div(Div),
     Button(Button),
     TextBox(TextBox),
-    Text(Text)
+    Text(Text),
 }
 
 impl ToChild for UiElement {
@@ -910,7 +929,7 @@ pub struct UiElementState {
     pub scroll_y: UiScrollState,
 
     pub animator: ElementAnimator,
-    
+
     pub requested_width: Option<i32>,
     pub requested_height: Option<i32>,
 }

@@ -1,3 +1,4 @@
+use crate::color::RgbColor;
 use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, Quad, RenderContext};
@@ -6,7 +7,6 @@ use crate::ui::geometry::Rect;
 use crate::ui::res::MVR;
 use mvutils::Savable;
 use std::str::FromStr;
-use crate::color::RgbColor;
 
 pub mod animation;
 pub mod comp;

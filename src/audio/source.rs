@@ -106,7 +106,7 @@ impl SoundWithAttributes {
     pub fn set_speed(&self, speed: f32) {
         self.with_attributes.speed.replace(speed);
     }
-    
+
     pub fn set_fade_in(&self, ease_gen: EasingGen, duration_ms: u32) {
         let duration_samples = (duration_ms * self.sound.sample_rate) / 1000;
         self.with_attributes.fade_in.replace(Some(Easing::new(

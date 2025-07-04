@@ -1,25 +1,28 @@
-pub mod transform;
-pub mod visual;
 pub mod geometry;
-pub mod msfx;
 pub mod msf;
+pub mod msfx;
 pub mod shapes;
+pub mod transform;
 pub mod utils;
+pub mod visual;
 
 use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::{InputVertex, RenderContext, Transform};
 use crate::ui::geometry::shape::geometry::CropStep;
-use crate::ui::geometry::shape::transform::{OriginChangeStep, OriginSetStep, RotateStep, ScaleStep, TransformSetStep, TransformStep, TranslateStep};
+use crate::ui::geometry::shape::transform::{
+    OriginChangeStep, OriginSetStep, RotateStep, ScaleStep, TransformSetStep, TransformStep,
+    TranslateStep,
+};
 use crate::ui::geometry::shape::visual::{ColorStep, TextureStep, UvStep};
-use crate::ui::geometry::{geom, SimpleRect};
+use crate::ui::geometry::{SimpleRect, geom};
 use gl::types::GLuint;
 use mvutils::Savable;
 
 pub enum Indices {
     Triangles,
     TriangleStrip,
-    Manual(Vec<usize>)
+    Manual(Vec<usize>),
 }
 
 impl Indices {
@@ -59,7 +62,7 @@ pub struct Shape {
     pub vertices: Vec<InputVertex>,
     pub indices: Vec<usize>,
     pub extent: SimpleRect,
-    pub flags: u8
+    pub flags: u8,
 }
 
 impl Shape {
@@ -73,7 +76,11 @@ impl Shape {
         }
     }
 
-    pub fn new_with_extent(vertices: Vec<InputVertex>, indices: Indices, extent: SimpleRect) -> Self {
+    pub fn new_with_extent(
+        vertices: Vec<InputVertex>,
+        indices: Indices,
+        extent: SimpleRect,
+    ) -> Self {
         let indices = indices.get_them(&vertices);
         Self {
             vertices,
@@ -82,25 +89,36 @@ impl Shape {
             flags: 0,
         }
     }
-    
+
     pub fn recompute(&mut self) {
         let mut has_tex = false;
-        let (min_x, max_x, min_y, max_y) = self.vertices.iter()
+        let (min_x, max_x, min_y, max_y) = self
+            .vertices
+            .iter()
             .inspect(|v| has_tex |= v.has_texture > 0.0)
             .map(|p| (p.pos.0, p.pos.1))
             .fold(
-                (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::NEG_INFINITY),
-                |(min_x, max_x, min_y, max_y), (x, y)| (
-                    min_x.min(x),
-                    max_x.max(x),
-                    min_y.min(y),
-                    max_y.max(y)
-                )
+                (
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                ),
+                |(min_x, max_x, min_y, max_y), (x, y)| {
+                    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+                },
             );
 
-        self.extent = SimpleRect::new(min_x as i32, min_y as i32, (max_x - min_x) as i32, (max_y - min_y) as i32);
-        
-        if has_tex { self.flags |= SF_TEXTURE }
+        self.extent = SimpleRect::new(
+            min_x as i32,
+            min_y as i32,
+            (max_x - min_x) as i32,
+            (max_y - min_y) as i32,
+        );
+
+        if has_tex {
+            self.flags |= SF_TEXTURE
+        }
     }
 
     pub fn recenter(&mut self) {
@@ -117,37 +135,55 @@ impl Shape {
             self.indices.push(*index + off);
         }
     }
-    
+
     pub fn stream(&mut self) -> BaseStream<'_> {
-        BaseStream { shape: self, index: 0 }
+        BaseStream {
+            shape: self,
+            index: 0,
+        }
     }
 
     pub fn draw<F: Fn(&mut InputVertex)>(&self, ctx: &mut impl RenderContext, vertex_function: F) {
         let z = ctx.next_z();
-        ctx.controller().push_raw(&self.vertices, &self.indices, self.flags & SF_TEXTURE == SF_TEXTURE, Some(|v: &mut InputVertex| {
-            v.pos.2 = z;
-            
-            vertex_function(v);
-        }));
+        ctx.controller().push_raw(
+            &self.vertices,
+            &self.indices,
+            self.flags & SF_TEXTURE == SF_TEXTURE,
+            Some(|v: &mut InputVertex| {
+                v.pos.2 = z;
+
+                vertex_function(v);
+            }),
+        );
     }
-    
-    pub fn draw_at<F: Fn(&mut InputVertex)>(&self, ctx: &mut impl RenderContext, area: &SimpleRect, vertex_function: F) {
+
+    pub fn draw_at<F: Fn(&mut InputVertex)>(
+        &self,
+        ctx: &mut impl RenderContext,
+        area: &SimpleRect,
+        vertex_function: F,
+    ) {
         let z = ctx.next_z();
-        ctx.controller().push_raw(&self.vertices, &self.indices, self.flags & SF_TEXTURE == SF_TEXTURE, Some(|v: &mut InputVertex| {
-            let point = Vec2::new(v.pos.0, v.pos.1);
-            let remapped = geom::remap_point(point, &self.extent, area);
-            v.pos.0 = remapped.x;
-            v.pos.1 = remapped.y;
-            v.pos.2 = z;
-            
-            vertex_function(v);
-        }));
+        ctx.controller().push_raw(
+            &self.vertices,
+            &self.indices,
+            self.flags & SF_TEXTURE == SF_TEXTURE,
+            Some(|v: &mut InputVertex| {
+                let point = Vec2::new(v.pos.0, v.pos.1);
+                let remapped = geom::remap_point(point, &self.extent, area);
+                v.pos.0 = remapped.x;
+                v.pos.1 = remapped.y;
+                v.pos.2 = z;
+
+                vertex_function(v);
+            }),
+        );
     }
 }
 
 pub trait VertexStream: Sized {
     fn shape(&mut self) -> &mut Shape;
-    
+
     fn next(&mut self) -> Option<&mut InputVertex>;
 
     fn compute(&mut self) {
@@ -156,11 +192,17 @@ pub trait VertexStream: Sized {
     }
 
     fn transform(self, transform: Transform) -> TransformStep<Self> {
-        TransformStep { base: self, transform }
+        TransformStep {
+            base: self,
+            transform,
+        }
     }
 
     fn set_transform(self, transform: Transform) -> TransformSetStep<Self> {
-        TransformSetStep { base: self, transform }
+        TransformSetStep {
+            base: self,
+            transform,
+        }
     }
 
     fn translate(self, offset: Vec2) -> TranslateStep<Self> {
@@ -172,19 +214,32 @@ pub trait VertexStream: Sized {
     }
 
     fn rotate(self, angle: f32) -> RotateStep<Self> {
-        RotateStep { base: self, angle_radians: angle }
+        RotateStep {
+            base: self,
+            angle_radians: angle,
+        }
     }
 
     fn set_origin(self, origin: Vec2) -> OriginSetStep<Self> {
-        OriginSetStep { base: self, new_origin: origin }
+        OriginSetStep {
+            base: self,
+            new_origin: origin,
+        }
     }
 
     fn change_origin(self, delta: Vec2) -> OriginChangeStep<Self> {
-        OriginChangeStep { base: self, new_origin: delta }
+        OriginChangeStep {
+            base: self,
+            new_origin: delta,
+        }
     }
 
     fn crop(self, draw_area: SimpleRect, crop_area: SimpleRect) -> CropStep<Self> {
-        CropStep { base: self, crop_area, draw_area }
+        CropStep {
+            base: self,
+            crop_area,
+            draw_area,
+        }
     }
 
     fn color(self, color: RgbColor) -> ColorStep<Self> {
@@ -192,7 +247,10 @@ pub trait VertexStream: Sized {
     }
 
     fn texture(self, texture: GLuint) -> TextureStep<Self> {
-        TextureStep { base: self, texture }
+        TextureStep {
+            base: self,
+            texture,
+        }
     }
 
     fn uv(self, uv: Vec4) -> UvStep<Self> {
@@ -202,7 +260,7 @@ pub trait VertexStream: Sized {
 
 pub struct BaseStream<'a> {
     shape: &'a mut Shape,
-    index: usize
+    index: usize,
 }
 
 impl VertexStream for BaseStream<'_> {

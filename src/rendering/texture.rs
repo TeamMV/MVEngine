@@ -1,9 +1,9 @@
 use crate::math::vec::Vec4;
 use gl::types::{GLint, GLsizei, GLuint};
 use image::{GenericImageView, ImageError};
+use mvutils::Savable;
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::utils::TetrahedronOp;
-use mvutils::Savable;
 
 #[derive(Clone)]
 pub struct Texture {

@@ -132,7 +132,9 @@ macro_rules! to_attrib_int {
     };
 }
 
-to_attrib_int!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize,);
+to_attrib_int!(
+    u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize,
+);
 
 macro_rules! to_attrib_float {
     ($($t:ty,)*) => {

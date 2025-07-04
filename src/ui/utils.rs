@@ -171,9 +171,7 @@ macro_rules! find_inner_element_by_id_mut {
 
 #[macro_export]
 macro_rules! find_element_by_id {
-    ($parent:expr, $id:literal) => {{
-        $parent.get().find_element_by_id($id)
-    }};
+    ($parent:expr, $id:literal) => {{ $parent.get().find_element_by_id($id) }};
 }
 
 pub fn resolve_resolve<T, E, F>(res: &Resolve<T>, elem: &E, map: F) -> ResolveResult<T>
@@ -182,5 +180,7 @@ where
     E: UiElementStub + 'static,
     F: Fn(&UiStyle) -> &Resolve<T>,
 {
-    res.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |f| map(f))
+    res.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |f| {
+        map(f)
+    })
 }

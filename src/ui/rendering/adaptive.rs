@@ -3,7 +3,7 @@ use crate::graphics::Drawable;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiContext;
 use crate::ui::geometry::shape::Shape;
-use crate::ui::geometry::{shape, SimpleRect};
+use crate::ui::geometry::{SimpleRect, shape};
 use mvutils::Savable;
 
 pub const EDGE_LEFT: usize = 0;
@@ -91,7 +91,7 @@ impl AdaptiveShape {
         rect: &SimpleRect,
         fill: AdaptiveFill,
         context: &UiContext,
-        crop: &SimpleRect
+        crop: &SimpleRect,
     ) {
         let bl = &self.corners[0];
         let tl = &self.corners[1];
@@ -107,29 +107,61 @@ impl AdaptiveShape {
         let y = rect.y;
         let w = rect.width;
         let h = rect.height;
-        
-        let (tlw, tlh) = tl.as_ref().map(|s| (s.extent.width, s.extent.height)).unwrap_or((0, 0));
-        let (trw, trh) = tr.as_ref().map(|s| (s.extent.width, s.extent.height)).unwrap_or((0, 0));
-        let (blw, blh) = bl.as_ref().map(|s| (s.extent.width, s.extent.height)).unwrap_or((0, 0));
-        let (brw, brh) = br.as_ref().map(|s| (s.extent.width, s.extent.height)).unwrap_or((0, 0));
-        
+
+        let (tlw, tlh) = tl
+            .as_ref()
+            .map(|s| (s.extent.width, s.extent.height))
+            .unwrap_or((0, 0));
+        let (trw, trh) = tr
+            .as_ref()
+            .map(|s| (s.extent.width, s.extent.height))
+            .unwrap_or((0, 0));
+        let (blw, blh) = bl
+            .as_ref()
+            .map(|s| (s.extent.width, s.extent.height))
+            .unwrap_or((0, 0));
+        let (brw, brh) = br
+            .as_ref()
+            .map(|s| (s.extent.width, s.extent.height))
+            .unwrap_or((0, 0));
+
         if let Some(shape) = tl {
-            let r = SimpleRect { x, y, width: tlw, height: tlh };
+            let r = SimpleRect {
+                x,
+                y,
+                width: tlw,
+                height: tlh,
+            };
             Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = tr {
-            let r = SimpleRect { x: x + w - trw, y, width: trw, height: trh };
+            let r = SimpleRect {
+                x: x + w - trw,
+                y,
+                width: trw,
+                height: trh,
+            };
             Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = bl {
-            let r = SimpleRect { x, y: y + h - blh, width: blw, height: blh };
+            let r = SimpleRect {
+                x,
+                y: y + h - blh,
+                width: blw,
+                height: blh,
+            };
             Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
         if let Some(shape) = br {
-            let r = SimpleRect { x: x + w - brw, y: y + h - brh, width: brw, height: brh };
+            let r = SimpleRect {
+                x: x + w - brw,
+                y: y + h - brh,
+                width: brw,
+                height: brh,
+            };
             Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
-        
+
         if let Some(shape) = t {
             let edge_h = shape.extent.height;
             let r = SimpleRect {
@@ -170,7 +202,7 @@ impl AdaptiveShape {
             };
             Self::draw_shape(shape, ctx, &r, fill.clone(), context, crop);
         }
-        
+
         if let Some(shape) = &self.center {
             let r = SimpleRect {
                 x: x + tlw,
@@ -179,24 +211,24 @@ impl AdaptiveShape {
                 height: h - tlh - blh,
             };
             Self::draw_shape(shape, ctx, &r, fill, context, crop);
-        }        
+        }
     }
-    
+
     fn draw_shape(
         shape: &Shape,
         ctx: &mut impl RenderContext,
         rect: &SimpleRect,
         fill: AdaptiveFill,
         context: &UiContext,
-        crop: &SimpleRect) {
-        
+        crop: &SimpleRect,
+    ) {
         match fill {
             AdaptiveFill::Color(col) => {
                 shape::utils::draw_shape_color(ctx, shape, col, rect, crop);
             }
             AdaptiveFill::Drawable(draw) => {
                 let (tex, uv) = draw.get_texture_or_default(context.resources);
-                shape::utils::draw_shape_textured(ctx, shape, tex, uv, rect, crop);
+                shape::utils::draw_shape_textured_at(ctx, shape, tex, uv, rect, crop);
             }
         }
     }

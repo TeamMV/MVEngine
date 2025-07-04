@@ -1,17 +1,17 @@
 use crate::color::RgbColor;
+use crate::rendering::RenderContext;
 use crate::resolve;
 use crate::ui::attributes::UiState;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
+use crate::ui::geometry::shape::shapes;
 use crate::ui::res::MVR;
-use crate::ui::styles::enums::TextAlign;
-use crate::ui::styles::ResolveResult;
 use crate::ui::styles::DEFAULT_STYLE;
+use crate::ui::styles::ResolveResult;
+use crate::ui::styles::enums::TextAlign;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, Range};
-use crate::rendering::RenderContext;
-use crate::ui::geometry::shape::shapes;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -206,9 +206,9 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 start.min(end)..start.max(end)
             }
 
-            self.view_range = clamp_range_to_str(self.content.read().deref(), self.view_range.clone());
+            self.view_range =
+                clamp_range_to_str(self.content.read().deref(), self.view_range.clone());
             self.cursor_pos = self.cursor_pos.clamp(0, self.view_range.end);
-
 
             if self.view_range.start > self.view_range.end {
                 mem::swap(&mut self.view_range.start, &mut self.view_range.end);
@@ -223,7 +223,6 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 + skew * 2.0
                 + kerning * (viewed_len as f32 - 1.0);
             let viewed_width = viewed_width as i32;
-
 
             let content_ref = self.content.read();
             while self.view_range.end > self.view_range.start {
@@ -324,7 +323,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                     text_x + string_to_selection_a_width as i32,
                     cursor_y,
                     (string_to_selection_b_width - string_to_selection_a_width) as i32,
-                    cursor_height
+                    cursor_height,
                 );
                 rect.draw(draw_ctx, |v| {
                     v.has_texture = 0.0;

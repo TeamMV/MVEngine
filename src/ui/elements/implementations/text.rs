@@ -1,18 +1,18 @@
-use std::ops::Deref;
+use crate::input::{Input, RawInputEvent};
+use crate::rendering::RenderContext;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
+use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::components::text::TextBody;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
+use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::UiStyle;
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
+use std::ops::Deref;
 use std::rc::{Rc, Weak};
-use crate::input::{Input, RawInputEvent};
-use crate::rendering::RenderContext;
-use crate::ui::elements::child::Child;
-use crate::ui::elements::components::text::TextBody;
-use crate::ui::rendering::UiRenderer;
 
 #[derive(Clone)]
 pub struct Text {
@@ -22,10 +22,10 @@ pub struct Text {
     state: UiElementState,
     style: UiStyle,
     attributes: Attributes,
-    
+
     //Needed but not used
     body: ElementBody,
-    text: TextBody
+    text: TextBody,
 }
 
 impl Text {
@@ -61,7 +61,7 @@ impl UiElementCallbacks for Text {
 impl UiElementStub for Text {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
-        Self: Sized
+        Self: Sized,
     {
         let this = Self {
             rc: Weak::new(),

@@ -1,11 +1,15 @@
 use log::LevelFilter;
-use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
+use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::source::SoundWithAttributes;
-use mvengine::audio::{gen_sin_wave, AudioEngine};
+use mvengine::audio::{AudioEngine, gen_sin_wave};
 use mvengine::color::RgbColor;
+use mvengine::game::ecs::entity::{Entity, EntityBehavior, EntityId, LocalComponent, NoBehavior};
+use mvengine::game::ecs::system::System;
+use mvengine::game::ecs::{ECS, EcsStorage};
 use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::modify_style;
+use mvengine::rendering::OpenGLRenderer;
 use mvengine::rendering::camera::OrthographicCamera;
 use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
@@ -13,17 +17,19 @@ use mvengine::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShad
 use mvengine::rendering::shader::light::LightOpenGLShader;
 use mvengine::rendering::text::Font;
 use mvengine::rendering::texture::Texture;
-use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
+use mvengine::ui::elements::UiElementStub;
 use mvengine::ui::elements::button::Button;
 use mvengine::ui::elements::child::ToChild;
 use mvengine::ui::elements::child::ToChildFromIterator;
 use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
-use mvengine::ui::elements::UiElementStub;
-use mvengine::ui::geometry::shape::VertexStream;
 use mvengine::ui::geometry::SimpleRect;
+use mvengine::ui::geometry::shape::VertexStream;
+use mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor;
+use mvengine::ui::geometry::shape::msfx::lexer::MSFXLexer;
+use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
 use mvengine::ui::rendering::UiRenderer;
 use mvengine::ui::res::MVR;
 use mvengine::window::app::WindowCallbacks;
@@ -36,16 +42,10 @@ use parking_lot::RwLock;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
-use mvengine::game::ecs::{EcsStorage, ECS};
-use mvengine::game::ecs::entity::{Entity, EntityBehavior, EntityId, LocalComponent, NoBehavior};
-use mvengine::game::ecs::system::System;
-use mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor;
-use mvengine::ui::geometry::shape::msfx::lexer::MSFXLexer;
-use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
-    
+
     //let s = include_str!("test.mss");
     //let mut lexer = MSSLexer::new(s);
     //loop {
@@ -107,7 +107,6 @@ impl Application {
         wrapped_a.set_volume(1.0);
         wrapped_a.set_balance(1.0);
 
-
         #[derive(Clone, Default)]
         struct Health {
             health: f32,
@@ -126,13 +125,13 @@ impl Application {
 
         struct PlayerBehavior {
             health: LocalComponent<Health>,
-            pos: LocalComponent<Pos>
+            pos: LocalComponent<Pos>,
         }
 
         impl EntityBehavior for PlayerBehavior {
             fn new(storage: EcsStorage) -> Self
             where
-                Self: Sized
+                Self: Sized,
             {
                 Self {
                     health: LocalComponent::new(storage.clone()),
@@ -145,9 +144,7 @@ impl Application {
                 self.pos.aquire(entity);
             }
 
-            fn update(&mut self, entity: EntityId) {
-
-            }
+            fn update(&mut self, entity: EntityId) {}
         }
 
         type Player = Entity<PlayerBehavior, (Health, Pos, Name)>;
@@ -155,9 +152,7 @@ impl Application {
         let player = ecs.world_mut().create_entity(|s| Player::new(s));
 
         let system = System::<(Health, Name)>::new(ecs.storage());
-        for (entity, health, name) in system.iter() {
-
-        }
+        for (entity, health, name) in system.iter() {}
 
         //audio.play_sound(wrapped_a);
         // std::thread::sleep(Duration::from_millis(200));
@@ -307,7 +302,7 @@ impl WindowCallbacks for Application {
         //self.morph.debug_draw(&mut self.draw_ctx);
         //frame.set_translate(300, 400);
         //self.draw_ctx.shape(frame);
-        
+
         //let mut rect = Rect::simple(100, 100, w, h);
         //rect.set_origin(rect.center());
         //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
@@ -334,9 +329,7 @@ impl WindowCallbacks for Application {
             let rect = SimpleRect::new(250, 250, 300, 300);
             //composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
             //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
-
         }
-
 
         OpenGLRenderer::clear();
         self.draw_ctx.draw(window);

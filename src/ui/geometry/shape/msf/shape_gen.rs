@@ -1,9 +1,9 @@
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
 use crate::ui::geometry::modifier::boolean;
-use crate::ui::geometry::shape::{shapes, Shape, VertexStream};
-use crate::ui::rendering::adaptive::AdaptiveShape;
 use crate::ui::geometry::shape::msf::{Assignment, Ast, Command, Param, ParsedStruct, StructValue};
+use crate::ui::geometry::shape::{Shape, VertexStream, shapes};
+use crate::ui::rendering::adaptive::AdaptiveShape;
 use hashbrown::HashMap;
 use mvutils::unsafe_utils::Unsafe;
 
@@ -267,17 +267,16 @@ impl ShapeGenerator {
                 Command::Assign(name, assignment) => match assignment {
                     Assignment::New(parsed_struct) => {
                         let prim_name = &parsed_struct.name;
-                        let shape = match prim_name.as_str() {
-                            "tri" => gen_tri(parsed_struct)?,
-                            "rect" => gen_rect(parsed_struct)?,
-                            "arc" => gen_arc(parsed_struct)?,
-                            _ => {
-                                return Err(format!(
+                        let shape =
+                            match prim_name.as_str() {
+                                "tri" => gen_tri(parsed_struct)?,
+                                "rect" => gen_rect(parsed_struct)?,
+                                "arc" => gen_arc(parsed_struct)?,
+                                _ => return Err(format!(
                                     "Unknown primitve {prim_name}. Did you mean [tri, rect, arc]?"
                                 )
-                                .to_string())
-                            }
-                        };
+                                .to_string()),
+                            };
                         vars.insert(name, shape);
                     }
                     Assignment::Clone(other) => {
@@ -383,17 +382,16 @@ impl ShapeGenerator {
                 Command::Assign(name, assignment) => match assignment {
                     Assignment::New(parsed_struct) => {
                         let prim_name = &parsed_struct.name;
-                        let shape = match prim_name.as_str() {
-                            "tri" => gen_tri(parsed_struct)?,
-                            "rect" => gen_rect(parsed_struct)?,
-                            "arc" => gen_arc(parsed_struct)?,
-                            _ => {
-                                return Err(format!(
+                        let shape =
+                            match prim_name.as_str() {
+                                "tri" => gen_tri(parsed_struct)?,
+                                "rect" => gen_rect(parsed_struct)?,
+                                "arc" => gen_arc(parsed_struct)?,
+                                _ => return Err(format!(
                                     "Unknown primitve {prim_name}. Did you mean [tri, rect, arc]?"
                                 )
-                                .to_string())
-                            }
-                        };
+                                .to_string()),
+                            };
                         vars.insert(name, shape);
                     }
                     Assignment::Clone(other) => {

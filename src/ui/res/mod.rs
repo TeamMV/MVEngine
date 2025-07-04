@@ -22,7 +22,7 @@ r! {
             <color name="magenta" val="magenta"/>
             <color name="cyan" val="cyan"/>
             <color name="transparent" val="transparent"/>
-    
+
             <color name="bone_debug" val="red"/>
         </colors>
         <shapes>

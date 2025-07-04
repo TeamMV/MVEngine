@@ -6,16 +6,16 @@ use std::str::Chars;
 pub enum MSSToken {
     EOF,
     Error(String),
-    
+
     Star,
     Type,
     Class,
     Id,
     Comma,
-    
+
     StyleBlock(String),
-    
-    Ident(String)
+
+    Ident(String),
 }
 
 pub struct MSSLexer<'a> {
@@ -30,12 +30,12 @@ impl<'a> MSSLexer<'a> {
             putback: VecDeque::new(),
         }
     }
-    
+
     fn collect_until<P: Fn(char) -> bool>(&mut self, predicate: P) -> String {
         let mut s = String::new();
         let mut next = self.chars.peek().cloned();
         while let Some(n) = next {
-            if predicate(n) { 
+            if predicate(n) {
                 return s;
             }
             self.chars.next();
@@ -44,16 +44,16 @@ impl<'a> MSSLexer<'a> {
         }
         s
     }
-    
+
     pub fn next(&mut self) -> MSSToken {
-        if !self.putback.is_empty() { 
+        if !self.putback.is_empty() {
             return self.putback.pop_front().unwrap();
         }
-        
+
         //skip whitespace
         let _ = self.collect_until(|x| !x.is_whitespace());
         let next = self.chars.next();
-        
+
         if let Some(n) = next {
             return match n {
                 '*' => MSSToken::Star,
@@ -72,12 +72,12 @@ impl<'a> MSSLexer<'a> {
                         "type" => MSSToken::Type,
                         "class" => MSSToken::Class,
                         "id" => MSSToken::Id,
-                        _ => MSSToken::Ident(s)
+                        _ => MSSToken::Ident(s),
                     }
                 }
-            }
+            };
         }
-        
+
         MSSToken::EOF
     }
 }

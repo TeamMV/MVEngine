@@ -1,4 +1,4 @@
-use crate::ui::geometry::shape::msf::lexer::{NumberLit, Token, MSFLexer};
+use crate::ui::geometry::shape::msf::lexer::{MSFLexer, NumberLit, Token};
 use hashbrown::HashMap;
 
 pub mod lexer;
@@ -39,13 +39,11 @@ impl Param {
             Param::Struct(s) => s,
         }
     }
-    
+
     pub fn is_str(&self, s: &str) -> bool {
         match self {
-            Param::Str(ss) => {
-                ss == s
-            },
-            Param::Struct(_) => false
+            Param::Str(ss) => ss == s,
+            Param::Struct(_) => false,
         }
     }
 }

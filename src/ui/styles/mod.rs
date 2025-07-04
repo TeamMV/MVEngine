@@ -6,6 +6,7 @@ pub mod unit;
 
 use crate::blanked_partial_ord;
 use crate::color::RgbColor;
+use crate::ui::elements::components::scroll;
 use crate::ui::elements::{UiElement, UiElementState, UiElementStub};
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::Overflow;
@@ -22,7 +23,6 @@ use std::any::TypeId;
 use std::rc::Rc;
 use std::str::FromStr;
 use unit::Unit;
-use crate::ui::elements::components::scroll;
 
 lazy! {
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
@@ -554,7 +554,7 @@ impl ResolveResult<f32> {
         default: &Resolve<f32>,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
-        sup: &impl InheritSupplier
+        sup: &impl InheritSupplier,
     ) -> f32
     where
         F: Fn(&dyn InheritSupplier) -> f32,
@@ -572,7 +572,7 @@ impl ResolveResult<f32> {
         &self,
         maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
         map: F,
-        sup: &impl InheritSupplier
+        sup: &impl InheritSupplier,
     ) -> f32
     where
         F: Fn(&dyn InheritSupplier) -> f32,
@@ -677,7 +677,9 @@ macro_rules! impl_interpolator_primitives {
     };
 }
 
-impl_interpolator_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64,);
+impl_interpolator_primitives!(
+    u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, f32, f64,
+);
 
 impl Default for UiStyle {
     fn default() -> Self {
@@ -717,7 +719,9 @@ pub trait InheritSupplier {
     fn margins(&self) -> [i32; 4] {
         [0; 4]
     }
-    fn rotation(&self) -> f32 { 0.0 }
+    fn rotation(&self) -> f32 {
+        0.0
+    }
 }
 
 impl InheritSupplier for Window {

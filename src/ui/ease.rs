@@ -11,7 +11,12 @@ pub struct Easing {
 }
 
 impl Easing {
-    pub fn new(ease_gen: EasingGen, mode: EasingMode, x_range: Range<f32>, y_range: Range<f32>) -> Self {
+    pub fn new(
+        ease_gen: EasingGen,
+        mode: EasingMode,
+        x_range: Range<f32>,
+        y_range: Range<f32>,
+    ) -> Self {
         Self {
             ease_gen,
             mode,

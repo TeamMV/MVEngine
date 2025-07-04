@@ -4,7 +4,7 @@ use crate::ui::geometry::shape::{Shape, VertexStream};
 
 pub struct TransformStep<S: VertexStream> {
     pub(crate) base: S,
-    pub(crate) transform: Transform
+    pub(crate) transform: Transform,
 }
 
 impl<S: VertexStream> VertexStream for TransformStep<S> {
@@ -18,7 +18,7 @@ impl<S: VertexStream> VertexStream for TransformStep<S> {
             let v = self.transform.apply_for_point(v);
             p.pos.0 = v.x;
             p.pos.1 = v.y;
-            
+
             Some(p)
         } else {
             None
@@ -28,7 +28,7 @@ impl<S: VertexStream> VertexStream for TransformStep<S> {
 
 pub struct TransformSetStep<S: VertexStream> {
     pub(crate) base: S,
-    pub(crate) transform: Transform
+    pub(crate) transform: Transform,
 }
 
 impl<S: VertexStream> VertexStream for TransformSetStep<S> {
@@ -87,7 +87,7 @@ impl<S: VertexStream> VertexStream for RotateStep<S> {
             let y = p.pos.1;
             p.pos.0 = x * cos - y * sin;
             p.pos.1 = x * sin + y * cos;
-            
+
             Some(p)
         } else {
             None
@@ -109,7 +109,7 @@ impl<S: VertexStream> VertexStream for ScaleStep<S> {
         if let Some(p) = self.base.next() {
             p.pos.0 *= self.scale.x;
             p.pos.1 *= self.scale.y;
-            
+
             Some(p)
         } else {
             None
@@ -131,7 +131,7 @@ impl<S: VertexStream> VertexStream for OriginChangeStep<S> {
         if let Some(p) = self.base.next() {
             p.pos.0 += self.new_origin.x;
             p.pos.1 += self.new_origin.y;
-            
+
             Some(p)
         } else {
             None
@@ -153,7 +153,7 @@ impl<S: VertexStream> VertexStream for OriginSetStep<S> {
         if let Some(p) = self.base.next() {
             p.pos.0 = self.new_origin.x;
             p.pos.1 = self.new_origin.y;
-            
+
             Some(p)
         } else {
             None

@@ -5,8 +5,8 @@ use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, Quad, RenderContext, Transform};
 use crate::utils::savers::SaveArc;
 use bytebuffer::ByteBuffer;
-use mvutils::save::Savable;
 use mvutils::Savable;
+use mvutils::save::Savable;
 use std::sync::Arc;
 
 pub mod font;
@@ -66,8 +66,8 @@ impl Font {
         tex_coords.z /= self.atlas.atlas.width as f32;
         tex_coords.w /= self.atlas.atlas.height as f32;
 
-        tex_coords.y = 1.0 - tex_coords.y;
-        tex_coords.z = tex_coords.z;
+        //tex_coords.y = 1.0 - tex_coords.y;
+        //tex_coords.z = tex_coords.z;
 
         let font_scale = self.get_scale(size);
 

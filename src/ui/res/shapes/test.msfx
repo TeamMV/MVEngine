@@ -3,7 +3,7 @@
 let TRIANGLE_STRIP = 0;
 let TRIANGLE_LIST = 1;
 
-input size of number;
+input size: number;
 
 let size = 100;
 let rect = rect[x: 100, y: 100, w: size + 2, h: size + 2];
@@ -27,7 +27,7 @@ end;
 
 let t = transform[t: vec2[x: 50]];
 
-if, else, let, for, while, break, continue, export, input, of, end, number, vec2, transform, adaptive
+if, else, let, for, while, break, continue, export, input, of, end, bool, number, vec2, adaptive
 
 export adaptive:
 rect, rect, rect,

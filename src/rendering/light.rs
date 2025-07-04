@@ -3,7 +3,7 @@ use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{batch, PrimitiveRenderer, Vertex};
+use crate::rendering::{PrimitiveRenderer, Vertex, batch};
 use crate::window::Window;
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use std::mem::offset_of;

@@ -1,9 +1,9 @@
+use crate::game::ecs::mem::storage::ComponentIdx;
 use hashbrown::{Equivalent, HashMap};
+use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::ptr;
 use std::ptr::Pointee;
-use mvutils::hashers::U64IdentityHasher;
-use crate::game::ecs::mem::storage::ComponentIdx;
 
 pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
 
@@ -49,7 +49,7 @@ impl ContinuousBlob {
     }
 
     fn maybe_shrink(&mut self) {
-        if (self.len as f64 * PHI).ceil() < self.capacity as f64 { 
+        if (self.len as f64 * PHI).ceil() < self.capacity as f64 {
             self.capacity = self.len + 2;
             unsafe {
                 self.data = std::alloc::realloc(
@@ -108,7 +108,9 @@ impl ContinuousBlob {
 
     pub fn remove(&mut self, idx: ComponentIdx) {
         if let Some(idx) = self.memmap.remove(&idx) {
-            if idx >= self.len { return; }
+            if idx >= self.len {
+                return;
+            }
             self.len -= 1;
             if idx < self.len {
                 unsafe {

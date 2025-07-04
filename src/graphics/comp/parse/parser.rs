@@ -1,5 +1,7 @@
 use crate::graphics::comp::parse::lexer::{MRFLexer, MRFToken};
-use crate::graphics::comp::parse::rig::{ParsedPart, Parsed, ParsedRig, ParsedBone, BoneStart, ParsedJoint};
+use crate::graphics::comp::parse::rig::{
+    BoneStart, Parsed, ParsedBone, ParsedJoint, ParsedPart, ParsedRig,
+};
 
 pub struct MRFParser;
 
@@ -8,7 +10,7 @@ impl MRFParser {
         let mut parts = Parsed::new();
         let mut bones = Parsed::new();
         let mut joints = Parsed::new();
-        
+
         let mut lexer = MRFLexer::new(s);
         let mut next = lexer.next();
         while let Some(n) = next {
@@ -29,22 +31,22 @@ impl MRFParser {
                     Self::parse_attachments(&mut lexer, &bones, &mut parts)?;
                 }
                 MRFToken::Error(err) => return Err(err),
-                _ => return Err(format!("Unexpected Token: {n:?}"))
+                _ => return Err(format!("Unexpected Token: {n:?}")),
             };
-            
+
             next = lexer.next();
         }
-        
+
         Ok(ParsedRig {
             parts,
             bones,
             joints,
         })
     }
-    
+
     fn parse_parts(lexer: &mut MRFLexer) -> Result<Parsed<ParsedPart>, String> {
         let mut parts = Parsed::new();
-        
+
         let mut next = lexer.next_some()?;
         while let MRFToken::Ident(_) = &next {
             lexer.putback(next);
@@ -53,10 +55,10 @@ impl MRFParser {
             next = lexer.next_some()?;
         }
         lexer.putback(next);
-        
+
         Ok(parts)
     }
-    
+
     fn parse_part(lexer: &mut MRFLexer) -> Result<ParsedPart, String> {
         let name = lexer.next_ident()?;
         lexer.next_token(MRFToken::Colon)?;
@@ -70,7 +72,7 @@ impl MRFParser {
             bone: None,
         })
     }
-    
+
     fn parse_bones(lexer: &mut MRFLexer) -> Result<Parsed<ParsedBone>, String> {
         let mut bones = Parsed::new();
 
@@ -85,7 +87,7 @@ impl MRFParser {
 
         Ok(bones)
     }
-    
+
     fn parse_bone(lexer: &mut MRFLexer) -> Result<ParsedBone, String> {
         let name = lexer.next_ident()?;
         lexer.next_token(MRFToken::Colon)?;
@@ -93,18 +95,17 @@ impl MRFParser {
         let start = match start {
             MRFToken::Ident(other) => BoneStart::Other(other),
             MRFToken::Vec2(point) => BoneStart::Point(point),
-            _ => return Err(format!("Unexpected Token: {start:?}"))
+            _ => return Err(format!("Unexpected Token: {start:?}")),
         };
         lexer.next_token(MRFToken::Selector)?;
         let end = lexer.next_vec2()?;
-        Ok(ParsedBone {
-            name,
-            start,
-            end,
-        })
+        Ok(ParsedBone { name, start, end })
     }
 
-    fn parse_joints(lexer: &mut MRFLexer, bones: &Parsed<ParsedBone>) -> Result<Parsed<ParsedJoint>, String> {
+    fn parse_joints(
+        lexer: &mut MRFLexer,
+        bones: &Parsed<ParsedBone>,
+    ) -> Result<Parsed<ParsedJoint>, String> {
         let mut joints = Parsed::new();
 
         let mut next = lexer.next_some()?;
@@ -119,24 +120,27 @@ impl MRFParser {
         Ok(joints)
     }
 
-    fn parse_joint(lexer: &mut MRFLexer, bones: &Parsed<ParsedBone>) -> Result<ParsedJoint, String> {
+    fn parse_joint(
+        lexer: &mut MRFLexer,
+        bones: &Parsed<ParsedBone>,
+    ) -> Result<ParsedJoint, String> {
         let name = lexer.next_ident()?;
         lexer.next_token(MRFToken::Colon)?;
         let bone1 = lexer.next_ident()?;
         lexer.next_token(MRFToken::Selector)?;
         let bone2 = lexer.next_ident()?;
-        
+
         bones.verify(&bone1)?;
         bones.verify(&bone2)?;
-        
-        Ok(ParsedJoint {
-            name,
-            bone1,
-            bone2,
-        })
+
+        Ok(ParsedJoint { name, bone1, bone2 })
     }
-    
-    fn parse_attachments(lexer: &mut MRFLexer, bones: &Parsed<ParsedBone>, parts: &mut Parsed<ParsedPart>) -> Result<(), String> {
+
+    fn parse_attachments(
+        lexer: &mut MRFLexer,
+        bones: &Parsed<ParsedBone>,
+        parts: &mut Parsed<ParsedPart>,
+    ) -> Result<(), String> {
         let mut next = lexer.next_some()?;
         while let MRFToken::Ident(_) = &next {
             lexer.putback(next);
@@ -147,11 +151,15 @@ impl MRFParser {
         Ok(())
     }
 
-    fn parse_attachment(lexer: &mut MRFLexer, bones: &Parsed<ParsedBone>, parts: &mut Parsed<ParsedPart>) -> Result<(), String> {
+    fn parse_attachment(
+        lexer: &mut MRFLexer,
+        bones: &Parsed<ParsedBone>,
+        parts: &mut Parsed<ParsedPart>,
+    ) -> Result<(), String> {
         let part = lexer.next_ident()?;
         lexer.next_token(MRFToken::Selector)?;
         let bone = lexer.next_ident()?;
-        
+
         bones.verify(&bone)?;
         let part = parts.find_mut(&part)?;
         part.bone = Some(bone);

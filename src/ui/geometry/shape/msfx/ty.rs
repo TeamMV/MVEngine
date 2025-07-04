@@ -1,7 +1,43 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
-use crate::ui::geometry::shape::Shape;
 use crate::ui::geometry::SimpleRect;
+use crate::ui::geometry::shape::Shape;
+use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
+use std::fmt::{Debug, Display, Formatter};
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum MSFXType {
+    Bool,
+    Number,
+    Vec2,
+}
+
+#[derive(Debug, Clone)]
+pub enum InputVariable {
+    Number(f64),
+    Bool(bool),
+    Vec2,
+}
+
+impl InputVariable {
+    pub(crate) fn ty(&self) -> MSFXType {
+        match self {
+            InputVariable::Number(_) => MSFXType::Number,
+            InputVariable::Bool(_) => MSFXType::Bool,
+            InputVariable::Vec2 => MSFXType::Vec2,
+        }
+    }
+}
+
+impl From<f64> for InputVariable {
+    fn from(value: f64) -> Self {
+        InputVariable::Number(value)
+    }
+}
+
+impl From<bool> for InputVariable {
+    fn from(value: bool) -> Self {
+        InputVariable::Bool(value)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum MappedVariable {
@@ -15,35 +51,57 @@ impl MappedVariable {
     pub fn as_f64(&self) -> Result<f64, String> {
         match self {
             MappedVariable::Number(n) => Ok(*n),
-            MappedVariable::Bool(_) => Err("Invalid argument: Expected number but found bool!".to_string()),
-            MappedVariable::Shape(_) => Err("Invalid argument: Expected number but found shape!".to_string()),
-            MappedVariable::Null => Err("Invalid argument: Expected number but found null!".to_string()),
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected number but found bool!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected number but found shape!".to_string())
+            }
+            MappedVariable::Null => {
+                Err("Invalid argument: Expected number but found null!".to_string())
+            }
         }
     }
 
     pub fn as_bool(&self) -> Result<bool, String> {
         match self {
             MappedVariable::Bool(b) => Ok(*b),
-            MappedVariable::Number(_) => Err("Invalid argument: Expected bool but found number!".to_string()),
-            MappedVariable::Shape(_) => Err("Invalid argument: Expected bool but found shape!".to_string()),
-            MappedVariable::Null => Err("Invalid argument: Expected bool but found null!".to_string()),
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected bool but found number!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected bool but found shape!".to_string())
+            }
+            MappedVariable::Null => {
+                Err("Invalid argument: Expected bool but found null!".to_string())
+            }
         }
     }
 
     pub fn as_shape(&self) -> Result<Shape, String> {
         match self {
             MappedVariable::Shape(s) => Ok(s.clone()),
-            MappedVariable::Number(_) => Err("Invalid argument: Expected shape but found number!".to_string()),
-            MappedVariable::Bool(_) => Err("Invalid argument: Expected shape but found bool!".to_string()),
-            MappedVariable::Null => Err("Invalid argument: Expected shape but found null!".to_string()),
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected shape but found number!".to_string())
+            }
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected shape but found bool!".to_string())
+            }
+            MappedVariable::Null => {
+                Err("Invalid argument: Expected shape but found null!".to_string())
+            }
         }
     }
 
     pub fn as_f64_nullable(&self) -> Result<Option<f64>, String> {
         match self {
             MappedVariable::Number(n) => Ok(Some(*n)),
-            MappedVariable::Bool(_) => Err("Invalid argument: Expected number but found bool!".to_string()),
-            MappedVariable::Shape(_) => Err("Invalid argument: Expected number but found shape!".to_string()),
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected number but found bool!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected number but found shape!".to_string())
+            }
             MappedVariable::Null => Ok(None),
         }
     }
@@ -51,8 +109,12 @@ impl MappedVariable {
     pub fn as_bool_nullable(&self) -> Result<Option<bool>, String> {
         match self {
             MappedVariable::Bool(b) => Ok(Some(*b)),
-            MappedVariable::Number(_) => Err("Invalid argument: Expected bool but found number!".to_string()),
-            MappedVariable::Shape(_) => Err("Invalid argument: Expected bool but found shape!".to_string()),
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected bool but found number!".to_string())
+            }
+            MappedVariable::Shape(_) => {
+                Err("Invalid argument: Expected bool but found shape!".to_string())
+            }
             MappedVariable::Null => Ok(None),
         }
     }
@@ -60,8 +122,12 @@ impl MappedVariable {
     pub fn as_shape_nullable(&self) -> Result<Option<Shape>, String> {
         match self {
             MappedVariable::Shape(s) => Ok(Some(s.clone())),
-            MappedVariable::Number(_) => Err("Invalid argument: Expected shape but found number!".to_string()),
-            MappedVariable::Bool(_) => Err("Invalid argument: Expected shape but found bool!".to_string()),
+            MappedVariable::Number(_) => {
+                Err("Invalid argument: Expected shape but found number!".to_string())
+            }
+            MappedVariable::Bool(_) => {
+                Err("Invalid argument: Expected shape but found bool!".to_string())
+            }
             MappedVariable::Null => Ok(None),
         }
     }
@@ -71,11 +137,14 @@ impl MappedVariable {
             MappedVariable::Number(n) => Variable::Number(*n),
             MappedVariable::Bool(b) => Variable::Bool(*b),
             MappedVariable::Shape(s) => Variable::Shape(s.clone()),
-            MappedVariable::Null => Variable::Null
+            MappedVariable::Null => Variable::Null,
         }
     }
 
-    pub fn apply<F: Fn(&dyn ApplyBrain) -> Result<Variable, String>>(&self, f: F) -> Result<Variable, String> {
+    pub fn apply<F: Fn(&dyn ApplyBrain) -> Result<Variable, String>>(
+        &self,
+        f: F,
+    ) -> Result<Variable, String> {
         match self {
             MappedVariable::Number(n) => f(n),
             MappedVariable::Bool(b) => f(b),
@@ -321,6 +390,16 @@ pub enum Variable {
     Shape(Shape),
 }
 
+impl From<InputVariable> for Variable {
+    fn from(value: InputVariable) -> Self {
+        match value {
+            InputVariable::Number(n) => Variable::Number(n),
+            InputVariable::Bool(b) => Variable::Bool(b),
+            InputVariable::Vec2 => Variable::Null,
+        }
+    }
+}
+
 macro_rules! op_fn {
     ($name:ident) => {
         pub fn $name(&self, rhs: &Variable) -> Result<Variable, String> {
@@ -351,7 +430,9 @@ impl Variable {
     pub fn invert(&mut self) -> Result<(), String> {
         self.throw_nullptr("apply ! operator")?;
         self.enforce_number_msg("! operator")?;
-        let Variable::Bool(b) = self else { unreachable!() };
+        let Variable::Bool(b) = self else {
+            unreachable!()
+        };
         *b = !*b;
         Ok(())
     }
@@ -359,14 +440,19 @@ impl Variable {
     pub fn negate(&mut self) -> Result<(), String> {
         self.throw_nullptr("apply - operator")?;
         self.enforce_number_msg("- operator")?;
-        let Variable::Number(n) = self else { unreachable!() };
+        let Variable::Number(n) = self else {
+            unreachable!()
+        };
         *n = -*n;
         Ok(())
     }
 
     pub fn as_raw_ref<'a>(&self, ex: &'a mut MSFXExecutor) -> Result<&'a mut Variable, String> {
         match self {
-            Variable::Saved(ident) => ex.variables.get_mut(ident).ok_or(format!("Unknown variable: '{}'", ident)),
+            Variable::Saved(ident) => ex
+                .variables
+                .get_mut(ident)
+                .ok_or(format!("Unknown variable: '{}'", ident)),
             // Variable::Access(_, _) => {
             //     let chain = self.expand_idents();
             //     let mut raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
@@ -378,7 +464,11 @@ impl Variable {
 
     pub fn as_raw(&self, ex: &MSFXExecutor) -> Result<Variable, String> {
         match self {
-            Variable::Saved(ident) => ex.variables.get(ident).cloned().ok_or(format!("Unknown variable: '{}'", ident)),
+            Variable::Saved(ident) => ex
+                .variables
+                .get(ident)
+                .cloned()
+                .ok_or(format!("Unknown variable: '{}'", ident)),
             Variable::Access(_, _) => {
                 let chain = self.expand_idents();
                 let raw = Variable::Saved(chain[0].clone()).as_raw(ex)?;
@@ -390,8 +480,11 @@ impl Variable {
 
     pub fn throw_nullptr(&self, msg: &str) -> Result<(), String> {
         match self {
-            Variable::Null => Err(format!("NullPointerException: Cannot {} because value is null!", msg)),
-            _ => Ok(())
+            Variable::Null => Err(format!(
+                "NullPointerException: Cannot {} because value is null!",
+                msg
+            )),
+            _ => Ok(()),
         }
     }
 
@@ -442,7 +535,7 @@ impl Variable {
         }
     }
 
-    pub fn expand_idents(&self) ->  Vec<String> {
+    pub fn expand_idents(&self) -> Vec<String> {
         match self {
             Variable::Saved(ident) => vec![ident.clone()],
             Variable::Access(lhs, rhs) => {
@@ -460,23 +553,34 @@ impl Variable {
             Variable::Bool(b) => Ok(MappedVariable::Bool(*b)),
             Variable::Shape(s) => Ok(MappedVariable::Shape(s.clone())),
             Variable::Null => Ok(MappedVariable::Null),
-            _ => Err(format!("{} cannot be used as an input parameter", self.name()))
+            _ => Err(format!(
+                "{} cannot be used as an input parameter",
+                self.name()
+            )),
         }
     }
 
     pub fn as_num(&self) -> Result<f64, String> {
         self.enforce_number()?;
-        let Variable::Number(n) = self else { unreachable!() };
+        let Variable::Number(n) = self else {
+            unreachable!()
+        };
         Ok(*n)
     }
 
     pub fn as_bool(&self) -> Result<bool, String> {
         self.enforce_bool()?;
-        let Variable::Bool(b) = self else { unreachable!() };
+        let Variable::Bool(b) = self else {
+            unreachable!()
+        };
         Ok(*b)
     }
 
-    pub(crate) fn insert_subvalue(&mut self, path: &[String], value: Variable) -> Result<(), String> {
+    pub(crate) fn insert_subvalue(
+        &mut self,
+        path: &[String],
+        value: Variable,
+    ) -> Result<(), String> {
         todo!()
     }
 

@@ -53,19 +53,13 @@ impl<T, E> Expect2<T> for Result<T, E> {
 }
 
 pub fn pointee<'a, R>(p: usize) -> &'a R {
-    unsafe {
-        (p as *const R).as_ref().unwrap()
-    }
+    unsafe { (p as *const R).as_ref().unwrap() }
 }
 
 pub fn pointee_mut<'a, R>(p: usize) -> &'a mut R {
-    unsafe {
-        (p as *mut R).as_mut().unwrap()
-    }
+    unsafe { (p as *mut R).as_mut().unwrap() }
 }
 
 pub fn pointer<T>(t: &T) -> usize {
-    unsafe {
-        (t as *const T as usize)
-    }
+    unsafe { (t as *const T as usize) }
 }

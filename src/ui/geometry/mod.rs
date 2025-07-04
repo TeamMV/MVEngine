@@ -3,9 +3,9 @@ pub mod modifier;
 pub mod polygon;
 pub mod shape;
 
-use mvutils::Savable;
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
+use mvutils::Savable;
 
 #[derive(Clone, PartialEq, Debug, Savable)]
 pub struct SimpleRect {
@@ -234,7 +234,7 @@ impl Rect {
         t.rotation = self.rotation.to_radians();
         t
     }
-    
+
     pub fn set_transform(&mut self, transform: Transform) {
         self.origin = transform.origin.as_i32_tuple();
         self.rotation = transform.rotation;
@@ -260,7 +260,11 @@ impl Rect {
         self.y = pos.y as i32;
         self.width = (self.width as f32 * x_scale) as i32;
         self.height = (self.height as f32 * y_scale) as i32;
-        let or = geom::remap_point(Vec2::new(self.origin.0 as f32, self.origin.1 as f32), source, target);
+        let or = geom::remap_point(
+            Vec2::new(self.origin.0 as f32, self.origin.1 as f32),
+            source,
+            target,
+        );
         self.origin = or.as_i32_tuple();
     }
 }

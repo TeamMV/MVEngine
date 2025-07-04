@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use crate::utils::F0To1;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use mvutils::utils::Time;
 use parking_lot::RwLock;
-use crate::utils::F0To1;
+use std::sync::Arc;
 
 #[repr(transparent)]
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -15,7 +15,7 @@ type Task = Arc<RwLock<dyn ScheduleTask + 'static>>;
 pub struct TaskHandle<'a> {
     id: TaskId,
     task: Task,
-    map: &'a mut HashMap<u64, Task, U64IdentityHasher>
+    map: &'a mut HashMap<u64, Task, U64IdentityHasher>,
 }
 
 impl TaskHandle<'_> {
@@ -79,7 +79,9 @@ impl Scheduler {
                 self.tasks.remove(&task.0);
             }
             state.run
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn progress(&self, task: TaskId) -> F0To1 {
@@ -103,7 +105,7 @@ impl TaskState {
             keep: false,
         }
     }
-    
+
     pub fn remove() -> Self {
         Self {
             run: false,
@@ -134,7 +136,7 @@ pub trait ScheduleTask {
 pub struct DelayedTask {
     start: u64,
     delay: u64,
-    pg: F0To1
+    pg: F0To1,
 }
 
 impl DelayedTask {
@@ -170,7 +172,7 @@ impl ScheduleTask for DelayedTask {
 pub struct RepeatTask {
     times: i32,
     n: i32,
-    pg: F0To1
+    pg: F0To1,
 }
 
 impl RepeatTask {
@@ -181,7 +183,7 @@ impl RepeatTask {
             pg: 0.0,
         }
     }
-    
+
     pub fn forever() -> Self {
         Self::new(-1)
     }
@@ -215,7 +217,7 @@ pub struct PeriodicTask {
     start: u64,
     times: i32,
     n: i32,
-    pg: F0To1
+    pg: F0To1,
 }
 
 impl PeriodicTask {
@@ -228,7 +230,7 @@ impl PeriodicTask {
             pg: 0.0,
         }
     }
-    
+
     pub fn forever(period_ms: u64) -> Self {
         Self::new(period_ms, -1)
     }

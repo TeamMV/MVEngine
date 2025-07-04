@@ -10,7 +10,7 @@ pub struct RenderController {
     default_shader: GLuint,
     batches: Vec<RenderBatch>,
     batch_index: usize,
-    z: f32
+    z: f32,
 }
 
 impl RenderController {
@@ -52,8 +52,14 @@ impl RenderController {
             }
         }
     }
-    
-    pub fn push_raw<F: Fn(&mut InputVertex)>(&mut self, vertices: &[InputVertex], indices: &[usize], has_tex: bool, modifier: Option<F>) {
+
+    pub fn push_raw<F: Fn(&mut InputVertex)>(
+        &mut self,
+        vertices: &[InputVertex],
+        indices: &[usize],
+        has_tex: bool,
+        modifier: Option<F>,
+    ) {
         unsafe {
             let current = &mut self.batches[self.batch_index];
             if current.can_hold_vertices(vertices, has_tex) {
@@ -66,7 +72,7 @@ impl RenderController {
             }
         }
     }
-    
+
     pub fn request_new_z(&mut self) -> f32 {
         self.z -= 0.001;
         self.z

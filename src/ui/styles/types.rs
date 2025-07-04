@@ -1,6 +1,6 @@
 use crate::ui::elements::UiElementStub;
-use crate::ui::styles::interpolate::Interpolator;
 use crate::ui::styles::UiStyle;
+use crate::ui::styles::interpolate::Interpolator;
 use num_traits::Num;
 use std::cmp::Ordering;
 use std::fmt::Debug;

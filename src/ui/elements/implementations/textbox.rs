@@ -1,22 +1,22 @@
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::RawInput;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::rendering::RenderContext;
 use crate::ui::attributes::{Attributes, UiState};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::edittext::EditableTextHelper;
-use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::components::boring::BoringText;
+use crate::ui::elements::components::edittext::EditableTextHelper;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
-use crate::ui::styles::types::Dimension;
+use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::UiStyle;
+use crate::ui::styles::types::Dimension;
 use mvutils::enum_val_ref_mut;
 use mvutils::state::State;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
-use crate::rendering::RenderContext;
-use crate::ui::rendering::UiRenderer;
 
 #[derive(Clone)]
 pub struct TextBox {
@@ -42,7 +42,7 @@ impl TextBox {
     pub fn placeholder(&self) -> UiState {
         self.placeholder.clone()
     }
-    
+
     pub fn focus_now(&mut self) {
         self.focused = true;
     }
@@ -74,8 +74,13 @@ impl UiElementCallbacks for TextBox {
             if self.focused {
                 self.helper.draw(this, ctx, &self.context);
             }
-            self.text_body
-                .draw(&s[self.helper.view_range.clone()], this, ctx, &self.context, crop_area);
+            self.text_body.draw(
+                &s[self.helper.view_range.clone()],
+                this,
+                ctx,
+                &self.context,
+                crop_area,
+            );
         }
     }
 

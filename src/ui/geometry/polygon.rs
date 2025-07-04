@@ -1,7 +1,7 @@
 use crate::math::vec::Vec2;
+use crate::ui::geometry::SimpleRect;
 use crate::ui::geometry::geom;
 use crate::ui::geometry::shape::Shape;
-use crate::ui::geometry::SimpleRect;
 use hashbrown::HashMap;
 use itertools::Itertools;
 use std::fmt::{Debug, Formatter, Write};

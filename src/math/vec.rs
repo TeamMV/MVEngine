@@ -1,6 +1,6 @@
+use mvutils::Savable;
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::unsafe_utils::Unsafe;
-use mvutils::Savable;
 use std::fmt::{Debug, Formatter, Write};
 use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
 use std::simd::f32x4;
@@ -37,13 +37,13 @@ impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
-    
+
     pub fn from_i32s(tuple: (i32, i32)) -> Self {
         Self {
             x: tuple.0 as f32,
             y: tuple.1 as f32,
         }
-}
+    }
 
     pub fn splat(val: f32) -> Self {
         Self { x: val, y: val }

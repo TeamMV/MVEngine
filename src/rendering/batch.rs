@@ -1,7 +1,7 @@
 use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{PrimitiveRenderer, Quad, InputVertex, Vertex, Triangle};
+use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Triangle, Vertex};
 use crate::window::Window;
 use gl::types::GLuint;
 
@@ -121,14 +121,19 @@ impl RenderBatch {
         self.vertex_index += 4;
     }
 
-    pub fn push_raw<F: Fn(&mut InputVertex)>(&mut self, vertices: &[InputVertex], indices: &[usize], modifier: Option<F>) {
+    pub fn push_raw<F: Fn(&mut InputVertex)>(
+        &mut self,
+        vertices: &[InputVertex],
+        indices: &[usize],
+        modifier: Option<F>,
+    ) {
         for mut vertex in vertices.to_vec() {
             if let Some(ref modify) = modifier {
                 modify(&mut vertex);
             }
-            
+
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
-            
+
             if r_vertex.has_texture > 0.0 {
                 let req_id = vertex.texture;
                 if let Some(idx) = self.texture_data.iter().position(|id| *id == req_id) {
@@ -139,7 +144,7 @@ impl RenderBatch {
                     self.texture_index += 1;
                 }
             }
-            
+
             unsafe {
                 let src_ptr = &r_vertex as *const Vertex as *const u8;
                 let dst_ptr = self.vertex_data.as_mut_ptr().add(self.vertex_data_index) as *mut u8;
@@ -149,13 +154,13 @@ impl RenderBatch {
                 self.vertex_data_index += VERTEX_SIZE_BYTES;
             }
         }
-        
+
         let base_index = self.vertex_index as u32;
         for &i in indices {
             self.index_data[self.index_index] = base_index + i as u32;
             self.index_index += 1;
         }
-        
+
         self.triangle_index += indices.len() / 3;
         self.vertex_index += vertices.len();
     }
@@ -209,13 +214,13 @@ impl RenderBatch {
 
         true
     }
-    
+
     pub fn can_hold_vertices(&self, vertices: &[InputVertex], has_tex: bool) -> bool {
         let len = vertices.len();
-        if self.vertex_index + len > BATCH_VERTEX_AMOUNT { 
+        if self.vertex_index + len > BATCH_VERTEX_AMOUNT {
             return false;
         }
-        
+
         if !has_tex {
             return true;
         }

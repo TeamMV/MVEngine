@@ -1,4 +1,4 @@
-use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
+use crate::net::{DisconnectReason, ReadPacketError, try_read_packet};
 use bytebuffer::{ByteBuffer, Endian};
 use crossbeam_channel::Sender;
 use hashbrown::HashMap;

@@ -1,5 +1,5 @@
 use std::f32::consts::FRAC_PI_2;
-use std::simd::{f32x16, f32x4};
+use std::simd::{f32x4, f32x16};
 
 use crate::math::quat::Quat;
 use crate::math::vec::{Vec2, Vec3, Vec4};

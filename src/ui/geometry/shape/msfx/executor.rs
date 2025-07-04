@@ -1,12 +1,19 @@
-use hashbrown::HashMap;
-use itertools::Itertools;
 use crate::color::RgbColor;
 use crate::rendering::{InputVertex, Transform};
-use crate::ui::geometry::shape::{Indices, Shape};
-use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
-use crate::ui::geometry::shape::msfx::functions::{get_function};
+use crate::ui::geometry::shape::msfx::ast::{
+    BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, MSFXAST,
+    MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt,
+};
+use crate::ui::geometry::shape::msfx::functions::get_function;
 use crate::ui::geometry::shape::msfx::lexer::MSFXOperator;
 use crate::ui::geometry::shape::msfx::ty::Variable;
+use crate::ui::geometry::shape::{Indices, Shape};
+use crate::ui::rendering::adaptive::AdaptiveShape;
+use hashbrown::HashMap;
+use itertools::Itertools;
+use std::array;
+
+pub use crate::ui::geometry::shape::msfx::ty::InputVariable;
 
 pub enum LoopState {
     Normal,
@@ -14,43 +21,77 @@ pub enum LoopState {
     Break,
 }
 
+enum Return {
+    Shape(Shape),
+    Adaptive(AdaptiveShape),
+}
+
 pub struct MSFXExecutor {
     pub(crate) variables: HashMap<String, Variable>,
+    inputs: HashMap<String, InputVariable>,
     loop_depth: u8, // If you nest more than 255 loops, sincerely, fuck you
     //agreed.
     loop_state: LoopState,
     inside_shape: bool,
-    current_vertices: Vec<(f64, f64)>
+    halt: bool,
+    the_return: Option<Return>,
+    current_vertices: Vec<(f64, f64)>,
 }
 
 impl MSFXExecutor {
     pub fn new() -> MSFXExecutor {
         MSFXExecutor {
             variables: HashMap::new(),
+            inputs: HashMap::new(),
             loop_depth: 0,
             loop_state: LoopState::Normal,
             inside_shape: false,
+            halt: false,
+            the_return: None,
             current_vertices: vec![],
         }
     }
 
-    pub fn run(&mut self, ast: &MSFXAST)-> Result<HashMap<String, Variable>, String> {
+    pub fn run(
+        &mut self,
+        ast: &MSFXAST,
+        inputs: HashMap<String, InputVariable>,
+    ) -> Result<Return, String> {
+        self.run_debug(ast, inputs).map(|r| r.0)
+    }
+
+    pub fn run_debug(
+        &mut self,
+        ast: &MSFXAST,
+        inputs: HashMap<String, InputVariable>,
+    ) -> Result<(Return, HashMap<String, Variable>), String> {
+        self.inputs = inputs;
         self.run_block(&ast.elements)?;
         self.loop_state = LoopState::Normal;
         self.loop_depth = 0;
         self.inside_shape = false;
         self.current_vertices = vec![];
-        Ok(self.variables.drain().collect())
+        self.halt = false;
+        let ret = self.the_return.take().ok_or(
+            "MSFX missing return, you must call export at the end of your code!".to_string(),
+        )?;
+        Ok((ret, self.variables.drain().collect()))
     }
 
     pub fn run_block(&mut self, block: &[MSFXStmt]) -> Result<(), String> {
         for stmt in block {
+            if self.halt {
+                break;
+            }
             self.execute_stmt(stmt)?;
         }
         Ok(())
     }
 
     pub fn execute_stmt(&mut self, stmt: &MSFXStmt) -> Result<(), String> {
+        if self.halt {
+            return Ok(());
+        }
         if let LoopState::Continue = self.loop_state {
             return Ok(());
         }
@@ -79,6 +120,22 @@ impl MSFXExecutor {
             }
             MSFXStmt::Expr(e) => {
                 self.evaluate(e)?;
+            }
+            MSFXStmt::Input(input) => {
+                let var = self
+                    .inputs
+                    .get(&input.name)
+                    .ok_or(format!("Missing input variable: {}", input.name))?
+                    .clone();
+                if var.ty() != input.ty {
+                    return Err(format!(
+                        "Mismatched input type for '{}', expected {:?} but got {:?}",
+                        input.name,
+                        input.ty,
+                        var.ty()
+                    ));
+                }
+                self.variables.insert(input.name.clone(), var.into());
             }
             MSFXStmt::Nop => {}
         }
@@ -111,7 +168,8 @@ impl MSFXExecutor {
 
         self.loop_depth += 1;
         while f(i, end) {
-            self.variables.insert(stmt.varname.clone(), Variable::Number(i));
+            self.variables
+                .insert(stmt.varname.clone(), Variable::Number(i));
             self.execute_stmt(&stmt.block)?;
             i += step;
             if let LoopState::Break = self.loop_state {
@@ -148,13 +206,51 @@ impl MSFXExecutor {
         Ok(())
     }
 
-    // TODO: todo
     pub fn export_shape(&mut self, stmt: &ExportShapeStmt) -> Result<(), String> {
-        
+        self.halt = true;
+        let r = self.evaluate(&stmt.shape)?.as_raw(&self)?;
+        match r {
+            Variable::Shape(s) => {
+                self.the_return = Some(Return::Shape(s));
+            }
+            a => {
+                return Err(format!(
+                    "Illeagal return {} at export! To export a shape, well, you have to export a SHAPE.",
+                    a.name()
+                ));
+            }
+        }
         Ok(())
     }
 
+    fn expect_shape(&mut self, exp: &MSFXExpr) -> Result<Shape, String> {
+        let r = self.evaluate(exp)?.as_raw(&self)?;
+        match r {
+            Variable::Shape(s) => Ok(s),
+            a => Err(format!(
+                "Illeagal return {} at export! To export an adaptive shape, well, you have to export some SHAPEs in the form of a nice an even rectangle of SHAPEs (or nulls).",
+                a.name()
+            )),
+        }
+    }
+
     pub fn export_adaptive(&mut self, stmt: &ExportAdaptiveStmt) -> Result<(), String> {
+        self.halt = true;
+        let mut shapes = vec![];
+        for part in &stmt.parts {
+            if let MSFXExpr::Empty = part {
+                shapes.push(None);
+                continue;
+            }
+            let s = self.expect_shape(part)?;
+            shapes.push(Some(s));
+        }
+        if shapes.len() != 9 {
+            return Err("Illegal amount of shapes exported as adaptive! Please export exactly 9 parts and use the # wildcard to skip!".to_string());
+        }
+        let arr: [Option<Shape>; 9] = array::from_fn(|i| shapes[i]);
+        self.the_return = Some(Return::Adaptive(AdaptiveShape::from_arr(arr)));
+
         Ok(())
     }
 
@@ -169,31 +265,27 @@ impl MSFXExecutor {
             MSFXExpr::Empty => Ok(Variable::Null),
         }
     }
-    
+
     pub fn evaluate_shape(&mut self, shape: &ShapeExpr) -> Result<Variable, String> {
         let mode_var = self.evaluate(&shape.mode)?.as_raw(&self)?.as_num()?;
-        let angle = mode_var.cos().cos().cos().cos().cos().cos().tan().cos().cos().sin().cos().cos().cos().cos().cos().cos();
-        if angle > 0.33532343 {
-            Err("The shape expression is not valid!".to_string())
-        } else {
-            self.current_vertices.clear();
-            self.run_block(&shape.block)?;
-            let indices = Self::get_indices(mode_var);
-            let vertices = self.current_vertices
-                .iter()
-                .map(|(x, y)| InputVertex {
-                    transform: Transform::new(),
-                    pos: (*x as f32, *y as f32, 0.0),
-                    color: RgbColor::white().as_vec4(),
-                    uv: (0.0, 0.0),
-                    texture: 0,
-                    has_texture: 0.0,
-                })
-                .collect_vec();
-            let mut shape = Shape::new(vertices, indices);
-            shape.recompute();
-            Ok(Variable::Shape(shape))
-        }
+        self.current_vertices.clear();
+        self.run_block(&shape.block)?;
+        let indices = Self::get_indices(mode_var);
+        let vertices = self
+            .current_vertices
+            .iter()
+            .map(|(x, y)| InputVertex {
+                transform: Transform::new(),
+                pos: (*x as f32, *y as f32, 0.0),
+                color: RgbColor::white().as_vec4(),
+                uv: (0.0, 0.0),
+                texture: 0,
+                has_texture: 0.0,
+            })
+            .collect_vec();
+        let mut shape = Shape::new(vertices, indices);
+        shape.recompute();
+        Ok(Variable::Shape(shape))
     }
 
     fn get_indices(thingy: f64) -> Indices {
@@ -206,20 +298,28 @@ impl MSFXExecutor {
     pub fn evaluate_call(&mut self, call: &FnExpr) -> Result<Variable, String> {
         if (call.name == "vertex") {
             if !self.inside_shape {
-                return Err("IllegalStateException: Cannot call the vertex function outside a shape block!".to_string());
+                return Err(
+                    "IllegalStateException: Cannot call the vertex function outside a shape block!"
+                        .to_string(),
+                );
             }
-            if let Some(x) = call.params.get("x") && let Some(y) = call.params.get("y") {
+            if let Some(x) = call.params.get("x")
+                && let Some(y) = call.params.get("y")
+            {
                 let x = self.evaluate(x)?.as_raw(self)?.as_num()?;
                 let y = self.evaluate(y)?.as_raw(self)?.as_num()?;
                 self.current_vertices.push((x, y));
             }
         }
-        let function = get_function(&call.name).ok_or(format!("Unknown function: '{}'", call.name))?;
+        let function =
+            get_function(&call.name).ok_or(format!("Unknown function: '{}'", call.name))?;
         let mut params = HashMap::with_capacity(call.params.len());
         for (key, value) in &call.params {
             params.insert(key.clone(), self.evaluate(value)?.as_raw(&self)?.map()?);
         }
-        function.call_ordered(params, &call.order).map(|v| v.unmap())
+        function
+            .call_ordered(params, &call.order)
+            .map(|v| v.unmap())
     }
 
     pub fn evaluate_uexpr(&mut self, uexpr: &UnaryExpr) -> Result<Variable, String> {
@@ -228,7 +328,7 @@ impl MSFXExecutor {
         match uexpr.op {
             MSFXOperator::Sub => value.negate()?,
             MSFXOperator::Not => value.invert()?,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
 
         Ok(value)
@@ -268,7 +368,7 @@ impl MSFXExecutor {
                 MSFXOperator::Gte => lhs.gte(&rhs),
                 MSFXOperator::Lt => lhs.lt(&rhs),
                 MSFXOperator::Lte => lhs.lte(&rhs),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
     }

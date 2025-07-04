@@ -3,15 +3,15 @@ use crate::rendering::RenderContext;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
-use crate::ui::elements::components::scroll::ScrollBars;
 use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::components::scroll::ScrollBars;
 use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
+use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::UiStyle;
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
-use crate::ui::rendering::UiRenderer;
 
 #[derive(Clone)]
 pub struct Div {
@@ -34,7 +34,14 @@ impl UiElementCallbacks for Div {
                 Child::String(_) => {}
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx, &this.state.content_rect.bounding.create_intersection(crop_area));
+                    guard.draw(
+                        ctx,
+                        &this
+                            .state
+                            .content_rect
+                            .bounding
+                            .create_intersection(crop_area),
+                    );
                 }
                 Child::State(_) => {}
                 _ => {}
@@ -59,7 +66,7 @@ impl UiElementCallbacks for Div {
         if self.super_input(action.clone(), input) {
             return true;
         }
-        
+
         false
     }
 }

@@ -1,8 +1,8 @@
 use crate::color::RgbColor;
+use crate::graphics::Drawable;
 use crate::graphics::animation::GlobalAnimation;
 use crate::graphics::comp::CompositeSprite;
 use crate::graphics::tileset::TileSet;
-use crate::graphics::Drawable;
 use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
 use crate::rendering::texture::{NoCtxTexture, Texture};

@@ -1,15 +1,19 @@
-use crate::rendering::text::Font;
 use crate::rendering::RenderContext;
+use crate::rendering::text::Font;
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::SimpleRect;
 
 #[derive(Clone)]
-pub struct TextBody {
-
-}
+pub struct TextBody {}
 
 impl TextBody {
-    pub fn draw<E: UiElementStub + 'static>(&self, elem: &mut E, s: &str, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
+    pub fn draw<E: UiElementStub + 'static>(
+        &self,
+        elem: &mut E,
+        s: &str,
+        ctx: &mut impl RenderContext,
+        crop_area: &SimpleRect,
+    ) {
         //TODO
     }
 

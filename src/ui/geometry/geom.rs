@@ -1,7 +1,7 @@
 use crate::math::vec::Vec2;
+use crate::ui::geometry::SimpleRect;
 use std::cmp::Ordering;
 use std::f32::consts::{FRAC_1_PI, FRAC_2_PI, PI, TAU};
-use crate::ui::geometry::SimpleRect;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // This module is a collection of useful math stuff from math websites without css or stackoverflow //
@@ -183,7 +183,10 @@ pub fn normalize(v: Vec2) -> Vec2 {
     if len == 0.0 {
         v
     } else {
-        Vec2 { x: v.x / len, y: v.y / len }
+        Vec2 {
+            x: v.x / len,
+            y: v.y / len,
+        }
     }
 }
 
@@ -192,19 +195,31 @@ pub fn perpendicular(v: Vec2) -> Vec2 {
 }
 
 pub fn add(a: Vec2, b: Vec2) -> Vec2 {
-    Vec2 { x: a.x + b.x, y: a.y + b.y }
+    Vec2 {
+        x: a.x + b.x,
+        y: a.y + b.y,
+    }
 }
 
 pub fn sub(a: Vec2, b: Vec2) -> Vec2 {
-    Vec2 { x: a.x - b.x, y: a.y - b.y }
+    Vec2 {
+        x: a.x - b.x,
+        y: a.y - b.y,
+    }
 }
 
 pub fn scale(v: Vec2, factor: f32) -> Vec2 {
-    Vec2 { x: v.x * factor, y: v.y * factor }
+    Vec2 {
+        x: v.x * factor,
+        y: v.y * factor,
+    }
 }
 
 pub fn scale_xy(v: Vec2, x: f32, y: f32) -> Vec2 {
-    Vec2 { x: v.x * x, y: v.y * y }
+    Vec2 {
+        x: v.x * x,
+        y: v.y * y,
+    }
 }
 
 pub fn remap_point(pt: Vec2, from: &SimpleRect, to: &SimpleRect) -> Vec2 {
@@ -228,7 +243,7 @@ pub fn angle_between_points(a: Vec2, b: Vec2) -> f32 {
 
 pub fn vector_angle(v: Vec2) -> f32 {
     let angle = v.y.atan2(v.x) - std::f32::consts::FRAC_PI_2;
-    
+
     (angle + TAU) % TAU
 }
 
@@ -243,8 +258,5 @@ pub fn rotate_vector(v: Vec2, angle: f32) -> Vec2 {
 }
 
 pub fn invert(v: Vec2) -> Vec2 {
-    Vec2 {
-        x: -v.x,
-        y: -v.y,
-    }
+    Vec2 { x: -v.x, y: -v.y }
 }

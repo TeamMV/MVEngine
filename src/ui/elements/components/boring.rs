@@ -1,16 +1,19 @@
 use crate::color::RgbColor;
+use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
+use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, Quad, RenderContext, Transform};
 use crate::resolve;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
-use crate::ui::geometry::shape::{Indices, Shape, VertexStream};
-use crate::ui::geometry::SimpleRect;
+use crate::ui::geometry::shape::{Indices, Shape, VertexStream, shapes};
+use crate::ui::geometry::{SimpleRect, shape};
 use crate::ui::res::MVR;
+use crate::ui::styles::DEFAULT_STYLE;
+use crate::ui::styles::ResolveResult;
 use crate::ui::styles::enums::TextAlign;
 use crate::ui::styles::types::Dimension;
-use crate::ui::styles::ResolveResult;
-use crate::ui::styles::DEFAULT_STYLE;
+use std::convert::identity;
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -25,9 +28,18 @@ impl<E: UiElementStub> BoringText<E> {
         }
     }
 
-    pub fn draw(&self, text: &str, elem: &E, ctx: &mut impl RenderContext, context: &UiContext, crop_area: &SimpleRect) {
-        let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
-        let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
+    pub fn draw(
+        &self,
+        text: &str,
+        elem: &E,
+        ctx: &mut impl RenderContext,
+        context: &UiContext,
+        crop: &SimpleRect,
+    ) {
+        let text_align_x =
+            resolve!(elem, text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
+        let text_align_y =
+            resolve!(elem, text.align_y).unwrap_or_default(&DEFAULT_STYLE.text.align_y);
         let font = resolve!(elem, text.font);
         let font = font.unwrap_or(MVR.font.default);
         if let Some(font) = context.resources.resolve_font(font) {
@@ -38,89 +50,80 @@ impl<E: UiElementStub> BoringText<E> {
             let stretch =
                 resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
             let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
-            let mut shape = Self::create_shape(text, color, size, kerning, stretch, skew, font);
+
+            let ssize = size * stretch.height;
+
             let state = elem.state();
 
-            let w = shape.extent.width;
-            let h = shape.extent.height;
+            let mut x = state.content_rect.x() as f32;
+            let y = state.content_rect.y() as f32;
+            for c in text.chars() {
+                let data = font.get_char_data(c, ssize);
+                let ssize = data.size;
+                let cwidth = data.width * stretch.width;
 
-            let text_x = match text_align_x {
-                TextAlign::Start => state.content_rect.x(),
-                TextAlign::Middle => {
-                    state.content_rect.x() + state.content_rect.width() / 2 - w / 2
-                }
-                TextAlign::End => state.content_rect.x() + state.content_rect.width() - w,
-            };
+                let y = y + data.y_off;
 
-            let text_y = match text_align_y {
-                TextAlign::Start => state.content_rect.y(),
-                TextAlign::Middle => {
-                    state.content_rect.y() + state.content_rect.height() / 2 - h / 2
-                }
-                TextAlign::End => state.content_rect.y() + state.content_rect.height() - h,
-            };
-            
-            shape.draw(ctx, |v| {
-                v.transform.translation.x = text_x as f32;
-                v.transform.translation.y = text_y as f32;
-            })
-        }
-    }
+                let bl = shapes::vertex3(
+                    x - skew,
+                    y,
+                    font.texture().id,
+                    (data.uv.x, 1.0 - (data.uv.y + data.uv.w)),
+                );
+                let tl = shapes::vertex3(
+                    x + skew,
+                    y + ssize,
+                    font.texture().id,
+                    (data.uv.x, 1.0 - data.uv.y),
+                );
+                let tr = shapes::vertex3(
+                    x + skew + cwidth,
+                    y + ssize,
+                    font.texture().id,
+                    (data.uv.x + data.uv.z, 1.0 - data.uv.y),
+                );
+                let br = shapes::vertex3(
+                    x - skew + cwidth,
+                    y,
+                    font.texture().id,
+                    (data.uv.x + data.uv.z, 1.0 - (data.uv.y + data.uv.w)),
+                );
 
-    pub fn create_shape(
-        s: &str,
-        color: RgbColor,
-        size: f32,
-        kerning: f32,
-        stretch: Dimension<f32>,
-        skew: f32,
-        font: &Font,
-    ) -> Shape {
-        let size = size * stretch.height;
-        let width = font.get_width(s, size);
-        let l = s.len() as f32 - 1f32;
-        let width = width * stretch.width + skew * 2f32 + kerning * l;
+                let mut shape = Shape::new(vec![tl, bl, tr, br], Indices::TriangleStrip);
+                shape.recompute();
+                let area = &shape.extent;
+                shape.draw(ctx, |v| {
+                    v.has_texture = 2.0;
+                    v.color = color.as_vec4();
+                    v.pos.0 = v.pos.0.clamp(crop.x as f32, (crop.x + crop.width) as f32);
+                    v.pos.1 = v.pos.1.clamp(crop.y as f32, (crop.y + crop.height) as f32);
 
-        let mut triangles = vec![];
-        let mut x = 0f32;
-        let space_advance = font.get_space_advance(size);
-        let mut height = 0;
-        for c in s.chars() {
-            if c == '\t' {
-                x += 6.0 + space_advance;
-                continue;
-            } else if c == ' ' {
-                x += space_advance;
-                continue;
-            } else if c == '\n' {
-                continue;
+                    //custom uv crop code cuz the uv for text is weird
+                    if v.has_texture >= 1.0 {
+                        let x_ratio = if area.width > 0 {
+                            (v.pos.0 - area.x as f32) / area.width as f32
+                        } else {
+                            0.0
+                        };
+
+                        let y_ratio = if area.height > 0 {
+                            (v.pos.1 - area.y as f32) / area.height as f32
+                        } else {
+                            0.0
+                        };
+
+                        let uv_x1 = data.uv.x;
+                        let uv_x2 = data.uv.x + data.uv.z;
+                        let uv_y1 = 1.0 - (data.uv.y + data.uv.w);
+                        let uv_y2 = 1.0 - data.uv.y;
+
+                        v.uv.0 = uv_x1 + x_ratio * (uv_x2 - uv_x1);
+                        v.uv.1 = uv_y1 + y_ratio * (uv_y2 - uv_y1);
+                    }
+                });
+
+                x += cwidth + kerning + 2.0 * skew;
             }
-            let data = font.get_char_data(c, size);
-            let vertex = InputVertex {
-                transform: Transform::new(),
-                pos: (x, 0.0, f32::INFINITY),
-                color: color.as_vec4(),
-                uv: (0.0, 0.0),
-                texture: font.texture().id,
-                has_texture: 2.0,
-            };
-            let mut quad = Quad::from_corner(
-                vertex,
-                data.uv,
-                (data.width * stretch.width, data.size),
-                |vertex, (x, y)| vertex.pos = (x, y + data.y_off, vertex.pos.2),
-            );
-            height = height.max(data.size as i32);
-            quad.points[0].transform.translation.x -= skew;
-            quad.points[2].transform.translation.x += skew;
-            triangles.extend(quad.points);
-            x += data.width * stretch.width + kerning + skew * 2f32;
         }
-        //This could be made way more efficiently but for the boring text it doesnt really matter tbh
-        Shape::new_with_extent(
-            triangles,
-            Indices::Triangles,
-            SimpleRect::new(0, 0, width as i32, (height as f32 * stretch.height) as i32),
-        )
     }
 }

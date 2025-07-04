@@ -1,12 +1,15 @@
-use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, ExportTarget, FnExpr, ForStmt, IfStmt, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, MSFXAST};
+use crate::ui::geometry::shape::msfx::ast::{
+    BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, InputStmt,
+    MSFXAST, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt,
+};
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXLexer, MSFXOperator, MSFXToken};
+use crate::ui::geometry::shape::msfx::ty::MSFXType;
 use hashbrown::HashMap;
 use mvutils::utils::TetrahedronOp;
 
 pub struct MSFXParser<'a> {
-    lexer: MSFXLexer<'a>
+    lexer: MSFXLexer<'a>,
 }
-
 
 impl<'a> MSFXParser<'a> {
     pub fn parse(expr: &'a str) -> Result<MSFXAST, String> {
@@ -22,9 +25,7 @@ impl<'a> MSFXParser<'a> {
             next = this.lexer.next();
         }
 
-        Ok(MSFXAST {
-            elements: stmts,
-        })
+        Ok(MSFXAST { elements: stmts })
     }
 
     fn parse_stmt(&mut self) -> Result<MSFXStmt, String> {
@@ -42,7 +43,8 @@ impl<'a> MSFXParser<'a> {
             }
             MSFXToken::Keyword(MSFXKeyword::Let) => {
                 let name = self.lexer.next_ident()?;
-                self.lexer.next_token(MSFXToken::Operator(MSFXOperator::Assign))?;
+                self.lexer
+                    .next_token(MSFXToken::Operator(MSFXOperator::Assign))?;
                 let maybe_begin = self.lexer.next();
                 if matches!(maybe_begin, MSFXToken::Keyword(MSFXKeyword::Begin)) {
                     let (arguments, _) = self.parse_arguments()?;
@@ -66,10 +68,7 @@ impl<'a> MSFXParser<'a> {
                     self.lexer.putback(maybe_begin);
                     let expr = self.parse_expression()?;
                     self.lexer.next_token(MSFXToken::Semicolon)?;
-                    Ok(MSFXStmt::Let(DeclStmt {
-                        name,
-                        expr,
-                    }))
+                    Ok(MSFXStmt::Let(DeclStmt { name, expr }))
                 }
             }
             MSFXToken::Ident(name) if self.will_assign() => {
@@ -83,7 +82,7 @@ impl<'a> MSFXParser<'a> {
                         lhs: Box::new(MSFXExpr::Ident(name.clone())),
                         rhs: Box::new(expr),
                     }),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 Ok(MSFXStmt::Assign(DeclStmt {
                     name,
@@ -100,7 +99,10 @@ impl<'a> MSFXParser<'a> {
                 self.lexer.next_token(MSFXToken::LBrack)?;
                 let (args, _) = self.parse_arguments()?;
                 let start = args.get("start").cloned().unwrap_or(MSFXExpr::Literal(0.0));
-                let end = args.get("end").cloned().ok_or("The begin[] call requires an 'end' field!")?;
+                let end = args
+                    .get("end")
+                    .cloned()
+                    .ok_or("The begin[] call requires an 'end' field!")?;
                 let step = args.get("step").cloned().unwrap_or(MSFXExpr::Literal(1.0));
                 let block = self.parse_stmt()?;
                 Ok(MSFXStmt::For(ForStmt {
@@ -110,7 +112,7 @@ impl<'a> MSFXParser<'a> {
                     step,
                     block: Box::new(block),
                 }))
-            },
+            }
             MSFXToken::Keyword(MSFXKeyword::While) => {
                 let expr = self.parse_expression()?;
                 let stmt = self.parse_stmt()?;
@@ -142,19 +144,15 @@ impl<'a> MSFXParser<'a> {
                         self.lexer.next_token(MSFXToken::Colon)?;
 
                         macro_rules! parse_part {
-                            () => {
-                                {
-                                    let exp = self.parse_expression()?;
-                                    self.lexer.next_token(MSFXToken::Comma)?;
-                                    exp
-                                }
-                            };
-                            ($dummy:expr) => {
-                                {
-                                    let exp = self.parse_expression()?;
-                                    exp
-                                }
-                            };
+                            () => {{
+                                let exp = self.parse_expression()?;
+                                self.lexer.next_token(MSFXToken::Comma)?;
+                                exp
+                            }};
+                            ($dummy:expr) => {{
+                                let exp = self.parse_expression()?;
+                                exp
+                            }};
                         }
 
                         let parts: [MSFXExpr; 9] = [
@@ -169,34 +167,12 @@ impl<'a> MSFXParser<'a> {
                             parse_part!(false),
                         ];
                         self.lexer.next_token(MSFXToken::Semicolon)?;
-                        Ok(MSFXStmt::ExportAdaptive(ExportAdaptiveStmt {
-                            parts,
-                        }))
-                    },
+                        Ok(MSFXStmt::ExportAdaptive(ExportAdaptiveStmt { parts }))
+                    }
                     t => {
                         self.lexer.putback(t);
                         let expr = self.parse_expression()?;
-                        let maybe_as = self.lexer.next();
-                        if matches!(maybe_as, MSFXToken::Keyword(MSFXKeyword::As)) {
-                            let next_keyword = self.lexer.next();
-                            if let MSFXToken::Keyword(keyword) = next_keyword {
-                                let target = ExportTarget::from_keyword(keyword)?;
-                                self.lexer.next_token(MSFXToken::Semicolon)?;
-                                Ok(MSFXStmt::ExportShape(ExportShapeStmt {
-                                    target,
-                                    shape: expr,
-                                }))
-                            } else {
-                                Err("Shape `export as` expected keyword".to_string())
-                            }
-                        } else {
-                            self.lexer.putback(maybe_as);
-                            self.lexer.next_token(MSFXToken::Semicolon)?;
-                            Ok(MSFXStmt::ExportShape(ExportShapeStmt {
-                                target: ExportTarget::All,
-                                shape: expr,
-                            }))
-                        }
+                        Ok(MSFXStmt::ExportShape(ExportShapeStmt { shape: expr }))
                     }
                 }
             }
@@ -207,6 +183,32 @@ impl<'a> MSFXParser<'a> {
             MSFXToken::Keyword(MSFXKeyword::Continue) => {
                 self.lexer.next_token(MSFXToken::Semicolon)?;
                 Ok(MSFXStmt::Continue)
+            }
+            MSFXToken::Keyword(MSFXKeyword::Input) => {
+                let name = self.lexer.next_ident()?;
+                self.lexer.next_token(MSFXToken::Colon)?;
+                let ty = self.lexer.next();
+                let ty = match ty {
+                    MSFXToken::Keyword(k) => match k {
+                        MSFXKeyword::Bool => MSFXType::Bool,
+                        MSFXKeyword::Number => MSFXType::Number,
+                        MSFXKeyword::Vec2 => MSFXType::Vec2,
+                        k => {
+                            return Err(format!(
+                                "Unexpected token, expected type name, found {:?}",
+                                k
+                            ));
+                        }
+                    },
+                    t => {
+                        return Err(format!(
+                            "Unexpected token, expected type name, found {:?}",
+                            t
+                        ));
+                    }
+                };
+                self.lexer.next_token(MSFXToken::Semicolon)?;
+                Ok(MSFXStmt::Input(InputStmt { name, ty }))
             }
             tkn => {
                 self.lexer.putback(tkn);
@@ -219,7 +221,10 @@ impl<'a> MSFXParser<'a> {
 
     fn will_assign(&mut self) -> bool {
         let token = self.lexer.next();
-        let will_assign = matches!(token, MSFXToken::Operator(MSFXOperator::Assign) | MSFXToken::OperatorAssign(_));
+        let will_assign = matches!(
+            token,
+            MSFXToken::Operator(MSFXOperator::Assign) | MSFXToken::OperatorAssign(_)
+        );
         self.lexer.putback(token);
         will_assign
     }
@@ -227,7 +232,7 @@ impl<'a> MSFXParser<'a> {
     fn parse_expression(&mut self) -> Result<MSFXExpr, String> {
         self.parse_expression_with_precedence(0)
     }
-    
+
     fn parse_expression_with_precedence(&mut self, min_precedence: u8) -> Result<MSFXExpr, String> {
         let mut lhs = self.parse_primary_expression()?;
         let mut token = self.lexer.next();
@@ -254,7 +259,7 @@ impl<'a> MSFXParser<'a> {
                 rhs = MSFXExpr::Binary(BinaryExpr {
                     lhs: Box::new(rhs),
                     op: inner_op,
-                    rhs: Box::new(extra)
+                    rhs: Box::new(extra),
                 });
                 inner_token = self.lexer.next();
             }
@@ -266,7 +271,7 @@ impl<'a> MSFXParser<'a> {
                     rhs: Box::new(MSFXExpr::Binary(BinaryExpr {
                         lhs: Box::new(lhs),
                         op,
-                        rhs: Box::new(rhs)
+                        rhs: Box::new(rhs),
                     })),
                 });
                 token = self.lexer.next();
@@ -275,7 +280,7 @@ impl<'a> MSFXParser<'a> {
                 lhs = MSFXExpr::Binary(BinaryExpr {
                     lhs: Box::new(lhs),
                     op,
-                    rhs: Box::new(rhs)
+                    rhs: Box::new(rhs),
                 });
             }
             token = self.lexer.next();
@@ -292,7 +297,7 @@ impl<'a> MSFXParser<'a> {
                 let operand = self.parse_expression()?;
                 Ok(MSFXExpr::Unary(UnaryExpr {
                     op,
-                    inner: Box::new(operand)
+                    inner: Box::new(operand),
                 }))
             }
             MSFXToken::Ident(name) => {
@@ -303,7 +308,7 @@ impl<'a> MSFXParser<'a> {
                         Ok(MSFXExpr::Call(FnExpr {
                             name,
                             params: arguments,
-                            order
+                            order,
                         }))
                     }
                     _ => {
@@ -319,7 +324,10 @@ impl<'a> MSFXParser<'a> {
             }
             MSFXToken::Literal(literal) => Ok(MSFXExpr::Literal(literal)),
             MSFXToken::Hashtag => Ok(MSFXExpr::Empty),
-            _ => Err(format!("Expression: Unexpected token, expected Identifier, Literal, UnaryOperator or '(', found {:?}", token)),
+            _ => Err(format!(
+                "Expression: Unexpected token, expected Identifier, Literal, UnaryOperator or '(', found {:?}",
+                token
+            )),
         }
     }
 
@@ -354,7 +362,10 @@ impl<'a> MSFXParser<'a> {
                     let exp = self.parse_expression()?;
                     order.push("_".to_string());
                     if map.insert("_".to_string(), exp).is_some() {
-                        return Err("Passing more than one unnamed argument to a function is not allowed".to_string());
+                        return Err(
+                            "Passing more than one unnamed argument to a function is not allowed"
+                                .to_string(),
+                        );
                     }
                 }
 

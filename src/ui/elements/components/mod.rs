@@ -1,17 +1,21 @@
 // yeah fuck this shit I know my code will work safely (50% accuracy on that statement)
 #![allow(static_mut_refs)]
 
+pub mod boring;
 pub mod drag;
 pub mod edittext;
 pub mod scroll;
-pub mod boring;
 pub mod text;
 
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::rendering::RenderContext;
+use crate::ui::anim;
+use crate::ui::anim::UiAnim;
 use crate::ui::context::UiContext;
+use crate::ui::ease::{Easing, EasingGen, EasingMode};
 use crate::ui::elements::UiElementStub;
-use crate::ui::geometry::{shape, SimpleRect};
+use crate::ui::geometry::{SimpleRect, shape};
+use crate::ui::styles::UiStyle;
 use crate::ui::styles::interpolate::Interpolator;
 use mvutils::utils::Percentage;
 use std::ops::Deref;
@@ -24,8 +28,11 @@ enum State {
 
 #[derive(Clone)]
 pub struct ElementBody {
-    fade_time: u32,
+    fade_time: u64,
     hover_state: State,
+    hover_style: Option<UiStyle>,
+    init_style: Option<UiStyle>,
+    easing: Easing,
 }
 
 impl ElementBody {
@@ -33,6 +40,9 @@ impl ElementBody {
         Self {
             fade_time: 0,
             hover_state: State::Out,
+            hover_style: None,
+            init_style: None,
+            easing: anim::easing(EasingGen::linear(), EasingMode::InOut),
         }
     }
 
@@ -66,11 +76,18 @@ impl ElementBody {
     }
 
     fn start_animation_in<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        
+        if let Some(hover) = &self.hover_style {
+            self.init_style = elem.style().clone().into();
+            let state = elem.state_mut();
+            //state.animator.animate(UiAnim::new_simple(hover.clone(), self.easing.clone(), self.fade_time), elem.style());
+        }
     }
 
     fn start_animation_out<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        
+        if let Some(init) = &self.init_style {
+            let state = elem.state_mut();
+            //state.animator.animate(UiAnim::new_simple(init.clone(), self.easing.clone(), self.fade_time), elem.style());
+        }
     }
 
     pub fn draw<E: UiElementStub + 'static>(
@@ -82,7 +99,23 @@ impl ElementBody {
     ) {
         let rect = elem.state().rect.bounding.clone();
         let style = elem.style();
-        shape::utils::draw_shape_style_at(ctx, context, &rect, &style.background, elem, |s| &s.background, Some(crop_area.clone()));
-        shape::utils::draw_shape_style_at(ctx, context, &rect, &style.border, elem, |s| &s.border, Some(crop_area.clone()));
+        shape::utils::draw_shape_style_at(
+            ctx,
+            context,
+            &rect,
+            &style.background,
+            elem,
+            |s| &s.background,
+            Some(crop_area.clone()),
+        );
+        shape::utils::draw_shape_style_at(
+            ctx,
+            context,
+            &rect,
+            &style.border,
+            elem,
+            |s| &s.border,
+            Some(crop_area.clone()),
+        );
     }
 }

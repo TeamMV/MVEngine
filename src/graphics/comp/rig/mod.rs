@@ -3,37 +3,45 @@ use crate::graphics::comp::parse::rig::{BoneStart, Parsed, ParsedBone, ParsedPar
 use crate::math::vec::Vec2;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiResources;
-use crate::ui::geometry::{geom, Rect, SimpleRect};
+use crate::ui::geometry::shape::{VertexStream, shapes};
+use crate::ui::geometry::{Rect, SimpleRect, geom};
 use crate::ui::rendering::adaptive::AdaptiveFill;
 use crate::ui::res::MVR;
 use crate::utils::savers::SaveArc;
 use crate::window::Window;
 use hashbrown::HashMap;
 use itertools::Itertools;
-use mvutils::unsafe_utils::Unsafe;
 use mvutils::Savable;
+use mvutils::unsafe_utils::Unsafe;
 use parking_lot::RwLock;
 use std::fmt::{Debug, Formatter};
-use crate::ui::geometry::shape::{shapes, VertexStream};
 
 /// Yeah the savable will be broken as hell because each arc will have its own instance behind it
 #[derive(Clone, Savable)]
 pub struct Rig {
     pub root_bone: BoneRc,
-    pub skeleton: Skeleton
+    pub skeleton: Skeleton,
 }
 
 impl Rig {
     pub fn from_parsed(parsed_rig: ParsedRig) -> Result<Self, String> {
         let mut skeleton = Skeleton::new();
 
-        let root = parsed_rig.bones.map
+        let root = parsed_rig
+            .bones
+            .map
             .values()
-            .filter(|b| if let BoneStart::Point(_) = b.start { true } else { false })
+            .filter(|b| {
+                if let BoneStart::Point(_) = b.start {
+                    true
+                } else {
+                    false
+                }
+            })
             .next();
 
         if let Some(root) = root {
-            let bone = Bone::new(root, &mut skeleton, &parsed_rig.bones,&parsed_rig.parts)?;
+            let bone = Bone::new(root, &mut skeleton, &parsed_rig.bones, &parsed_rig.parts)?;
 
             skeleton.compute_area();
 
@@ -52,8 +60,13 @@ impl Rig {
             bone.write().debug_draw(ctx, area, skeleton_rect, window);
         }
     }
-    
-    pub fn draw(&self, ctx: &mut impl RenderContext, r: &'static (impl UiResources + ?Sized), area: &SimpleRect) {
+
+    pub fn draw(
+        &self,
+        ctx: &mut impl RenderContext,
+        r: &'static (impl UiResources + ?Sized),
+        area: &SimpleRect,
+    ) {
         let mut l = self.root_bone.write();
         l.draw(ctx, r, area, &self.skeleton);
     }
@@ -67,11 +80,16 @@ pub struct Bone {
     length: f32,
     children: Vec<BoneRc>,
     aim_target: Option<Vec2>,
-    parts: Vec<PartRc>
+    parts: Vec<PartRc>,
 }
 
 impl Bone {
-    pub fn new(parsed: &ParsedBone, skeleton: &mut Skeleton, bones: &Parsed<ParsedBone>, parts: &Parsed<ParsedPart>) -> Result<BoneRc, String> {
+    pub fn new(
+        parsed: &ParsedBone,
+        skeleton: &mut Skeleton,
+        bones: &Parsed<ParsedBone>,
+        parts: &Parsed<ParsedPart>,
+    ) -> Result<BoneRc, String> {
         let start = match &parsed.start {
             BoneStart::Other(other) => {
                 if let Some(b) = skeleton.bones.get(other) {
@@ -80,13 +98,10 @@ impl Bone {
                     return Err(format!("{other} bone does not exist!"));
                 }
             }
-            BoneStart::Point(pt) => {
-                *pt
-            }
+            BoneStart::Point(pt) => *pt,
         };
 
         let length = geom::distance(start, parsed.end);
-        
 
         let this = Self {
             start,
@@ -102,7 +117,11 @@ impl Bone {
         skeleton.bones.insert(parsed.name.clone(), rc.clone());
 
         let mut attached_parts = vec![];
-        for attached in parts.map.values().filter(|p| p.bone == Some(parsed.name.clone())) {
+        for attached in parts
+            .map
+            .values()
+            .filter(|p| p.bone == Some(parsed.name.clone()))
+        {
             let name = attached.name.clone();
             let part = Part::new(attached, rc.clone());
             skeleton.parts.insert(name, part.clone());
@@ -127,15 +146,15 @@ impl Bone {
 
         Ok(rc)
     }
-    
+
     pub fn set_aim(&mut self, p: Vec2) {
         self.aim_target = Some(p);
     }
-    
+
     pub fn clear_aim(&mut self) {
         self.aim_target = None;
     }
-    
+
     pub fn set_rotation(&mut self, angle: f32) {
         self.rotate(angle - self.rotation);
     }
@@ -143,7 +162,10 @@ impl Bone {
     pub fn rotate(&mut self, angle: f32) {
         self.rotation += angle;
 
-        let dir = Vec2 { x: 0.0, y: self.length };
+        let dir = Vec2 {
+            x: 0.0,
+            y: self.length,
+        };
 
         let cos_theta = self.rotation.cos();
         let sin_theta = self.rotation.sin();
@@ -169,7 +191,10 @@ impl Bone {
         self.start = start;
         self.rotation += rotation;
 
-        let dir = Vec2 { x: 0.0, y: self.length };
+        let dir = Vec2 {
+            x: 0.0,
+            y: self.length,
+        };
 
         let cos_theta = self.rotation.cos();
         let sin_theta = self.rotation.sin();
@@ -190,7 +215,7 @@ impl Bone {
             part.write().update(this);
         }
     }
-    
+
     fn before_draw(&mut self, area: &SimpleRect, skeleton_area: &SimpleRect) {
         if let Some(aim_p) = self.aim_target {
             let start = geom::remap_point(self.start, skeleton_area, area);
@@ -199,7 +224,13 @@ impl Bone {
         }
     }
 
-    fn draw(&mut self, ctx: &mut impl RenderContext, r: &'static (impl UiResources + ?Sized), area: &SimpleRect, skeleton: &Skeleton) {
+    fn draw(
+        &mut self,
+        ctx: &mut impl RenderContext,
+        r: &'static (impl UiResources + ?Sized),
+        area: &SimpleRect,
+        skeleton: &Skeleton,
+    ) {
         self.before_draw(area, &skeleton.area);
         for part in &self.parts {
             let lock = part.read();
@@ -217,9 +248,15 @@ impl Bone {
         }
     }
 
-    pub fn debug_draw(&mut self, ctx: &mut impl RenderContext, area: &SimpleRect, skeleton_area: &SimpleRect, window: &Window) {
+    pub fn debug_draw(
+        &mut self,
+        ctx: &mut impl RenderContext,
+        area: &SimpleRect,
+        skeleton_area: &SimpleRect,
+        window: &Window,
+    ) {
         self.before_draw(area, skeleton_area);
-        
+
         let width = 6.0;
 
         let dir = geom::normalize(geom::sub(self.end, self.start));
@@ -235,7 +272,7 @@ impl Bone {
         let tri = shapes::triangle2(base_left, base_right, tip);
 
         let color = MVR.resolve_color(MVR.color.bone_debug).unwrap().clone();
-        
+
         tri.draw(ctx, |v| {
             v.color = color.as_vec4();
             v.has_texture = 0.0;
@@ -246,7 +283,13 @@ impl Bone {
             rect.project(skeleton_area, area);
             if let Some(void_rect) = MVR.resolve_adaptive(MVR.adaptive.void_rect) {
                 //TODO: make draw2 which takes a Rect and applies the transforms
-                void_rect.draw(&mut *ctx, &rect.bounding, AdaptiveFill::Color(RgbColor::blue()), &window.ui().context(), area);
+                void_rect.draw(
+                    &mut *ctx,
+                    &rect.bounding,
+                    AdaptiveFill::Color(RgbColor::blue()),
+                    &window.ui().context(),
+                    area,
+                );
             }
         }
     }
@@ -259,7 +302,7 @@ type PartRc = SaveArc<RwLock<Part>>;
 pub struct Skeleton {
     pub bones: HashMap<String, BoneRc>,
     pub parts: HashMap<String, PartRc>,
-    area: SimpleRect
+    area: SimpleRect,
 }
 
 impl Skeleton {
@@ -308,7 +351,7 @@ pub struct Part {
     size: Vec2,
     rotation: f32,
     anchor: Vec2,
-    drawable: Option<usize> //R.drawable
+    drawable: Option<usize>, //R.drawable
 }
 
 impl Part {
@@ -325,7 +368,7 @@ impl Part {
         };
 
         this.update(&*lock);
-        
+
         SaveArc::new(RwLock::new(this))
     }
 
@@ -337,7 +380,14 @@ impl Part {
     }
 
     pub fn create_rect(&self) -> Rect {
-        Rect::new(self.position.x as i32, self.position.y as i32, self.size.x as i32, self.size.y as i32, -self.rotation.to_degrees(), self.anchor.as_i32_tuple())
+        Rect::new(
+            self.position.x as i32,
+            self.position.y as i32,
+            self.size.x as i32,
+            self.size.y as i32,
+            -self.rotation.to_degrees(),
+            self.anchor.as_i32_tuple(),
+        )
     }
 
     pub fn set_drawable(&mut self, drawable: Option<usize>) {

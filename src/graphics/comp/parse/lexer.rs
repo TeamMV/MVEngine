@@ -9,14 +9,14 @@ pub enum MRFToken {
     Bones,
     Joints,
     Attach,
-    
+
     Colon,
     Ident(String),
     Vec2(Vec2),
     Anchor,
     Selector,
     Error(String),
-    EOF
+    EOF,
 }
 
 impl MRFToken {
@@ -28,7 +28,7 @@ impl MRFToken {
 
 pub struct MRFLexer<'a> {
     chars: Peekable<Chars<'a>>,
-    putback: VecDeque<MRFToken>
+    putback: VecDeque<MRFToken>,
 }
 
 impl<'a> MRFLexer<'a> {
@@ -38,7 +38,7 @@ impl<'a> MRFLexer<'a> {
             putback: VecDeque::new(),
         }
     }
-    
+
     pub fn next_ident(&mut self) -> Result<String, String> {
         let t = self.next();
         if let Some(t) = t {
@@ -64,7 +64,7 @@ impl<'a> MRFLexer<'a> {
             Err("Unexpected EOF, expected Vec2".to_string())
         }
     }
-    
+
     pub fn next_token(&mut self, tkn: MRFToken) -> Result<(), String> {
         let t = self.next();
         if let Some(t) = t {
@@ -78,7 +78,6 @@ impl<'a> MRFLexer<'a> {
         }
     }
 
-
     pub fn next_some(&mut self) -> Result<MRFToken, String> {
         let t = self.next();
         if let Some(t) = t {
@@ -87,13 +86,13 @@ impl<'a> MRFLexer<'a> {
             Err("Unexpected EOF, expected Some".to_string())
         }
     }
-    
+
     pub fn putback(&mut self, token: MRFToken) {
         self.putback.push_back(token);
     }
-    
+
     pub fn next(&mut self) -> Option<MRFToken> {
-        if !self.putback.is_empty() { 
+        if !self.putback.is_empty() {
             return self.putback.pop_front();
         }
         let mut next = self.chars.next();
@@ -130,7 +129,7 @@ impl<'a> MRFLexer<'a> {
                 break;
             }
         }
-        
+
         if let Some(n) = next {
             return match n {
                 '#' => {
@@ -151,9 +150,9 @@ impl<'a> MRFLexer<'a> {
                         "BONES" => Some(MRFToken::Bones),
                         "JOINTS" => Some(MRFToken::Joints),
                         "ATTACH" => Some(MRFToken::Attach),
-                        _ => Some(MRFToken::Error(format!("'{name}' is not a valid section!")))
+                        _ => Some(MRFToken::Error(format!("'{name}' is not a valid section!"))),
                     }
-                },
+                }
                 ':' => Some(MRFToken::Colon),
                 '>' => Some(MRFToken::Selector),
                 _ => {
@@ -163,7 +162,10 @@ impl<'a> MRFLexer<'a> {
                     let is_ident = n.is_alphabetic();
                     let mut p = self.chars.peek().cloned();
                     while let Some(sp) = p {
-                        if sp.is_alphanumeric() || sp == '_' || (!is_ident && (sp == '.' || sp == ',' || sp == '-')) {
+                        if sp.is_alphanumeric()
+                            || sp == '_'
+                            || (!is_ident && (sp == '.' || sp == ',' || sp == '-'))
+                        {
                             self.chars.next();
                             s.push(sp);
                             p = self.chars.peek().cloned();
@@ -172,7 +174,7 @@ impl<'a> MRFLexer<'a> {
                         }
                     }
                     if is_ident {
-                        if s == "anchor" { 
+                        if s == "anchor" {
                             Some(MRFToken::Anchor)
                         } else {
                             Some(MRFToken::Ident(s))
@@ -197,16 +199,16 @@ impl<'a> MRFLexer<'a> {
                                 } else {
                                     let right = right_res.unwrap();
                                     return Some(MRFToken::Vec2(Vec2::new(left, right)));
-                                }
+                                };
                             }
                         } else {
                             Some(MRFToken::Error(format!("'{s}' is not a proper vec2!")))
                         }
                     }
                 }
-            }
+            };
         }
-        
+
         Some(MRFToken::EOF)
     }
 }

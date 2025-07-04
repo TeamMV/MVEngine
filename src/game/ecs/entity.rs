@@ -162,7 +162,9 @@ macro_rules! impl_entity_tuples {
     };
 }
 
-impl_entity_tuples!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15,);
+impl_entity_tuples!(
+    C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15,
+);
 
 impl<B: EntityBehavior, C: Sized + Default + 'static> Entity<B, (C,)> {
     pub fn new(storage: EcsStorage) -> Self {

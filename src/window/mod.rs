@@ -2,9 +2,9 @@ pub mod app;
 
 use crate::input::consts::Key;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::ui::Ui;
 use crate::ui::geometry::SimpleRect;
 use crate::ui::styles::InheritSupplier;
-use crate::ui::Ui;
 use crate::window::app::WindowCallbacks;
 use glutin::os::windows::WindowExt;
 use glutin::{
@@ -291,24 +291,22 @@ impl Window {
                         self.input.mouse_x = x;
                         self.input.mouse_y = self.info.height as i32 - y;
                     }
-                    Event::MouseWheel(delta, _, _) => {
-                        match delta {
-                            MouseScrollDelta::LineDelta(dx, dy) => {
-                                this.input.collector.dispatch_input(
-                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
-                                    &self.input,
-                                    this3,
-                                );
-                            }
-                            MouseScrollDelta::PixelDelta(dx, dy) => {
-                                this.input.collector.dispatch_input(
-                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
-                                    &self.input,
-                                    this3,
-                                );
-                            }
+                    Event::MouseWheel(delta, _, _) => match delta {
+                        MouseScrollDelta::LineDelta(dx, dy) => {
+                            this.input.collector.dispatch_input(
+                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                &self.input,
+                                this3,
+                            );
                         }
-                    }
+                        MouseScrollDelta::PixelDelta(dx, dy) => {
+                            this.input.collector.dispatch_input(
+                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                &self.input,
+                                this3,
+                            );
+                        }
+                    },
                     Event::MouseInput(i, d, _) => {
                         let button = unsafe {
                             mem::transmute::<MouseButton, crate::input::consts::MouseButton>(d)

@@ -1,14 +1,15 @@
+use crate::ui::geometry::shape::msfx::lexer::MSFXOperator;
+use crate::ui::geometry::shape::msfx::ty::MSFXType;
 use hashbrown::HashMap;
-use mvutils::TryFromString;
-use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXOperator};
 
 #[derive(Debug)]
 pub struct MSFXAST {
-    pub elements: Vec<MSFXStmt>
+    pub elements: Vec<MSFXStmt>,
 }
 
 #[derive(Debug, Clone)]
 pub enum MSFXStmt {
+    Input(InputStmt),
     Block(Vec<MSFXStmt>),
     Let(DeclStmt),
     Assign(DeclStmt),
@@ -24,9 +25,15 @@ pub enum MSFXStmt {
 }
 
 #[derive(Debug, Clone)]
+pub struct InputStmt {
+    pub name: String,
+    pub ty: MSFXType,
+}
+
+#[derive(Debug, Clone)]
 pub struct DeclStmt {
     pub name: String,
-    pub expr: MSFXExpr
+    pub expr: MSFXExpr,
 }
 
 #[derive(Debug, Clone)]
@@ -51,40 +58,14 @@ pub struct IfStmt {
     pub false_block: Box<MSFXStmt>,
 }
 
-#[derive(TryFromString, Debug, Default, Clone)]
-pub enum ExportTarget {
-    #[default]
-    All,
-    Bl,
-    Br,
-    Tl,
-    Tr,
-    C
-}
-
-impl ExportTarget {
-    pub fn from_keyword(keyword: MSFXKeyword) -> Result<Self, String> {
-        match keyword {
-            MSFXKeyword::All => Ok(Self::All),
-            MSFXKeyword::Bl => Ok(Self::Bl),
-            MSFXKeyword::Br => Ok(Self::Br),
-            MSFXKeyword::Tl => Ok(Self::Tl),
-            MSFXKeyword::Tr => Ok(Self::Tr),
-            MSFXKeyword::C => Ok(Self::C),
-            _ => Err(format!("Illegal keyword '{keyword:?}' for export target!"))
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ExportShapeStmt {
-    pub target: ExportTarget,
-    pub shape: MSFXExpr
+    pub shape: MSFXExpr,
 }
 
 #[derive(Debug, Clone)]
 pub struct ExportAdaptiveStmt {
-    pub parts: [MSFXExpr; 9]
+    pub parts: [MSFXExpr; 9],
 }
 
 #[derive(Debug, Clone)]
@@ -114,12 +95,12 @@ pub struct FnExpr {
 #[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub op: MSFXOperator,
-    pub inner: Box<MSFXExpr>
+    pub inner: Box<MSFXExpr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpr {
     pub op: MSFXOperator,
     pub lhs: Box<MSFXExpr>,
-    pub rhs: Box<MSFXExpr>
+    pub rhs: Box<MSFXExpr>,
 }

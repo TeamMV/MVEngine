@@ -1,4 +1,4 @@
-use crate::net::{try_read_packet, DisconnectReason, ReadPacketError};
+use crate::net::{DisconnectReason, ReadPacketError, try_read_packet};
 use bytebuffer::{ByteBuffer, Endian};
 use crossbeam_channel::Sender;
 use log::{debug, error, info, warn};
@@ -103,7 +103,9 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                         match tcp_err.kind() {
                             ErrorKind::TimedOut => {
                                 if let Err(e) = disconnect_sen.send(DisconnectReason::TimedOut) {
-                                    warn!("Error when attempting to send disconnect to server thread: {e}");
+                                    warn!(
+                                        "Error when attempting to send disconnect to server thread: {e}"
+                                    );
                                 }
                             }
                             ErrorKind::ConnectionReset
@@ -113,7 +115,9 @@ impl<In: Savable, Out: Savable + Send + 'static> Client<In, Out> {
                             | ErrorKind::NotConnected => {
                                 if let Err(e) = disconnect_sen.send(DisconnectReason::Disconnected)
                                 {
-                                    warn!("Error when attempting to send disconnect to server thread: {e}");
+                                    warn!(
+                                        "Error when attempting to send disconnect to server thread: {e}"
+                                    );
                                 }
                             }
                             _ => {

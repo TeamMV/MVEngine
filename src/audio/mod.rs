@@ -5,8 +5,8 @@ pub mod source;
 
 use crate::audio::mixer::AudioMixer;
 use crate::audio::source::{Sound, SoundWithAttributes};
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Stream;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::{error, info};
 use parking_lot::Mutex;
 use std::f32::consts::PI;

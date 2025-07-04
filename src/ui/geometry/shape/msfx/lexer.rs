@@ -16,25 +16,17 @@ pub enum MSFXKeyword {
     Continue,
     Export,
     Input,
-    In,
-    End,
+    Bool,
     Number,
     Vec2,
-    Transform,
+    In,
+    End,
     Adaptive,
     Is,
     Isnt,
     And,
     Or,
     Begin,
-    As,
-    //export targets
-    All,
-    Bl,
-    Br,
-    Tl,
-    Tr,
-    C
 }
 
 #[derive(Debug, Clone)]
@@ -55,15 +47,14 @@ pub enum MSFXOperator {
     Gt,
     Gte,
     Lt,
-    Lte
+    Lte,
 }
 
 impl MSFXOperator {
     pub fn is_unary(&self) -> bool {
         match self {
-            MSFXOperator::Not |
-            MSFXOperator::Sub => true,
-            _ => false
+            MSFXOperator::Not | MSFXOperator::Sub => true,
+            _ => false,
         }
     }
 
@@ -100,7 +91,7 @@ pub enum MSFXToken {
     Literal(f64),
 
     Error(String),
-    EOF
+    EOF,
 }
 
 impl MSFXToken {
@@ -112,7 +103,7 @@ impl MSFXToken {
     pub fn to_ident(self) -> Result<String, String> {
         match self {
             Self::Ident(i) => Ok(i),
-            _ => Err(format!("Expected Ident, found: {self:?}"))
+            _ => Err(format!("Expected Ident, found: {self:?}")),
         }
     }
 
@@ -120,21 +111,21 @@ impl MSFXToken {
         match self {
             Self::Operator(o) => Some(o.clone()),
             Self::OperatorAssign(o) => Some(o.clone()),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn assign(&self) -> bool {
         match self {
             Self::OperatorAssign(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
 
 pub struct MSFXLexer<'a> {
     chars: Peekable<Chars<'a>>,
-    putback: VecDeque<MSFXToken>
+    putback: VecDeque<MSFXToken>,
 }
 
 impl<'a> MSFXLexer<'a> {
@@ -217,25 +208,24 @@ impl<'a> MSFXLexer<'a> {
                 }
                 _ => {}
             }
-
         }
 
         macro_rules! potentially_assign {
-            ($op:ident) => {
-                {
-                    if let Some(&'=') = self.chars.peek() {
-                        self.chars.next();
-                        return MSFXToken::OperatorAssign(MSFXOperator::$op);
-                    }
-                    return MSFXToken::Operator(MSFXOperator::$op);
+            ($op:ident) => {{
+                if let Some(&'=') = self.chars.peek() {
+                    self.chars.next();
+                    return MSFXToken::OperatorAssign(MSFXOperator::$op);
                 }
-            };
+                return MSFXToken::Operator(MSFXOperator::$op);
+            }};
         }
 
         if let Some(n) = next {
             match n {
                 d if d.is_numeric() => {
-                    let data = self.collect_until_with(d.to_string(), |c| !(c.is_numeric() || c == '.' || c == 'e' || c == '_'));
+                    let data = self.collect_until_with(d.to_string(), |c| {
+                        !(c.is_numeric() || c == '.' || c == 'e' || c == '_')
+                    });
                     return parse::parse_num::<f64, ParseFloatError>(&data)
                         .map(MSFXToken::Literal)
                         .unwrap_or_else(MSFXToken::Error);
@@ -289,8 +279,15 @@ impl<'a> MSFXLexer<'a> {
                 }
 
                 _ => {
-                    const ALLOWED_SPECIAL: [char; 14] = ['_', '\'', '{', '}', '?', '$', '\\', '€', '@', '|', '&', '~', '😱', '🚨'];
-                    let s = self.collect_until_with(n.to_string(), |x| !(x.is_alphanumeric() || x == '_' || x == '\'' || ALLOWED_SPECIAL.contains(&x)));
+                    const ALLOWED_SPECIAL: [char; 14] = [
+                        '_', '\'', '{', '}', '?', '$', '\\', '€', '@', '|', '&', '~', '😱', '🚨',
+                    ];
+                    let s = self.collect_until_with(n.to_string(), |x| {
+                        !(x.is_alphanumeric()
+                            || x == '_'
+                            || x == '\''
+                            || ALLOWED_SPECIAL.contains(&x))
+                    });
                     if let Ok(keyword) = MSFXKeyword::from_str(&s) {
                         macro_rules! keyword_op {
                             ($keyword_val:ident, $op_val: ident) => {

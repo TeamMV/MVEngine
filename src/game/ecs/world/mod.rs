@@ -1,11 +1,11 @@
+use crate::game::ecs::EcsStorage;
 use crate::game::ecs::entity::{Entity, EntityBehavior, EntityId};
 use crate::game::ecs::mem::conblob::ContinuousBlob;
-use crate::game::ecs::EcsStorage;
+use crate::game::ecs::mem::storage::ComponentIdx;
 use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::any::TypeId;
-use crate::game::ecs::mem::storage::ComponentIdx;
 
 pub struct World {
     storage: EcsStorage,
@@ -75,8 +75,9 @@ impl World {
     pub fn destroy_entity<B: EntityBehavior + 'static>(&mut self, id: EntityId) {
         self.storage.get_mut().remove_entity(id);
         let type_id = TypeId::of::<B>();
-        if let Some((blob, _)) = self.behaviors.get_mut(&type_id) &&
-            let Some(idx) = self.behavior_indices.remove(&id) {
+        if let Some((blob, _)) = self.behaviors.get_mut(&type_id)
+            && let Some(idx) = self.behavior_indices.remove(&id)
+        {
             self.behavior_indices_rev.remove(&idx);
             blob.remove(idx);
         }

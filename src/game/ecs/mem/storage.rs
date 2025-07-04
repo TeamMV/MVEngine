@@ -10,7 +10,8 @@ pub(crate) type ComponentIdx = u64;
 
 pub struct ComponentStorage {
     components: HashMap<TypeId, ContinuousBlob>,
-    entity_components: HashMap<EntityId, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
+    entity_components:
+        HashMap<EntityId, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
 }
 
 impl ComponentStorage {
@@ -67,9 +68,10 @@ impl ComponentStorage {
 
     pub fn remove_component<T: Sized + 'static>(&mut self, entity: EntityId) {
         let type_id = TypeId::of::<T>();
-        if let Some(blob) = self.components.get_mut(&type_id) && 
-            let Some(map) = self.entity_components.get(&entity) && 
-            let Some(idx) = map.get(&type_id) {
+        if let Some(blob) = self.components.get_mut(&type_id)
+            && let Some(map) = self.entity_components.get(&entity)
+            && let Some(idx) = map.get(&type_id)
+        {
             blob.remove(*idx);
         }
     }

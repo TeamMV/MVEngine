@@ -21,7 +21,7 @@ pub mod texture;
 
 pub trait RenderContext {
     fn controller(&mut self) -> &mut RenderController;
-    
+
     fn next_z(&mut self) -> f32;
 }
 
