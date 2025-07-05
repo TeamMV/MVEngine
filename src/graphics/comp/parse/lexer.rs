@@ -4,6 +4,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 #[derive(Clone, Debug)]
+#[repr(u8)]
 pub enum MRFToken {
     Parts,
     Bones,

@@ -1,20 +1,24 @@
-use crate::ui::geometry::shape::msfx::ast::{
-    BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, InputStmt,
-    MSFXAST, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt,
-};
+use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, InputStmt, MSFXAST, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, Function};
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXLexer, MSFXOperator, MSFXToken};
 use crate::ui::geometry::shape::msfx::ty::MSFXType;
 use hashbrown::HashMap;
 use mvutils::utils::TetrahedronOp;
 
+const GLOBAL_SCOPE: &'static str = "function_";
+
 pub struct MSFXParser<'a> {
     lexer: MSFXLexer<'a>,
+    functions: HashMap<String, Function>,
+    scope: Option<String>,
+    locals: Vec<String>,
 }
 
 impl<'a> MSFXParser<'a> {
     pub fn parse(expr: &'a str) -> Result<MSFXAST, String> {
         let mut this = Self {
             lexer: MSFXLexer::lex(expr),
+            functions: HashMap::new(),
+            scope: None,
         };
 
         let mut stmts = vec![];
@@ -25,7 +29,15 @@ impl<'a> MSFXParser<'a> {
             next = this.lexer.next();
         }
 
-        Ok(MSFXAST { elements: stmts })
+        Ok(MSFXAST { elements: stmts, functions: this.functions })
+    }
+
+    fn ident(&self, ident: String) -> String {
+        if let Some(prefix) = &self.scope {
+            format!("{prefix}{ident}")
+        } else {
+            format!("{GLOBAL_SCOPE}{ident}")
+        }
     }
 
     fn parse_stmt(&mut self) -> Result<MSFXStmt, String> {
@@ -40,6 +52,28 @@ impl<'a> MSFXParser<'a> {
                 }
                 self.lexer.next_token(MSFXToken::Semicolon)?;
                 Ok(MSFXStmt::Block(stmts))
+            }
+            MSFXToken::Keyword(MSFXKeyword::Function) => {
+                if self.scope.is_some() {
+                    return Err("Creating nested functions is not allowed".to_string());
+                }
+                let name = self.lexer.next_ident()?;
+                let scope = format!("{name}_");
+                self.scope = Some(scope.clone());
+                self.lexer.next_token(MSFXToken::LBrack)?;
+                let params = HashMap::new();
+
+
+                self.scope = None;
+                let function = Function {
+                    name,
+                    scope,
+                    locals: self.locals.drain(..).collect(),
+                    params,
+                    return_ty: MSFXType::Bool,
+                    block: vec![],
+                };
+                Ok(MSFXStmt::Nop)
             }
             MSFXToken::Keyword(MSFXKeyword::Let) => {
                 let name = self.lexer.next_ident()?;

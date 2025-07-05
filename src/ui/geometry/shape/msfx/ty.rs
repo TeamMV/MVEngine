@@ -592,7 +592,7 @@ pub enum Variable {
 }
 
 #[derive(Copy, Clone)]
-pub enum MutVar<'a> {
+pub(in crate::ui::geometry::shape::msfx) enum MutVar<'a> {
     Null(PhantomData<&'a ()>),
     Number(usize),
     Bool(usize),
@@ -661,7 +661,7 @@ impl Variable {
         Ok(())
     }
 
-    pub fn as_ref(&mut self) -> MutVar {
+    pub(in crate::ui::geometry::shape::msfx) fn as_ref(&mut self) -> MutVar {
         match self {
             Variable::Null => MutVar::Null(PhantomData::default()),
             Variable::Number(n) => MutVar::Number(pointer(n)),
@@ -672,7 +672,7 @@ impl Variable {
         }
     }
 
-    pub fn as_raw_ref<'a>(&'a mut self, ex: &'a mut MSFXExecutor) -> Result<MutVar<'a>, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn as_raw_ref<'a>(&'a mut self, ex: &'a mut MSFXExecutor) -> Result<MutVar<'a>, String> {
         match self {
             Variable::Saved(ident) => {
                 let var = ex
@@ -835,7 +835,7 @@ impl Variable {
 }
 
 impl<'a> MutVar<'a> {
-    pub(crate) fn assign(&mut self, value: Variable) -> Result<(), String> {
+    pub(in crate::ui::geometry::shape::msfx) fn assign(&mut self, value: Variable) -> Result<(), String> {
         match self {
             MutVar::Null(_) => Err("Cannot assign value to null".to_string()),
             MutVar::Number(n) => {
@@ -861,7 +861,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn insert_subvalue(
+    pub(in crate::ui::geometry::shape::msfx) fn insert_subvalue(
         &mut self,
         path: &str,
         value: Variable,
@@ -884,7 +884,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn get_subvalue(&self, path: &str) -> Result<Variable, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn get_subvalue(&self, path: &str) -> Result<Variable, String> {
         match self {
             MutVar::Vec2(v) => {
                 let v = pointee_mut::<'a, Vec2>(*v);
@@ -898,7 +898,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn get_subvalue_ref<'b>(&'b mut self, path: &str) -> Result<MutVar<'a>, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn get_subvalue_ref<'b>(&'b mut self, path: &str) -> Result<MutVar<'a>, String> {
         match self {
             MutVar::Vec2(v) => {
                 let v = pointee_mut::<'a, Vec2>(*v);

@@ -5,6 +5,17 @@ use hashbrown::HashMap;
 #[derive(Debug)]
 pub struct MSFXAST {
     pub elements: Vec<MSFXStmt>,
+    pub functions: HashMap<String, Function>
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: String,
+    pub scope: String,
+    pub locals: Vec<String>,
+    pub params: HashMap<String, MSFXType>,
+    pub return_ty: MSFXType,
+    pub block: Vec<MSFXStmt>,
 }
 
 // TODO: tell max he should implement functions or else...
