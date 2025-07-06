@@ -56,6 +56,44 @@ impl MSFXFunction for Print {
     }
 }
 
+struct Assert;
+
+impl MSFXFunction for Assert {
+    fn call(&self, arguments: HashMap<String, MappedVariable>) -> Result<MappedVariable, String> {
+        let value = get_unnamed(&arguments, "value").as_bool()?;
+        if value {
+            Ok(MappedVariable::Null)
+        } else {
+            Err("Assertion failed!".to_string())
+        }
+    }
+}
+
+struct SameType;
+
+impl MSFXFunction for SameType {
+    fn call(&self, arguments: HashMap<String, MappedVariable>) -> Result<MappedVariable, String> {
+        let a = get_named(&arguments, "a");
+        let b = get_named(&arguments, "b");
+        Ok(MappedVariable::Bool(a.ty() == b.ty()))
+    }
+}
+
+struct Abs;
+
+impl MSFXFunction for Abs {
+    fn call(&self, arguments: HashMap<String, MappedVariable>) -> Result<MappedVariable, String> {
+        let value = get_unnamed(&arguments, "value");
+        match value {
+            MappedVariable::Number(n) => Ok(MappedVariable::Number(n.abs())),
+            MappedVariable::Vec2(v) => Ok(MappedVariable::Number(v.abs_sqr().sqrt())),
+            MappedVariable::Bool(_) => Err("Invalid argument: Expected number but found bool!".to_string()),
+            MappedVariable::Shape(_) => Err("Invalid argument: Expected number but found shape!".to_string()),
+            MappedVariable::Null => Err("Invalid argument: Expected number but found null!".to_string()),
+        }
+    }
+}
+
 #[msfx_fn]
 fn sin(value: f64) -> f64 {
     value.sin()
@@ -104,11 +142,6 @@ fn ceil(value: f64) -> f64 {
 #[msfx_fn]
 fn clamp(value: f64, min: f64, max: f64) -> f64 {
     value.clamp(min, max)
-}
-
-#[msfx_fn]
-fn abs(value: f64) -> f64 {
-    value.abs()
 }
 
 #[msfx_fn]
@@ -387,9 +420,103 @@ fn vec2(__actual_literal_underscore_lmao: Option<f64>, value: Option<f64>, x: Op
     }
 }
 
+#[msfx_fn]
+fn vec2_len(v: Vec2) -> f64 {
+    v.abs_sqr().sqrt()
+}
+
+#[msfx_fn]
+fn vec2_len_sq(v: Vec2) -> f64 {
+    v.abs_sqr()
+}
+
+#[msfx_fn]
+fn vec2_normalize(v: Vec2) -> Vec2 {
+    let len = v.abs_sqr().sqrt();
+    if len == 0.0 {
+        Vec2 { x: 0.0, y: 0.0 }
+    } else {
+        Vec2 {
+            x: v.x / len,
+            y: v.y / len,
+        }
+    }
+}
+
+#[msfx_fn]
+fn vec2_dot(a: Vec2, b: Vec2) -> f64 {
+    a.x * b.x + a.y * b.y
+}
+
+#[msfx_fn]
+fn vec2_perp(v: Vec2) -> Vec2 {
+    Vec2 {
+        x: -v.y,
+        y: v.x,
+    }
+}
+
+#[msfx_fn]
+fn vec2_lerp(a: Vec2, b: Vec2, t: f64) -> Vec2 {
+    Vec2 {
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+    }
+}
+
+#[msfx_fn]
+fn vec2_clamp(v: Vec2, min: Vec2, max: Vec2) -> Vec2 {
+    Vec2 {
+        x: v.x.clamp(min.x, max.x),
+        y: v.y.clamp(min.y, max.y),
+    }
+}
+
+#[msfx_fn]
+fn vec2_angle(v: Vec2) -> f64 {
+    v.y.atan2(v.x)
+}
+
+#[msfx_fn]
+fn vec2_rotate(v: Vec2, angle_rad: f64) -> Vec2 {
+    let cos_theta = angle_rad.cos();
+    let sin_theta = angle_rad.sin();
+    Vec2 {
+        x: v.x * cos_theta - v.y * sin_theta,
+        y: v.x * sin_theta + v.y * cos_theta,
+    }
+}
+
+#[msfx_fn]
+fn vec2_reflect(v: Vec2, normal: Vec2) -> Vec2 {
+    let dot = v.x * normal.x + v.y * normal.y;
+    Vec2 {
+        x: v.x - 2.0 * dot * normal.x,
+        y: v.y - 2.0 * dot * normal.y,
+    }
+}
+
+#[msfx_fn]
+fn vec2_project(v: Vec2, onto: Vec2) -> Vec2 {
+    let onto_len_squared = onto.abs_sqr();
+    if onto_len_squared == 0.0 {
+        Vec2 { x: 0.0, y: 0.0 }
+    } else {
+        let dot = v.x * onto.x + v.y * onto.y;
+        let scale = dot / onto_len_squared;
+        Vec2 {
+            x: onto.x * scale,
+            y: onto.y * scale,
+        }
+    }
+}
+
 pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
     match name {
         "print" => Some(Box::new(Print)),
+        "assert" => Some(Box::new(Assert)),
+        "sameType" => Some(Box::new(SameType)),
+        "same_type" => Some(Box::new(SameType)),
         "sin" => Some(Box::new(Sin)),
         "cos" => Some(Box::new(Cos)),
         "tan" => Some(Box::new(Tan)),
@@ -437,6 +564,17 @@ pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
         "triangle0" => Some(Box::new(Triangle0)),
         "triangle2" => Some(Box::new(Triangle2)),
         "vec2" => Some(Box::new(Vec2Fn)),
+        "vec2_len" => Some(Box::new(Vec2Len)),
+        "vec2_len_sq" => Some(Box::new(Vec2LenSq)),
+        "vec2_normalize" => Some(Box::new(Vec2Normalize)),
+        "vec2_dot" => Some(Box::new(Vec2Dot)),
+        "vec2_perp" => Some(Box::new(Vec2Perp)),
+        "vec2_lerp" => Some(Box::new(Vec2Lerp)),
+        "vec2_clamp" => Some(Box::new(Vec2Clamp)),
+        "vec2_angle" => Some(Box::new(Vec2Angle)),
+        "vec2_rotate" => Some(Box::new(Vec2Rotate)),
+        "vec2_reflect" => Some(Box::new(Vec2Reflect)),
+        "vec2_project" => Some(Box::new(Vec2Project)),
         _ => None,
     }
 }

@@ -1,7 +1,30 @@
 input size: number = 100;
 
-let pos = vec2[x: 100, y: 200];
+function test[n: number]:
+    let x = size * n;
+    let size = 20;
+    let pos = size * n;
+    return vec2[x: x, y: pos];
+end;
 
-pos.y.x += vec2[value: 200].x;
+let pos = test[n: 2];
+let pos2 = test[n: 4] * vec2[size];
 
-export rect0[x: pos.x, y: pos.y, width: size, height: size];
+let should_num = dynamic_return[num: true, x: 100];
+let should_vec = dynamic_return[num: false, x: 20];
+
+let a = type[should_vec, vec2];
+
+assert[!same_type[a: should_vec, b: should_num]];
+
+export dynamic_return[num: false, x: 1];
+
+function dynamic_return[num: bool, x: number]:
+    if num:
+        return size;
+    else if x > 10:
+        return test[n: 3];
+    else:
+        return rect0[x: 0, y: 0, width: size, height: size];
+    end;
+end;

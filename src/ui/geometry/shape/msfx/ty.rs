@@ -1,9 +1,11 @@
-use crate::ui::geometry::shape::msfx::executor::MSFXExecutor;
+use crate::ui::geometry::shape::msfx::executor::{unscope, MSFXExecutor};
 use crate::ui::geometry::shape::Shape;
 use crate::utils::{pointee_mut, pointer};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::marker::PhantomData;
 use std::str::FromStr;
+use mvutils::Savable;
+use crate::ui::geometry::shape::msfx::lexer::MSFXKeyword;
 use crate::ui::parse::{parse_2xf64, parse_num};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
@@ -25,6 +27,10 @@ impl Vec2 {
     pub fn as_mvengine(&self) -> crate::math::vec::Vec2 {
         crate::math::vec::Vec2::new(self.x as f32, self.y as f32)
     }
+
+    pub fn abs_sqr(&self) -> f64 {
+        self.x * self.x + self.y + self.y
+    }
 }
 
 impl Display for Vec2 {
@@ -35,11 +41,25 @@ impl Display for Vec2 {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Savable)]
 pub enum MSFXType {
     Bool,
     Number,
     Vec2,
+    Shape,
+    Void,
+}
+
+impl MSFXType {
+    pub fn from_keyword(value: MSFXKeyword) -> Result<MSFXType, String> {
+        match value {
+            MSFXKeyword::Bool => Ok(MSFXType::Bool),
+            MSFXKeyword::Number => Ok(MSFXType::Number),
+            MSFXKeyword::Vec2 => Ok(MSFXType::Vec2),
+            MSFXKeyword::Shape => Ok(MSFXType::Shape),
+            _ => Err(format!("Expected type but found {:?}", value)),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -261,6 +281,16 @@ impl MappedVariable {
         }
     }
 
+    pub fn ty(&self) -> MSFXType {
+        match self {
+            MappedVariable::Number(_) => MSFXType::Number,
+            MappedVariable::Bool(_) => MSFXType::Bool,
+            MappedVariable::Shape(_) => MSFXType::Shape,
+            MappedVariable::Vec2(_) => MSFXType::Vec2,
+            MappedVariable::Null => MSFXType::Void,
+        }
+    }
+
     pub fn unmap(&self) -> Variable {
         match self {
             MappedVariable::Number(n) => Variable::Number(*n),
@@ -327,7 +357,7 @@ impl From<()> for MappedVariable {
     }
 }
 
-pub trait ApplyBrain {
+pub(in crate::ui::geometry::shape::msfx) trait ApplyBrain {
     fn add(&self, other: &Variable) -> Result<Variable, String>;
     fn sub(&self, other: &Variable) -> Result<Variable, String>;
     fn mul(&self, other: &Variable) -> Result<Variable, String>;
@@ -470,55 +500,81 @@ impl ApplyBrain for Vec2 {
     }
 
     fn sub(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x - *n, self.y - *n))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x - v.x, self.y - v.y))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
     }
 
     fn mul(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x * *n, self.y * *n))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x * v.x, self.y * v.y))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
     }
 
     fn div(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x / *n, self.y / *n))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x / v.x, self.y / v.y))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
     }
 
     fn rem(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x % *n, self.y % *n))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x % v.x, self.y % v.y))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
     }
 
     fn pow(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        match other {
+            Variable::Number(n) => Ok(Variable::Vec2(Vec2::new(self.x.powf(*n), self.y.powf(*n)))),
+            Variable::Vec2(v) => Ok(Variable::Vec2(Vec2::new(self.x.powf(v.x), self.y.powf(v.y)))),
+            o => Err(format!("Cannot apply `+`, expected number or vec2 but found {}", o.name())),
+        }
     }
 
     fn and(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        Err("Cannot apply and to vec2!".to_string())
     }
 
     fn or(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        Err("Cannot apply or to vec2!".to_string())
     }
 
     fn eq(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(other.x == self.x && other.y == self.y))
     }
 
     fn neq(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(other.x != self.x || other.y != self.y))
     }
 
     fn gt(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(self.abs_sqr() > other.abs_sqr()))
     }
 
     fn gte(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(self.abs_sqr() >= other.abs_sqr()))
     }
 
     fn lt(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(self.abs_sqr() < other.abs_sqr()))
     }
 
     fn lte(&self, other: &Variable) -> Result<Variable, String> {
-        todo!()
+        let other = other.as_vec2()?;
+        Ok(Variable::Bool(self.abs_sqr() <= other.abs_sqr()))
     }
 }
 
@@ -592,7 +648,7 @@ pub enum Variable {
 }
 
 #[derive(Copy, Clone)]
-pub enum MutVar<'a> {
+pub(in crate::ui::geometry::shape::msfx) enum MutVar<'a> {
     Null(PhantomData<&'a ()>),
     Number(usize),
     Bool(usize),
@@ -661,7 +717,7 @@ impl Variable {
         Ok(())
     }
 
-    pub fn as_ref(&mut self) -> MutVar {
+    pub(in crate::ui::geometry::shape::msfx) fn as_ref(&mut self) -> MutVar {
         match self {
             Variable::Null => MutVar::Null(PhantomData::default()),
             Variable::Number(n) => MutVar::Number(pointer(n)),
@@ -672,13 +728,13 @@ impl Variable {
         }
     }
 
-    pub fn as_raw_ref<'a>(&'a mut self, ex: &'a mut MSFXExecutor) -> Result<MutVar<'a>, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn as_raw_ref<'a>(&'a mut self, ex: &'a mut MSFXExecutor) -> Result<MutVar<'a>, String> {
         match self {
             Variable::Saved(ident) => {
                 let var = ex
                     .variables
                     .get_mut(ident)
-                    .ok_or(format!("Unknown variable: '{}'", ident))?;
+                    .ok_or(format!("Unknown variable: '{}'", unscope(ident)))?;
                 Ok(var.as_ref())
             },
             // This is now suddenly needed
@@ -698,7 +754,7 @@ impl Variable {
                 .variables
                 .get(ident)
                 .cloned()
-                .ok_or(format!("Unknown variable: '{}'", ident)),
+                .ok_or(format!("Unknown variable: '{}'", unscope(ident))),
             Variable::Access(base, f) => {
                 let mut base_ref = base.as_raw_ref(ex)?;
                 let field = f.as_ident()?;
@@ -832,10 +888,20 @@ impl Variable {
             _ => false
         }
     }
+
+    pub(crate) fn ty(&self) -> MSFXType {
+        match self {
+            Variable::Number(_) => MSFXType::Number,
+            Variable::Bool(_) => MSFXType::Bool,
+            Variable::Shape(_) => MSFXType::Shape,
+            Variable::Vec2(_) => MSFXType::Vec2,
+            _ => MSFXType::Void,
+        }
+    }
 }
 
 impl<'a> MutVar<'a> {
-    pub(crate) fn assign(&mut self, value: Variable) -> Result<(), String> {
+    pub(in crate::ui::geometry::shape::msfx) fn assign(&mut self, value: Variable) -> Result<(), String> {
         match self {
             MutVar::Null(_) => Err("Cannot assign value to null".to_string()),
             MutVar::Number(n) => {
@@ -861,7 +927,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn insert_subvalue(
+    pub(in crate::ui::geometry::shape::msfx) fn insert_subvalue(
         &mut self,
         path: &str,
         value: Variable,
@@ -884,7 +950,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn get_subvalue(&self, path: &str) -> Result<Variable, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn get_subvalue(&self, path: &str) -> Result<Variable, String> {
         match self {
             MutVar::Vec2(v) => {
                 let v = pointee_mut::<'a, Vec2>(*v);
@@ -898,7 +964,7 @@ impl<'a> MutVar<'a> {
         }
     }
 
-    pub(crate) fn get_subvalue_ref<'b>(&'b mut self, path: &str) -> Result<MutVar<'a>, String> {
+    pub(in crate::ui::geometry::shape::msfx) fn get_subvalue_ref<'b>(&'b mut self, path: &str) -> Result<MutVar<'a>, String> {
         match self {
             MutVar::Vec2(v) => {
                 let v = pointee_mut::<'a, Vec2>(*v);

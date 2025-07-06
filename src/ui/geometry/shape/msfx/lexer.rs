@@ -1,12 +1,14 @@
 use crate::ui::parse;
-use mvutils::TryFromString;
+use mvutils::{Savable, TryFromString};
 use std::collections::VecDeque;
 use std::iter::Peekable;
+use std::mem::Discriminant;
 use std::num::ParseFloatError;
 use std::str::{Chars, FromStr};
 
 #[derive(TryFromString, Debug)]
 pub enum MSFXKeyword {
+    Function,
     If,
     Else,
     Let,
@@ -19,6 +21,7 @@ pub enum MSFXKeyword {
     Bool,
     Number,
     Vec2,
+    Shape,
     In,
     End,
     Adaptive,
@@ -27,9 +30,13 @@ pub enum MSFXKeyword {
     And,
     Or,
     Begin,
+    Return,
+    Type,
+    True,
+    False
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Savable)]
 pub enum MSFXOperator {
     Dot,
     Add,
@@ -82,6 +89,7 @@ pub enum MSFXToken {
     LParen,
     RParen,
     Hashtag,
+    Returns,
 
     Keyword(MSFXKeyword),
     Operator(MSFXOperator),
@@ -94,9 +102,8 @@ pub enum MSFXToken {
 }
 
 impl MSFXToken {
-    pub fn ord(&self) -> u8 {
-        let ptr_to_option = (self as *const MSFXToken) as *const u8;
-        unsafe { *ptr_to_option }
+    pub fn ord(&self) -> Discriminant<MSFXToken> {
+        std::mem::discriminant(self)
     }
 
     pub fn to_ident(self) -> Result<String, String> {
@@ -281,7 +288,16 @@ impl<'a> MSFXLexer<'a> {
                 ':' => return MSFXToken::Colon,
 
                 '+' => potentially_assign!(Add),
-                '-' => potentially_assign!(Sub),
+                '-' => {
+                    if let Some(&'=') = self.chars.peek() {
+                        self.chars.next();
+                        return MSFXToken::OperatorAssign(MSFXOperator::Sub);
+                    } else if let Some(&'>') = self.chars.peek() {
+                        self.chars.next();
+                        return MSFXToken::Returns;
+                    }
+                    return MSFXToken::Operator(MSFXOperator::Sub);
+                },
                 '*' => potentially_assign!(Mul),
                 '/' => potentially_assign!(Div),
                 '%' => potentially_assign!(Mod),

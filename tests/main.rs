@@ -1,3 +1,6 @@
+use std::fs::OpenOptions;
+use std::io::Write;
+use hashbrown::HashMap;
 use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
@@ -23,7 +26,9 @@ use mvengine::ui::elements::div::Div;
 use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::UiElementStub;
-use mvengine::ui::geometry::shape::{Shape, VertexStream};
+use mvengine::ui::geometry::shape::msfx::executor::{MSFXExecutor, Return};
+use mvengine::ui::geometry::shape::msfx::parser::MSFXParser;
+use mvengine::ui::geometry::shape::VertexStream;
 use mvengine::ui::geometry::SimpleRect;
 use mvengine::ui::rendering::UiRenderer;
 use mvengine::ui::res::MVR;
@@ -35,6 +40,7 @@ use mvutils::once::CreateOnce;
 use mvutils::state::State;
 use parking_lot::RwLock;
 use std::ops::Deref;
+use std::process::exit;
 use std::sync::Arc;
 
 pub fn main() -> Result<(), Error> {
@@ -49,6 +55,49 @@ pub fn main() -> Result<(), Error> {
     //    }
     //    println!("{token:?}");
     //}
+
+    let data = include_str!("test.msfx");
+    let ast = MSFXParser::parse(data).unwrap();
+    println!("{:?}", ast);
+    let mut minifier = MSFXMinifier::new();
+    let ast = minifier.minify(ast);
+    println!("{:?}", ast);
+
+    let mut buf = ByteBuffer::new_le();
+    ast.save(&mut buf);
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
+    file.write_all(buf.as_bytes()).unwrap();
+
+    let mut executor = MSFXExecutor::new();
+    let mut inputs = HashMap::new();
+    inputs.insert("num".to_string(), 1.0.into());
+    println!("\nOutput:");
+    let result = executor.run_debug(&ast, inputs);
+    println!();
+
+    match result {
+        Ok((ret, variables)) => {
+            println!("Variables:");
+            for (name, variable) in variables {
+                println!("{name} = {:?}", variable);
+            }
+            println!("Return:");
+            match ret {
+                Return::Shape(s) => println!("{:?}", s),
+                Return::Adaptive(a) => println!("{:?}", a),
+            }
+        }
+        Err((err, variables)) => {
+            println!("Variables:");
+            for (name, variable) in variables {
+                println!("{name} = {:?}", variable);
+            }
+            println!("Error:");
+            println!("{err}");
+        }
+    }
+
+    exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
