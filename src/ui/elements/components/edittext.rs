@@ -1,24 +1,21 @@
+use std::mem;
 use crate::color::RgbColor;
 use crate::rendering::RenderContext;
-use crate::resolve;
 use crate::ui::attributes::UiState;
 use crate::ui::context::UiContext;
+use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::shapes;
-use crate::ui::res::MVR;
-use crate::ui::styles::DEFAULT_STYLE;
-use crate::ui::styles::ResolveResult;
-use crate::ui::styles::enums::TextAlign;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::{Deref, Range};
+use crate::ui::geometry::{shape, SimpleRect};
+use itertools::Itertools;
+use std::ops::Range;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
-    _phantom: PhantomData<E>,
     cursor_pos: usize,
     selection: Option<Range<usize>>,
     content: UiState,
+    text_body: BoringText<E>,
     pub(crate) view_range: Range<usize>,
 }
 
@@ -27,10 +24,10 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         let l = content.read().len();
         let view_range = 0..l;
         Self {
-            _phantom: PhantomData::default(),
             cursor_pos: 0,
             selection: None,
             content,
+            text_body: BoringText::new(),
             view_range,
         }
     }
@@ -177,165 +174,118 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         }
     }
 
-    pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext) {
-        let text_align_x = resolve!(elem, text.align_x).unwrap_or(TextAlign::Middle);
-        let text_align_y = resolve!(elem, text.align_y).unwrap_or(TextAlign::Middle);
-        let font = resolve!(elem, text.font).unwrap_or(MVR.font.default);
+    pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
+        let text = &*self.content.read();
 
-        if let Some(font) = ui_ctx.resources.resolve_font(font) {
-            let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
-            let size = resolve!(elem, text.size).unwrap_or_default(&DEFAULT_STYLE.text.size);
-            let kerning =
-                resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
-            let stretch =
-                resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
-            let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
+        //fix selection when it is messed up
+        if let Some(r) = &mut self.selection {
+            if r.end < r.start {
+                let tmp = r.start;
+                r.start = r.end;
+                r.end = tmp;
+            }
+        }
+
+        if let Some(mut info) = self.text_body.get_info(elem, ui_ctx) {
+            let cursor_offset_rel = self.cursor_pos - self.view_range.start;
 
             let state = elem.state();
-            let font_size = size * stretch.height;
-            let text_height = font_size as i32;
 
-            let content_width = elem.state().content_rect.bounding.width;
+            let mut x = state.content_rect.x() as f32;
+            let max_x = state.content_rect.width() as f32 + x;
+            let y = state.content_rect.y() as f32;
+            let cursor_height = info.size as i32;
+            let cursor_y = y + info.max_y_off;
 
-            fn clamp_range_to_str(s: &str, range: Range<usize>) -> Range<usize> {
-                let len = s.len();
-
-                let start = range.start.clamp(0, len);
-                let end = range.end.clamp(0, len);
-
-                start.min(end)..start.max(end)
+            if text.is_empty() {
+                if draw_cursor {
+                    Self::draw_cursor(draw_ctx, x, cursor_y, cursor_height, &info.color, crop);
+                }
+                return;
             }
 
-            self.view_range =
-                clamp_range_to_str(self.content.read().deref(), self.view_range.clone());
-            self.cursor_pos = self.cursor_pos.clamp(0, self.view_range.end);
+            let mut sel_start_x = None;
+            let mut sel_end_x = None;
+            let mut in_sel = false;
 
-            if self.view_range.start > self.view_range.end {
-                mem::swap(&mut self.view_range.start, &mut self.view_range.end);
-            }
+            let sel_rect_z = draw_ctx.next_z();
+            let original_color = info.color.clone();
 
-            let viewed_string = self.content.read();
+            for (i, c) in text[self.view_range.start..].char_indices() {
+                let old_x = x;
+                info.color = original_color.clone();
 
-            let viewed_string = &viewed_string[self.view_range.clone()];
-            let viewed_len = viewed_string.len();
+                let was_sel = in_sel;
 
-            let viewed_width = font.get_width(viewed_string, font_size) * stretch.width
-                + skew * 2.0
-                + kerning * (viewed_len as f32 - 1.0);
-            let viewed_width = viewed_width as i32;
+                if let Some(r) = &self.selection {
+                    let real_i = i + self.view_range.start;
+                    if r.contains(&real_i) {
+                        //this char is currently inside the selection
+                        info.color = RgbColor::white();
+                        if sel_start_x.is_none() {
+                            sel_start_x = Some(x);
+                        }
+                        in_sel = true;
+                    } else {
+                        in_sel = false;
+                    }
+                } else {
+                    in_sel = false;
+                }
 
-            let content_ref = self.content.read();
-            while self.view_range.end > self.view_range.start {
-                let viewed_slice = &content_ref[self.view_range.start..self.view_range.end];
-                let width = font.get_width(viewed_slice, font_size) * stretch.width
-                    + skew * 2.0
-                    + kerning * (viewed_slice.len() as f32 - 1.0);
-                if width as i32 <= content_width {
+                if was_sel && !in_sel {
+                    //the selection ends here
+                    sel_end_x = Some(x);
+                }
+
+                x += self.text_body.draw_char(c, &info, x, y, draw_ctx, crop);
+
+                if draw_cursor && (i + 1 == cursor_offset_rel) {
+                    //draw cursor
+                    Self::draw_cursor(draw_ctx, x, cursor_y, cursor_height, &info.color, crop);
+                } else {
+                    //for some reason this is a special case when the cursor is at the start lmao
+                    if i == 0 && cursor_offset_rel == 0 {
+                        Self::draw_cursor(draw_ctx, old_x, cursor_y, cursor_height, &info.color, crop);
+                    }
+                }
+
+                if x > max_x {
+                    //no more characters fit
+                    //if cursor is offscreen, move view range
+                    let diff = cursor_offset_rel as i32 - (i as i32 + 1);
+                    if diff > 0 {
+                        self.view_range.end += diff as usize;
+                        self.view_range.start += diff as usize;
+                    }
                     break;
                 }
-                self.view_range.end -= 1;
             }
 
-            let content_ref = self.content.read();
-            while self.view_range.end < content_ref.len() {
-                let new_view = &content_ref[self.view_range.start..=self.view_range.end];
-                let new_width = font.get_width(new_view, font_size) * stretch.width
-                    + skew * 2.0
-                    + kerning * (new_view.len() as f32 - 1.0);
-                if new_width as i32 > content_width {
-                    break;
-                }
-                self.view_range.end += 1;
+            if sel_start_x.is_some() && sel_end_x.is_none() {
+                sel_end_x = Some(x); //Bro this is the biggest tape fix ever
             }
 
-            if !self.view_range.contains(&self.cursor_pos) {
-                if self.cursor_pos >= self.view_range.end {
-                    let diff = self.cursor_pos - self.view_range.end;
-                    self.view_range.end += diff;
-                    self.view_range.start += diff;
-                } else if self.cursor_pos < self.view_range.start {
-                    let diff = self.view_range.start - self.cursor_pos + 1;
-                    self.view_range.start = self.view_range.start.saturating_sub(diff);
-                    self.view_range.end = self.view_range.end.saturating_sub(diff);
-                }
-            }
-
-            self.view_range.end = self.view_range.end.min(self.content.read().len());
-
-            let text_x = match text_align_x {
-                TextAlign::Start => state.content_rect.x(),
-                TextAlign::Middle => {
-                    state.content_rect.x() + state.content_rect.width() / 2 - viewed_width / 2
-                }
-                TextAlign::End => {
-                    state.content_rect.x() + state.content_rect.width() - viewed_width
-                }
-            };
-
-            let text_y = match text_align_y {
-                TextAlign::Start => state.content_rect.y(),
-                TextAlign::Middle => {
-                    state.content_rect.y() + state.content_rect.height() / 2 - text_height / 2
-                }
-                TextAlign::End => {
-                    state.content_rect.y() + state.content_rect.height() - text_height
-                }
-            };
-
-            let string_to_cursor = self.content.read();
-            let string_to_cursor = &string_to_cursor[self.view_range.start..self.cursor_pos];
-            let string_to_cursor_width = font.get_width(string_to_cursor, font_size)
-                * stretch.width
-                + skew * 2.0
-                + kerning * (string_to_cursor.len() as f32 - 1.0);
-
-            let cursor_x = text_x + string_to_cursor_width as i32;
-            let cursor_y = text_y;
-
-            let cursor_width = 2.0;
-            let cursor_height = text_height;
-            let cursor_color = color;
-
-            if let Some(selection) = &self.selection {
-                let mut a = selection.start;
-                let mut b = selection.end;
-
-                if a > b {
-                    mem::swap(&mut a, &mut b);
-                }
-
-                let a = a.max(self.view_range.start);
-                let b = b.min(self.view_range.end);
-
-                let string_to_selection = self.content.read();
-                let string_to_selection_a = &string_to_selection[self.view_range.start..a];
-                let string_to_selection_b = &string_to_selection[self.view_range.start..b];
-                let string_to_selection_a_width = font.get_width(string_to_selection_a, font_size)
-                    * stretch.width
-                    + skew * 2.0
-                    + kerning * (string_to_selection_a.len() as f32 - 1.0);
-                let string_to_selection_b_width = font.get_width(string_to_selection_b, font_size)
-                    * stretch.width
-                    + skew * 2.0
-                    + kerning * (string_to_selection_b.len() as f32 - 1.0);
-
-                let rect = shapes::rectangle0(
-                    text_x + string_to_selection_a_width as i32,
-                    cursor_y,
-                    (string_to_selection_b_width - string_to_selection_a_width) as i32,
-                    cursor_height,
-                );
+            if let Some(sel_start_x) = sel_start_x && let Some(sel_end_x) = sel_end_x {
+                let rect = shapes::rectangle1(sel_start_x as i32, cursor_y as i32, sel_end_x as i32, cursor_height + cursor_y as i32);
                 rect.draw(draw_ctx, |v| {
-                    v.has_texture = 0.0;
-                    v.color = RgbColor::blue().as_vec4();
+                    shape::utils::crop_no_uv(v, crop);
+                    v.color = info.select_color.as_vec4();
+                    v.pos.2 = sel_rect_z;
                 });
             }
-
-            let rect = shapes::rectangle0(cursor_x, cursor_y, cursor_width as i32, cursor_height);
-            rect.draw(draw_ctx, |v| {
-                v.has_texture = 0.0;
-                v.color = cursor_color.as_vec4();
-            });
         }
+    }
+
+    fn draw_cursor(ctx: &mut impl RenderContext, x: f32, y: f32, height: i32, col: &RgbColor, crop: &SimpleRect) {
+        let cursor_rect = shapes::rectangle0(x as i32, y as i32, 2, height);
+        cursor_rect.draw(ctx, |v| {
+            shape::utils::crop_no_uv(v, crop);
+            v.color = col.as_vec4();
+        });
+    }
+
+    pub fn draw_other(&mut self, s: &str, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
+        self.text_body.draw(s, elem, draw_ctx, ui_ctx, crop);
     }
 }

@@ -635,7 +635,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     for anim in &self.animation.animation_arr {
                         let anim = anim.deref();
                         unsafe {
-                            (anim as *const _)
+                            (anim as *const mvengine::graphics::animation::GlobalAnimation)
                                 .cast_mut()
                                 .as_mut()
                                 .unwrap()

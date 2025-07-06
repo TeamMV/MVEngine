@@ -367,21 +367,49 @@ impl OpenGLRenderer {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
     }
+
+    pub fn disable_depth_test() {
+        unsafe {
+            gl::Disable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::FALSE);
+            gl::DepthFunc(gl::ALWAYS);
+
+        }
+    }
+
+    pub fn enable_depth_test() {
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::TRUE);
+            gl::DepthFunc(gl::LESS);
+        }
+    }
 }
 
 impl PrimitiveRenderer for OpenGLRenderer {
     fn begin_frame(&mut self) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_draw(|t| t.resume());
+        }
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
 
-            gl::DepthMask(gl::TRUE);
-            gl::DepthFunc(gl::ALWAYS);
+            //gl::DepthMask(gl::TRUE);
+            //gl::DepthFunc(gl::ALWAYS);
         }
     }
 
-    fn end_frame(&mut self) {}
+    fn end_frame(&mut self) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_draw(|t| t.pause());
+        }
+    }
 
     fn begin_frame_to_target(&mut self, post: &mut RenderTarget) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_draw(|t| t.resume());
+        }
+        
         post.framebuffer = self.framebuffer;
         post.texture_1 = self.offscreen_target_1;
         post.texture_2 = self.offscreen_target_2;
@@ -398,12 +426,15 @@ impl PrimitiveRenderer for OpenGLRenderer {
             );
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            gl::DepthMask(gl::TRUE);
-            gl::DepthFunc(gl::ALWAYS);
+            //gl::DepthMask(gl::TRUE);
+            //gl::DepthFunc(gl::ALWAYS);
         }
     }
 
     fn end_frame_to_target(&mut self, _post: &mut RenderTarget) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_draw(|t| t.pause());
+        }
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }

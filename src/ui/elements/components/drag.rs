@@ -27,7 +27,7 @@ impl DragAssistant {
         }
     }
 
-    pub fn on_input(&mut self, action: RawInputEvent, input: &Input) {
+    pub fn on_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         match action {
             RawInputEvent::Keyboard(_) => {}
             RawInputEvent::Mouse(ma) => match ma {
@@ -58,5 +58,7 @@ impl DragAssistant {
             self.target.x + self.offset.0 - self.reference.0,
             self.target.y + self.offset.1 - self.reference.1,
         );
+
+        self.in_drag
     }
 }

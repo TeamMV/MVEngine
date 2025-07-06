@@ -29,7 +29,7 @@ use crate::ui::rendering::{UiRenderer, WideRenderContext};
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Overflow, Position};
 use crate::ui::styles::types::Dimension;
-use crate::ui::styles::{DEFAULT_STYLE, ResCon, UiStyle};
+use crate::ui::styles::{DEFAULT_STYLE, ResCon, UiStyle, UiStyleWriteObserver};
 use crate::ui::styles::{InheritSupplier, ResolveResult};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
@@ -37,11 +37,16 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 pub trait UiElementCallbacks {
+    /// Do not call this function manually! instead, call frame_callback()
     fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect);
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         false
     }
+}
+
+pub fn create_style_obs<'a>(style: &'a mut UiStyle, state: &'a mut UiElementState) -> UiStyleWriteObserver<'a> {
+    UiStyleWriteObserver::new(style, &mut state.invalid)
 }
 
 pub trait UiElementStub: UiElementCallbacks {
@@ -73,11 +78,7 @@ pub trait UiElementStub: UiElementCallbacks {
 
     fn style(&self) -> &UiStyle;
 
-    fn style_mut(&mut self) -> &mut UiStyle;
-
-    fn components(&self) -> (&Attributes, &UiStyle, &UiElementState);
-
-    fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState);
+    fn style_mut(&mut self) -> UiStyleWriteObserver;
 
     fn context(&self) -> &UiContext;
 
@@ -135,10 +136,27 @@ pub trait UiElementStub: UiElementCallbacks {
 
     fn body_mut(&mut self) -> &mut ElementBody;
 
-    /// Checks whether a given point is inside the element
+    /// Checks whether a given point is inside the element. In retrospective, this function is basic af and idk why its on the trait lol
     fn inside(&self, x: i32, y: i32) -> bool {
         let state = self.state();
         state.rect.inside(x, y)
+    }
+
+    /// This function should be called every frame instead of draw()
+    fn frame_callback(&mut self, renderer: &mut UiRenderer, crop_area: &SimpleRect) where Self: Sized + 'static {
+        let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
+        this.state_mut().animator.tick(self);
+        let state = self.state();
+        if state.invalid {
+            self.compute_styles(renderer);
+        }
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_draw(|t| t.resume());
+        }
+        self.draw(renderer, crop_area);
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_draw(|t| t.pause());
+        }
     }
 
     /// Computes all the styles and sets up the state. Should be called before draw()
@@ -146,14 +164,34 @@ pub trait UiElementStub: UiElementCallbacks {
     where
         Self: Sized + 'static,
     {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_compute(|t| t.resume());
+        }
+
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         this.state_mut().animator.tick(self);
 
-        let (_, style, state) = this.components_mut();
-        state.ctx.dpi = ctx.dpi() as f32;
+        {
+            let mut style = self.style_mut();
+            style.merge_unset(&DEFAULT_STYLE);
+        }
+        let style = self.style();
 
-        let mut style = style.clone();
-        style.merge_unset(&DEFAULT_STYLE);
+        if let Some(parent) = this.state().parent.clone() {
+            if !parent.get().state().invalid {
+                //if the state is already invalid there is no need to invoke compute_styles
+                if this.state().invalid {
+                    //if this state is invalid, we want to propagate the update to the parent above
+                    //and skip this update
+                    this.state_mut().invalid = false;
+                    parent.get_mut().compute_styles(ctx);
+                    return;
+                }
+            }
+        }
+
+        let state = this.state_mut();
+        state.ctx.dpi = ctx.dpi() as f32;
 
         let maybe_parent = state.parent.clone();
 
@@ -225,8 +263,18 @@ pub trait UiElementStub: UiElementCallbacks {
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
         let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_compute(|t| t.pause());
+        }
         let computed_size =
             Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning, ctx);
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_compute(|t| t.resume());
+        }
+
+        //Dont do this before compute_children to avoid recursion
+        state.invalid = false;
 
         let width = resolve!(self, width);
         let width = if width.is_set() {
@@ -352,7 +400,8 @@ pub trait UiElementStub: UiElementCallbacks {
         }) {
             let mut child_guard = child_elem.get_mut();
             let child_binding = unsafe { Unsafe::cast_mut_static(child_guard.deref_mut()) };
-            let (_, child_style, child_state) = child_binding.components_mut();
+            let child_style = child_guard.style();
+            let child_state = child_binding.state_mut();
 
             child_state.transforms.translation.width += state.transforms.translation.width;
             child_state.transforms.translation.height += state.transforms.translation.height;
@@ -555,6 +604,10 @@ pub trait UiElementStub: UiElementCallbacks {
 
         state.inner_transforms = state.transforms.clone();
         state.transforms = UiTransformations::new();
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_compute(|t| t.pause());
+        }
     }
 
     fn compute_children_size(
@@ -709,6 +762,7 @@ pub trait UiElementStub: UiElementCallbacks {
     /// This is an internal function and should be called inside raw_input() on the implementation
     fn super_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         let mut used = false;
+        let mut in_scroll = false;
         //Scroll bars
 
         let state = self.state();
@@ -730,7 +784,7 @@ pub trait UiElementStub: UiElementCallbacks {
             if !assistant.in_drag {
                 assistant.target = knob;
             }
-            assistant.on_input(action.clone(), input);
+            in_scroll |= assistant.on_input(action.clone(), input);
             if assistant.in_drag {
                 state.scroll_x.offset = assistant.global_offset.0;
             }
@@ -757,7 +811,7 @@ pub trait UiElementStub: UiElementCallbacks {
             if !assistant.in_drag {
                 assistant.target = knob;
             }
-            assistant.on_input(action.clone(), input);
+            in_scroll |= assistant.on_input(action.clone(), input);
 
             let max_offset = state.content_rect.height() - knob_h;
             if assistant.in_drag {
@@ -773,6 +827,10 @@ pub trait UiElementStub: UiElementCallbacks {
             }
 
             state.scroll_y.offset = state.scroll_y.offset.p_clamp(0, max_offset);
+        }
+
+        if used || in_scroll {
+            state.invalid = true;
         }
 
         used
@@ -860,16 +918,8 @@ impl UiElementStub for UiElement {
         ui_element_fn!(self, style())
     }
 
-    fn style_mut(&mut self) -> &mut UiStyle {
+    fn style_mut(&mut self) -> UiStyleWriteObserver {
         ui_element_fn!(self, style_mut())
-    }
-
-    fn components(&self) -> (&Attributes, &UiStyle, &UiElementState) {
-        ui_element_fn!(self, components())
-    }
-
-    fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState) {
-        ui_element_fn!(self, components_mut())
     }
 
     fn context(&self) -> &UiContext {
@@ -905,6 +955,7 @@ impl UiScrollState {
 }
 
 pub struct UiElementState {
+    pub invalid: bool,
     pub ctx: ResCon,
     pub parent: Option<Rc<DangerousCell<UiElement>>>,
 
@@ -988,6 +1039,7 @@ impl UiTransformations {
 impl UiElementState {
     pub(crate) fn new(context: UiContext) -> Self {
         Self {
+            invalid: true,
             ctx: ResCon { dpi: 0.0 },
             parent: None,
             children: vec![],
@@ -1013,6 +1065,7 @@ impl UiElementState {
 impl Clone for UiElementState {
     fn clone(&self) -> Self {
         Self {
+            invalid: self.invalid.clone(),
             ctx: self.ctx.clone(),
             parent: self.parent.clone(),
             children: self.children.clone(),

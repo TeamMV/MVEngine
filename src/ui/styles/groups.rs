@@ -23,6 +23,7 @@ pub struct TextStyle {
     pub font: Resolve<usize>,
     pub fit: Resolve<TextFit>,
     pub color: Resolve<RgbColor>,
+    pub select_color: Resolve<RgbColor>,
     pub align_x: Resolve<TextAlign>,
     pub align_y: Resolve<TextAlign>,
 }
@@ -39,6 +40,7 @@ impl TextStyle {
             font: UiValue::Auto.into(),
             fit: UiValue::Auto.into(),
             color: UiValue::Auto.into(),
+            select_color: UiValue::Auto.into(),
             align_x: UiValue::Auto.into(),
             align_y: UiValue::Auto.into(),
         }
@@ -52,6 +54,7 @@ impl TextStyle {
         self.font.merge_unset(&other.font);
         self.fit.merge_unset(&other.fit);
         self.color.merge_unset(&other.color);
+        self.select_color.merge_unset(&other.select_color);
     }
 
     pub fn merge_at_set(&mut self, other: &TextStyle) {
@@ -62,6 +65,7 @@ impl TextStyle {
         self.font.merge_at_set(&other.font);
         self.fit.merge_at_set(&other.fit);
         self.color.merge_at_set(&other.color);
+        self.select_color.merge_at_set(&other.select_color);
     }
 }
 

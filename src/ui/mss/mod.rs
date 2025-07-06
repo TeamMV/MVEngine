@@ -22,7 +22,7 @@ impl StyleSheet {
                     .is_some_and(|s| s == i.as_str()),
             };
             if matches {
-                let style = thingy.style_mut();
+                let mut style = thingy.style_mut();
                 style.merge_unset(&block.style);
             }
         }

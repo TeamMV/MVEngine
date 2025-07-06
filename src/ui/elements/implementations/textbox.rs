@@ -8,10 +8,10 @@ use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::edittext::EditableTextHelper;
-use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::UiRenderer;
-use crate::ui::styles::UiStyle;
+use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use crate::ui::styles::types::Dimension;
 use mvutils::enum_val_ref_mut;
 use mvutils::state::State;
@@ -27,7 +27,6 @@ pub struct TextBox {
     style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: BoringText<TextBox>,
     content: UiState,
     placeholder: UiState,
     focused: bool,
@@ -65,22 +64,16 @@ impl UiElementCallbacks for TextBox {
         if s.is_empty() {
             if !self.focused {
                 let placeholder = self.placeholder.read();
-                self.text_body
-                    .draw(placeholder.as_str(), this, ctx, &self.context, crop_area);
+                self.helper.draw_other(&*placeholder, this, ctx, &self.context, crop_area);
             } else {
-                self.helper.draw(this, ctx, &self.context);
+                self.helper.draw(this, ctx, &self.context, crop_area, true);
             }
         } else {
             if self.focused {
-                self.helper.draw(this, ctx, &self.context);
+                self.helper.draw(this, ctx, &self.context, crop_area, true);
+            } else {
+                self.helper.draw(this, ctx, &self.context, crop_area, false);
             }
-            self.text_body.draw(
-                &s[self.helper.view_range.clone()],
-                this,
-                ctx,
-                &self.context,
-                crop_area,
-            );
         }
     }
 
@@ -162,7 +155,6 @@ impl UiElementStub for TextBox {
             style,
             attributes,
             body: ElementBody::new(),
-            text_body: BoringText::new(),
             content: content.clone(),
             placeholder,
             focused: false,
@@ -205,16 +197,8 @@ impl UiElementStub for TextBox {
         &self.style
     }
 
-    fn style_mut(&mut self) -> &mut UiStyle {
-        &mut self.style
-    }
-
-    fn components(&self) -> (&Attributes, &UiStyle, &UiElementState) {
-        (&self.attributes, &self.style, &self.state)
-    }
-
-    fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState) {
-        (&mut self.attributes, &mut self.style, &mut self.state)
+    fn style_mut(&mut self) -> UiStyleWriteObserver {
+        create_style_obs(&mut self.style, &mut self.state)
     }
 
     fn context(&self) -> &UiContext {

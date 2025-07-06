@@ -40,4 +40,12 @@ impl Colors {
         }
         colors
     }
+
+    pub fn get_contrast<F1: ColorFormat, F2: ColorFormat, R: ColorFormat>(col: Color<F1>, pivot: Color<F2>) -> Color<R> {
+        let start = col.to_hsv();
+        let pivot = pivot.to_hsv();
+        let new_hue = (2.0 * pivot.components[0] + start.components[0]).rem_euclid(360.0);
+        let new_col = HsvColor::new([new_hue, start.components[1], start.components[2], start.components[3]]);
+        R::from_rgb(new_col.to_rgb())
+    }
 }

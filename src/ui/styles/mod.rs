@@ -20,6 +20,7 @@ use interpolate::Interpolator;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::{enum_val_ref, lazy};
 use std::any::TypeId;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::str::FromStr;
 use mvutils::save::{Loader, Savable, Saver};
@@ -59,6 +60,7 @@ lazy! {
             font: UiValue::Just(MVR.font.default).to_field().to_resolve(),
             fit: UiValue::Just(TextFit::ExpandParent).to_resolve(),
             color: UiValue::Just(RgbColor::black()).to_resolve(),
+            select_color: UiValue::Just(RgbColor::blue()).to_resolve(),
             align_x: UiValue::Just(TextAlign::Middle).to_resolve(),
             align_y: UiValue::Just(TextAlign::Middle).to_resolve(),
         },
@@ -119,6 +121,7 @@ lazy! {
             font: UiValue::Unset.to_field().to_resolve(),
             fit: UiValue::Unset.to_field().to_resolve(),
             color: UiValue::Unset.to_resolve(),
+            select_color: UiValue::Unset.to_resolve(),
             align_x: UiValue::Unset.to_resolve(),
             align_y: UiValue::Unset.to_resolve(),
         },
@@ -189,6 +192,40 @@ pub trait Parseable: Sized {
 impl<T: FromStr> Parseable for T {
     fn parse(s: &str) -> Result<Self, String> {
         T::from_str(s).map_err(|_| format!("{s} cannot be parsed in this context!"))
+    }
+}
+
+pub struct UiStyleWriteObserver<'a> {
+    inner: &'a mut UiStyle,
+    invalid_flag: &'a mut bool
+}
+
+impl<'a> UiStyleWriteObserver<'a> {
+    pub fn new(s: &'a mut UiStyle, invalid_flag: &'a mut bool) -> Self {
+        Self {
+            inner: s,
+            invalid_flag,
+        }
+    }
+}
+
+impl Deref for UiStyleWriteObserver<'_> {
+    type Target = UiStyle;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl DerefMut for UiStyleWriteObserver<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
+
+impl Drop for UiStyleWriteObserver<'_> {
+    fn drop(&mut self) {
+        *self.invalid_flag = true;
     }
 }
 

@@ -4,6 +4,8 @@ use quote::quote;
 use syn::{parse_macro_input, parse_str, Expr, ExprField, LitStr, Member};
 use ui_parsing::style::StyleParser;
 
+const RAW_TYPES: [&str; 1] = ["dimension"];
+
 pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as LitStr);
     let parsed = StyleParser::parse_expr(&inp.value());
@@ -50,12 +52,24 @@ pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
             });
         } else if value.starts_with('@') {
             //@ means it's a resource
-            mods.extend(quote! {
-                {
-                    let r = resolve_resource!(#value).expect("Cannot find resource!");
-                    modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(r.clone())));
-                }
-            });
+            let thingy = &value[1..];
+            let structs = thingy.split_once('/').expect("Invalid resource expression!").0;
+            let r_type = structs.split_once('.').expect("Invalid resource expression!").1;
+            if RAW_TYPES.contains(&r_type) {
+                mods.extend(quote! {
+                    {
+                        let r = resolve_resource!(#value).expect("Cannot find resource!");
+                        #accessor_expr = r.clone();
+                    }
+                });
+            } else {
+                mods.extend(quote! {
+                    {
+                        let r = resolve_resource!(#value).expect("Cannot find resource!");
+                        modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(r.clone())));
+                    }
+                });
+            }
         } else {
             mods.extend(quote! {
                 modify_style!(#accessor_expr = mvengine::ui::styles::Parseable::parse(#value).expect("Cannot parse style"));

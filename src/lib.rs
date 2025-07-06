@@ -18,3 +18,4 @@ pub mod rendering;
 pub mod ui;
 pub mod utils;
 pub mod window;
+pub mod debug;

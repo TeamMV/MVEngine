@@ -338,27 +338,71 @@ impl Window {
             }
 
             let elapsed = self.time_u.elapsed().expect("SystemTime error").as_nanos();
+
             if elapsed > self.update_time_nanos as u128 {
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.app_update(|t| t.start());
+                }
                 self.time_u = SystemTime::now();
                 self.delta_u = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_u = self.delta_u;
 
                 let mut app_loop = callbacks.write();
                 app_loop.update(&mut self, delta_u);
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.app_update(|t| t.stop());
+                }
+                app_loop.post_update(&mut self, delta_u);
             }
 
             let elapsed = self.time_f.elapsed().expect("SystemTime error").as_nanos();
             if elapsed > self.frame_time_nanos as u128 {
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.app_draw(|t| t.start());
+                }
+
                 self.time_f = SystemTime::now();
                 self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                 let delta_t = self.delta_t;
 
                 let mut app_loop = callbacks.write();
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.render_batch(|t| t.start());
+                    crate::debug::PROFILER.render_draw(|t| t.start());
+                    crate::debug::PROFILER.ui_compute(|t| t.start());
+                    crate::debug::PROFILER.ui_draw(|t| t.start());
+
+                    crate::debug::PROFILER.render_batch(|t| t.pause());
+                    crate::debug::PROFILER.render_draw(|t| t.pause());
+                    crate::debug::PROFILER.ui_compute(|t| t.pause());
+                    crate::debug::PROFILER.ui_draw(|t| t.pause());
+                }
                 app_loop.draw(&mut self, delta_t);
                 self.input.collector.end_frame();
+
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.render_swap(|t| t.start());
+                }
                 self.handle.swap_buffers()?;
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.render_swap(|t| t.stop());
+                }
 
                 self.ui.get_mut().end_frame();
+
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.render_batch(|t| t.stop());
+                    crate::debug::PROFILER.render_draw(|t| t.stop());
+                    crate::debug::PROFILER.app_draw(|t| t.stop());
+                    crate::debug::PROFILER.ecs_find(|t| t.stop());
+                    crate::debug::PROFILER.ui_compute(|t| t.stop());
+                    crate::debug::PROFILER.ui_draw(|t| t.stop());
+                }
+                app_loop.post_draw(&mut self, delta_t);
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.ecs_find(|t| t.start());
+                    crate::debug::PROFILER.ecs_find(|t| t.pause());
+                }
             }
         }
 
@@ -458,12 +502,6 @@ impl Window {
 
     pub fn ui_mut(&mut self) -> &mut Ui {
         self.ui.get_mut()
-    }
-
-    pub fn disable_depth_test(&mut self) {
-        unsafe {
-            gl::Disable(gl::DEPTH_TEST);
-        }
     }
 
     pub fn area(&self) -> SimpleRect {

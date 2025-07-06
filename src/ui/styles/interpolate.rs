@@ -250,6 +250,11 @@ impl Interpolator<UiStyle> for UiStyle {
             .interpolate(&start.text.color, &end.text.color, percent, elem, |s| {
                 &s.text.color
             });
+        self.text
+            .select_color
+            .interpolate(&start.text.select_color, &end.text.select_color, percent, elem, |s| {
+                &s.text.select_color
+            });
         self.text.fit = (percent < 50f32).yn(start.text.fit.clone(), end.text.fit.clone());
         self.text.font = (percent < 50f32).yn(start.text.font.clone(), end.text.font.clone());
 

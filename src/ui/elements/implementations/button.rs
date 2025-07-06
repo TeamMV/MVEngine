@@ -4,10 +4,10 @@ use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::boring::BoringText;
-use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::UiRenderer;
-use crate::ui::styles::UiStyle;
+use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
@@ -36,7 +36,7 @@ impl UiElementCallbacks for Button {
                 }
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx, crop_area);
+                    guard.frame_callback(ctx, crop_area);
                 }
                 Child::State(s) => {
                     let guard = s.read();
@@ -105,16 +105,8 @@ impl UiElementStub for Button {
         &self.style
     }
 
-    fn style_mut(&mut self) -> &mut UiStyle {
-        &mut self.style
-    }
-
-    fn components(&self) -> (&Attributes, &UiStyle, &UiElementState) {
-        (&self.attributes, &self.style, &self.state)
-    }
-
-    fn components_mut(&mut self) -> (&mut Attributes, &mut UiStyle, &mut UiElementState) {
-        (&mut self.attributes, &mut self.style, &mut self.state)
+    fn style_mut(&mut self) -> UiStyleWriteObserver {
+        create_style_obs(&mut self.style, &mut self.state)
     }
 
     fn context(&self) -> &UiContext {
