@@ -1,3 +1,5 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use hashbrown::HashMap;
 use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
@@ -40,6 +42,10 @@ use parking_lot::RwLock;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
+use bytebuffer::ByteBuffer;
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::save::Savable;
+use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -57,6 +63,15 @@ pub fn main() -> Result<(), Error> {
     let data = include_str!("test.msfx");
     let ast = MSFXParser::parse(data).unwrap();
     println!("{:?}", ast);
+    let mut minifier = MSFXMinifier::new();
+    let ast = minifier.minify(ast);
+    println!("{:?}", ast);
+
+    let mut buf = ByteBuffer::new_le();
+    ast.save(&mut buf);
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
+    file.write_all(buf.as_bytes()).unwrap();
+
     let mut executor = MSFXExecutor::new();
     let mut inputs = HashMap::new();
     inputs.insert("num".to_string(), 1.0.into());

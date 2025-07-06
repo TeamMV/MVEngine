@@ -1,9 +1,6 @@
 use crate::color::RgbColor;
 use crate::rendering::{InputVertex, Transform};
-use crate::ui::geometry::shape::msfx::ast::{
-    BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, MSFXAST,
-    MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt,
-};
+use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptiveStmt, ExportShapeStmt, FnExpr, ForStmt, IfStmt, MSFXAST, MSFXExpr, MSFXStmt, ShapeExpr, UnaryExpr, WhileStmt, Function};
 use crate::ui::geometry::shape::msfx::functions::get_function;
 use crate::ui::geometry::shape::msfx::lexer::MSFXOperator;
 use crate::ui::geometry::shape::msfx::ty::Variable;
@@ -12,7 +9,7 @@ use crate::ui::rendering::adaptive::AdaptiveShape;
 use hashbrown::HashMap;
 use itertools::Itertools;
 use std::array;
-
+use std::fmt::format;
 pub use crate::ui::geometry::shape::msfx::ty::{InputVariable, SavedDebugVariable};
 
 pub enum LoopState {
@@ -36,6 +33,8 @@ pub struct MSFXExecutor {
     halt: bool,
     the_return: Option<Return>,
     current_vertices: Vec<(f64, f64)>,
+    last_ret: Option<Variable>,
+    functions: HashMap<String, Function>,
 }
 
 impl MSFXExecutor {
@@ -49,6 +48,8 @@ impl MSFXExecutor {
             halt: false,
             the_return: None,
             current_vertices: vec![],
+            last_ret: None,
+            functions: HashMap::new(),
         }
     }
 
@@ -66,12 +67,14 @@ impl MSFXExecutor {
         inputs: HashMap<String, InputVariable>,
     ) -> Result<(Return, HashMap<String, SavedDebugVariable>), (String, HashMap<String, SavedDebugVariable>)> {
         self.inputs = inputs;
+        self.functions = ast.functions.clone();
         let result = self.run_block(&ast.elements);
         self.loop_state = LoopState::Normal;
         self.loop_depth = 0;
         self.inside_shape = false;
         self.current_vertices = vec![];
-        let vars = self.variables.drain().map(|(n, v)| (n, v.into())).collect();
+        self.functions.clear();
+        let vars = self.variables.drain().map(|(n, v)| (unscope(&n), v.into())).collect();
         if let Err(err) = result {
             Err((err, vars))
         } else if let Some(ret) = self.the_return.take() {
@@ -84,7 +87,7 @@ impl MSFXExecutor {
 
     pub fn run_block(&mut self, block: &[MSFXStmt]) -> Result<(), String> {
         for stmt in block {
-            if self.halt {
+            if self.halt || self.last_ret.is_some() {
                 break;
             }
             self.execute_stmt(stmt)?;
@@ -92,8 +95,26 @@ impl MSFXExecutor {
         Ok(())
     }
 
+    pub fn run_function(&mut self, function: &Function, mut params: HashMap<String, Variable>) -> Result<Variable, String> {
+        for (name, ty) in &function.params {
+            let value = params.remove(name).ok_or(format!("Missing param '{}' from function {}", unscope(name), function.name))?;
+            if value.ty() != *ty {
+                return Err(format!("Incorrect type for function param '{}'", unscope(name)));
+            }
+            self.variables.insert(name.clone(), value);
+        }
+
+        self.execute_stmt(&function.body)?;
+
+        for local in &function.locals {
+            self.variables.remove(local);
+        }
+
+        Ok(self.last_ret.take().unwrap_or(Variable::Null))
+    }
+
     pub fn execute_stmt(&mut self, stmt: &MSFXStmt) -> Result<(), String> {
-        if self.halt {
+        if self.halt || self.last_ret.is_some() {
             return Ok(());
         }
         if let LoopState::Continue = self.loop_state {
@@ -148,6 +169,10 @@ impl MSFXExecutor {
                     }
                 }
             }
+            MSFXStmt::Return(e) => {
+                let mut var = self.evaluate(e)?;
+                self.last_ret = Some(var.as_raw(self)?)
+            }
             MSFXStmt::Nop => {}
         }
         Ok(())
@@ -155,7 +180,7 @@ impl MSFXExecutor {
 
     pub fn execute_decl(&mut self, stmt: &DeclStmt, new: bool) -> Result<(), String> {
         if !self.variables.contains_key(&stmt.name) && !new {
-            return Err(format!("Unknown variable: '{}'", stmt.name));
+            return Err(format!("Unknown variable: '{}'", unscope(&stmt.name)));
         }
         let value = self.evaluate(&stmt.expr)?.as_raw(self)?;
         self.variables.insert(stmt.name.clone(), value);
@@ -187,6 +212,9 @@ impl MSFXExecutor {
                 self.loop_state = LoopState::Normal;
                 break;
             }
+            if self.halt || self.last_ret.is_some() {
+                break;
+            }
             self.loop_state = LoopState::Normal;
         }
         self.loop_depth - 1;
@@ -200,6 +228,9 @@ impl MSFXExecutor {
             self.execute_stmt(&stmt.block)?;
             if let LoopState::Break = self.loop_state {
                 self.loop_state = LoopState::Normal;
+                break;
+            }
+            if self.halt || self.last_ret.is_some() {
                 break;
             }
             self.loop_state = LoopState::Normal;
@@ -218,8 +249,8 @@ impl MSFXExecutor {
     }
 
     pub fn export_shape(&mut self, stmt: &ExportShapeStmt) -> Result<(), String> {
-        self.halt = true;
         let r = self.evaluate(&stmt.shape)?.as_raw(self)?;
+        self.halt = true;
         match r {
             Variable::Shape(s) => {
                 self.the_return = Some(Return::Shape(s));
@@ -246,7 +277,6 @@ impl MSFXExecutor {
     }
 
     pub fn export_adaptive(&mut self, stmt: &ExportAdaptiveStmt) -> Result<(), String> {
-        self.halt = true;
         let mut shapes = vec![];
         for part in &stmt.parts {
             if let MSFXExpr::Empty = part {
@@ -256,6 +286,7 @@ impl MSFXExecutor {
             let s = self.expect_shape(part)?;
             shapes.push(Some(s));
         }
+        self.halt = true;
         if shapes.len() != 9 {
             return Err("Illegal amount of shapes exported as adaptive! Please export exactly 9 parts and use the # wildcard to skip!".to_string());
         }
@@ -271,8 +302,10 @@ impl MSFXExecutor {
             MSFXExpr::Call(c) => self.evaluate_call(c),
             MSFXExpr::Unary(u) => self.evaluate_uexpr(u),
             MSFXExpr::Binary(b) => self.evaluate_bexpr(b),
+            MSFXExpr::Ty(t) => Ok(Variable::Bool(self.evaluate(&t.expr)?.as_raw(self)?.ty() == t.ty)),
             MSFXExpr::Ident(ident) => Ok(Variable::Saved(ident.clone())),
             MSFXExpr::Literal(n) => Ok(Variable::Number(*n)),
+            MSFXExpr::Bool(b) => Ok(Variable::Bool(*b)),
             MSFXExpr::Empty => Ok(Variable::Null),
         }
     }
@@ -322,15 +355,28 @@ impl MSFXExecutor {
                 self.current_vertices.push((x, y));
             }
         }
-        let function =
-            get_function(&call.name).ok_or(format!("Unknown function: '{}'", call.name))?;
-        let mut params = HashMap::with_capacity(call.params.len());
-        for (key, value) in &call.params {
-            params.insert(key.clone(), self.evaluate(value)?.as_raw(self)?.map()?);
+        if let Some(function) =
+            get_function(&call.name) {
+            let mut params = HashMap::with_capacity(call.params.len());
+            for (key, value) in &call.params {
+                if key.as_str() != "_" {
+                    params.insert(unscope(key), self.evaluate(value)?.as_raw(self)?.map()?);
+                } else {
+                    params.insert("_".to_string(), self.evaluate(value)?.as_raw(self)?.map()?);
+                }
+            }
+            function
+                .call_ordered(params, &call.order)
+                .map(|v| v.unmap())
+        } else if let Some(function) = self.functions.get(&call.name).cloned() {
+            let mut params = HashMap::with_capacity(call.params.len());
+            for (key, value) in &call.params {
+                params.insert(key.clone(), self.evaluate(value)?.as_raw(self)?);
+            }
+            self.run_function(&function, params)
+        } else {
+            Err(format!("Unknown function '{}'", call.name))
         }
-        function
-            .call_ordered(params, &call.order)
-            .map(|v| v.unmap())
     }
 
     pub fn evaluate_uexpr(&mut self, uexpr: &UnaryExpr) -> Result<Variable, String> {
@@ -395,7 +441,7 @@ impl MSFXExecutor {
             match lhs {
                 Variable::Saved(s) => {
                     if !self.variables.contains_key(&s) {
-                        return Err(format!("Unknown variable: '{}'", s));
+                        return Err(format!("Unknown variable: '{}'", unscope(&s)));
                     }
                     self.variables.insert(s, rhs);
                     Ok(Variable::Null)
@@ -440,4 +486,8 @@ impl MSFXExecutor {
             }
         }
     }
+}
+
+pub(crate) fn unscope(value: &str) -> String {
+    value.split_once("_").unwrap_or(("", value)).1.to_string()
 }

@@ -1,5 +1,5 @@
 use crate::ui::parse;
-use mvutils::TryFromString;
+use mvutils::{Savable, TryFromString};
 use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::mem::Discriminant;
@@ -21,6 +21,7 @@ pub enum MSFXKeyword {
     Bool,
     Number,
     Vec2,
+    Shape,
     In,
     End,
     Adaptive,
@@ -29,9 +30,13 @@ pub enum MSFXKeyword {
     And,
     Or,
     Begin,
+    Return,
+    Type,
+    True,
+    False
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Savable)]
 pub enum MSFXOperator {
     Dot,
     Add,
@@ -75,7 +80,6 @@ impl MSFXOperator {
 }
 
 #[derive(Debug)]
-#[repr(u8)]
 pub enum MSFXToken {
     Comma,
     Colon,
@@ -98,8 +102,8 @@ pub enum MSFXToken {
 }
 
 impl MSFXToken {
-    pub fn ord(&self) -> u8 {
-        unsafe { *(self as *const _ as *const u8) }
+    pub fn ord(&self) -> Discriminant<MSFXToken> {
+        std::mem::discriminant(self)
     }
 
     pub fn to_ident(self) -> Result<String, String> {
