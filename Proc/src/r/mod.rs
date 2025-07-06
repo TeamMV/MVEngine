@@ -634,7 +634,12 @@ pub fn r(input: TokenStream) -> TokenStream {
                 use std::ops::Deref;
                     for anim in &self.animation.animation_arr {
                         let anim = anim.deref();
-                        mvutils::unsafe_cast_mut!(anim, mvengine::graphics::animation::GlobalAnimation).tick();
+                        unsafe {
+                            (anim as *const _)
+                                .cast_mut()
+                                .as_mut()
+                                .unwrap()
+                        }.tick();
                     }
                     #propagate_tick
                 }

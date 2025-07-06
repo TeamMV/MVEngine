@@ -33,9 +33,8 @@ impl<'a, T> From<&'a mut T> for CopyMut<'a, T> {
 
 impl<'a, T> Clone for CopyMut<'a, T> {
     fn clone(&self) -> Self {
-        let cast = mvutils::unsafe_cast_mut!(self, Self);
         Self {
-            inner: cast.inner,
+            inner: self.inner,
             _phantom: PhantomData::default(),
         }
     }
