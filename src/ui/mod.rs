@@ -10,6 +10,7 @@ use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::debug::PROFILER;
 
 pub mod anim;
 pub mod attributes;
@@ -50,6 +51,7 @@ impl Ui {
     }
 
     pub fn add_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
+        elem.get_mut().state_mut().invalid = true;
         self.root_elems.push(elem);
     }
 
@@ -66,21 +68,17 @@ impl Ui {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
             guard.compute_styles(ctx);
+
+            //To continue:
+            //-fix the initial style computation
+            //-make scrolling independent of compute_styles
         }
     }
 
     pub fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
-            guard.draw(ctx, crop_area);
-        }
-    }
-
-    pub fn compute_styles_and_draw(&mut self, ctx: &mut UiRenderer) {
-        for arc in self.root_elems.iter_mut() {
-            let guard = arc.get_mut();
-            guard.compute_styles(ctx);
-            guard.draw(ctx, &ctx.area());
+            guard.frame_callback(ctx, crop_area);
         }
     }
 

@@ -85,7 +85,7 @@ impl Shape {
         Self {
             vertices,
             indices,
-            extent: SimpleRect::new(0, 0, 0, 0),
+            extent,
             flags: 0,
         }
     }

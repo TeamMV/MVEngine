@@ -8,6 +8,7 @@ use bytebuffer::ByteBuffer;
 use mvutils::Savable;
 use mvutils::save::Savable;
 use std::sync::Arc;
+use log::warn;
 
 pub mod font;
 
@@ -88,8 +89,20 @@ impl Font {
 
     pub fn get_space_advance(&self, height: f32) -> f32 {
         let scale = self.get_scale(height);
-        let space_advance = self.atlas.find_glyph(' ').unwrap().advance;
-        space_advance as f32 * scale as f32
+        let g = self.atlas.find_glyph(' ');
+        if let Some(g) = g {
+            let space_advance =g.advance;
+            space_advance as f32 * scale as f32
+        } else {
+            warn!("A font does not contain the space character, so the space_advance is defaulted to 3.0!");
+            3.0 * scale as f32
+        }
+    }
+    
+    pub fn get_max_y_off(&self, height: f32) -> f32 {
+        //massive tape code again
+        //TODO
+        self.get_char_data('g', height).y_off
     }
 
     pub fn get_scale(&self, height: f32) -> f64 {

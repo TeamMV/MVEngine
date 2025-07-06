@@ -9,7 +9,7 @@ use mvengine::audio::{gen_sin_wave, AudioEngine};
 use mvengine::color::RgbColor;
 use mvengine::game::ecs::entity::EntityBehavior;
 use mvengine::math::vec::{Vec2, Vec4};
-use mvengine::modify_style;
+use mvengine::{debug, modify_style};
 use mvengine::rendering::camera::OrthographicCamera;
 use mvengine::rendering::control::RenderController;
 use mvengine::rendering::light::{Light, LightOpenGLRenderer};
@@ -42,10 +42,6 @@ use parking_lot::RwLock;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
-use bytebuffer::ByteBuffer;
-use mvutils::bytebuffer::ByteBufferExtras;
-use mvutils::save::Savable;
-use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Trace);
@@ -282,12 +278,13 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
+        /*if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
             s.draw(&mut *self.draw_ctx, |v| {
                 v.color = RgbColor::red().as_vec4();
             })
-        }
-        //window.ui_mut().compute_styles_and_draw(&mut self.draw_ctx);
+        }*/
+        let area = window.area().clone();
+        window.ui_mut().draw(&mut self.draw_ctx, &area);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);
@@ -300,7 +297,7 @@ impl WindowCallbacks for Application {
         //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
         //ad.draw(&mut *self.draw_ctx, &rect, AdaptiveFill::Drawable(Drawable::Texture(MVR.texture.test)), &window.ui.context());
 
-        let mx = window.input.mouse_x as f32;
+        /*let mx = window.input.mouse_x as f32;
         let my = window.input.mouse_y as f32;
         let mouse_pos = Vec2::new(mx, my);
 
@@ -321,7 +318,7 @@ impl WindowCallbacks for Application {
             let rect = SimpleRect::new(250, 250, 300, 300);
             //composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
             //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
-        }
+        }*/
 
         OpenGLRenderer::clear();
         self.draw_ctx.draw(window);
@@ -329,9 +326,15 @@ impl WindowCallbacks for Application {
         self.rot += 0.5;
     }
 
+    fn post_draw(&mut self, window: &mut Window, delta_t: f64) {
+        debug::print_summary(1000);
+    }
+
+
     fn exiting(&mut self, window: &mut Window) {}
 
     fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
         self.draw_ctx.resize(window);
+        window.ui_mut().compute_styles(&mut *self.draw_ctx);
     }
 }

@@ -1,6 +1,6 @@
 use crate::color::RgbColor;
 use crate::math::vec::Vec4;
-use crate::rendering::RenderContext;
+use crate::rendering::{InputVertex, RenderContext};
 use crate::rendering::texture::Texture;
 use crate::ui::context::UiContext;
 use crate::ui::elements::UiElementStub;
@@ -188,23 +188,30 @@ pub fn draw_shape_textured_owned(
     let area = &shape.extent;
     shape.draw(ctx, |v| {
         //crop to crop area
-        v.pos.0 = v.pos.0.clamp(crop.x as f32, (crop.x + crop.width) as f32);
-        v.pos.1 = v.pos.1.clamp(crop.y as f32, (crop.y + crop.height) as f32);
-
-        if v.has_texture >= 1.0 {
-            let x_ratio = if area.width > 0 {
-                (v.pos.0 - area.x as f32) / area.width as f32
-            } else {
-                0.0
-            };
-            let y_ratio = if area.height > 0 {
-                (v.pos.1 - area.y as f32) / area.height as f32
-            } else {
-                0.0
-            };
-
-            v.uv.0 = uv.x + x_ratio * (uv.z - uv.x);
-            v.uv.1 = uv.y + y_ratio * (uv.w - uv.y);
-        }
+        crop_with_uv(v, crop, uv, area);
     });
+}
+
+pub fn crop_no_uv(v: &mut InputVertex, crop: &SimpleRect) {
+    v.pos.0 = v.pos.0.clamp(crop.x as f32, (crop.x + crop.width) as f32);
+    v.pos.1 = v.pos.1.clamp(crop.y as f32, (crop.y + crop.height) as f32);
+}
+
+pub fn crop_with_uv(v: &mut InputVertex, crop: &SimpleRect, uv: Vec4, area: &SimpleRect) {
+    v.pos.0 = v.pos.0.clamp(crop.x as f32, (crop.x + crop.width) as f32);
+    v.pos.1 = v.pos.1.clamp(crop.y as f32, (crop.y + crop.height) as f32);
+    if v.has_texture >= 1.0 {
+        let x_ratio = if area.width > 0 {
+            (v.pos.0 - area.x as f32) / area.width as f32
+        } else {
+            0.0
+        };
+        let y_ratio = if area.height > 0 {
+            (v.pos.1 - area.y as f32) / area.height as f32
+        } else {
+            0.0
+        };
+        v.uv.0 = uv.x + x_ratio * (uv.z - uv.x);
+        v.uv.1 = uv.y + y_ratio * (uv.w - uv.y);
+    }
 }

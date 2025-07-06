@@ -91,8 +91,16 @@ pub fn generate_get_components(input: TokenStream) -> TokenStream {
 
                 let mut out = vec![];
 
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.ecs_find(|t| t.resume());
+                }
+
                 for (en, map) in self.entity_components.iter_mut() {
                     #nested_conditions_mut
+                }
+
+                #[cfg(feature = "timed")] {
+                    crate::debug::PROFILER.ecs_find(|t| t.pause());
                 }
 
                 Some(out)

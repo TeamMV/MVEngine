@@ -52,6 +52,9 @@ impl RenderBatch {
     }
 
     pub(crate) fn push_triangle(&mut self, triangle: Triangle) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         for vertex in triangle.points.into_iter() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
             if r_vertex.has_texture > 0.0 {
@@ -82,9 +85,16 @@ impl RenderBatch {
         self.index_index += 3;
         self.triangle_index += 1;
         self.vertex_index += 3;
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
+        }
     }
 
     pub(crate) fn push_quad(&mut self, quad: Quad) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         for vertex in quad.points.into_iter() {
             let mut r_vertex = Vertex::from_inp(&vertex, 0.0);
             if r_vertex.has_texture > 0.0 {
@@ -119,6 +129,10 @@ impl RenderBatch {
         self.index_index += 6;
         self.triangle_index += 2;
         self.vertex_index += 4;
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
+        }
     }
 
     pub fn push_raw<F: Fn(&mut InputVertex)>(
@@ -127,6 +141,9 @@ impl RenderBatch {
         indices: &[usize],
         modifier: Option<F>,
     ) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         for mut vertex in vertices.to_vec() {
             if let Some(ref modify) = modifier {
                 modify(&mut vertex);
@@ -163,6 +180,10 @@ impl RenderBatch {
 
         self.triangle_index += indices.len() / 3;
         self.vertex_index += vertices.len();
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
+        }
     }
 
     fn has_texture(&self, id: GLuint) -> bool {
@@ -170,7 +191,13 @@ impl RenderBatch {
     }
 
     pub fn can_hold_triangle(&self, triangle: &Triangle) -> bool {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         if self.vertex_index + 3 > BATCH_VERTEX_AMOUNT {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return false;
         }
 
@@ -186,14 +213,28 @@ impl RenderBatch {
         }
 
         if self.texture_index + needed_tex > MAX_TEXTURES {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
+            
             return false;
+        }
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
         }
 
         true
     }
 
     pub fn can_hold_quad(&self, quad: &Quad) -> bool {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         if self.vertex_index + 4 > BATCH_VERTEX_AMOUNT {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return false;
         }
 
@@ -209,19 +250,35 @@ impl RenderBatch {
         }
 
         if self.texture_index + needed_tex > MAX_TEXTURES {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return false;
+        }
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
         }
 
         true
     }
 
     pub fn can_hold_vertices(&self, vertices: &[InputVertex], has_tex: bool) -> bool {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.resume());
+        }
         let len = vertices.len();
         if self.vertex_index + len > BATCH_VERTEX_AMOUNT {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return false;
         }
 
         if !has_tex {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return true;
         }
 
@@ -237,7 +294,14 @@ impl RenderBatch {
         }
 
         if self.texture_index + needed_tex > MAX_TEXTURES {
+            #[cfg(feature = "timed")] {
+                crate::debug::PROFILER.render_batch(|t| t.pause());
+            }
             return false;
+        }
+
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.render_batch(|t| t.pause());
         }
 
         true
