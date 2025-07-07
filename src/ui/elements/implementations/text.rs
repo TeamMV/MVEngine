@@ -30,14 +30,14 @@ pub struct Text {
 
 impl Text {
     fn draw_string(&mut self, s: &str, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_mut_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.text.draw(this, s, ctx, crop_area);
     }
 }
 
 impl UiElementCallbacks for Text {
     fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_mut_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         for children in &self.state.children {
             match children {
                 Child::String(s) => {

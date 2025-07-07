@@ -49,7 +49,7 @@ impl<C: Sized + 'static> LocalComponent<C> {
             self.storage.get().get_component::<C>(entity).expect(
                 "Entity does not have component X, but it was aquired from LocalComponent!",
             );
-        unsafe { self.component = Some(Unsafe::cast_static(c)) }
+        unsafe { self.component = Some(Unsafe::cast_lifetime(c)) }
     }
 }
 

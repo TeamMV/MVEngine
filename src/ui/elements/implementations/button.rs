@@ -27,7 +27,7 @@ pub struct Button {
 
 impl UiElementCallbacks for Button {
     fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {
@@ -49,7 +49,7 @@ impl UiElementCallbacks for Button {
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
+        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.body.on_input(unsafe_self, action, input);
         false
     }
