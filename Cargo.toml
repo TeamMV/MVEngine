@@ -16,7 +16,7 @@ harness = false
 mvengine-proc-macro = { path = "./Proc", version = "1.0.0" }
 
 # mvteam dependencies
-mvutils = { version = "1.4.5", features = ["save_str"] }
+mvutils = { version = "1.5.1", features = ["save_str"] }
 mvlogger = "0.4.0"
 
 # general dependencies

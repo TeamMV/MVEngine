@@ -229,9 +229,9 @@ impl Window {
 
         self.handle.create(|| w);
 
-        let this = unsafe { Unsafe::cast_mut_static(&mut self) };
-        let this2 = unsafe { Unsafe::cast_mut_static(&mut self) };
-        let this3 = unsafe { Unsafe::cast_mut_static(&mut self) };
+        let this = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
+        let this2 = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
+        let this3 = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
         let mut lock = callbacks.write();
         lock.post_init(&mut self);
         drop(lock);

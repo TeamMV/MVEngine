@@ -97,7 +97,7 @@ impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Reso
         //why do i have to clone parent again???
         unsafe {
             self_resolve.interpolate(&start_resolve, &end_resolve, percent, elem, move |s| {
-                Unsafe::cast_static(&f(s).resolve(dpi, parent.clone(), |s2| &f(s2)).unwrap())
+                Unsafe::cast_lifetime(&f(s).resolve(dpi, parent.clone(), |s2| &f(s2)).unwrap())
             });
 
             *self = Resolve::UiValue(UiValue::Just(self_resolve));

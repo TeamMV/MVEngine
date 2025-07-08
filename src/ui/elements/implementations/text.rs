@@ -31,7 +31,7 @@ pub struct Text {
 
 impl Text {
     fn draw_string(&mut self, s: &str, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_mut_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.text.draw(this, s, ctx, crop_area);
     }
 }

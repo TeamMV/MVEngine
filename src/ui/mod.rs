@@ -116,18 +116,18 @@ impl InputProcessor for Ui {
         self.page_manager.raw_input(action.clone(), input);
         match action {
             RawInputEvent::Keyboard(action) => unsafe {
-                for root in Unsafe::cast_static(&self.root_elems) {
+                for root in Unsafe::cast_lifetime(&self.root_elems) {
                     let mut guard = root.get_mut();
-                    let guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let guard_ref = Unsafe::cast_lifetime_mut(&mut guard);
                     let events = &mut guard.state_mut().events;
                     events.keyboard_change(action.clone(), &mut *guard_ref, &*input);
                 }
                 self.page_manager.keyboard_change(action, input, window);
             },
             RawInputEvent::Mouse(action) => unsafe {
-                for root in Unsafe::cast_static(&self.root_elems) {
+                for root in Unsafe::cast_lifetime(&self.root_elems) {
                     let mut guard = root.get_mut();
-                    let guard_ref = Unsafe::cast_mut_static(&mut guard);
+                    let guard_ref = Unsafe::cast_lifetime_mut(&mut guard);
                     let events = &mut guard.state_mut().events;
                     events.mouse_change(action.clone(), &mut *guard_ref, &*input, window);
                 }

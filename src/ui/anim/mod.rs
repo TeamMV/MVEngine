@@ -84,7 +84,7 @@ impl SimpleAnim {
 
     pub fn tick<E: UiElementStub + 'static>(&self, elem: &mut E) -> bool {
         let mut context = elem.context().clone();
-        let static_elem = unsafe { Unsafe::cast_mut_static(elem) };
+        let static_elem = unsafe { Unsafe::cast_lifetime_mut(elem) };
         let mut style = static_elem.style_mut();
         if let Some(id) = self.task
             && let Some(mut handle) = context.scheduler.handle(id)

@@ -393,7 +393,7 @@ pub trait UiElementStub: UiElementCallbacks {
             _ => None,
         }) {
             let mut child_guard = child_elem.get_mut();
-            let child_binding = unsafe { Unsafe::cast_mut_static(child_guard.deref_mut()) };
+            let child_binding = unsafe { Unsafe::cast_lifetime_mut(child_guard.deref_mut()) };
             let child_style = child_guard.style();
             let child_state = child_binding.state_mut();
 

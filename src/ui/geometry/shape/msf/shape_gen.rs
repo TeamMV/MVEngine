@@ -259,7 +259,7 @@ pub struct ShapeGenerator;
 impl ShapeGenerator {
     pub fn generate(ast: Ast) -> Result<Shape, String> {
         let mut vars: HashMap<String, Shape> = HashMap::new();
-        let vars2 = unsafe { Unsafe::cast_static(&vars) };
+        let vars2 = unsafe { Unsafe::cast_lifetime(&vars) };
         let mut current_selection = String::new();
 
         for command in ast {
@@ -326,7 +326,7 @@ impl ShapeGenerator {
                         if let Param::Str(other) = first {
                             let other_shape =
                                 vars.get(other).ok_or(format!("{other} is not defined!"))?;
-                            let other_shape = unsafe { Unsafe::cast_static(other_shape) };
+                            let other_shape = unsafe { Unsafe::cast_lifetime(other_shape) };
                             let current = vars
                                 .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;
@@ -372,7 +372,7 @@ impl ShapeGenerator {
 
     pub fn generate_adaptive(ast: Ast) -> Result<AdaptiveShape, String> {
         let mut vars: HashMap<String, Shape> = HashMap::new();
-        let vars2 = unsafe { Unsafe::cast_static(&vars) };
+        let vars2 = unsafe { Unsafe::cast_lifetime(&vars) };
         let mut current_selection = String::new();
 
         let mut parts = [0; 9].map(|_| None);
@@ -441,7 +441,7 @@ impl ShapeGenerator {
                         if let Param::Str(other) = first {
                             let other_shape =
                                 vars.get(other).ok_or(format!("{other} is not defined!"))?;
-                            let other_shape = unsafe { Unsafe::cast_static(other_shape) };
+                            let other_shape = unsafe { Unsafe::cast_lifetime(other_shape) };
                             let current = vars
                                 .get_mut(&current_selection)
                                 .ok_or("No shape selected".to_string())?;

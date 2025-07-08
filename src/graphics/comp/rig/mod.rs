@@ -181,7 +181,7 @@ impl Bone {
             child_bone.write().rotated_by_parent(self.end, angle);
         }
 
-        let this = unsafe { Unsafe::cast_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime(self) };
         for part in &mut self.parts {
             part.write().update(this);
         }
@@ -210,7 +210,7 @@ impl Bone {
             child.write().rotated_by_parent(self.end, rotation);
         }
 
-        let this = unsafe { Unsafe::cast_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime(self) };
         for part in &mut self.parts {
             part.write().update(this);
         }

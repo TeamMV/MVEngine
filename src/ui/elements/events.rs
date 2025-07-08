@@ -44,7 +44,7 @@ impl UiEvents {
         window: &mut Window,
     ) -> bool {
         let state = elem.state();
-        let state = unsafe { Unsafe::cast_static(state) };
+        let state = unsafe { Unsafe::cast_lifetime(state) };
 
         let mut used = false;
         for child in &state.children {
@@ -52,7 +52,7 @@ impl UiEvents {
                 Child::Element(e) => unsafe {
                     let child_guard = e.get_mut();
                     let child_events = &mut child_guard.state_mut().events;
-                    let child_events: &mut UiEvents = Unsafe::cast_mut_static(child_events);
+                    let child_events: &mut UiEvents = Unsafe::cast_lifetime_mut(child_events);
                     let res =
                         child_events.mouse_change(action.clone(), &mut *child_guard, input, window);
                     if res {

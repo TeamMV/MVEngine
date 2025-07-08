@@ -52,7 +52,7 @@ impl UiElementCallbacks for Div {
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
+        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.body.on_input(unsafe_self, action.clone(), input);
 
         for elem in &self.state.children {

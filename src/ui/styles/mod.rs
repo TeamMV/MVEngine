@@ -774,7 +774,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
                 unsafe {
                     if parent.is_some() {
                         let cloned = parent.clone().unwrap();
-                        let parent_value = Unsafe::cast_static(map(cloned.get().style()));
+                        let parent_value = Unsafe::cast_lifetime(map(cloned.get().style()));
                         return parent_value.resolve(dpi, parent.clone(), map);
                     }
                 }

@@ -74,7 +74,7 @@ impl ResourceSavable for GlobalAnimation<'_> {
         let range = FramePumpRange::load(loader)?;
         if let Some(tileset) = resources.resolve_tileset(tile_set) {
             //since this is only really used internally, this unsafe cast is probably fine
-            let static_set = unsafe { Unsafe::cast_static(tileset) };
+            let static_set = unsafe { Unsafe::cast_lifetime(tileset) };
             Ok(GlobalAnimation::<'static>::new(
                 static_set, tile_set, range, fps,
             ))

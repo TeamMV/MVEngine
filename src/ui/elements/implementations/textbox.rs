@@ -79,7 +79,7 @@ impl UiElementCallbacks for TextBox {
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_mut_static(self) };
+        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.body.on_input(unsafe_self, action.clone(), input);
 
         match action {
