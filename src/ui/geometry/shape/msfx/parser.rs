@@ -110,6 +110,7 @@ impl<'a> MSFXParser<'a> {
                 }
                 let maybe_begin = self.lexer.next();
                 if matches!(maybe_begin, MSFXToken::Keyword(MSFXKeyword::Begin)) {
+                    self.lexer.next_token(MSFXToken::LBrack)?;
                     let (arguments, _) = self.parse_arguments(String::new())?;
                     if arguments.len() != 1 {
                         return Err("Amount of arguments for `begin` must be 1 in context of shape definition".to_string());
