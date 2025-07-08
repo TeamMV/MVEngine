@@ -11,6 +11,10 @@ impl DefaultOpenGLShader {
             include_str!("../shaders/index.frag"),
         ))
     }
+
+    pub fn into_inner(self) -> OpenGLShader {
+        self.0
+    }
 }
 
 impl Deref for DefaultOpenGLShader {

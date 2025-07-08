@@ -92,6 +92,10 @@ impl RenderContext for UiRenderer {
     fn next_z(&mut self) -> f32 {
         self.controller.next_z()
     }
+
+    fn set_z(&mut self, z: f32) {
+        self.controller.set_z(z);
+    }
 }
 
 impl InheritSupplier for UiRenderer {

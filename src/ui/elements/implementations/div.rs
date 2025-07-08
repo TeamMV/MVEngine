@@ -1,5 +1,5 @@
 use crate::input::{Input, RawInputEvent};
-use crate::rendering::RenderContext;
+use crate::rendering::{OpenGLRenderer, RenderContext};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
@@ -12,6 +12,7 @@ use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
+use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
 pub struct Div {
@@ -26,7 +27,7 @@ pub struct Div {
 }
 
 impl UiElementCallbacks for Div {
-    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {

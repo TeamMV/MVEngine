@@ -1,7 +1,7 @@
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::RawInput;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
-use crate::rendering::RenderContext;
+use crate::rendering::{OpenGLRenderer, RenderContext};
 use crate::ui::attributes::{Attributes, UiState};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
@@ -17,6 +17,7 @@ use mvutils::enum_val_ref_mut;
 use mvutils::state::State;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
+use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
 pub struct TextBox {
@@ -48,14 +49,14 @@ impl TextBox {
 }
 
 impl UiElementCallbacks for TextBox {
-    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_static(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.draw(ctx, crop_area);
+                    guard.frame_callback(ctx, crop_area);
                 }
                 _ => {}
             }

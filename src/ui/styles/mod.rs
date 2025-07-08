@@ -52,6 +52,12 @@ lazy! {
             shape: UiValue::Just(BasicInterpolatable::new(Geometry::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
             //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
         },
+        detail: ShapeStyle {
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
+            color: UiValue::Just(RgbColor::black()).to_resolve(),
+            texture: UiValue::None.to_resolve(),
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+        },
         text: TextStyle {
             size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve(),
             kerning: UiValue::Just(0.0).to_field().to_resolve(),
@@ -108,6 +114,12 @@ lazy! {
             shape: UiValue::Unset.to_resolve(),
         },
         border: ShapeStyle {
+            resource: UiValue::Unset.to_resolve(),
+            color: UiValue::Unset.to_resolve(),
+            texture: UiValue::Unset.to_resolve(),
+            shape: UiValue::Unset.to_resolve(),
+        },
+        detail: ShapeStyle {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
@@ -197,15 +209,21 @@ impl<T: FromStr> Parseable for T {
 
 pub struct UiStyleWriteObserver<'a> {
     inner: &'a mut UiStyle,
-    invalid_flag: &'a mut bool
+    invalid_flag: &'a mut u8,
+    di: bool
 }
 
 impl<'a> UiStyleWriteObserver<'a> {
-    pub fn new(s: &'a mut UiStyle, invalid_flag: &'a mut bool) -> Self {
+    pub fn new(s: &'a mut UiStyle, invalid_flag: &'a mut u8) -> Self {
         Self {
             inner: s,
             invalid_flag,
+            di: false,
         }
+    }
+
+    pub fn disable_invalidation(&mut self) {
+        self.di = true;
     }
 }
 
@@ -225,7 +243,9 @@ impl DerefMut for UiStyleWriteObserver<'_> {
 
 impl Drop for UiStyleWriteObserver<'_> {
     fn drop(&mut self) {
-        *self.invalid_flag = true;
+        if !self.di {
+            *self.invalid_flag = UiElementState::FRAMES_TO_BE_INVALID;
+        }
     }
 }
 
@@ -245,6 +265,7 @@ pub struct UiStyle {
 
     pub background: ShapeStyle,
     pub border: ShapeStyle,
+    pub detail: ShapeStyle,
 
     pub text: TextStyle,
     pub transform: TransformStyle,
@@ -272,6 +293,7 @@ impl UiStyle {
         self.child_align_y.merge_unset(&other.child_align_y);
         self.background.merge_unset(&other.background);
         self.border.merge_unset(&other.border);
+        self.detail.merge_unset(&other.detail);
         self.text.merge_unset(&other.text);
         self.transform.merge_unset(&other.transform);
         self.overflow_x.merge_unset(&other.overflow_x);
@@ -293,6 +315,7 @@ impl UiStyle {
         self.child_align_y.merge_at_set(&to.child_align_y);
         self.background.merge_at_set(&to.background);
         self.border.merge_at_set(&to.border);
+        self.detail.merge_at_set(&to.detail);
         self.text.merge_at_set(&to.text);
         self.transform.merge_at_set(&to.transform);
         self.overflow_x.merge_at_set(&to.overflow_x);

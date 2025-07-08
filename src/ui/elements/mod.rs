@@ -2,6 +2,7 @@ pub mod child;
 pub mod components;
 pub mod events;
 pub mod implementations;
+pub mod prelude;
 
 pub use implementations::*;
 use std::fmt::Pointer;
@@ -10,7 +11,7 @@ use crate::input::consts::MouseButton;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::math::vec::Vec2;
 use crate::rendering::text::Font;
-use crate::rendering::{RenderContext, Transform};
+use crate::rendering::{OpenGLRenderer, RenderContext, Transform};
 use crate::resolve;
 use crate::ui::anim::ElementAnimator;
 use crate::ui::attributes::Attributes;
@@ -35,10 +36,12 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::rendering::pipeline::RenderingPipeline;
+use crate::ui::elements::checkbox::CheckBox;
 
 pub trait UiElementCallbacks {
     /// Do not call this function manually! instead, call frame_callback()
-    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect);
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect);
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         false
@@ -143,11 +146,14 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     /// This function should be called every frame instead of draw()
-    fn frame_callback(&mut self, renderer: &mut UiRenderer, crop_area: &SimpleRect) where Self: Sized + 'static {
+    fn frame_callback(&mut self, renderer: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) where Self: Sized + 'static {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.ui_draw(|t| t.pause());
+        }
         let this = unsafe { (self as *mut dyn UiElementStub).as_mut().unwrap() };
         this.state_mut().animator.tick(self);
         let state = self.state();
-        if state.invalid {
+        if !state.is_valid() {
             self.compute_styles(renderer);
         }
         #[cfg(feature = "timed")] {
@@ -173,25 +179,16 @@ pub trait UiElementStub: UiElementCallbacks {
 
         {
             let mut style = self.style_mut();
+            style.disable_invalidation();
             style.merge_unset(&DEFAULT_STYLE);
         }
         let style = self.style();
 
-        if let Some(parent) = this.state().parent.clone() {
-            if !parent.get().state().invalid {
-                //if the state is already invalid there is no need to invoke compute_styles
-                if this.state().invalid {
-                    //if this state is invalid, we want to propagate the update to the parent above
-                    //and skip this update
-                    this.state_mut().invalid = false;
-                    parent.get_mut().compute_styles(ctx);
-                    return;
-                }
-            }
-        }
 
         let state = this.state_mut();
         state.ctx.dpi = ctx.dpi() as f32;
+
+        state.invalid = state.invalid.saturating_sub(1);
 
         let maybe_parent = state.parent.clone();
 
@@ -272,9 +269,6 @@ pub trait UiElementStub: UiElementCallbacks {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.ui_compute(|t| t.resume());
         }
-
-        //Dont do this before compute_children to avoid recursion
-        state.invalid = false;
 
         let width = resolve!(self, width);
         let width = if width.is_set() {
@@ -666,20 +660,23 @@ pub trait UiElementStub: UiElementCallbacks {
                         .requested_height
                         .unwrap_or(bounding.bounding.height);
 
+                    // Please keep the || true, i am sure the compiler can optimise this away. but the story goes like this:
+                    // I put this check in when i made this like 4 months ago and rn it breaks something and stuff still works when i remove the check
+                    // But this might turn on me in the future and i want to be able to easily undo this
                     match direction {
                         Direction::Vertical => {
-                            if !guard.state().is_height_percent {
+                            if !guard.state().is_height_percent || true {
                                 h += ch;
                             }
-                            if !guard.state().is_width_percent {
+                            if !guard.state().is_width_percent || true {
                                 w = w.max(cw);
                             }
                         }
                         Direction::Horizontal => {
-                            if !guard.state().is_width_percent {
+                            if !guard.state().is_width_percent || true {
                                 w += cw;
                             }
-                            if !guard.state().is_height_percent {
+                            if !guard.state().is_height_percent || true {
                                 h = h.max(ch);
                             }
                         }
@@ -830,7 +827,7 @@ pub trait UiElementStub: UiElementCallbacks {
         }
 
         if used || in_scroll {
-            state.invalid = true;
+            state.invalidate();
         }
 
         used
@@ -845,6 +842,7 @@ pub enum UiElement {
     Button(Button),
     TextBox(TextBox),
     Text(Text),
+    CheckBox(CheckBox)
 }
 
 impl ToChild for UiElement {
@@ -860,6 +858,7 @@ macro_rules! ui_element_fn {
             UiElement::Button(e) => e.$fn_name(),
             UiElement::TextBox(e) => e.$fn_name(),
             UiElement::Text(e) => e.$fn_name(),
+            UiElement::CheckBox(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -868,12 +867,13 @@ macro_rules! ui_element_fn {
             UiElement::Button(e) => e.$fn_name($($args),*),
             UiElement::TextBox(e) => e.$fn_name($($args),*),
             UiElement::Text(e) => e.$fn_name($($args),*),
+            UiElement::CheckBox(e) => e.$fn_name($($args),*),
         }
     };
 }
 
 impl UiElementCallbacks for UiElement {
-    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         ui_element_fn!(self, draw(ctx, crop_area));
     }
 
@@ -955,7 +955,7 @@ impl UiScrollState {
 }
 
 pub struct UiElementState {
-    pub invalid: bool,
+    pub invalid: u8,
     pub ctx: ResCon,
     pub parent: Option<Rc<DangerousCell<UiElement>>>,
 
@@ -1039,7 +1039,7 @@ impl UiTransformations {
 impl UiElementState {
     pub(crate) fn new(context: UiContext) -> Self {
         Self {
-            invalid: true,
+            invalid: 2,
             ctx: ResCon { dpi: 0.0 },
             parent: None,
             children: vec![],
@@ -1059,6 +1059,16 @@ impl UiElementState {
             requested_width: None,
             requested_height: None,
         }
+    }
+
+    pub(crate) const FRAMES_TO_BE_INVALID: u8 = 5;
+
+    pub fn invalidate(&mut self) {
+        self.invalid = Self::FRAMES_TO_BE_INVALID;
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.invalid == 0
     }
 }
 

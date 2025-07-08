@@ -559,6 +559,10 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         }
         post.swap();
     }
+
+    fn recreate(&mut self, window: &Window) {
+        unsafe { *self = LightOpenGLRenderer::initialize(window); }
+    }
 }
 
 impl Drop for LightOpenGLRenderer {

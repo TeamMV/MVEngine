@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use quote::quote;
 
 mod ecs;
 mod r;
@@ -22,7 +23,12 @@ pub fn ui(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn style_expr(input: TokenStream) -> TokenStream {
-    style_expr::style_expr(input)
+    style_expr::style_expr(quote! { mvengine::ui::styles::UiStyle::default() }, input)
+}
+
+#[proc_macro]
+pub fn style_expr_empty(input: TokenStream) -> TokenStream {
+    style_expr::style_expr(quote! { mvengine::ui::styles::EMPTY_STYLE.clone() }, input)
 }
 
 #[proc_macro_attribute]

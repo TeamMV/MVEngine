@@ -6,7 +6,7 @@ use ui_parsing::style::StyleParser;
 
 const RAW_TYPES: [&str; 1] = ["dimension"];
 
-pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
+pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as LitStr);
     let parsed = StyleParser::parse_expr(&inp.value());
     
@@ -78,7 +78,7 @@ pub(crate) fn style_expr(input: TokenStream) -> TokenStream {
     }
     
     let base_ts = quote! {
-        let mut style = mvengine::ui::styles::UiStyle::default();
+        let mut style = #base_style;
         #mods
     };
     

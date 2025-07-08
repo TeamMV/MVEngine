@@ -247,6 +247,7 @@ impl Window {
                         self.info.height = h;
                         let mut app_loop = callbacks.write();
                         app_loop.resize(&mut self, w, h);
+                        self.ui_mut().invalidate();
                     }
                     Event::Moved(_, _) => {}
                     Event::Closed => {
