@@ -60,48 +60,48 @@ pub fn main() -> Result<(), Error> {
     //    println!("{token:?}");
     //}
 
-    let data = include_str!("test.msfx");
-    let ast = MSFXParser::parse(data).unwrap();
-    println!("{:?}", ast);
-    let mut minifier = MSFXMinifier::new();
-    let ast = minifier.minify(ast);
-    println!("{:?}", ast);
+    // let data = include_str!("test.msfx");
+    // let ast = MSFXParser::parse(data).unwrap();
+    // println!("{:?}", ast);
+    // let mut minifier = MSFXMinifier::new();
+    // let ast = minifier.minify(ast);
+    // println!("{:?}", ast);
+    //
+    // let mut buf = ByteBuffer::new_le();
+    // ast.save(&mut buf);
+    // let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
+    // file.write_all(buf.as_bytes()).unwrap();
+    //
+    // let mut executor = MSFXExecutor::new();
+    // let mut inputs = HashMap::new();
+    // inputs.insert("num".to_string(), 1.0.into());
+    // println!("\nOutput:");
+    // let result = executor.run_debug(&ast, inputs);
+    // println!();
+    //
+    // match result {
+    //     Ok((ret, variables)) => {
+    //         println!("Variables:");
+    //         for (name, variable) in variables {
+    //             println!("{name} = {:?}", variable);
+    //         }
+    //         println!("Return:");
+    //         match ret {
+    //             Return::Shape(s) => println!("{:?}", s),
+    //             Return::Adaptive(a) => println!("{:?}", a),
+    //         }
+    //     }
+    //     Err((err, variables)) => {
+    //         println!("Variables:");
+    //         for (name, variable) in variables {
+    //             println!("{name} = {:?}", variable);
+    //         }
+    //         println!("Error:");
+    //         println!("{err}");
+    //     }
+    // }
 
-    let mut buf = ByteBuffer::new_le();
-    ast.save(&mut buf);
-    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
-    file.write_all(buf.as_bytes()).unwrap();
-
-    let mut executor = MSFXExecutor::new();
-    let mut inputs = HashMap::new();
-    inputs.insert("num".to_string(), 1.0.into());
-    println!("\nOutput:");
-    let result = executor.run_debug(&ast, inputs);
-    println!();
-
-    match result {
-        Ok((ret, variables)) => {
-            println!("Variables:");
-            for (name, variable) in variables {
-                println!("{name} = {:?}", variable);
-            }
-            println!("Return:");
-            match ret {
-                Return::Shape(s) => println!("{:?}", s),
-                Return::Adaptive(a) => println!("{:?}", a),
-            }
-        }
-        Err((err, variables)) => {
-            println!("Variables:");
-            for (name, variable) in variables {
-                println!("{name} = {:?}", variable);
-            }
-            println!("Error:");
-            println!("{err}");
-        }
-    }
-
-    exit(0);
+    // exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();

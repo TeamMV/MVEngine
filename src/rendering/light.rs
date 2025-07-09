@@ -9,6 +9,7 @@ use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
+use glutin::context::PossiblyCurrentGlContext;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -32,9 +33,8 @@ pub struct LightOpenGLRenderer {
 
 impl LightOpenGLRenderer {
     pub unsafe fn prepare(window: &Window) {
-        let handle = window.get_handle();
-        handle
-            .make_current()
+        window.get_context()
+            .make_current(window.get_surface())
             .expect("Cannot make OpenGL context current");
     }
 
