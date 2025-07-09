@@ -62,6 +62,11 @@ impl MVEngineProfiler {
         let mut l = self.inner.write();
         f(&mut l.ecs_find);
     }
+
+    pub(crate) fn input<F: Fn(&mut Timer)>(&self, f: F) {
+        let mut l = self.inner.write();
+        f(&mut l.input);
+    }
 }
 
 pub(crate) struct MVEnPrInner {
@@ -73,6 +78,7 @@ pub(crate) struct MVEnPrInner {
     pub(crate) render_draw: Timer,
     pub(crate) render_swap: Timer,
     pub(crate) ecs_find: Timer,
+    pub(crate) input: Timer,
 }
 
 impl MVEnPrInner {
@@ -86,6 +92,7 @@ impl MVEnPrInner {
             app_draw: Timer::new(),
             app_update: Timer::new(),
             ecs_find: Timer::new(),
+            input: Timer::new(),
         }
     }
 }

@@ -41,6 +41,9 @@ impl InputCollector {
     }
 
     pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.input(|t| t.resume());
+        }
         self.ui
             .get_mut()
             .digest_action(action.clone(), input, window);
@@ -51,6 +54,9 @@ impl InputCollector {
             if lock.is_enabled() {
                 lock.digest_action(action.clone(), input, window);
             }
+        }
+        #[cfg(feature = "timed")] {
+            crate::debug::PROFILER.input(|t| t.pause());
         }
     }
 

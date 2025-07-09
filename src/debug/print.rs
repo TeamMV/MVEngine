@@ -38,6 +38,8 @@ pub fn print_summary(print_interval_ms: u64) {
     let ecs_find_time = lock.ecs_find.time_nanos();
     let ecs_time = ecs_find_time;
 
+    let input_time = lock.input.time_nanos();
+
     let printer = Printer::start();
     let printer = print_table_header(printer);
     let printer = print_entry(printer, "app", Col::BrightYellow, app_time);
@@ -52,6 +54,7 @@ pub fn print_summary(print_interval_ms: u64) {
     let printer = print_entry(printer, "render/swap", Col::BrightRed, render_swap_time);
     let printer = print_entry(printer, "ecs", Col::BrightBlue, ecs_time);
     let printer = print_entry(printer, "ecs/find", Col::BrightBlue, ecs_find_time);
+    let printer = print_entry(printer, "input", Col::BrightBlue, input_time);
 
     clear_terminal_screen();
     printer.flush();

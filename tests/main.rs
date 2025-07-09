@@ -15,7 +15,7 @@ use mvengine::ui::elements::text::Text;
 use mvengine::ui::elements::textbox::TextBox;
 use mvengine::ui::elements::checkbox::CheckBox;
 use mvengine::ui::elements::UiElementStub;
-use mvengine::ui::geometry::shape::VertexStream;
+use mvengine::ui::geometry::shape::{shapes, VertexStream};
 use mvengine::ui::res::MVR;
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
@@ -30,6 +30,7 @@ use std::sync::Arc;
 use bytebuffer::ByteBuffer;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
+use mvengine::color::RgbColor;
 use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 
 pub fn main() -> Result<(), Error> {
@@ -155,6 +156,8 @@ impl WindowCallbacks for Application {
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
+        OpenGLRenderer::clear();
+        self.draw_ctx.begin_frame();
         /*if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
             s.draw(&mut *self.draw_ctx, |v| {
                 v.color = RgbColor::red().as_vec4();
@@ -197,8 +200,6 @@ impl WindowCallbacks for Application {
             //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
         }*/
 
-        OpenGLRenderer::clear();
-        self.draw_ctx.begin_frame();
         self.draw_ctx.advance(window, |_| {});
 
         self.rot += 0.5;

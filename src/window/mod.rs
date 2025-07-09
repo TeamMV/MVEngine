@@ -1,7 +1,7 @@
 pub mod app;
 
-use std::ffi::CString;
-use std::num::NonZeroU32;
+use std::ffi::{CStr, CString};
+use std::num::{NonZeroI32, NonZeroU32};
 use crate::input::consts::{Key, MouseButton};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::ui::Ui;
@@ -14,8 +14,9 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use std::time::SystemTime;
+use gl::types::GLsizei;
 use glutin::config::{Api, Config, ConfigTemplateBuilder, GlConfig};
-use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, Version};
+use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentGlContext, Version};
 use glutin::display::{GetGlDisplay, GlDisplay};
 use glutin::surface::{GlSurface, SwapInterval};
 use glutin_winit::{ApiPreference, DisplayBuilder, GlWindow};
@@ -219,7 +220,7 @@ impl Window {
     ) -> Result<(), Error> {
         let mut event_loop = EventLoopBuilder::new().build()?;
         let builder = WindowBuilder::new()
-            .with_visible(false)
+             .with_visible(true)
             .with_title(self.info.title.clone())
             .with_decorations(self.info.decorated)
             .with_theme(self.info.theme)
@@ -252,6 +253,7 @@ impl Window {
 
         let context_attributes = ContextAttributesBuilder::new()
             .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 6))))
+            .with_profile(glutin::context::GlProfile::Compatibility)
             .build(Some(raw_window_handle));
 
         let mut not_current_gl_context = Some(unsafe {
@@ -266,8 +268,6 @@ impl Window {
         let gl_context =
             not_current_gl_context.take().unwrap().make_current(&gl_surface).unwrap();
 
-        // TODO: vsync?
-
         gl::load_with(|symbol| {
             let symbol = CString::new(symbol).unwrap();
             gl_display.get_proc_address(symbol.as_c_str()).cast()
@@ -278,6 +278,8 @@ impl Window {
         } else {
             gl_surface.set_swap_interval(&gl_context, SwapInterval::DontWait).map_err(|_| Error::OpenGL)?;
         }
+
+        gl_surface.resize(&gl_context, NonZeroU32::new(self.info.width).unwrap(),  NonZeroU32::new(self.info.height).unwrap());
 
         // unsafe {
         //     if cfg!(windows) {
@@ -302,7 +304,7 @@ impl Window {
         lock.post_init(&mut self);
         drop(lock);
 
-        self.handle.set_visible(true);
+        // self.handle.set_visible(true);
         self.state = State::Running;
 
         let mut error = None;
@@ -320,8 +322,10 @@ impl Window {
                         WindowEvent::Resized(PhysicalSize { width, height }) => {
                             self.info.width = width;
                             self.info.height = height;
+                            self.surface.resize(&self.context, NonZeroU32::new(width).unwrap(),  NonZeroU32::new(height).unwrap());
                             let mut app_loop = callbacks.write();
                             app_loop.resize(&mut self, width, height);
+                            self.ui.get_mut().invalidate();
                         }
                         WindowEvent::Moved(_) => {}
                         WindowEvent::DroppedFile(_) => {}
@@ -342,6 +346,7 @@ impl Window {
                                 physical_key,
                                 state,
                                 repeat,
+                                text,
                                 ..
                             } = event;
                             if let Ok(code) = Key::try_from(physical_key) {
@@ -414,7 +419,59 @@ impl Window {
                         }
                         WindowEvent::TouchpadPressure { .. } => {}
                         WindowEvent::RedrawRequested => {
+                            let delta_t = self.delta_t;
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.app_draw(|t| t.start());
+                            }
 
+                            self.time_f = SystemTime::now();
+
+                            let mut app_loop = callbacks.write();
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.render_batch(|t| t.start());
+                                crate::debug::PROFILER.render_draw(|t| t.start());
+                                crate::debug::PROFILER.ui_compute(|t| t.start());
+                                crate::debug::PROFILER.ui_draw(|t| t.start());
+                                crate::debug::PROFILER.input(|t| t.start());
+
+                                crate::debug::PROFILER.render_batch(|t| t.pause());
+                                crate::debug::PROFILER.render_draw(|t| t.pause());
+                                crate::debug::PROFILER.ui_compute(|t| t.pause());
+                                crate::debug::PROFILER.ui_draw(|t| t.pause());
+                                crate::debug::PROFILER.input(|t| t.pause());
+                            }
+
+                            app_loop.draw(&mut self, delta_t);
+                            self.input.collector.end_frame();
+
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.render_swap(|t| t.start());
+                            }
+
+                            if self.surface.swap_buffers(&self.context).is_err() {
+                                error = Some(Error::OpenGL);
+                                target.exit();
+                            };
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.render_swap(|t| t.stop());
+                            }
+
+                            self.ui.get_mut().end_frame();
+
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.render_batch(|t| t.stop());
+                                crate::debug::PROFILER.render_draw(|t| t.stop());
+                                crate::debug::PROFILER.app_draw(|t| t.stop());
+                                crate::debug::PROFILER.ecs_find(|t| t.stop());
+                                crate::debug::PROFILER.ui_compute(|t| t.stop());
+                                crate::debug::PROFILER.ui_draw(|t| t.stop());
+                                crate::debug::PROFILER.input(|t| t.stop());
+                            }
+                            app_loop.post_draw(&mut self, delta_t);
+                            #[cfg(feature = "timed")] {
+                                crate::debug::PROFILER.ecs_find(|t| t.start());
+                                crate::debug::PROFILER.ecs_find(|t| t.pause());
+                            }
                         }
                         WindowEvent::Touch(_) => {}
                         WindowEvent::CloseRequested => {
@@ -445,56 +502,7 @@ impl Window {
                     let elapsed = self.time_f.elapsed().expect("SystemTime error").as_nanos();
                     if elapsed > self.frame_time_nanos as u128 {
                         self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
-                        let delta_t = self.delta_t;
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.app_draw(|t| t.start());
-                        }
-
-                        self.time_f = SystemTime::now();
-
-                        let mut app_loop = callbacks.write();
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.render_batch(|t| t.start());
-                            crate::debug::PROFILER.render_draw(|t| t.start());
-                            crate::debug::PROFILER.ui_compute(|t| t.start());
-                            crate::debug::PROFILER.ui_draw(|t| t.start());
-
-                            crate::debug::PROFILER.render_batch(|t| t.pause());
-                            crate::debug::PROFILER.render_draw(|t| t.pause());
-                            crate::debug::PROFILER.ui_compute(|t| t.pause());
-                            crate::debug::PROFILER.ui_draw(|t| t.pause());
-                        }
-                        app_loop.draw(&mut self, delta_t);
-                        self.input.collector.end_frame();
-
                         self.handle.request_redraw();
-
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.render_swap(|t| t.start());
-                        }
-                        if self.surface.swap_buffers(&self.context).is_err() {
-                            error = Some(Error::OpenGL);
-                            target.exit();
-                        };
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.render_swap(|t| t.stop());
-                        }
-
-                        self.ui.get_mut().end_frame();
-
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.render_batch(|t| t.stop());
-                            crate::debug::PROFILER.render_draw(|t| t.stop());
-                            crate::debug::PROFILER.app_draw(|t| t.stop());
-                            crate::debug::PROFILER.ecs_find(|t| t.stop());
-                            crate::debug::PROFILER.ui_compute(|t| t.stop());
-                            crate::debug::PROFILER.ui_draw(|t| t.stop());
-                        }
-                        app_loop.post_draw(&mut self, delta_t);
-                        #[cfg(feature = "timed")] {
-                            crate::debug::PROFILER.ecs_find(|t| t.start());
-                            crate::debug::PROFILER.ecs_find(|t| t.pause());
-                        }
                     }
                 }
                 Event::LoopExiting => {}
