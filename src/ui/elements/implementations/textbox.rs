@@ -50,7 +50,7 @@ impl TextBox {
 
 impl UiElementCallbacks for TextBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
         for children in &self.state.children {
             match children {

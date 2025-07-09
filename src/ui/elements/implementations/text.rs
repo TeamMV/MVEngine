@@ -38,7 +38,7 @@ impl Text {
 
 impl UiElementCallbacks for Text {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_mut_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         for children in &self.state.children {
             match children {
                 Child::String(s) => {

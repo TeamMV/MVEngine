@@ -30,7 +30,7 @@ pub struct CheckBox {
 
 impl UiElementCallbacks for CheckBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_static(self) };
+        let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw_height_square(this, ctx, &self.context, crop_area);
         let text_w = if let Some(child) = self.state.children.first() {
             match child {
