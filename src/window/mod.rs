@@ -1,23 +1,31 @@
 pub mod app;
 
-use crate::input::consts::Key;
+use std::ffi::CString;
+use std::num::NonZeroU32;
+use crate::input::consts::{Key, MouseButton};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::ui::Ui;
 use crate::ui::geometry::SimpleRect;
 use crate::ui::styles::InheritSupplier;
 use crate::window::app::WindowCallbacks;
-use glutin::os::windows::WindowExt;
-use glutin::{
-    ContextError, CreationError, ElementState, Event, MouseButton, MouseScrollDelta,
-    VirtualKeyCode, WindowBuilder,
-};
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use parking_lot::RwLock;
-use std::mem;
 use std::sync::Arc;
 use std::time::SystemTime;
+use glutin::config::{Api, Config, ConfigTemplateBuilder, GlConfig};
+use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, Version};
+use glutin::display::{GetGlDisplay, GlDisplay};
+use glutin::surface::{GlSurface, SwapInterval};
+use glutin_winit::{ApiPreference, DisplayBuilder, GlWindow};
+use log::warn;
+use raw_window_handle::HasRawWindowHandle;
+use winit::dpi::{PhysicalSize, Size};
+use winit::error::{EventLoopError, OsError};
+use winit::event::{ElementState, Event, KeyEvent, MouseScrollDelta, WindowEvent};
+use winit::event_loop::EventLoopBuilder;
+use winit::window::{Fullscreen, Theme, WindowBuilder};
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -61,7 +69,7 @@ pub struct WindowCreateInfo {
     /// Dark or Light theme. None means system theme.
     ///
     /// Default is None.
-    //pub theme: Option<Theme>,
+    pub theme: Option<Theme>,
 
     /// Whether to sync the screen update with the time the vertical electron beam of your monitor reaches its lowest point.
     ///
@@ -94,7 +102,7 @@ impl Default for WindowCreateInfo {
             decorated: true,
             resizable: true,
             transparent: false,
-            //theme: None,
+            theme: None,
             vsync: false,
             max_frames_in_flight: 2,
             fps: 60,
@@ -112,26 +120,50 @@ pub enum State {
 
 #[derive(Debug)]
 pub enum Error {
-    Window(CreationError),
-    OpenGL(ContextError),
+    Window(OsError),
+    EventLoop(EventLoopError),
+    OpenGL,
 }
 
-impl From<CreationError> for Error {
-    fn from(residual: CreationError) -> Self {
+impl From<OsError> for Error {
+    fn from(residual: OsError) -> Self {
         Error::Window(residual)
     }
 }
 
-impl From<ContextError> for Error {
-    fn from(residual: ContextError) -> Self {
-        Error::OpenGL(residual)
+impl From<EventLoopError> for Error {
+    fn from(residual: EventLoopError) -> Self {
+        Error::EventLoop(residual)
     }
+}
+
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(_: Box<dyn std::error::Error>) -> Self {
+        Error::OpenGL
+    }
+}
+
+fn gl_config_picker(configs: Box<dyn Iterator<Item = Config> + '_>) -> Config {
+    configs
+        .reduce(|accum, config| {
+            let transparency_check = config.supports_transparency().unwrap_or(false)
+                & !accum.supports_transparency().unwrap_or(false);
+
+            if transparency_check || config.num_samples() > accum.num_samples() {
+                config
+            } else {
+                accum
+            }
+        })
+        .unwrap()
 }
 
 pub struct Window {
     pub(crate) info: WindowCreateInfo,
 
-    handle: CreateOnce<glutin::Window>,
+    handle: CreateOnce<winit::window::Window>,
+    context: CreateOnce<glutin::context::PossiblyCurrentContext>,
+    surface: CreateOnce<glutin::surface::Surface<glutin::surface::WindowSurface>>,
     state: State,
 
     dpi: u32,
@@ -143,8 +175,8 @@ pub struct Window {
     time_f: SystemTime,
     time_u: SystemTime,
 
-    cached_pos: (i32, i32),
-    cached_size: (u32, u32),
+    // cached_pos: (i32, i32),
+    // cached_size: (u32, u32),
 
     pub input: Input,
     pressed_keys: HashSet<Key>,
@@ -164,6 +196,8 @@ impl Window {
             info,
 
             handle: CreateOnce::new(),
+            context: CreateOnce::new(),
+            surface: CreateOnce::new(),
             state: State::Ready,
 
             dpi: 96,
@@ -173,8 +207,6 @@ impl Window {
             delta_u: 0.0,
             time_f: SystemTime::now(),
             time_u: SystemTime::now(),
-            cached_pos: (0, 0),
-            cached_size: (0, 0),
             input: Input::new(ui.clone()),
             pressed_keys: HashSet::new(),
             ui,
@@ -185,226 +217,298 @@ impl Window {
         mut self,
         callbacks: Arc<RwLock<T>>,
     ) -> Result<(), Error> {
-        let mut window = WindowBuilder::new()
-            .with_visibility(false)
+        let mut event_loop = EventLoopBuilder::new().build()?;
+        let builder = WindowBuilder::new()
+            .with_visible(false)
             .with_title(self.info.title.clone())
-            .with_decorations(self.info.decorated);
+            .with_decorations(self.info.decorated)
+            .with_theme(self.info.theme)
+            .with_resizable(self.info.resizable)
+            .with_transparent(self.info.transparent)
+            .with_inner_size(Size::Physical(PhysicalSize {
+                width: self.info.width,
+                height: self.info.height,
+            }));
 
-        if self.info.fullscreen {
-            let monitor = glutin::get_primary_monitor();
-            let (w, h) = monitor.get_dimensions();
-            self.cached_size = (self.info.width, self.info.height);
-            self.cached_pos = (w as i32 / 2, h as i32 / 2);
-            self.info.width = w;
-            self.info.height = h;
-            window = window.with_fullscreen(monitor);
-        } else {
-            window = window.with_dimensions(self.info.width, self.info.height);
-        }
+        let template = ConfigTemplateBuilder::new()
+            .with_api(Api::OPENGL)
+            .with_alpha_size(8)
+            .with_single_buffering(false)
+            .with_transparency(true);
+
+        let builder = DisplayBuilder::new()
+            .with_preference(ApiPreference::FallbackEgl)
+            .with_window_builder(Some(builder));
+
+        let (window, gl_config) = builder.build(&event_loop, template, gl_config_picker)?;
+
+        let Some(mut window) = window else {
+            return Err(Error::OpenGL);
+        };
+
+        let raw_window_handle = window.raw_window_handle();
+
+        let gl_display = gl_config.display();
+
+        let context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 6))))
+            .build(Some(raw_window_handle));
+
+        let mut not_current_gl_context = Some(unsafe {
+            gl_display.create_context(&gl_config, &context_attributes).map_err(|_| Error::OpenGL)?
+        });
+
+        let attrs = window.build_surface_attributes(<_>::default());
+        let gl_surface = unsafe {
+            gl_config.display().create_window_surface(&gl_config, &attrs).unwrap()
+        };
+
+        let gl_context =
+            not_current_gl_context.take().unwrap().make_current(&gl_surface).unwrap();
+
+        // TODO: vsync?
+
+        gl::load_with(|symbol| {
+            let symbol = CString::new(symbol).unwrap();
+            gl_display.get_proc_address(symbol.as_c_str()).cast()
+        });
 
         if self.info.vsync {
-            window = window.with_vsync();
+            gl_surface.set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap())).map_err(|_| Error::OpenGL)?;
+        } else {
+            gl_surface.set_swap_interval(&gl_context, SwapInterval::DontWait).map_err(|_| Error::OpenGL)?;
         }
 
-        let w = window.build()?;
-        unsafe {
-            w.make_current()?;
-        }
-        gl::load_with(|symbol| w.get_proc_address(symbol) as *const _);
-
-        unsafe {
-            if cfg!(windows) {
-                let dpi_awareness_context =
-                    winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
-                self.dpi =
-                    winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
-            } else {
-                panic!("Illegal operating system (go buy a copy of windows for 1000$)")
-            }
-        }
+        // unsafe {
+        //     if cfg!(windows) {
+        //         let dpi_awareness_context =
+        //             winapi::um::winuser::GetWindowDpiAwarenessContext(w.get_hwnd() as *mut _);
+        //         self.dpi =
+        //             winapi::um::winuser::GetDpiFromDpiAwarenessContext(dpi_awareness_context);
+        //     } else {
+        //         panic!("Illegal operating system (go buy a copy of windows for 1000$)")
+        //     }
+        // }
 
         // unsafe {
         //     bindless::load_bindless_texture_functions(&w);
         // }
 
-        self.handle.create(|| w);
+        self.handle.create(|| window);
+        self.context.create(|| gl_context);
+        self.surface.create(|| gl_surface);
 
-        let this = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
-        let this2 = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
-        let this3 = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
         let mut lock = callbacks.write();
         lock.post_init(&mut self);
         drop(lock);
 
-        self.handle.show();
+        self.handle.set_visible(true);
         self.state = State::Running;
 
-        'outer: loop {
-            for event in this2.handle.poll_events() {
-                match event {
-                    Event::Resized(w, h) => {
-                        self.info.width = w;
-                        self.info.height = h;
-                        let mut app_loop = callbacks.write();
-                        app_loop.resize(&mut self, w, h);
-                        self.ui_mut().invalidate();
-                    }
-                    Event::Moved(_, _) => {}
-                    Event::Closed => {
-                        break 'outer;
-                    }
-                    Event::DroppedFile(_) => {}
-                    Event::ReceivedCharacter(ch) => {
-                        if !ch.is_control() {
-                            let action = RawInputEvent::Keyboard(KeyboardAction::Char(ch));
-                            this.input
-                                .collector
-                                .dispatch_input(action, &self.input, this3);
+        let mut error = None;
+
+        let this = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
+        let this2 = unsafe { Unsafe::cast_lifetime_mut(&mut self) };
+
+        event_loop.run(|event, target| {
+            match event {
+                Event::Resumed => {}
+                Event::WindowEvent {
+                    window_id, event
+                } if window_id == self.handle.id() => {
+                    match event {
+                        WindowEvent::Resized(PhysicalSize { width, height }) => {
+                            self.info.width = width;
+                            self.info.height = height;
+                            let mut app_loop = callbacks.write();
+                            app_loop.resize(&mut self, width, height);
                         }
-                    }
-                    Event::Focused(_) => {}
-                    Event::KeyboardInput(state, _, Some(key)) => {
-                        let code = unsafe { mem::transmute::<VirtualKeyCode, Key>(key) };
-                        let event = match state {
-                            ElementState::Pressed => {
-                                if !self.pressed_keys.contains(&code) {
-                                    self.pressed_keys.insert(code.clone());
-                                    RawInputEvent::Keyboard(KeyboardAction::Press(code))
-                                } else {
-                                    RawInputEvent::Keyboard(KeyboardAction::Type(code))
+                        WindowEvent::Moved(_) => {}
+                        WindowEvent::DroppedFile(_) => {}
+                        // WindowEvent::ReceivedCharacter(ch) => {
+                        //     if !ch.is_control() {
+                        //         let action = RawInputEvent::Keyboard(KeyboardAction::Char(ch));
+                        //         this.input
+                        //             .collector
+                        //             .dispatch_input(action, &self.input, this3);
+                        //     }
+                        // }
+                        WindowEvent::Focused(_) => {}
+                        WindowEvent::KeyboardInput {
+                            event,
+                            ..
+                        } => {
+                            let KeyEvent {
+                                physical_key,
+                                state,
+                                repeat,
+                                ..
+                            } = event;
+                            if let Ok(code) = Key::try_from(physical_key) {
+                                let event = match state {
+                                    ElementState::Pressed => {
+                                        if !self.pressed_keys.contains(&code) {
+                                            self.pressed_keys.insert(code.clone());
+                                            RawInputEvent::Keyboard(KeyboardAction::Press(code))
+                                        } else {
+                                            RawInputEvent::Keyboard(KeyboardAction::Type(code))
+                                        }
+                                    }
+                                    ElementState::Released => {
+                                        self.pressed_keys.remove(&code);
+                                        RawInputEvent::Keyboard(KeyboardAction::Release(code))
+                                    }
+                                };
+                                self.input
+                                    .collector
+                                    .dispatch_input(event, &this.input, this2);
+                            }
+                        }
+                        WindowEvent::CursorMoved { position, .. } => {
+                            let x = position.x as i32;
+                            let y = position.y as i32;
+                            self.input.collector.dispatch_input(
+                                RawInputEvent::Mouse(MouseAction::Move(x, self.info.height as i32 - y)),
+                                &this.input,
+                                this2,
+                            );
+                            self.input.mouse_x = x;
+                            self.input.mouse_y = self.info.height as i32 - y;
+                        }
+                        WindowEvent::MouseWheel { delta, .. } => match delta {
+                            MouseScrollDelta::LineDelta(dx, dy) => {
+                                self.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                    &this.input,
+                                    this2,
+                                );
+                            }
+                            MouseScrollDelta::PixelDelta(pos) => {
+                                let dx = pos.x as f32;
+                                let dy = pos.y as f32;
+                                self.input.collector.dispatch_input(
+                                    RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
+                                    &this.input,
+                                    this2,
+                                );
+                            }
+                        },
+                        WindowEvent::MouseInput { state, button,  .. } => {
+                            let button = MouseButton::from(button);
+                            match state {
+                                ElementState::Pressed => {
+                                    self.input.collector.dispatch_input(
+                                        RawInputEvent::Mouse(MouseAction::Press(button)),
+                                        &this.input,
+                                        this2,
+                                    );
+                                }
+                                ElementState::Released => {
+                                    self.input.collector.dispatch_input(
+                                        RawInputEvent::Mouse(MouseAction::Release(button)),
+                                        &this.input,
+                                        this2,
+                                    );
                                 }
                             }
-                            ElementState::Released => {
-                                self.pressed_keys.remove(&code);
-                                RawInputEvent::Keyboard(KeyboardAction::Release(code))
-                            }
+                        }
+                        WindowEvent::TouchpadPressure { .. } => {}
+                        WindowEvent::RedrawRequested => {
+
+                        }
+                        WindowEvent::Touch(_) => {}
+                        WindowEvent::CloseRequested => {
+                            target.exit();
+                        }
+                        _ => {}
+                    }
+                }
+                Event::AboutToWait => {
+                    let elapsed = self.time_u.elapsed().expect("SystemTime error").as_nanos();
+
+                    if elapsed > self.update_time_nanos as u128 {
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.app_update(|t| t.start());
+                        }
+                        self.time_u = SystemTime::now();
+                        self.delta_u = elapsed as f64 / NANOS_PER_SEC as f64;
+                        let delta_u = self.delta_u;
+
+                        let mut app_loop = callbacks.write();
+                        app_loop.update(&mut self, delta_u);
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.app_update(|t| t.stop());
+                        }
+                        app_loop.post_update(&mut self, delta_u);
+                    }
+
+                    let elapsed = self.time_f.elapsed().expect("SystemTime error").as_nanos();
+                    if elapsed > self.frame_time_nanos as u128 {
+                        self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
+                        let delta_t = self.delta_t;
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.app_draw(|t| t.start());
+                        }
+
+                        self.time_f = SystemTime::now();
+
+                        let mut app_loop = callbacks.write();
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.render_batch(|t| t.start());
+                            crate::debug::PROFILER.render_draw(|t| t.start());
+                            crate::debug::PROFILER.ui_compute(|t| t.start());
+                            crate::debug::PROFILER.ui_draw(|t| t.start());
+
+                            crate::debug::PROFILER.render_batch(|t| t.pause());
+                            crate::debug::PROFILER.render_draw(|t| t.pause());
+                            crate::debug::PROFILER.ui_compute(|t| t.pause());
+                            crate::debug::PROFILER.ui_draw(|t| t.pause());
+                        }
+                        app_loop.draw(&mut self, delta_t);
+                        self.input.collector.end_frame();
+
+                        self.handle.request_redraw();
+
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.render_swap(|t| t.start());
+                        }
+                        if self.surface.swap_buffers(&self.context).is_err() {
+                            error = Some(Error::OpenGL);
+                            target.exit();
                         };
-                        this.input
-                            .collector
-                            .dispatch_input(event, &self.input, this3);
-                    }
-                    Event::MouseMoved(x, y) => {
-                        this.input.collector.dispatch_input(
-                            RawInputEvent::Mouse(MouseAction::Move(x, self.info.height as i32 - y)),
-                            &self.input,
-                            this3,
-                        );
-                        self.input.mouse_x = x;
-                        self.input.mouse_y = self.info.height as i32 - y;
-                    }
-                    Event::MouseWheel(delta, _, _) => match delta {
-                        MouseScrollDelta::LineDelta(dx, dy) => {
-                            this.input.collector.dispatch_input(
-                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
-                                &self.input,
-                                this3,
-                            );
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.render_swap(|t| t.stop());
                         }
-                        MouseScrollDelta::PixelDelta(dx, dy) => {
-                            this.input.collector.dispatch_input(
-                                RawInputEvent::Mouse(MouseAction::Wheel(dx, dy)),
-                                &self.input,
-                                this3,
-                            );
+
+                        self.ui.get_mut().end_frame();
+
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.render_batch(|t| t.stop());
+                            crate::debug::PROFILER.render_draw(|t| t.stop());
+                            crate::debug::PROFILER.app_draw(|t| t.stop());
+                            crate::debug::PROFILER.ecs_find(|t| t.stop());
+                            crate::debug::PROFILER.ui_compute(|t| t.stop());
+                            crate::debug::PROFILER.ui_draw(|t| t.stop());
                         }
-                    },
-                    Event::MouseInput(i, d, _) => {
-                        let button = unsafe {
-                            mem::transmute::<MouseButton, crate::input::consts::MouseButton>(d)
-                        };
-                        match i {
-                            ElementState::Pressed => {
-                                this.input.collector.dispatch_input(
-                                    RawInputEvent::Mouse(MouseAction::Press(button)),
-                                    &self.input,
-                                    this3,
-                                );
-                            }
-                            ElementState::Released => {
-                                this.input.collector.dispatch_input(
-                                    RawInputEvent::Mouse(MouseAction::Release(button)),
-                                    &self.input,
-                                    this3,
-                                );
-                            }
+                        app_loop.post_draw(&mut self, delta_t);
+                        #[cfg(feature = "timed")] {
+                            crate::debug::PROFILER.ecs_find(|t| t.start());
+                            crate::debug::PROFILER.ecs_find(|t| t.pause());
                         }
                     }
-                    Event::TouchpadPressure(_, _) => {}
-                    Event::Awakened => {}
-                    Event::Refresh => {}
-                    Event::Suspended(_) => {}
-                    Event::Touch(_) => {}
-                    _ => {}
                 }
+                Event::LoopExiting => {}
+                Event::MemoryWarning => {}
+                Event::Suspended => {}
+                Event::NewEvents(_) => {}
+                Event::DeviceEvent { .. } => {}
+                Event::UserEvent(_) => {}
+                _ => {}
             }
+        })?;
 
-            let elapsed = self.time_u.elapsed().expect("SystemTime error").as_nanos();
-
-            if elapsed > self.update_time_nanos as u128 {
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.app_update(|t| t.start());
-                }
-                self.time_u = SystemTime::now();
-                self.delta_u = elapsed as f64 / NANOS_PER_SEC as f64;
-                let delta_u = self.delta_u;
-
-                let mut app_loop = callbacks.write();
-                app_loop.update(&mut self, delta_u);
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.app_update(|t| t.stop());
-                }
-                app_loop.post_update(&mut self, delta_u);
-            }
-
-            let elapsed = self.time_f.elapsed().expect("SystemTime error").as_nanos();
-            if elapsed > self.frame_time_nanos as u128 {
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.app_draw(|t| t.start());
-                }
-
-                self.time_f = SystemTime::now();
-                self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
-                let delta_t = self.delta_t;
-
-                let mut app_loop = callbacks.write();
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.render_batch(|t| t.start());
-                    crate::debug::PROFILER.render_draw(|t| t.start());
-                    crate::debug::PROFILER.ui_compute(|t| t.start());
-                    crate::debug::PROFILER.ui_draw(|t| t.start());
-
-                    crate::debug::PROFILER.render_batch(|t| t.pause());
-                    crate::debug::PROFILER.render_draw(|t| t.pause());
-                    crate::debug::PROFILER.ui_compute(|t| t.pause());
-                    crate::debug::PROFILER.ui_draw(|t| t.pause());
-                }
-                app_loop.draw(&mut self, delta_t);
-                self.input.collector.end_frame();
-
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.render_swap(|t| t.start());
-                }
-                self.handle.swap_buffers()?;
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.render_swap(|t| t.stop());
-                }
-
-                self.ui.get_mut().end_frame();
-
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.render_batch(|t| t.stop());
-                    crate::debug::PROFILER.render_draw(|t| t.stop());
-                    crate::debug::PROFILER.app_draw(|t| t.stop());
-                    crate::debug::PROFILER.ecs_find(|t| t.stop());
-                    crate::debug::PROFILER.ui_compute(|t| t.stop());
-                    crate::debug::PROFILER.ui_draw(|t| t.stop());
-                }
-                app_loop.post_draw(&mut self, delta_t);
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.ecs_find(|t| t.start());
-                    crate::debug::PROFILER.ecs_find(|t| t.pause());
-                }
-            }
+        if let Some(error) = error {
+            return Err(error);
         }
 
         self.state = State::Exited;
@@ -426,8 +530,16 @@ impl Window {
         self.state
     }
 
-    pub fn get_handle(&self) -> &glutin::Window {
+    pub fn get_handle(&self) -> &winit::window::Window {
         &self.handle
+    }
+
+    pub fn get_surface(&self) -> &glutin::surface::Surface<glutin::surface::WindowSurface> {
+        &self.surface
+    }
+
+    pub fn get_context(&self) -> &glutin::context::PossiblyCurrentContext {
+        &self.context
     }
 
     pub fn get_delta_t(&self) -> f64 {
@@ -474,26 +586,19 @@ impl Window {
         }
         self.info.fullscreen = fullscreen;
         if fullscreen {
-            self.cached_size = (self.info.width, self.info.height);
-            self.cached_pos = self.handle.get_position().unwrap_or((0, 0));
-            let monitor = glutin::get_primary_monitor();
-            let (w, h) = monitor.get_dimensions();
-            self.info.width = w;
-            self.info.height = h;
+            // self.cached_size = (self.info.width, self.info.height);
+            // self.cached_pos = self.handle.inner_position().map(|p| (p.x, p.y)).unwrap_or((0, 0));
 
-            self.handle.set_position(0, 0);
-            let (w, h) = monitor.get_dimensions();
-            self.handle.set_inner_size(w, h);
+            let monitor = self.handle.current_monitor();
+            self.handle.set_fullscreen(Some(Fullscreen::Borderless(monitor)));
         } else {
+            // I don't think we need this cuz we are doing real not fake fullscreen
             // let (x, y) = self.cached_pos;
-            let (w, h) = self.cached_size;
-            self.info.width = w;
-            self.info.height = h;
+            // let (w, h) = self.cached_size;
+            // self.info.width = w;
+            // self.info.height = h;
 
-            self.handle
-                .set_position(self.cached_pos.0, self.cached_pos.1);
-            let (w, h) = self.cached_size;
-            self.handle.set_inner_size(w, h);
+            self.handle.set_fullscreen(None);
         }
     }
 
