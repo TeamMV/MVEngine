@@ -95,9 +95,39 @@ impl ElementBody {
         elem: &E,
         ctx: &mut impl RenderContext,
         context: &UiContext,
-        crop_area: &SimpleRect, //TODO
+        crop_area: &SimpleRect,
     ) {
         let rect = elem.state().rect.bounding.clone();
+        let style = elem.style();
+        shape::utils::draw_shape_style_at(
+            ctx,
+            context,
+            &rect,
+            &style.background,
+            elem,
+            |s| &s.background,
+            Some(crop_area.clone()),
+        );
+        shape::utils::draw_shape_style_at(
+            ctx,
+            context,
+            &rect,
+            &style.border,
+            elem,
+            |s| &s.border,
+            Some(crop_area.clone()),
+        );
+    }
+
+    pub fn draw_height_square<E: UiElementStub + 'static>(
+        &mut self,
+        elem: &E,
+        ctx: &mut impl RenderContext,
+        context: &UiContext,
+        crop_area: &SimpleRect,
+    ) {
+        let rect = &elem.state().rect.bounding;
+        let rect = SimpleRect::new(rect.x, rect.y, rect.height, rect.height);
         let style = elem.style();
         shape::utils::draw_shape_style_at(
             ctx,

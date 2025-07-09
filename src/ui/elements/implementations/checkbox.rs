@@ -1,4 +1,3 @@
-use crate::input::{Input, RawInputEvent};
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::rendering::OpenGLRenderer;
 use crate::ui::attributes::Attributes;
@@ -7,60 +6,83 @@ use crate::ui::elements::child::Child;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
-use crate::ui::geometry::SimpleRect;
+use crate::ui::geometry::{shape, SimpleRect};
+use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use mvutils::state::State;
+use crate::input::{Input, MouseAction, RawInputEvent};
+use crate::input::consts::MouseButton;
 
 #[derive(Clone)]
-pub struct Button {
+pub struct CheckBox {
     rc: Weak<DangerousCell<UiElement>>,
-
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: BoringText<Button>,
+    text_body: BoringText<CheckBox>,
+    selected: State<bool>
 }
 
-impl UiElementCallbacks for Button {
+impl UiElementCallbacks for CheckBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_lifetime(self) };
-        self.body.draw(this, ctx, &self.context, crop_area);
-        for children in &self.state.children {
-            match children {
+        self.body.draw_height_square(this, ctx, &self.context, crop_area);
+        let text_w = if let Some(child) = self.state.children.first() {
+            match child {
                 Child::String(s) => {
-                    self.text_body.draw(0, 0, s, this, ctx, &self.context, crop_area);
-                }
-                Child::Element(e) => {
-                    let guard = e.get_mut();
-                    guard.frame_callback(ctx, crop_area);
+                    self.draw_text(s, ctx, crop_area)
                 }
                 Child::State(s) => {
-                    let guard = s.read();
-                    let s = guard.deref();
-                    self.text_body.draw(0, 0, s, this, ctx, &self.context, crop_area);
+                    let s = s.read();
+                    self.draw_text(&s, ctx, crop_area)
                 }
-                _ => {}
+                _ => { 0 }
             }
+        } else { 0 };
+        self.state.requested_width = Some(text_w);
+        if *self.selected.read() {
+            let cr = &self.state.content_rect;
+            let rect = SimpleRect::new(cr.x(), cr.y(), cr.height(), cr.height());
+            shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, self, |s| &s.detail, Some(crop_area.clone()));
         }
     }
 
     fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
-        self.body.on_input(unsafe_self, action.clone(), input);
-        self.super_input(action, input)
+        self.super_input(action.clone(), input);
+        if let RawInputEvent::Mouse(MouseAction::Press(MouseButton::Left)) = action {
+            if self.inside(input.mouse_x, input.mouse_y) {
+                let current = *self.selected.read();
+                let mut g = self.selected.write();
+                *g = !current;
+                return true;
+            }
+        }
+        false
     }
 }
 
-impl UiElementStub for Button {
+impl CheckBox {
+    fn draw_text(&self, s: &str, ctx: &mut impl WideRenderContext, crop: &SimpleRect) -> i32 {
+        let height = self.state.rect.height();
+        self.text_body.draw(height, 0, s, &self, ctx, &self.context, crop) + height
+    }
+}
+
+impl UiElementStub for CheckBox {
     fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
     where
-        Self: Sized,
+        Self: Sized
     {
+        let selected = match attributes.attribs.get("selected") {
+            None => State::new(false),
+            Some(v) => v.as_bool_state(),
+        };
+        
         let this = Self {
             rc: Weak::new(),
             context: context.clone(),
@@ -69,17 +91,18 @@ impl UiElementStub for Button {
             attributes,
             body: ElementBody::new(),
             text_body: BoringText::new(),
+            selected,
         };
         let rc = Rc::new(DangerousCell::new(this.wrap()));
         let e = rc.get_mut();
-        let btn = enum_val_ref_mut!(UiElement, e, Button);
-        btn.rc = Rc::downgrade(&rc);
+        let cb = enum_val_ref_mut!(UiElement, e, CheckBox);
+        cb.rc = Rc::downgrade(&rc);
 
         rc
     }
 
     fn wrap(self) -> UiElement {
-        UiElement::Button(self)
+        UiElement::CheckBox(self)
     }
 
     fn wrapped(&self) -> Element {

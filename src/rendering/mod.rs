@@ -19,11 +19,14 @@ pub mod post;
 pub mod shader;
 pub mod text;
 pub mod texture;
+pub mod pipeline;
 
 pub trait RenderContext {
     fn controller(&mut self) -> &mut RenderController;
 
     fn next_z(&mut self) -> f32;
+
+    fn set_z(&mut self, z: f32);
 }
 
 impl RenderContext for RenderController {
@@ -33,6 +36,10 @@ impl RenderContext for RenderController {
 
     fn next_z(&mut self) -> f32 {
         self.request_new_z()
+    }
+
+    fn set_z(&mut self, z: f32) {
+        self.set_z_notrait(z);
     }
 }
 
@@ -238,6 +245,7 @@ pub trait PrimitiveRenderer {
         shader: &mut OpenGLShader,
         post: &mut RenderTarget,
     );
+    fn recreate(&mut self, window: &Window);
 }
 
 pub struct OpenGLRenderer {
@@ -368,20 +376,30 @@ impl OpenGLRenderer {
         }
     }
 
+    pub fn enable_depth_test() {
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::LESS);
+        }
+    }
+
     pub fn disable_depth_test() {
         unsafe {
             gl::Disable(gl::DEPTH_TEST);
-            gl::DepthMask(gl::FALSE);
             gl::DepthFunc(gl::ALWAYS);
 
         }
     }
 
-    pub fn enable_depth_test() {
+    pub fn enable_depth_buffer() {
         unsafe {
-            gl::Enable(gl::DEPTH_TEST);
             gl::DepthMask(gl::TRUE);
-            gl::DepthFunc(gl::LESS);
+        }
+    }
+
+    pub fn disable_depth_buffer() {
+        unsafe {
+            gl::DepthMask(gl::FALSE);
         }
     }
 }
@@ -746,6 +764,10 @@ impl PrimitiveRenderer for OpenGLRenderer {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
         post.swap();
+    }
+
+    fn recreate(&mut self, window: &Window) {
+        unsafe { *self = Self::initialize(window); }
     }
 }
 

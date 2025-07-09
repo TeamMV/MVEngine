@@ -5,6 +5,7 @@
 #![deny(clippy::unwrap_used, clippy::redundant_closure_for_method_calls)]
 #![cfg_attr(not(debug_assertions), deny(clippy::todo))]
 #![warn(clippy::pedantic)]
+extern crate core;
 
 pub mod audio;
 pub mod color;

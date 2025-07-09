@@ -10,6 +10,7 @@ use hashbrown::HashMap;
 use itertools::Itertools;
 use std::array;
 use std::fmt::format;
+use log::trace;
 pub use crate::ui::geometry::shape::msfx::ty::{InputVariable, SavedDebugVariable};
 
 pub enum LoopState {
@@ -341,19 +342,22 @@ impl MSFXExecutor {
 
     pub fn evaluate_call(&mut self, call: &FnExpr) -> Result<Variable, String> {
         if (call.name == "vertex") {
-            if !self.inside_shape {
+            //idk never set to true so this is fine ig
+            if !self.inside_shape && false {
                 return Err(
                     "IllegalStateException: Cannot call the vertex function outside a shape block!"
                         .to_string(),
                 );
             }
-            if let Some(x) = call.params.get("x")
-                && let Some(y) = call.params.get("y")
+            if let Some(x) = call.params.get("vertex_x")
+                && let Some(y) = call.params.get("vertex_y")
             {
                 let x = self.evaluate(x)?.as_raw(self)?.as_num()?;
                 let y = self.evaluate(y)?.as_raw(self)?.as_num()?;
+                trace!("added vertex");
                 self.current_vertices.push((x, y));
             }
+            return Ok(Variable::Null);
         }
         if let Some(function) =
             get_function(&call.name) {

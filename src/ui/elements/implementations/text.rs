@@ -1,5 +1,5 @@
 use crate::input::{Input, RawInputEvent};
-use crate::rendering::RenderContext;
+use crate::rendering::{OpenGLRenderer, RenderContext};
 use crate::ui::attributes::Attributes;
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
@@ -13,6 +13,7 @@ use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
 pub struct Text {
@@ -36,7 +37,7 @@ impl Text {
 }
 
 impl UiElementCallbacks for Text {
-    fn draw(&mut self, ctx: &mut UiRenderer, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         for children in &self.state.children {
             match children {

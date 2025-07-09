@@ -204,6 +204,13 @@ impl Interpolator<UiStyle> for UiStyle {
             elem,
             |s| &s.background.texture,
         );
+        self.background.shape.interpolate(
+            &start.background.shape,
+            &end.background.shape,
+            percent,
+            elem,
+            |s| &s.background.shape,
+        );
 
         self.border.resource.interpolate(
             &start.border.resource,
@@ -223,6 +230,40 @@ impl Interpolator<UiStyle> for UiStyle {
             percent,
             elem,
             |s| &s.border.texture,
+        );
+        self.border.shape.interpolate(
+            &start.border.shape,
+            &end.border.shape,
+            percent,
+            elem,
+            |s| &s.border.shape,
+        );
+
+        self.detail.resource.interpolate(
+            &start.detail.resource,
+            &end.detail.resource,
+            percent,
+            elem,
+            |s| &s.detail.resource,
+        );
+        self.detail
+            .color
+            .interpolate(&start.detail.color, &end.detail.color, percent, elem, |s| {
+                &s.detail.color
+            });
+        self.detail.texture.interpolate(
+            &start.detail.texture,
+            &end.detail.texture,
+            percent,
+            elem,
+            |s| &s.detail.texture,
+        );
+        self.detail.shape.interpolate(
+            &start.detail.shape,
+            &end.detail.shape,
+            percent,
+            elem,
+            |s| &s.detail.shape,
         );
 
         self.text

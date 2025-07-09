@@ -9,6 +9,7 @@ use crate::ui::geometry::shape::shapes;
 use crate::ui::geometry::{shape, SimpleRect};
 use itertools::Itertools;
 use std::ops::Range;
+use crate::ui::rendering::WideRenderContext;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -174,7 +175,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         }
     }
 
-    pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
+    pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
         let text = &*self.content.read();
 
         //fix selection when it is messed up
@@ -186,7 +187,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             }
         }
 
-        if let Some(mut info) = self.text_body.get_info(elem, ui_ctx) {
+        if let Some(mut info) = self.text_body.get_info(elem, ui_ctx, draw_ctx) {
             let cursor_offset_rel = self.cursor_pos - self.view_range.start;
 
             let state = elem.state();
@@ -195,7 +196,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let max_x = state.content_rect.width() as f32 + x;
             let y = state.content_rect.y() as f32;
             let cursor_height = info.size as i32;
-            let cursor_y = y + info.max_y_off;
+            let cursor_y = y;
 
             if text.is_empty() {
                 if draw_cursor {
@@ -212,6 +213,18 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let original_color = info.color.clone();
 
             for (i, c) in text[self.view_range.start..].char_indices() {
+                let new_x = x + self.text_body.char_width(c, &info);
+                if new_x > max_x {
+                    //no more characters fit
+                    //if cursor is offscreen, move view range
+                    let diff = cursor_offset_rel as i32 - i as i32;
+                    if diff > 0 {
+                        self.view_range.end += diff as usize;
+                        self.view_range.start += diff as usize;
+                    }
+                    break;
+                }
+
                 let old_x = x;
                 info.color = original_color.clone();
 
@@ -285,7 +298,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         });
     }
 
-    pub fn draw_other(&mut self, s: &str, elem: &E, draw_ctx: &mut impl RenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
-        self.text_body.draw(s, elem, draw_ctx, ui_ctx, crop);
+    pub fn draw_other(&mut self, s: &str, elem: &E, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
+        self.text_body.draw(0, 0, s, elem, draw_ctx, ui_ctx, crop);
     }
 }

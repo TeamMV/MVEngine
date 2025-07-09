@@ -6,10 +6,11 @@ use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::{shapes, Indices, Shape, VertexStream};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::res::MVR;
-use crate::ui::styles::ResolveResult;
+use crate::ui::styles::{InheritSupplier, ResolveResult};
 use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
 use crate::color::RgbColor;
+use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::enums::TextAlign;
 
 pub struct TextInfo<'a> {
@@ -39,7 +40,7 @@ impl<E: UiElementStub> BoringText<E> {
         }
     }
 
-    pub fn get_info(&self, elem: &E, context: &UiContext) -> Option<TextInfo> {
+    pub fn get_info(&self, elem: &E, context: &UiContext, sup: &impl InheritSupplier) -> Option<TextInfo> {
         let text_align_x =
             resolve!(elem, text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
         let text_align_y =
@@ -49,7 +50,7 @@ impl<E: UiElementStub> BoringText<E> {
         if let Some(font) = context.resources.resolve_font(font) {
             let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
             let select_color = resolve!(elem, text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
-            let size = resolve!(elem, text.size).unwrap_or_default(&DEFAULT_STYLE.text.size);
+            let size = resolve!(elem, text.size).unwrap_or_default_or_percentage(&DEFAULT_STYLE.text.size, elem.state().parent.clone(), |s| s.height() as f32, elem.state());
             let kerning =
                 resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
             let stretch =
@@ -82,35 +83,67 @@ impl<E: UiElementStub> BoringText<E> {
 
     pub fn draw(
         &self,
+        x_off: i32,
+        y_off: i32,
         text: &str,
         elem: &E,
-        ctx: &mut impl RenderContext,
+        ctx: &mut impl WideRenderContext,
         context: &UiContext,
         crop: &SimpleRect,
-    ) {
-        if let Some(info) = self.get_info(elem, context) {
-            self.draw_with_info(text, elem, ctx, crop, info);
+    ) -> i32 {
+        if let Some(info) = self.get_info(elem, context, ctx) {
+            self.draw_with_info(x_off, y_off, text, elem, ctx, crop, info)
+        } else {
+            0
         }
     }
 
     pub fn draw_with_info(
         &self,
+        x_off: i32,
+        y_off: i32,
         text: &str,
         elem: &E,
         ctx: &mut impl RenderContext,
         crop: &SimpleRect,
         info: TextInfo,
-    ) {
+    ) -> i32 {
         let state = elem.state();
 
-        let mut x = state.content_rect.x() as f32;
-        let y = state.content_rect.y() as f32;
+        //lil optimisation
+        let total_text_w = if let TextAlign::Start = info.align_x {
+            0.0
+        } else {
+            info.font.get_width(text, info.size)
+        };
+
+        let mut x = match info.align_x {
+            TextAlign::Start => state.content_rect.x() as f32 + x_off as f32,
+            TextAlign::Middle => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32) * 0.5 - total_text_w * 0.5,
+            TextAlign::End => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32)- total_text_w
+        };
+        let start_x = x;
+
+
+        let total_text_h = info.size;
+        let y = match info.align_y {
+            TextAlign::Start => state.content_rect.y() as f32 + y_off as f32,
+            TextAlign::Middle => state.content_rect.y() as f32 + y_off as f32
+                + (state.content_rect.height() as f32) * 0.5
+                - total_text_h * 0.5,
+            TextAlign::End => state.content_rect.y() as f32 + y_off as f32
+                + (state.content_rect.height() as f32)
+                - total_text_h,
+        };
+
 
         for c in text.chars() {
             let cwidth = self.draw_char(c, &info, x, y, ctx, crop);
 
             x += cwidth + info.kerning;
         }
+
+        x as i32 - start_x as i32
     }
 
     pub fn draw_char(&self, c: char, info: &TextInfo, x: f32, y: f32, ctx: &mut impl RenderContext, crop: &SimpleRect) -> f32 {
@@ -124,7 +157,7 @@ impl<E: UiElementStub> BoringText<E> {
         let ssize = data.size;
         let cwidth = data.width * info.stretch_x;
 
-        let y = y + data.y_off;
+        let y = y + data.y_off - info.max_y_off;
 
         let bl = shapes::vertex3(
             x - info.skew,
@@ -185,5 +218,16 @@ impl<E: UiElementStub> BoringText<E> {
         });
 
         cwidth
+    }
+
+    pub fn char_width(&self, c: char, info: &TextInfo) -> f32 {
+        if c == ' ' {
+            return info.space_adv;
+        } else if c == '\t' {
+            return info.space_adv * 4.0;
+        }
+
+        let data = info.font.get_char_data(c, info.size);
+        data.width * info.stretch_x
     }
 }

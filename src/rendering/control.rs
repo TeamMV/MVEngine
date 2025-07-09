@@ -77,6 +77,10 @@ impl RenderController {
         self.z -= 0.001;
         self.z
     }
+    
+    pub fn set_z_notrait(&mut self, f: f32) {
+        self.z = f;
+    }
 
     pub fn draw(
         &mut self,

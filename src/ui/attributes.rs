@@ -61,6 +61,7 @@ impl Attributes {
 pub enum AttributeValue {
     Str(String),
     State(MappedState<String, String>),
+    BoolState(State<bool>),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -76,6 +77,7 @@ impl AttributeValue {
             AttributeValue::Float(f) => f.to_string(),
             AttributeValue::Bool(b) => b.to_string(),
             AttributeValue::Char(c) => c.to_string(),
+            AttributeValue::BoolState(b) => b.read().to_string()
         }
     }
 
@@ -87,6 +89,19 @@ impl AttributeValue {
             AttributeValue::Bool(b) => State::new(b.to_string()).map_identity(),
             AttributeValue::Char(c) => State::new(c.to_string()).map_identity(),
             AttributeValue::State(state) => state.clone(),
+            AttributeValue::BoolState(b) => State::new(b.read().to_string()).map_identity()
+        }
+    }
+
+    pub fn as_bool_state(&self) -> State<bool> {
+        match self {
+            AttributeValue::Str(s) => State::new(false),
+            AttributeValue::Int(i) => State::new(false),
+            AttributeValue::Float(f) => State::new(false),
+            AttributeValue::Bool(b) => State::new(*b),
+            AttributeValue::Char(c) => State::new(*c == 'y'),
+            AttributeValue::State(state) => State::new(false),
+            AttributeValue::BoolState(b) => b.clone()
         }
     }
 }
@@ -111,6 +126,12 @@ impl ToAttrib for State<String> {
     fn to_attrib(self) -> AttributeValue {
         let state = self.map(|s| s.to_string());
         AttributeValue::State(state)
+    }
+}
+
+impl ToAttrib for State<bool> {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::BoolState(self)
     }
 }
 
