@@ -117,7 +117,7 @@ impl WindowCallbacks for Application {
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
-                            <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start;"/>
+                            <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start; text.align_y: middle;"/>
                             <CheckBox style="height: 1cm; text.align_x: start;">
                                 Hello Box asjkdasi dasjd asjd jashd jad !
                             </CheckBox>

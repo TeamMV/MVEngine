@@ -93,14 +93,14 @@ pub enum Direction {
     Horizontal,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
 pub enum TextFit {
     ExpandParent,
     #[default]
     CropText,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
 pub enum TextAlign {
     Start,
     #[default]

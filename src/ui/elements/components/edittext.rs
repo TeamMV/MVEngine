@@ -1,4 +1,5 @@
-use std::mem;
+use std::ops::Range;
+use mvutils::utils::TetrahedronOp;
 use crate::color::RgbColor;
 use crate::rendering::RenderContext;
 use crate::ui::attributes::UiState;
@@ -7,303 +8,342 @@ use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::UiElementStub;
 use crate::ui::geometry::shape::shapes;
 use crate::ui::geometry::{shape, SimpleRect};
-use itertools::Itertools;
-use std::ops::Range;
-use ropey::Rope;
 use crate::ui::rendering::WideRenderContext;
+use ropey::Rope;
 use crate::ui::styles::enums::TextAlign;
 use crate::utils::RopeFns;
 
 #[derive(Clone)]
+enum Cursor {
+    Single(usize),
+    Range {
+        start: usize,
+        end: usize,
+        on_start: bool
+    }
+}
+
+impl Cursor {
+    fn get_cursor_pos(&self) -> usize {
+        match self {
+            Cursor::Single(p) => *p,
+            Cursor::Range { start, end, on_start } => on_start.yn(*start, *end),
+        }
+    }
+
+    fn contains(&self, i: usize) -> bool {
+        match self {
+            Cursor::Single(_) => false,
+            Cursor::Range { start, end, .. } => i >= *start && i < *end,
+        }
+    }
+
+    fn maybe_move(&self) -> usize {
+        match self {
+            Cursor::Single(_) => 1,
+            Cursor::Range { .. } => 0
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
-    cursor_pos: usize,
-    selection: Option<Range<usize>>,
     content: UiState,
     text_body: BoringText<E>,
-    pub(crate) view_range: Range<usize>,
+    cursor: Cursor,
+    view_range: Range<usize>,
 }
 
 impl<E: UiElementStub> EditableTextHelper<E> {
     pub fn new(content: UiState) -> Self {
-        let l = content.read().len_chars();
-        let view_range = 0..l;
         Self {
-            cursor_pos: 0,
-            selection: None,
             content,
             text_body: BoringText::new(),
-            view_range,
+            cursor: Cursor::Single(0),
+            view_range: Range::default(),
         }
     }
 
     pub fn move_left(&mut self, select: bool) {
-        if self.cursor_pos == 0 {
-            return;
-        }
-
         if select {
-            if let Some(range) = self.selection.clone() {
-                if self.cursor_pos >= range.end {
-                    self.selection = Some(range.start..(range.end - 1));
-                } else {
-                    self.selection = Some((range.start - 1)..range.end);
+            match self.cursor {
+                Cursor::Single(end) => {
+                    if end != 0 {
+                        self.cursor = Cursor::Range {
+                            start: end - 1,
+                            end,
+                            on_start: true,
+                        }
+                    }
                 }
-            } else {
-                self.selection = Some((self.cursor_pos - 1)..self.cursor_pos);
+                Cursor::Range {
+                    start, end, on_start
+                } => {
+                    if on_start {
+                        self.cursor = Cursor::Range {
+                            start: start.saturating_sub(1),
+                            end,
+                            on_start,
+                        }
+                    } else {
+                        let end = end.saturating_sub(1);
+                        if end <= start {
+                            self.cursor = Cursor::Single(end);
+                        } else {
+                            self.cursor = Cursor::Range {
+                                start,
+                                end,
+                                on_start,
+                            }
+                        }
+                    }
+                }
             }
         } else {
-            self.selection = None;
-        }
-
-        self.cursor_pos -= 1;
-        if self.cursor_pos < self.view_range.start {
-            self.view_range.start -= 1;
+            self.cursor = Cursor::Single(self.cursor.get_cursor_pos().saturating_sub(self.cursor.maybe_move()));
         }
     }
 
     pub fn move_right(&mut self, select: bool) {
-        if self.cursor_pos >= self.content.read().len_chars() {
-            return;
-        }
-
+        let len = self.content.read().len_chars();
         if select {
-            if let Some(range) = self.selection.clone() {
-                if self.cursor_pos < range.end {
-                    self.selection = Some((range.start + 1)..range.end);
-                } else {
-                    self.selection = Some(range.start..(range.end + 1));
+            match self.cursor {
+                Cursor::Single(start) => {
+                    if start != len {
+                        self.cursor = Cursor::Range {
+                            start,
+                            end: start + 1,
+                            on_start: false,
+                        }
+                    }
                 }
-            } else {
-                self.selection = Some(self.cursor_pos..(self.cursor_pos + 1));
+                Cursor::Range {
+                    start, end, on_start
+                } => {
+                    if !on_start {
+                        let end = if end == len { end } else { end + 1 };
+                        self.cursor = Cursor::Range {
+                            start,
+                            end,
+                            on_start,
+                        }
+                    } else {
+                        let start = start + 1;
+                        if end <= start {
+                            self.cursor = Cursor::Single(start);
+                        } else {
+                            self.cursor = Cursor::Range {
+                                start,
+                                end,
+                                on_start,
+                            }
+                        }
+                    }
+                }
             }
         } else {
-            self.selection = None;
+            let mut pos = self.cursor.get_cursor_pos();
+            if pos < len { pos += self.cursor.maybe_move(); }
+            self.cursor = Cursor::Single(pos);
         }
-
-        self.cursor_pos += 1;
     }
 
     pub fn move_to_end(&mut self, select: bool) {
-        let to_move = self.content.read().len_chars() - self.cursor_pos;
+        let len = self.content.read().len_chars();
         if select {
-            if let Some(range) = self.selection.clone() {
-                if self.cursor_pos < range.end {
-                    self.selection = Some((range.start + to_move)..range.end);
-                } else {
-                    self.selection = Some(range.start..(range.end + to_move));
+            match self.cursor {
+                Cursor::Single(p) => self.cursor = Cursor::Range {
+                    start: p,
+                    end: len,
+                    on_start: false,
+                },
+                Cursor::Range { start, end, on_start } => {
+                    self.cursor = if on_start {
+                        Cursor::Range {
+                            start: end,
+                            end: len,
+                            on_start: false
+                        }
+                    } else {
+                        Cursor::Range {
+                            start,
+                            end: len,
+                            on_start: false
+                        }
+                    };
                 }
-            } else {
-                self.selection = Some(self.cursor_pos..(self.cursor_pos + to_move));
             }
         } else {
-            self.selection = None;
+            self.cursor = Cursor::Single(len);
         }
-
-        self.cursor_pos += to_move;
     }
 
     pub fn move_to_start(&mut self, select: bool) {
-        let to_move = self.cursor_pos;
-
         if select {
-            if let Some(range) = self.selection.clone() {
-                if self.cursor_pos >= range.end {
-                    self.selection = Some(range.start..(range.end - to_move));
-                } else {
-                    self.selection = Some((range.start - to_move)..range.end);
+            match self.cursor {
+                Cursor::Single(p) => self.cursor = Cursor::Range {
+                    start: 0,
+                    end: p,
+                    on_start: true,
+                },
+                Cursor::Range { start, end, on_start } => {
+                    self.cursor = if on_start {
+                        Cursor::Range {
+                            start: 0,
+                            end,
+                            on_start: true
+                        }
+                    } else {
+                        Cursor::Range {
+                            start: 0,
+                            end: start,
+                            on_start: true
+                        }
+                    };
                 }
-            } else {
-                self.selection = Some((self.cursor_pos - to_move)..self.cursor_pos);
             }
         } else {
-            self.selection = None;
-        }
-
-        self.cursor_pos -= to_move;
-        if self.cursor_pos < self.view_range.start {
-            self.view_range.start = 0;
+            self.cursor = Cursor::Single(0);
         }
     }
 
     pub fn add_str(&mut self, s: &str) {
-        let mut guard = self.content.write();
-
-        let rope = Rope::from_str(s);
-
-        if let Some(range) = self.selection.take() {
-            let start = range.start.min(guard.len_chars());
-            let end = range.end.min(guard.len_chars());
-
-            guard.replace_range(start..end, "");
-            guard.insert_str(start, s);
-
-            self.cursor_pos = start + rope.len_chars();
-
-            let replaced_len = end - start;
-            let added_len = rope.len_chars();
-            self.view_range.end = self.view_range.end.saturating_sub(replaced_len);
-            self.view_range.end += added_len;
-            self.view_range.start = self.view_range.start.min(self.cursor_pos);
-        } else {
-            guard.insert_str(self.cursor_pos, s);
-            let l = rope.len_chars();
-            self.cursor_pos += l;
-            self.view_range.end += l;
+        let r = Rope::from_str(s);
+        let len = r.len_chars();
+        let mut g = self.content.write();
+        match self.cursor {
+            Cursor::Single(p) => {
+                g.insert(p, s);
+                self.cursor = Cursor::Single(p + len);
+                self.view_range.end += len;
+            }
+            Cursor::Range { start, end, on_start } => {
+                g.remove(start..end);
+                g.insert(start, s);
+                self.cursor = Cursor::Single(start + len);
+                self.view_range.end = self.view_range.end.saturating_sub(end - start);
+                self.view_range.end += len;
+            }
         }
     }
 
     pub fn backspace(&mut self) {
-        let mut guard = self.content.write();
-
-        if let Some(range) = self.selection.take() {
-            let start = range.start.min(guard.len_chars());
-            let end = range.end.min(guard.len_chars());
-
-            guard.replace_range(start..end, "");
-
-            self.cursor_pos = start;
-
-            let deleted_len = end - start;
-            self.view_range.end = self.view_range.end.saturating_sub(deleted_len);
-            self.view_range.start = self.view_range.start.min(self.cursor_pos);
-        } else {
-            if self.cursor_pos == 0 {
-                return;
+        let mut g = self.content.write();
+        match self.cursor {
+            Cursor::Single(p) => {
+                if p > 0 {
+                    g.remove_char(p - 1);
+                    self.cursor = Cursor::Single(p - 1);
+                    if self.view_range.start > 0 {
+                        self.view_range.start -= 1;
+                    }
+                    if self.view_range.end > 0 {
+                        self.view_range.end -= 1;
+                    }
+                }
             }
-
-            guard.remove_char(self.cursor_pos - 1);
-            self.cursor_pos -= 1;
-
-            self.view_range.end = self.view_range.end.saturating_sub(1);
-            if self.view_range.start > 0 {
-                self.view_range.start -= 1;
+            Cursor::Range { mut start, end, .. } => {
+                g.remove(start..end);
+                self.cursor = Cursor::Single(start);
+                let deleted_len = end - start;
+                self.view_range.end = self.view_range.end.saturating_sub(deleted_len);
+                self.view_range.start = self.view_range.start.min(start);
             }
         }
     }
 
     pub fn draw(&mut self, elem: &E, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
-        let text = &*self.content.read();
-
-        //fix selection when it is messed up
-        if let Some(r) = &mut self.selection {
-            if r.end < r.start {
-                let tmp = r.start;
-                r.start = r.end;
-                r.end = tmp;
-            }
+        let s = self.content.read();
+        let cursor_pos = self.cursor.get_cursor_pos();
+        let diff = self.view_range.start as isize - cursor_pos as isize;
+        if diff > 0 {
+            self.view_range.start = self.view_range.start.saturating_sub(diff as usize);
+            self.view_range.end = self.view_range.end.saturating_sub(diff as usize);
         }
 
-        if let Some(mut info) = self.text_body.get_info(elem, ui_ctx, draw_ctx) {
-            let cursor_offset_rel = self.cursor_pos - self.view_range.start;
+        let rect = &elem.state().content_rect;
+        let max_x = rect.width() + rect.x();
 
-            let state = elem.state();
+        let info = self.text_body.get_info(elem, ui_ctx, draw_ctx);
+        if let Some(mut info) = info {
+            let m_width = info.font.get_char_data('m', info.size).width;
+            println!("s: {}, e: {}", self.view_range.start, self.view_range.end);
+            if self.view_range.start == self.view_range.end {
+                self.view_range.start = self.view_range.start.saturating_sub((rect.width() / m_width as i32) as usize);
+            }
 
-            let mut x = state.content_rect.x() as f32;
-            let max_x = state.content_rect.width() as f32 + x;
-            let y = state.content_rect.y() as f32;
-            let y = match info.align_y {
+            let y = rect.y() as f32;
+            let height = rect.height() as f32;
+            let mut char_x = rect.x() as f32;
+            //println!("align_y: {:?}", info.align_y);
+            let char_y = match info.align_y {
                 TextAlign::Start => y,
-                TextAlign::Middle => y + (state.content_rect.height() as f32 - info.size) * 0.5,
-                TextAlign::End => y + state.content_rect.height() as f32 - info.size,
+                TextAlign::Middle => y + (height - info.size) * 0.5,
+                TextAlign::End => y + height - info.size
             };
-            let cursor_height = info.size as i32;
-            let cursor_y = y;
 
-            if text.is_empty() {
-                if draw_cursor {
-                    Self::draw_cursor(draw_ctx, x, cursor_y, cursor_height, &info.color, crop);
-                }
-                return;
+            let mut cursor_found = false;
+            if (s.is_empty() || cursor_pos == self.view_range.start) && draw_cursor {
+                Self::draw_cursor(draw_ctx, char_x, char_y, info.size, &info.color, crop);
+                cursor_found = true;
             }
 
-            let mut sel_start_x = None;
-            let mut sel_end_x = None;
-            let mut in_sel = false;
+            let mut sel_rect_start = None;
+            let mut sel_rect_end = None;
+            let cache = info.color.clone();
 
-            let sel_rect_z = draw_ctx.next_z();
-            let original_color = info.color.clone();
+            let sel_z = draw_ctx.next_z();
 
-            for (i, c) in text.chars().enumerate().skip(self.view_range.start) {
-                let new_x = x + self.text_body.char_width(c, &info);
-                if new_x > max_x {
-                    //no more characters fit
-                    //if cursor is offscreen, move view range
-                    let diff = cursor_offset_rel as i32 - i as i32;
-                    if diff > 0 {
-                        self.view_range.end += diff as usize;
-                        self.view_range.start += diff as usize;
-                    }
-                    break;
-                }
-
-                let old_x = x;
-                info.color = original_color.clone();
-
-                let was_sel = in_sel;
-
-                if let Some(r) = &self.selection {
-                    let real_i = i + self.view_range.start;
-                    if r.contains(&real_i) {
-                        //this char is currently inside the selection
+            for (i, c) in s.chars().enumerate().skip(self.view_range.start) {
+                if self.cursor.contains(i) {
+                    if sel_rect_start.is_none() {
+                        sel_rect_start = Some(char_x);
                         info.color = RgbColor::white();
-                        if sel_start_x.is_none() {
-                            sel_start_x = Some(x);
+                    }
+                } else {
+                    if sel_rect_start.is_some() && sel_rect_end.is_none() {
+                        //this is next char after last char in sel
+                        sel_rect_end = Some(char_x);
+                        info.color = cache.clone();
+                    }
+                }
+                let char_width = self.text_body.draw_char(c, &info, char_x, char_y, draw_ctx, crop);
+
+                char_x += char_width;
+
+                if i + 1 == cursor_pos {
+                    if draw_cursor {
+                        Self::draw_cursor(draw_ctx, char_x, char_y, info.size, &info.color, crop);
+                    }
+                    cursor_found = true;
+                }
+
+                if char_x > max_x as f32 {
+                    self.view_range.end = i;
+                    if !cursor_found && cursor_pos != 0 {
+                        if draw_cursor {
+                            Self::draw_cursor(draw_ctx, char_x - char_width, char_y, info.size, &info.color, crop);
                         }
-                        in_sel = true;
-                    } else {
-                        in_sel = false;
+                        let amount = cursor_pos - i;
+                        self.view_range.start += amount;
+                        self.view_range.end += amount;
                     }
-                } else {
-                    in_sel = false;
-                }
-
-                if was_sel && !in_sel {
-                    //the selection ends here
-                    sel_end_x = Some(x);
-                }
-
-                x += self.text_body.draw_char(c, &info, x, y, draw_ctx, crop);
-
-                if draw_cursor && (i + 1 == cursor_offset_rel) {
-                    //draw cursor
-                    Self::draw_cursor(draw_ctx, x, cursor_y, cursor_height, &info.color, crop);
-                    println!("cursor index: {cursor_offset_rel}, pos: {}", self.cursor_pos);
-                } else {
-                    //for some reason this is a special case when the cursor is at the start lmao
-                    if i == 0 && cursor_offset_rel == 0 {
-                        Self::draw_cursor(draw_ctx, old_x, cursor_y, cursor_height, &info.color, crop);
-                    }
-                }
-
-                if x > max_x {
-                    //no more characters fit
-                    //if cursor is offscreen, move view range
-                    let diff = cursor_offset_rel as i32 - (i as i32 + 1);
-                    if diff > 0 {
-                        self.view_range.end += diff as usize;
-                        self.view_range.start += diff as usize;
-                    }
-                    break;
                 }
             }
 
-            if sel_start_x.is_some() && sel_end_x.is_none() {
-                sel_end_x = Some(x); //Bro this is the biggest tape fix ever
-            }
-
-            if let Some(sel_start_x) = sel_start_x && let Some(sel_end_x) = sel_end_x {
-                let rect = shapes::rectangle1(sel_start_x as i32, cursor_y as i32, sel_end_x as i32, cursor_height + cursor_y as i32);
+            if let Some(start_x) = sel_rect_start {
+                let end_x = if let Some(end_x) = sel_rect_end { end_x } else { char_x };
+                let rect = shapes::rectangle1(start_x as i32, char_y as i32, end_x as i32, (char_y + info.size) as i32);
                 rect.draw(draw_ctx, |v| {
-                    shape::utils::crop_no_uv(v, crop);
                     v.color = info.select_color.as_vec4();
-                    v.pos.2 = sel_rect_z;
-                });
+                    v.pos.2 = sel_z;
+                })
             }
         }
     }
 
-    fn draw_cursor(ctx: &mut impl RenderContext, x: f32, y: f32, height: i32, col: &RgbColor, crop: &SimpleRect) {
-        let cursor_rect = shapes::rectangle0(x as i32, y as i32, 2, height);
+    fn draw_cursor(ctx: &mut impl RenderContext, x: f32, y: f32, height: f32, col: &RgbColor, crop: &SimpleRect) {
+        let cursor_rect = shapes::rectangle0(x as i32, y as i32, 2, height as i32);
         cursor_rect.draw(ctx, |v| {
             shape::utils::crop_no_uv(v, crop);
             v.color = col.as_vec4();
