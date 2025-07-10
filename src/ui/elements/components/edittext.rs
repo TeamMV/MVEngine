@@ -9,7 +9,10 @@ use crate::ui::geometry::shape::shapes;
 use crate::ui::geometry::{shape, SimpleRect};
 use itertools::Itertools;
 use std::ops::Range;
+use ropey::Rope;
 use crate::ui::rendering::WideRenderContext;
+use crate::ui::styles::enums::TextAlign;
+use crate::utils::RopeFns;
 
 #[derive(Clone)]
 pub struct EditableTextHelper<E: UiElementStub> {
@@ -22,7 +25,7 @@ pub struct EditableTextHelper<E: UiElementStub> {
 
 impl<E: UiElementStub> EditableTextHelper<E> {
     pub fn new(content: UiState) -> Self {
-        let l = content.read().len();
+        let l = content.read().len_chars();
         let view_range = 0..l;
         Self {
             cursor_pos: 0,
@@ -59,7 +62,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
     }
 
     pub fn move_right(&mut self, select: bool) {
-        if self.cursor_pos >= self.content.read().len() {
+        if self.cursor_pos >= self.content.read().len_chars() {
             return;
         }
 
@@ -81,7 +84,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
     }
 
     pub fn move_to_end(&mut self, select: bool) {
-        let to_move = self.content.read().len() - self.cursor_pos;
+        let to_move = self.content.read().len_chars() - self.cursor_pos;
         if select {
             if let Some(range) = self.selection.clone() {
                 if self.cursor_pos < range.end {
@@ -125,24 +128,27 @@ impl<E: UiElementStub> EditableTextHelper<E> {
     pub fn add_str(&mut self, s: &str) {
         let mut guard = self.content.write();
 
+        let rope = Rope::from_str(s);
+
         if let Some(range) = self.selection.take() {
-            let start = range.start.min(guard.len());
-            let end = range.end.min(guard.len());
+            let start = range.start.min(guard.len_chars());
+            let end = range.end.min(guard.len_chars());
 
             guard.replace_range(start..end, "");
             guard.insert_str(start, s);
 
-            self.cursor_pos = start + s.len();
+            self.cursor_pos = start + rope.len_chars();
 
             let replaced_len = end - start;
-            let added_len = s.len();
+            let added_len = rope.len_chars();
             self.view_range.end = self.view_range.end.saturating_sub(replaced_len);
             self.view_range.end += added_len;
             self.view_range.start = self.view_range.start.min(self.cursor_pos);
         } else {
             guard.insert_str(self.cursor_pos, s);
-            self.cursor_pos += s.len();
-            self.view_range.end += s.len();
+            let l = rope.len_chars();
+            self.cursor_pos += l;
+            self.view_range.end += l;
         }
     }
 
@@ -150,8 +156,8 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         let mut guard = self.content.write();
 
         if let Some(range) = self.selection.take() {
-            let start = range.start.min(guard.len());
-            let end = range.end.min(guard.len());
+            let start = range.start.min(guard.len_chars());
+            let end = range.end.min(guard.len_chars());
 
             guard.replace_range(start..end, "");
 
@@ -165,7 +171,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 return;
             }
 
-            guard.remove(self.cursor_pos - 1);
+            guard.remove_char(self.cursor_pos - 1);
             self.cursor_pos -= 1;
 
             self.view_range.end = self.view_range.end.saturating_sub(1);
@@ -195,6 +201,11 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let mut x = state.content_rect.x() as f32;
             let max_x = state.content_rect.width() as f32 + x;
             let y = state.content_rect.y() as f32;
+            let y = match info.align_y {
+                TextAlign::Start => y,
+                TextAlign::Middle => y + (state.content_rect.height() as f32 - info.size) * 0.5,
+                TextAlign::End => y + state.content_rect.height() as f32 - info.size,
+            };
             let cursor_height = info.size as i32;
             let cursor_y = y;
 
@@ -212,7 +223,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let sel_rect_z = draw_ctx.next_z();
             let original_color = info.color.clone();
 
-            for (i, c) in text[self.view_range.start..].char_indices() {
+            for (i, c) in text.chars().enumerate().skip(self.view_range.start) {
                 let new_x = x + self.text_body.char_width(c, &info);
                 if new_x > max_x {
                     //no more characters fit
@@ -256,6 +267,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                 if draw_cursor && (i + 1 == cursor_offset_rel) {
                     //draw cursor
                     Self::draw_cursor(draw_ctx, x, cursor_y, cursor_height, &info.color, crop);
+                    println!("cursor index: {cursor_offset_rel}, pos: {}", self.cursor_pos);
                 } else {
                     //for some reason this is a special case when the cursor is at the start lmao
                     if i == 0 && cursor_offset_rel == 0 {
@@ -298,7 +310,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         });
     }
 
-    pub fn draw_other(&mut self, s: &str, elem: &E, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
+    pub fn draw_other(&mut self, s: &Rope, elem: &E, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
         self.text_body.draw(0, 0, s, elem, draw_ctx, ui_ctx, crop);
     }
 }

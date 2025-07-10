@@ -2,6 +2,7 @@ pub mod app;
 
 use std::ffi::{CStr, CString};
 use std::num::{NonZeroI32, NonZeroU32};
+use std::ops::Add;
 use crate::input::consts::{Key, MouseButton};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::ui::Ui;
@@ -13,7 +14,7 @@ use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use parking_lot::RwLock;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 use gl::types::GLsizei;
 use glutin::config::{Api, Config, ConfigTemplateBuilder, GlConfig};
 use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentGlContext, Version};
@@ -25,7 +26,7 @@ use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::{PhysicalSize, Size};
 use winit::error::{EventLoopError, OsError};
 use winit::event::{ElementState, Event, KeyEvent, MouseScrollDelta, WindowEvent};
-use winit::event_loop::EventLoopBuilder;
+use winit::event_loop::{ControlFlow, EventLoopBuilder};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
@@ -368,6 +369,13 @@ impl Window {
                                     .collector
                                     .dispatch_input(event, &this.input, this2);
                             }
+                            if let Some(text) = text && !text.is_empty() {
+                                let char = text.chars().next().unwrap();
+                                let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
+                                self.input
+                                    .collector
+                                    .dispatch_input(action, &this.input, this2);
+                            }
                         }
                         WindowEvent::CursorMoved { position, .. } => {
                             let x = position.x as i32;
@@ -433,12 +441,14 @@ impl Window {
                                 crate::debug::PROFILER.ui_compute(|t| t.start());
                                 crate::debug::PROFILER.ui_draw(|t| t.start());
                                 crate::debug::PROFILER.input(|t| t.start());
+                                crate::debug::PROFILER.waiting(|t| t.start());
 
                                 crate::debug::PROFILER.render_batch(|t| t.pause());
                                 crate::debug::PROFILER.render_draw(|t| t.pause());
                                 crate::debug::PROFILER.ui_compute(|t| t.pause());
                                 crate::debug::PROFILER.ui_draw(|t| t.pause());
                                 crate::debug::PROFILER.input(|t| t.pause());
+                                crate::debug::PROFILER.waiting(|t| t.pause());
                             }
 
                             app_loop.draw(&mut self, delta_t);
@@ -466,6 +476,7 @@ impl Window {
                                 crate::debug::PROFILER.ui_compute(|t| t.stop());
                                 crate::debug::PROFILER.ui_draw(|t| t.stop());
                                 crate::debug::PROFILER.input(|t| t.stop());
+                                crate::debug::PROFILER.waiting(|t| t.stop());
                             }
                             app_loop.post_draw(&mut self, delta_t);
                             #[cfg(feature = "timed")] {
@@ -482,7 +493,6 @@ impl Window {
                 }
                 Event::AboutToWait => {
                     let elapsed = self.time_u.elapsed().expect("SystemTime error").as_nanos();
-
                     if elapsed > self.update_time_nanos as u128 {
                         #[cfg(feature = "timed")] {
                             crate::debug::PROFILER.app_update(|t| t.start());
@@ -504,6 +514,7 @@ impl Window {
                         self.delta_t = elapsed as f64 / NANOS_PER_SEC as f64;
                         self.handle.request_redraw();
                     }
+                    target.set_control_flow(ControlFlow::Poll);
                 }
                 Event::LoopExiting => {}
                 Event::MemoryWarning => {}

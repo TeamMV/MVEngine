@@ -17,7 +17,9 @@ use mvutils::enum_val_ref_mut;
 use mvutils::state::State;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
+use ropey::Rope;
 use crate::rendering::pipeline::RenderingPipeline;
+use crate::utils::RopeFns;
 
 #[derive(Clone)]
 pub struct TextBox {
@@ -108,7 +110,9 @@ impl UiElementCallbacks for TextBox {
                             }
                         }
                         KeyboardAction::Char(ch) => {
-                            self.helper.add_str(&ch.to_string());
+                            if !ch.is_control() {
+                                self.helper.add_str(&ch.to_string());
+                            }
                         }
                     }
                 }
@@ -140,12 +144,12 @@ impl UiElementStub for TextBox {
         Self: Sized,
     {
         let content = match attributes.attribs.get("content") {
-            None => State::new(String::new()).map_identity(),
+            None => State::new(Rope::new()).map_identity(),
             Some(v) => v.as_ui_state(),
         };
 
         let placeholder = match attributes.attribs.get("placeholder") {
-            None => State::new(String::new()).map_identity(),
+            None => State::new(Rope::new()).map_identity(),
             Some(v) => v.as_ui_state(),
         };
 

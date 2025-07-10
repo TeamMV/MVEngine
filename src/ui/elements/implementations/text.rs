@@ -13,6 +13,7 @@ use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use ropey::Rope;
 use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
@@ -30,7 +31,7 @@ pub struct Text {
 }
 
 impl Text {
-    fn draw_string(&mut self, s: &str, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
+    fn draw_string(&mut self, s: &Rope, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
         let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         self.text.draw(this, s, ctx, crop_area);
     }

@@ -1,7 +1,8 @@
 use hashbrown::HashMap;
 use mvutils::state::{MappedState, State};
+use ropey::{Rope, RopeSlice};
 
-pub type UiState = MappedState<String, String>;
+pub type UiState = MappedState<Rope, Rope>;
 
 #[derive(Clone)]
 pub struct Attributes {
@@ -40,12 +41,12 @@ impl Attributes {
     pub fn with_attrib(&mut self, name: String, value: AttributeValue) {
         if let AttributeValue::Str(ref s) = value {
             if name == "id".to_string() {
-                self.id = Some(s.clone());
+                self.id = Some(s.to_string());
                 return;
             }
             if name == "class".to_string() {
                 self.classes
-                    .extend(s.split_whitespace().map(|st| st.to_string()));
+                    .extend(s.to_string().split_whitespace().map(|st| st.to_string()));
                 return;
             }
         }
@@ -59,8 +60,8 @@ impl Attributes {
 
 #[derive(Clone)]
 pub enum AttributeValue {
-    Str(String),
-    State(MappedState<String, String>),
+    Str(Rope),
+    State(UiState),
     BoolState(State<bool>),
     Int(i64),
     Float(f64),
@@ -69,27 +70,27 @@ pub enum AttributeValue {
 }
 
 impl AttributeValue {
-    pub fn as_string(&self) -> String {
+    pub fn as_rope(&self) -> Rope {
         match self {
             AttributeValue::Str(s) => s.clone(),
             AttributeValue::State(s) => s.read().clone(),
-            AttributeValue::Int(i) => i.to_string(),
-            AttributeValue::Float(f) => f.to_string(),
-            AttributeValue::Bool(b) => b.to_string(),
-            AttributeValue::Char(c) => c.to_string(),
-            AttributeValue::BoolState(b) => b.read().to_string()
+            AttributeValue::Int(i) => i.to_rope(),
+            AttributeValue::Float(f) => f.to_rope(),
+            AttributeValue::Bool(b) => b.to_rope(),
+            AttributeValue::Char(c) => c.to_rope(),
+            AttributeValue::BoolState(b) => b.read().to_rope()
         }
     }
 
     pub fn as_ui_state(&self) -> UiState {
         match self {
-            AttributeValue::Str(s) => State::new(s.clone()).map_identity(),
-            AttributeValue::Int(i) => State::new(i.to_string()).map_identity(),
-            AttributeValue::Float(f) => State::new(f.to_string()).map_identity(),
-            AttributeValue::Bool(b) => State::new(b.to_string()).map_identity(),
-            AttributeValue::Char(c) => State::new(c.to_string()).map_identity(),
+            AttributeValue::Str(s) => State::new(s.to_rope()).map_identity(),
+            AttributeValue::Int(i) => State::new(i.to_rope()).map_identity(),
+            AttributeValue::Float(f) => State::new(f.to_rope()).map_identity(),
+            AttributeValue::Bool(b) => State::new(b.to_rope()).map_identity(),
+            AttributeValue::Char(c) => State::new(c.to_rope()).map_identity(),
             AttributeValue::State(state) => state.clone(),
-            AttributeValue::BoolState(b) => State::new(b.read().to_string()).map_identity()
+            AttributeValue::BoolState(b) => State::new(b.read().to_rope()).map_identity()
         }
     }
 
@@ -112,19 +113,25 @@ pub trait ToAttrib {
 
 impl ToAttrib for String {
     fn to_attrib(self) -> AttributeValue {
-        AttributeValue::Str(self)
+        AttributeValue::Str(self.to_rope())
     }
 }
 
 impl ToAttrib for &str {
     fn to_attrib(self) -> AttributeValue {
-        AttributeValue::Str(self.to_string())
+        AttributeValue::Str(self.to_rope())
     }
 }
 
-impl ToAttrib for State<String> {
+impl ToAttrib for Rope {
     fn to_attrib(self) -> AttributeValue {
-        let state = self.map(|s| s.to_string());
+        AttributeValue::Str(self)
+    }
+}
+
+impl ToAttrib for State<Rope> {
+    fn to_attrib(self) -> AttributeValue {
+        let state = self.map_identity();
         AttributeValue::State(state)
     }
 }
@@ -135,7 +142,7 @@ impl ToAttrib for State<bool> {
     }
 }
 
-impl ToAttrib for MappedState<String, String> {
+impl ToAttrib for UiState {
     fn to_attrib(self) -> AttributeValue {
         AttributeValue::State(self)
     }
@@ -180,5 +187,16 @@ impl ToAttrib for bool {
 impl ToAttrib for char {
     fn to_attrib(self) -> AttributeValue {
         AttributeValue::Char(self)
+    }
+}
+
+pub trait ToRope {
+    fn to_rope(&self) -> Rope;
+}
+
+impl<T: ToString> ToRope for T {
+    fn to_rope(&self) -> Rope {
+        let s = self.to_string();
+        Rope::from(s)
     }
 }

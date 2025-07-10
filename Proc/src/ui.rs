@@ -63,7 +63,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         let attrib_value = match attrib_value_xml {
             XmlValue::Str(s) => {
                 quote! {
-                    mvengine::ui::attributes::AttributeValue::Str(#s.to_string())
+                    mvengine::ui::attributes::AttributeValue::Str(ropey::Rope::from_str(#s))
                 }
             }
             XmlValue::Entities(_) => unreachable!(),
@@ -96,7 +96,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                 quote! {
                     let mut elem_state = #elem_ident.get_mut();
                     elem_state.add_child(
-                        mvengine::ui::elements::child::Child::String(#s.to_string())
+                        mvengine::ui::elements::child::Child::String(ropey::Rope::from_str(#s))
                     );
                 }
             }

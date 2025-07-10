@@ -1,3 +1,4 @@
+use std::iter::Peekable;
 use crate::color::RgbColor;
 use crate::math::vec::{Vec2, Vec4};
 use crate::rendering::text::font::{AtlasData, PreparedAtlasData};
@@ -113,7 +114,7 @@ impl Font {
         height as f64 / atlas.metrics.line_height
     }
 
-    pub fn get_width(&self, text: &str, height: f32) -> f32 {
+    pub fn get_width(&self, chars: impl Iterator<Item=char>, height: f32) -> f32 {
         let atlas = &self.atlas;
 
         let font_scale = self.get_scale(height);
@@ -121,9 +122,8 @@ impl Font {
         let space_advance = atlas.find_glyph(' ').unwrap().advance;
         let mut width = 0.0;
 
-        let mut chars = text.chars().peekable();
+        let mut chars = chars.peekable();
 
-        let reference = text;
         let mut idx = 0;
         while let Some(char) = chars.next() {
             if char == '\t' {
@@ -153,7 +153,7 @@ impl Font {
             scale.x = scale.x * font_scale as f32;
             scale.y = scale.y * font_scale as f32;
 
-            let next = reference.chars().nth(idx + 1).unwrap_or('i');
+            let next = chars.peek().cloned().unwrap_or('i');
             let kerning = atlas.get_kerning(char, next).unwrap_or_default();
 
             width += scale.x as f64 + kerning * font_scale;
@@ -165,7 +165,7 @@ impl Font {
 
     pub fn draw(
         &self,
-        text: &str,
+        chars: impl Iterator<Item = char>,
         height: f32,
         transform: Transform,
         z: f32,
@@ -174,15 +174,15 @@ impl Font {
     ) {
         let atlas = &self.atlas;
 
-        let font_scale = self.get_scale(height);
-        let space_advance = atlas.find_glyph(' ').unwrap().advance;
+        let font_scale = self.get_scale(height) as f32;
+        let space_advance = atlas.find_glyph(' ').unwrap().advance as f32;
 
-        let mut x = 0.0;
-        let mut y = 0.0;
+        let mut x = 0.0f32;
+        let mut y = 0.0f32;
 
-        let reference = text;
+        let mut chars = chars.enumerate().peekable();
 
-        for (idx, char) in text.chars().enumerate() {
+        while let Some((idx, char)) = chars.next() {
             if char == '\t' {
                 x += 6.0 + space_advance * font_scale;
                 continue;
@@ -191,7 +191,7 @@ impl Font {
                 continue;
             } else if char == '\n' {
                 x = 0.0;
-                y -= font_scale * atlas.metrics.line_height;
+                y -= font_scale * atlas.metrics.line_height as f32;
                 continue;
             }
 
@@ -223,15 +223,15 @@ impl Font {
                 (bounds_plane.right - bounds_plane.left) as f32,
                 (bounds_plane.top - bounds_plane.bottom) as f32,
             );
-            scale.x = scale.x * font_scale as f32;
-            scale.y = scale.y * font_scale as f32;
+            scale.x *= font_scale;
+            scale.y *= font_scale;
 
-            let y_offset: f32 = (bounds_plane.bottom) as f32 * scale.y;
+            let y_offset = bounds_plane.bottom as f32 * scale.y;
 
             let vertex = |p: (f32, f32), uv: (f32, f32)| -> InputVertex {
                 InputVertex {
                     transform: transform.clone(),
-                    pos: ((p.0 + x as f32), (p.1 + y as f32) + y_offset, z),
+                    pos: (p.0 + x, (p.1 + y) + y_offset, z),
                     color: color.as_vec4(),
                     uv: (uv.0, 1.0 - uv.1),
                     texture: self.texture.id,
@@ -243,22 +243,17 @@ impl Font {
                 points: [
                     vertex((0.0, 0.0), (tex_coords.x, tex_coords.y + tex_coords.w)),
                     vertex((0.0, scale.y), (tex_coords.x, tex_coords.y)),
-                    vertex(
-                        (scale.x, scale.y),
-                        (tex_coords.x + tex_coords.z, tex_coords.y),
-                    ),
-                    vertex(
-                        (scale.x, 0.0),
-                        (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w),
-                    ),
+                    vertex((scale.x, scale.y), (tex_coords.x + tex_coords.z, tex_coords.y)),
+                    vertex((scale.x, 0.0), (tex_coords.x + tex_coords.z, tex_coords.y + tex_coords.w)),
                 ],
             };
+
             controller.controller().push_quad(quad);
 
-            let next = reference.chars().nth(idx).unwrap_or('i');
-            let kerning = atlas.get_kerning(char, next).unwrap_or_default();
+            let next = chars.peek().map(|(_, c)| *c).unwrap_or('i');
+            let kerning = atlas.get_kerning(char, next).unwrap_or_default() as f32;
 
-            x += (glyph.advance + kerning) * font_scale;
+            x += (glyph.advance as f32 + kerning) * font_scale;
         }
     }
 }

@@ -238,7 +238,7 @@ impl Bone {
                 if let Some(drawable) = r.resolve_drawable(drawable_res) {
                     let mut rect = lock.create_rect();
                     rect.project(&skeleton.area, area);
-                    drawable.draw(ctx, rect, r);
+                    drawable.draw(ctx, rect, r, area);
                 }
             }
         }

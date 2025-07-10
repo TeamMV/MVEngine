@@ -17,6 +17,7 @@ impl<S: VertexStream> VertexStream for CropStep<S> {
     fn next(&mut self) -> Option<&mut InputVertex> {
         let point = self.base.next()?;
 
+        // 👍
         warn!(
             "CropStep on shapes are currently doing nothing cuz idk how that would work. Please use the vertex function and do the math yourself."
         );

@@ -4,12 +4,14 @@ use mvutils::state::MappedState;
 use mvutils::unsafe_utils::DangerousCell;
 use std::fmt;
 use std::rc::Rc;
+use ropey::Rope;
+use crate::ui::attributes::UiState;
 
 #[derive(Clone)]
 pub enum Child {
-    String(String),
+    String(Rope),
     Element(Rc<DangerousCell<UiElement>>),
-    State(MappedState<String, String>),
+    State(UiState),
     Iterator(Vec<Child>),
 }
 
@@ -38,7 +40,7 @@ impl Child {
         matches!(self, Child::State(_))
     }
 
-    pub fn as_string(&self) -> String {
+    pub fn as_string(&self) -> Rope {
         match self {
             Child::String(s) => s.clone(),
             _ => unreachable!(),
@@ -52,7 +54,7 @@ impl Child {
         }
     }
 
-    pub fn as_state(&self) -> &MappedState<String, String> {
+    pub fn as_state(&self) -> &UiState {
         match self {
             Child::State(s) => s,
             _ => unreachable!(),
@@ -66,17 +68,17 @@ pub trait ToChild {
 
 impl ToChild for String {
     fn to_child(self) -> Child {
-        Child::String(self)
+        Child::String(Rope::from(self))
     }
 }
 
 impl ToChild for &str {
     fn to_child(self) -> Child {
-        Child::String(self.to_string())
+        Child::String(Rope::from_str(self))
     }
 }
 
-impl ToChild for MappedState<String, String> {
+impl ToChild for UiState {
     fn to_child(self) -> Child {
         Child::State(self)
     }

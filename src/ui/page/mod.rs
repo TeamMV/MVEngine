@@ -1,6 +1,6 @@
 pub mod transition;
 
-use log::warn;
+use log::{debug, warn};
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::rendering::OpenGLRenderer;
 use crate::rendering::pipeline::RenderingPipeline;
@@ -44,6 +44,7 @@ impl UiPageManager {
             if let Some(current) = self.current.take() {
                 self.history.push(current);
                 target_elem.get_mut().state_mut().invalidate();
+                debug!("Transitioned to page: {target}");
                 self.current = Some(target_elem);
             }
         } else {
@@ -61,6 +62,7 @@ impl UiPageManager {
             if let Some(current) = self.current.take() {
                 self.history.push(current);
             }
+            debug!("Opened page: {target}");
             self.current = Some(target_elem);
         } else {
             warn!("Cannot fing page: {}", target);

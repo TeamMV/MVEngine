@@ -9,6 +9,7 @@ use crate::ui::res::MVR;
 use crate::ui::styles::{InheritSupplier, ResolveResult};
 use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
+use ropey::Rope;
 use crate::color::RgbColor;
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::enums::TextAlign;
@@ -85,7 +86,7 @@ impl<E: UiElementStub> BoringText<E> {
         &self,
         x_off: i32,
         y_off: i32,
-        text: &str,
+        text: &Rope,
         elem: &E,
         ctx: &mut impl WideRenderContext,
         context: &UiContext,
@@ -102,7 +103,7 @@ impl<E: UiElementStub> BoringText<E> {
         &self,
         x_off: i32,
         y_off: i32,
-        text: &str,
+        text: &Rope,
         elem: &E,
         ctx: &mut impl RenderContext,
         crop: &SimpleRect,
@@ -114,7 +115,7 @@ impl<E: UiElementStub> BoringText<E> {
         let total_text_w = if let TextAlign::Start = info.align_x {
             0.0
         } else {
-            info.font.get_width(text, info.size)
+            info.font.get_width(text.chars(), info.size)
         };
 
         let mut x = match info.align_x {

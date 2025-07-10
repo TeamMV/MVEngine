@@ -629,8 +629,8 @@ pub trait UiElementStub: UiElementCallbacks {
                     }
 
                     if let Some(font) = font {
-                        let width = font.get_width(s, font_size);
-                        let l = s.len() as f32 - 1f32;
+                        let width = font.get_width(s.chars(), font_size);
+                        let l = s.len_chars() as f32 - 1f32;
                         let width =
                             width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
 
@@ -692,8 +692,8 @@ pub trait UiElementStub: UiElementCallbacks {
                     let guard = s.read();
                     let s = guard.deref();
                     if let Some(font) = font {
-                        let width = font.get_width(s, font_size);
-                        let l = s.len() as f32 - 1f32;
+                        let width = font.get_width(s.chars(), font_size);
+                        let l = s.len_chars() as f32 - 1f32;
                         let width =
                             width * font_stretch.width + font_skew * 2f32 + font_kerning * l;
 

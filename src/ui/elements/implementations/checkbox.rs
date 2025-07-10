@@ -13,6 +13,7 @@ use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
 use mvutils::state::State;
+use ropey::Rope;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::input::consts::MouseButton;
 
@@ -67,7 +68,7 @@ impl UiElementCallbacks for CheckBox {
 }
 
 impl CheckBox {
-    fn draw_text(&self, s: &str, ctx: &mut impl WideRenderContext, crop: &SimpleRect) -> i32 {
+    fn draw_text(&self, s: &Rope, ctx: &mut impl WideRenderContext, crop: &SimpleRect) -> i32 {
         let height = self.state.rect.height();
         self.text_body.draw(height, 0, s, &self, ctx, &self.context, crop) + height
     }

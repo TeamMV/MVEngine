@@ -31,6 +31,7 @@ crossbeam-channel = "0.5.12"
 ahash = "0.8.11"
 rand = "0.9.0"
 include_dir = "0.7.3"
+ropey = "1.6.1"
 
 #audio
 cpal = "0.15.3"

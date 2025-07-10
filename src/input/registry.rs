@@ -13,6 +13,7 @@ use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::mem;
+use log::debug;
 
 #[derive(Debug)]
 pub enum State {

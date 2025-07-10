@@ -3,10 +3,11 @@ use crate::math::vec::Vec4;
 use crate::rendering::texture::Texture;
 use crate::rendering::{InputVertex, Quad, RenderContext};
 use crate::ui::context::UiResources;
-use crate::ui::geometry::Rect;
+use crate::ui::geometry::{shape, Rect, SimpleRect};
 use crate::ui::res::MVR;
 use mvutils::Savable;
 use std::str::FromStr;
+use crate::ui::geometry::shape::shapes;
 
 pub mod animation;
 pub mod comp;
@@ -63,32 +64,15 @@ impl Drawable {
         ctx: &mut impl RenderContext,
         area: Rect,
         r: &'static (impl UiResources + ?Sized),
+        crop: &SimpleRect
     ) {
-        let controller = ctx.controller();
         match self {
             _ => {
                 // texture, tileset, anination are all based on texture
                 let trans = area.get_transform();
                 let (tex, uv) = self.get_texture_or_default(r);
-                let vertex = InputVertex {
-                    transform: trans,
-                    pos: (area.x() as f32, area.y() as f32, 10.0),
-                    color: RgbColor::transparent().as_vec4(),
-                    uv: (0.0, 0.0),
-                    texture: tex.id,
-                    has_texture: 1.0,
-                };
-                let quad = Quad::from_corner(
-                    vertex,
-                    uv,
-                    (area.width() as f32, area.height() as f32),
-                    |v, (x, y)| {
-                        v.pos.0 = x;
-                        v.pos.1 = y;
-                        v.pos.2 = 10.0;
-                    },
-                );
-                controller.push_quad(quad);
+                let rect = shapes::rectangle0(area.x(), area.y(), area.width(), area.height());
+                shape::utils::draw_shape_textured_owned(ctx, rect, tex, uv, crop);
             }
         }
     }

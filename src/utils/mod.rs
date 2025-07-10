@@ -2,8 +2,11 @@ pub mod args;
 pub mod mapto;
 pub mod savers;
 
+use std::collections::Bound;
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, RangeBounds};
+use std::str::CharIndices;
+use ropey::Rope;
 
 /// This type is just an f64 which is expected to be between 0 and 1. Mostly used for percentages.
 pub type F0To1 = f64;
@@ -79,4 +82,41 @@ pub fn pointee_mut<'a, R>(p: usize) -> &'a mut R {
 
 pub fn pointer<T>(t: &T) -> usize {
     unsafe { (t as *const T as usize) }
+}
+
+pub trait RopeFns {
+    fn is_empty(&self) -> bool;
+    fn replace_range<R: RangeBounds<usize> + Clone>(&mut self, char_range: R, with: &str);
+    fn insert_str(&mut self, char_idx: usize, s: &str);
+    fn remove_char(&mut self, char_idx: usize);
+    fn clear(&mut self);
+}
+
+impl RopeFns for Rope {
+    fn is_empty(&self) -> bool {
+        self.len_chars() == 0
+    }
+
+    fn replace_range<R: RangeBounds<usize> + Clone>(&mut self, char_range: R, with: &str) {
+        self.remove(char_range.clone());
+        let start = match char_range.start_bound() {
+            Bound::Included(i) => *i,
+            Bound::Excluded(i) => *i + 1,
+            Bound::Unbounded => 0
+        };
+        self.insert(start, with);
+    }
+
+    fn insert_str(&mut self, char_idx: usize, s: &str) {
+        self.insert(char_idx, s);
+    }
+
+    fn remove_char(&mut self, char_idx: usize) {
+        let _ = self.try_remove(char_idx..=char_idx);
+    }
+
+    fn clear(&mut self) {
+        //best implementation
+        *self = Rope::new();
+    }
 }
