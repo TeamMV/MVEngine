@@ -36,15 +36,48 @@ use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
 
-    //let s = include_str!("test.mss");
-    //let mut lexer = MSSLexer::new(s);
-    //loop {
-    //    let token = lexer.next();
-    //    if let MSSToken::EOF = token {
-    //        break;
-    //    }
-    //    println!("{token:?}");
-    //}
+    // let data = include_str!("test.msfx");
+    // let ast = MSFXParser::parse(data).unwrap();
+    // println!("{:?}", ast);
+    // let mut minifier = MSFXMinifier::new();
+    // let ast = minifier.minify(ast);
+    // println!("{:?}", ast);
+    //
+    // let mut buf = ByteBuffer::new_le();
+    // ast.save(&mut buf);
+    // let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
+    // file.write_all(buf.as_bytes()).unwrap();
+    //
+    // let mut executor = MSFXExecutor::new();
+    // let mut inputs = HashMap::new();
+    // inputs.insert("num".to_string(), 1.0.into());
+    // println!("\nOutput:");
+    // let result = executor.run_debug(&ast, inputs);
+    // println!();
+    //
+    // match result {
+    //     Ok((ret, variables)) => {
+    //         println!("Variables:");
+    //         for (name, variable) in variables {
+    //             println!("{name} = {:?}", variable);
+    //         }
+    //         println!("Return:");
+    //         match ret {
+    //             Return::Shape(s) => println!("{:?}", s),
+    //             Return::Adaptive(a) => println!("{:?}", a),
+    //         }
+    //     }
+    //     Err((err, variables)) => {
+    //         println!("Variables:");
+    //         for (name, variable) in variables {
+    //             println!("{name} = {:?}", variable);
+    //         }
+    //         println!("Error:");
+    //         println!("{err}");
+    //     }
+    // }
+
+    // exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -119,7 +152,7 @@ impl WindowCallbacks for Application {
                             </Div>
                             <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start; text.align_y: middle;"/>
                             <CheckBox style="height: 7cm; text.align_x: start; text.size: 100%; text.align_y: end;">
-                                Hg
+                                d
                             </CheckBox>
                             <Div style="height: 10cm;">
                                 <Text style="width: 6cm;">

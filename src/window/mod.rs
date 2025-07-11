@@ -321,12 +321,14 @@ impl Window {
                 } if window_id == self.handle.id() => {
                     match event {
                         WindowEvent::Resized(PhysicalSize { width, height }) => {
-                            self.info.width = width;
-                            self.info.height = height;
-                            self.surface.resize(&self.context, NonZeroU32::new(width).unwrap(),  NonZeroU32::new(height).unwrap());
-                            let mut app_loop = callbacks.write();
-                            app_loop.resize(&mut self, width, height);
-                            self.ui.get_mut().invalidate();
+                            if let Some(nzw) = NonZeroU32::new(width) && let Some(nzh) = NonZeroU32::new(height) {
+                                self.info.width = width;
+                                self.info.height = height;
+                                self.surface.resize(&self.context, nzw,  nzh);
+                                let mut app_loop = callbacks.write();
+                                app_loop.resize(&mut self, width, height);
+                                self.ui.get_mut().invalidate();
+                            }
                         }
                         WindowEvent::Moved(_) => {}
                         WindowEvent::DroppedFile(_) => {}
