@@ -113,13 +113,13 @@ impl WindowCallbacks for Application {
             let button = ui! {
                 <Ui context={window.ui().context()}>
                     <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
-                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
+                        <Div style="width: auto; height: 100%; margin: none; direction: vertical;">
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
                             <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start; text.align_y: middle;"/>
-                            <CheckBox style="height: 1cm; text.align_x: start;">
-                                Hello Box asjkdasi dasjd asjd jashd jad !
+                            <CheckBox style="height: 7cm; text.align_x: start; text.size: 100%; text.align_y: end;">
+                                Hg
                             </CheckBox>
                             <Div style="height: 10cm;">
                                 <Text style="width: 6cm;">
@@ -206,7 +206,7 @@ impl WindowCallbacks for Application {
     }
 
     fn post_draw(&mut self, window: &mut Window, delta_t: f64) {
-        debug::print_summary(1000);
+        //debug::print_summary(1000);
     }
 
     fn exiting(&mut self, window: &mut Window) {}

@@ -15,7 +15,7 @@ use crate::rendering::{OpenGLRenderer, RenderContext, Transform};
 use crate::resolve;
 use crate::ui::anim::ElementAnimator;
 use crate::ui::attributes::Attributes;
-use crate::ui::context::UiContext;
+use crate::ui::context::{UiContext, UiResources};
 use crate::ui::elements::button::Button;
 use crate::ui::elements::child::{Child, ToChild};
 use crate::ui::elements::components::ElementBody;
@@ -25,7 +25,7 @@ use crate::ui::elements::div::Div;
 use crate::ui::elements::events::UiEvents;
 use crate::ui::elements::text::Text;
 use crate::ui::elements::textbox::TextBox;
-use crate::ui::geometry::{Rect, SimpleRect};
+use crate::ui::geometry::{shape, Rect, SimpleRect};
 use crate::ui::rendering::{UiRenderer, WideRenderContext};
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::{ChildAlign, Direction, Origin, Overflow, Position};
@@ -36,14 +36,16 @@ use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use num_traits::Zero;
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::ui::elements::checkbox::CheckBox;
+use crate::ui::geometry::shape::shapes;
 
 pub trait UiElementCallbacks {
     /// Do not call this function manually! instead, call frame_callback()
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect);
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool);
 
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+    fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
         false
     }
 }
@@ -146,7 +148,7 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     /// This function should be called every frame instead of draw()
-    fn frame_callback(&mut self, renderer: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) where Self: Sized + 'static {
+    fn frame_callback(&mut self, renderer: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) where Self: Sized + 'static {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.ui_draw(|t| t.pause());
         }
@@ -159,7 +161,25 @@ pub trait UiElementStub: UiElementCallbacks {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.ui_draw(|t| t.resume());
         }
-        self.draw(renderer, crop_area);
+        self.draw(renderer, crop_area, debug);
+        if debug {
+            let state = self.state();
+            let bounding = shapes::clipped_rectangle(state.bounding_rect.bounding.clone(), state.rect.bounding.clone());
+            let rect = shapes::clipped_rectangle(state.rect.bounding.clone(), state.content_rect.bounding.clone());
+
+            if let Some(bounding_col) = MVR.resolve_color(MVR.color.ui_debug_bounding) {
+                bounding.draw(renderer, |v| {
+                    shape::utils::crop_no_uv(v, crop_area);
+                    v.color = bounding_col.as_vec4();
+                });
+            }
+            if let Some(rect_col) = MVR.resolve_color(MVR.color.ui_debug_rect) {
+                rect.draw(renderer, |v| {
+                    shape::utils::crop_no_uv(v, crop_area);
+                    v.color = rect_col.as_vec4();
+                });
+            }
+        }
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.ui_draw(|t| t.pause());
         }
@@ -250,12 +270,12 @@ pub trait UiElementStub: UiElementCallbacks {
         let font = font.unwrap_or(MVR.font.default);
         let font = self.context().resources.resolve_font(font);
 
-        let size = resolve!(self, text.size).unwrap_or_default_or_percentage(
-            &DEFAULT_STYLE.text.size,
-            maybe_parent.clone(),
-            |s| s.height() as f32,
-            state,
-        );
+        let size = resolve!(self, text.size);
+        let size = if size.is_percent() {
+            size.compute_percent(state.content_rect.height() as f32)
+        } else {
+            size.unwrap_or_default(&DEFAULT_STYLE.text.size)
+        };
         let kerning = resolve!(self, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
         let stretch = resolve!(self, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
         let skew = resolve!(self, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
@@ -303,27 +323,8 @@ pub trait UiElementStub: UiElementCallbacks {
             false
         };
 
-        if let Overflow::Never = overflow_x {
-        } else {
-            if computed_size.0 > width || always_x {
-                //content overflow
-                state.scroll_x.available = true;
-                state.scroll_x.whole = computed_size.0;
-            } else {
-                state.scroll_x.available = false;
-            }
-        }
-
-        if let Overflow::Never = overflow_y {
-        } else {
-            if computed_size.1 > height || always_y {
-                //content overflow
-                state.scroll_y.available = true;
-                state.scroll_y.whole = computed_size.1;
-            } else {
-                state.scroll_y.available = false;
-            }
-        }
+        state.scroll_x.whole = computed_size.0;
+        state.scroll_y.whole = computed_size.1;
 
         state.rect.set_width(width);
         state.rect.set_height(height);
@@ -596,6 +597,26 @@ pub trait UiElementStub: UiElementCallbacks {
             }
         }
 
+        if let Overflow::Never = overflow_x {
+        } else {
+            if computed_size.0 > state.content_rect.width() || always_x {
+                //content overflow
+                state.scroll_x.available = true;
+            } else {
+                state.scroll_x.available = false;
+            }
+        }
+
+        if let Overflow::Never = overflow_y {
+        } else {
+            if computed_size.1 > state.content_rect.height() || always_y {
+                //content overflow
+                state.scroll_y.available = true;
+            } else {
+                state.scroll_y.available = false;
+            }
+        }
+
         state.inner_transforms = state.transforms.clone();
         state.transforms = UiTransformations::new();
 
@@ -756,7 +777,7 @@ pub trait UiElementStub: UiElementCallbacks {
         res
     }
 
-    /// This is an internal function and should be called inside raw_input() on the implementation
+    /// Call this before calling raw_input on the children
     fn super_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
         let mut used = false;
         let mut in_scroll = false;
@@ -786,13 +807,6 @@ pub trait UiElementStub: UiElementCallbacks {
                 state.scroll_x.offset = assistant.global_offset.0;
             }
 
-            if let RawInputEvent::Mouse(MouseAction::Wheel(dx, _)) = action {
-                if state.rect.inside(input.mouse_x, input.mouse_y) {
-                    state.scroll_x.offset += dx as i32 * 5;
-                    used = true;
-                }
-            }
-
             state.scroll_x.offset = state
                 .scroll_x
                 .offset
@@ -816,13 +830,6 @@ pub trait UiElementStub: UiElementCallbacks {
                     (state.content_rect.height() - knob_h) - assistant.global_offset.1;
             }
 
-            if let RawInputEvent::Mouse(MouseAction::Wheel(_, dy)) = action {
-                if state.rect.inside(input.mouse_x, input.mouse_y) {
-                    state.scroll_y.offset -= dy as i32 * 5;
-                    used = true;
-                }
-            }
-
             state.scroll_y.offset = state.scroll_y.offset.p_clamp(0, max_offset);
         }
 
@@ -830,7 +837,95 @@ pub trait UiElementStub: UiElementCallbacks {
             state.invalidate();
         }
 
+        used || in_scroll
+    }
+
+    /// Call this after calling raw_input on the children
+    fn scroll_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        let state = self.state();
+        if !state.scroll_x.available && !state.scroll_y.available {
+            return false;
+        }
+        //this could be optimised by only calling this only when the input is available, but the amazing rust language doesnt let me,even tho this cannot break anything
+        let bar_extent = resolve!(self, scrollbar.size).unwrap_or_default_or_percentage(
+            &DEFAULT_STYLE.scrollbar.size,
+            state.parent.clone(),
+            |s| s.width(),
+            state,
+        );
+
+        let state = self.state_mut();
+        let mut used = false;
+
+        if state.scroll_x.available {
+            if let RawInputEvent::Mouse(MouseAction::Wheel(dx, _)) = action {
+                if dx != 0.0 {
+                    if state.rect.inside(input.mouse_x, input.mouse_y) {
+                        state.scroll_x.offset += dx as i32 * 5;
+
+                        let knob = ScrollBars::x_knob(state, bar_extent);
+
+                        state.scroll_x.offset = state
+                            .scroll_x
+                            .offset
+                            .p_clamp(0, state.content_rect.width() - knob.width);
+
+                        used = true;
+                    }
+                }
+            }
+        }
+
+        if state.scroll_y.available {
+            if let RawInputEvent::Mouse(MouseAction::Wheel(_, dy)) = action {
+                if dy != 0.0 {
+                    if state.rect.inside(input.mouse_x, input.mouse_y) {
+                        state.scroll_y.offset -= dy as i32 * 5;
+
+                        let knob = ScrollBars::y_knob(state, bar_extent);
+                        let knob_h = knob.height;
+                        let max_offset = state.content_rect.height() - knob_h;
+
+                        state.scroll_y.offset = state.scroll_y.offset.p_clamp(0, max_offset);
+
+                        used = true;
+                    }
+                }
+            }
+        }
+
+        if used {
+            state.invalidate();
+        }
         used
+    }
+
+    // Fuck it i moved this method from callbacks to here so the implementation is automatic
+    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool where Self: Sized + 'static {
+        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
+        self.body_mut().on_input(unsafe_self, action.clone(), input);
+
+        if self.super_input(action.clone(), input) {
+            return true;
+        }
+
+        for elem in &self.state().children {
+            if let Child::Element(child) = elem {
+                let child = child.get_mut();
+                if child.raw_input(action.clone(), input) {
+                    return true;
+                }
+                if child.raw_input_callback(action.clone(), input) {
+                    return true;
+                }
+            }
+        }
+
+        if self.scroll_input(action, input) {
+            return true;
+        }
+
+        false
     }
 }
 
@@ -873,12 +968,12 @@ macro_rules! ui_element_fn {
 }
 
 impl UiElementCallbacks for UiElement {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
-        ui_element_fn!(self, draw(ctx, crop_area));
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
+        ui_element_fn!(self, draw(ctx, crop_area, debug));
     }
 
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        ui_element_fn!(self, raw_input(action, input))
+    fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
+        ui_element_fn!(self, raw_input_callback(action, input))
     }
 }
 
@@ -951,6 +1046,11 @@ impl UiScrollState {
             whole: 0,
             assistant: DragAssistant::new(MouseButton::Left),
         }
+    }
+
+    pub fn get_absolute_offset(&self, total: i32) -> i32 {
+        let fac = self.offset as f32 / total as f32;
+        (fac * self.whole as f32) as i32
     }
 }
 

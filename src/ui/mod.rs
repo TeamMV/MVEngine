@@ -85,7 +85,15 @@ impl Ui {
     pub fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         for arc in self.root_elems.iter_mut() {
             let guard = arc.get_mut();
-            guard.frame_callback(ctx, crop_area);
+            guard.frame_callback(ctx, crop_area, false);
+        }
+        self.page_manager.draw(ctx, crop_area);
+    }
+
+    pub fn draw_debug(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+        for arc in self.root_elems.iter_mut() {
+            let guard = arc.get_mut();
+            guard.frame_callback(ctx, crop_area, true);
         }
         self.page_manager.draw(ctx, crop_area);
     }

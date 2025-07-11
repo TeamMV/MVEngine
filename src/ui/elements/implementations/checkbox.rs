@@ -1,3 +1,5 @@
+use crate::input::consts::MouseButton;
+use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::rendering::OpenGLRenderer;
 use crate::ui::attributes::Attributes;
@@ -10,12 +12,10 @@ use crate::ui::geometry::{shape, SimpleRect};
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
-use mvutils::unsafe_utils::{DangerousCell, Unsafe};
-use std::rc::{Rc, Weak};
 use mvutils::state::State;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use ropey::Rope;
-use crate::input::{Input, MouseAction, RawInputEvent};
-use crate::input::consts::MouseButton;
+use std::rc::{Rc, Weak};
 
 #[derive(Clone)]
 pub struct CheckBox {
@@ -30,17 +30,18 @@ pub struct CheckBox {
 }
 
 impl UiElementCallbacks for CheckBox {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw_height_square(this, ctx, &self.context, crop_area);
+        let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         let text_w = if let Some(child) = self.state.children.first() {
             match child {
                 Child::String(s) => {
-                    self.draw_text(s, ctx, crop_area)
+                    self.draw_text(s, ctx, &inner_crop)
                 }
                 Child::State(s) => {
                     let s = s.read();
-                    self.draw_text(&s, ctx, crop_area)
+                    self.draw_text(&s, ctx, &inner_crop)
                 }
                 _ => { 0 }
             }
@@ -51,10 +52,10 @@ impl UiElementCallbacks for CheckBox {
             let rect = SimpleRect::new(cr.x(), cr.y(), cr.height(), cr.height());
             shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, self, |s| &s.detail, Some(crop_area.clone()));
         }
+        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
     }
 
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        self.super_input(action.clone(), input);
+    fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
         if let RawInputEvent::Mouse(MouseAction::Press(MouseButton::Left)) = action {
             if self.inside(input.mouse_x, input.mouse_y) {
                 let current = *self.selected.read();

@@ -267,7 +267,6 @@ impl<E: UiElementStub> EditableTextHelper<E> {
         let info = self.text_body.get_info(elem, ui_ctx, draw_ctx);
         if let Some(mut info) = info {
             let m_width = info.font.get_char_data('m', info.size).width;
-            println!("s: {}, e: {}", self.view_range.start, self.view_range.end);
             if self.view_range.start == self.view_range.end {
                 self.view_range.start = self.view_range.start.saturating_sub((rect.width() / m_width as i32) as usize);
             }
@@ -275,7 +274,6 @@ impl<E: UiElementStub> EditableTextHelper<E> {
             let y = rect.y() as f32;
             let height = rect.height() as f32;
             let mut char_x = rect.x() as f32;
-            //println!("align_y: {:?}", info.align_y);
             let char_y = match info.align_y {
                 TextAlign::Start => y,
                 TextAlign::Middle => y + (height - info.size) * 0.5,
@@ -328,6 +326,7 @@ impl<E: UiElementStub> EditableTextHelper<E> {
                         self.view_range.start += amount;
                         self.view_range.end += amount;
                     }
+                    break;
                 }
             }
 

@@ -19,6 +19,7 @@ use crate::ui::styles::UiStyle;
 use crate::ui::styles::interpolate::Interpolator;
 use mvutils::utils::Percentage;
 use std::ops::Deref;
+use crate::ui::elements::components::scroll::ScrollBars;
 
 #[derive(Clone)]
 enum State {
@@ -33,6 +34,7 @@ pub struct ElementBody {
     hover_style: Option<UiStyle>,
     init_style: Option<UiStyle>,
     easing: Easing,
+    scroll_bars: ScrollBars
 }
 
 impl ElementBody {
@@ -43,6 +45,7 @@ impl ElementBody {
             hover_style: None,
             init_style: None,
             easing: anim::easing(EasingGen::linear(), EasingMode::InOut),
+            scroll_bars: ScrollBars {},
         }
     }
 
@@ -147,5 +150,12 @@ impl ElementBody {
             |s| &s.border,
             Some(crop_area.clone()),
         );
+    }
+    
+    pub fn draw_scrollbars<E: UiElementStub + 'static>(&mut self, elem: &E,
+                           ctx: &mut impl RenderContext,
+                           context: &UiContext,
+                           crop_area: &SimpleRect) {
+        self.scroll_bars.draw(elem, ctx, context, crop_area);
     }
 }

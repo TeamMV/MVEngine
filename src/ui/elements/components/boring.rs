@@ -14,6 +14,8 @@ use crate::color::RgbColor;
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::enums::TextAlign;
 
+const SAMPLE_BIAS: f32 = 0.5;
+
 pub struct TextInfo<'a> {
     pub font : &'a Font,
     pub color: RgbColor,
@@ -51,7 +53,12 @@ impl<E: UiElementStub> BoringText<E> {
         if let Some(font) = context.resources.resolve_font(font) {
             let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
             let select_color = resolve!(elem, text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
-            let size = resolve!(elem, text.size).unwrap_or_default_or_percentage(&DEFAULT_STYLE.text.size, elem.state().parent.clone(), |s| s.height() as f32, elem.state());
+            let size = resolve!(elem, text.size);
+            let size = if size.is_percent() {
+                size.compute_percent(elem.state().content_rect.height() as f32)
+            } else {
+                size.unwrap_or_default(&DEFAULT_STYLE.text.size)
+            };
             let kerning =
                 resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
             let stretch =
@@ -123,11 +130,14 @@ impl<E: UiElementStub> BoringText<E> {
             TextAlign::Middle => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32) * 0.5 - total_text_w * 0.5,
             TextAlign::End => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32)- total_text_w
         };
+        if elem.state().scroll_x.available {
+            x += elem.state().scroll_x.get_absolute_offset(elem.state().content_rect.width()) as f32;
+        }
         let start_x = x;
 
 
         let total_text_h = info.size;
-        let y = match info.align_y {
+        let mut y = match info.align_y {
             TextAlign::Start => state.content_rect.y() as f32 + y_off as f32,
             TextAlign::Middle => state.content_rect.y() as f32 + y_off as f32
                 + (state.content_rect.height() as f32) * 0.5
@@ -136,6 +146,10 @@ impl<E: UiElementStub> BoringText<E> {
                 + (state.content_rect.height() as f32)
                 - total_text_h,
         };
+
+        if elem.state().scroll_y.available {
+            y += elem.state().scroll_y.get_absolute_offset(elem.state().content_rect.height()) as f32;
+        }
 
 
         for c in text.chars() {
@@ -159,6 +173,12 @@ impl<E: UiElementStub> BoringText<E> {
         let cwidth = data.width * info.stretch_x;
 
         let y = y + data.y_off - info.max_y_off;
+
+        let bounding = SimpleRect::new((x - info.skew) as i32, y as i32, (cwidth + info.skew) as i32, ssize as i32);
+
+        if !crop.intersects(&bounding) {
+            return bounding.width as f32;
+        }
 
         let bl = shapes::vertex3(
             x - info.skew,
@@ -208,10 +228,12 @@ impl<E: UiElementStub> BoringText<E> {
                     0.0
                 };
 
-                let uv_x1 = data.uv.x;
-                let uv_x2 = data.uv.x + data.uv.z;
-                let uv_y1 = 1.0 - (data.uv.y + data.uv.w);
-                let uv_y2 = 1.0 - data.uv.y;
+                let uv_bias = SAMPLE_BIAS / info.font.texture().dimensions.0 as f32;
+
+                let uv_x1 = data.uv.x + uv_bias;
+                let uv_x2 = data.uv.x + data.uv.z - uv_bias;
+                let uv_y1 = 1.0 - (data.uv.y + data.uv.w) + uv_bias;
+                let uv_y2 = 1.0 - data.uv.y - uv_bias;
 
                 v.uv.0 = uv_x1 + x_ratio * (uv_x2 - uv_x1);
                 v.uv.1 = uv_y1 + y_ratio * (uv_y2 - uv_y1);

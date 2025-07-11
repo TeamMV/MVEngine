@@ -31,6 +31,8 @@ r! {
             <color name="transparent" val="transparent"/>
 
             <color name="bone_debug" val="red"/>
+            <color name="ui_debug_bounding" val="#FFAA33A0"/>
+            <color name="ui_debug_rect"     val="#3388AA99"/>
         </colors>
         <shapes>
             <shape name="rect" src="shapes/rect.msf"/>

@@ -51,14 +51,15 @@ impl TextBox {
 }
 
 impl UiElementCallbacks for TextBox {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
+        let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.frame_callback(ctx, crop_area);
+                    guard.frame_callback(ctx, &inner_crop, debug);
                 }
                 _ => {}
             }
@@ -78,12 +79,10 @@ impl UiElementCallbacks for TextBox {
                 self.helper.draw(this, ctx, &self.context, crop_area, false);
             }
         }
+        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
     }
 
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
-        self.body.on_input(unsafe_self, action.clone(), input);
-
+    fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
         match action {
             RawInputEvent::Keyboard(ka) => {
                 if self.focused {

@@ -38,7 +38,7 @@ impl Text {
 }
 
 impl UiElementCallbacks for Text {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         let this = unsafe { Unsafe::cast_lifetime_mut(self) };
         for children in &self.state.children {
             match children {
@@ -53,9 +53,10 @@ impl UiElementCallbacks for Text {
                 _ => {}
             }
         }
+        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
     }
 
-    fn raw_input(&mut self, _action: RawInputEvent, _input: &Input) -> bool {
+    fn raw_input_callback(&mut self, _action: RawInputEvent, _input: &Input) -> bool {
         false
     }
 }

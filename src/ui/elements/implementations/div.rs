@@ -23,13 +23,13 @@ pub struct Div {
     style: UiStyle,
     state: UiElementState,
     body: ElementBody,
-    scroll: ScrollBars,
 }
 
 impl UiElementCallbacks for Div {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
+        let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
                 Child::String(_) => {}
@@ -37,38 +37,15 @@ impl UiElementCallbacks for Div {
                     let guard = e.get_mut();
                     guard.frame_callback(
                         ctx,
-                        &this
-                            .state
-                            .content_rect
-                            .bounding
-                            .create_intersection(crop_area),
+                        &inner_crop,
+                        debug
                     );
                 }
                 Child::State(_) => {}
                 _ => {}
             }
         }
-        self.scroll.draw(this, ctx, &self.context, crop_area);
-    }
-
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
-        self.body.on_input(unsafe_self, action.clone(), input);
-
-        for elem in &self.state.children {
-            if let Child::Element(child) = elem {
-                let child = child.get_mut();
-                if child.raw_input(action.clone(), input) {
-                    return true;
-                }
-            }
-        }
-
-        if self.super_input(action.clone(), input) {
-            return true;
-        }
-
-        false
+        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
     }
 }
 
@@ -84,7 +61,6 @@ impl UiElementStub for Div {
             style,
             state: UiElementState::new(context),
             body: ElementBody::new(),
-            scroll: ScrollBars {},
         };
 
         let rc = Rc::new(DangerousCell::new(this.wrap()));

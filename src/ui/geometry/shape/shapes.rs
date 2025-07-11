@@ -176,3 +176,30 @@ pub fn triangle2(v1: Vec2, v2: Vec2, v3: Vec2) -> Shape {
 pub fn triangle3(triangle: Triangle) -> Shape {
     Shape::new(triangle.points.to_vec(), Indices::Triangles)
 }
+
+pub fn clipped_rectangle(outer: SimpleRect, inner: SimpleRect) -> Shape {
+    let mut shape = rectangle1(outer.x, outer.y, outer.x + outer.width, inner.y); // Top
+
+    shape.combine(&rectangle1(
+        outer.x,
+        inner.y,
+        inner.x,
+        inner.y + inner.height,
+    )); // Left
+
+    shape.combine(&rectangle1(
+        inner.x + inner.width,
+        inner.y,
+        outer.x + outer.width,
+        inner.y + inner.height,
+    )); // Right
+
+    shape.combine(&rectangle1(
+        outer.x,
+        inner.y + inner.height,
+        outer.x + outer.width,
+        outer.y + outer.height,
+    )); // Bottom
+
+    shape
+}

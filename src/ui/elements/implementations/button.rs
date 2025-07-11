@@ -27,9 +27,10 @@ pub struct Button {
 }
 
 impl UiElementCallbacks for Button {
-    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+    fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         let this = unsafe { Unsafe::cast_lifetime(self) };
         self.body.draw(this, ctx, &self.context, crop_area);
+        let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
                 Child::String(s) => {
@@ -37,7 +38,7 @@ impl UiElementCallbacks for Button {
                 }
                 Child::Element(e) => {
                     let guard = e.get_mut();
-                    guard.frame_callback(ctx, crop_area);
+                    guard.frame_callback(ctx, &inner_crop, debug);
                 }
                 Child::State(s) => {
                     let guard = s.read();
@@ -47,12 +48,7 @@ impl UiElementCallbacks for Button {
                 _ => {}
             }
         }
-    }
-
-    fn raw_input(&mut self, action: RawInputEvent, input: &Input) -> bool {
-        let unsafe_self = unsafe { Unsafe::cast_lifetime_mut(self) };
-        self.body.on_input(unsafe_self, action.clone(), input);
-        self.super_input(action, input)
+        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
     }
 }
 

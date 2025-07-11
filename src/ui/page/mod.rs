@@ -83,7 +83,13 @@ impl UiPageManager {
 
     pub fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
         if let Some(current) = &mut self.current {
-            current.get_mut().frame_callback(ctx, crop_area);
+            current.get_mut().frame_callback(ctx, crop_area, false);
+        }
+    }
+
+    pub fn draw_debug(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect) {
+        if let Some(current) = &mut self.current {
+            current.get_mut().frame_callback(ctx, crop_area, true);
         }
     }
 
