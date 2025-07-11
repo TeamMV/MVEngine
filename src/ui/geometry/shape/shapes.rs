@@ -203,3 +203,11 @@ pub fn clipped_rectangle(outer: SimpleRect, inner: SimpleRect) -> Shape {
 
     shape
 }
+
+pub fn void_rectangle0(x: i32, y: i32, width: i32, height: i32, thickness: i32) -> Shape {
+    let mut s = rectangle0(x, y, thickness, height);
+    s.combine(&rectangle0(x + thickness, y, width - thickness * 2, thickness));
+    s.combine(&rectangle0(x + thickness, y + height - thickness, width - thickness * 2, thickness));
+    s.combine(&rectangle0(x + width - thickness, y, thickness, height));
+    s
+}

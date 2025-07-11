@@ -187,6 +187,7 @@ fn parse_entity(lexer: &mut XmlLexer) -> Result<Entity, String> {
 
                     tkn = lexer.next_whitespace()?;
                 }
+                str = str.trim().to_string();
                 lexer.putback(tkn);
 
                 let inner = XmlValue::Str(str);

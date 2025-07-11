@@ -5,7 +5,7 @@ use mvutils::{Savable, TryFromString};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -79,28 +79,29 @@ impl Origin {
     }
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum Position {
     Absolute,
     #[default]
     Relative,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum Direction {
     Vertical,
     #[default]
     Horizontal,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum TextFit {
     ExpandParent,
     #[default]
     CropText,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[repr(u8)]
 pub enum TextAlign {
     Start,
     #[default]
@@ -108,7 +109,7 @@ pub enum TextAlign {
     End,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum Overflow {
     Always,
     Never,
@@ -116,7 +117,7 @@ pub enum Overflow {
     Normal,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ChildAlign {
     #[default]
     Start,
@@ -174,14 +175,14 @@ impl FromStr for ChildAlign {
     }
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
 pub enum BackgroundRes {
     #[default]
     Color,
     Texture,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Savable)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Savable)]
 pub enum Geometry {
     Shape(usize),
     Adaptive(usize),

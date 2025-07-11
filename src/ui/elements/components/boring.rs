@@ -15,6 +15,7 @@ use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::enums::TextAlign;
 
 const SAMPLE_BIAS: f32 = 0.5;
+const CONTROL_WIDTH_MULTIPLIER: f32 = 4.0;
 
 pub struct TextInfo<'a> {
     pub font : &'a Font,
@@ -153,6 +154,7 @@ impl<E: UiElementStub> BoringText<E> {
 
 
         for c in text.chars() {
+            println!("drawing char: {c}, code: {}", c as u32);
             let cwidth = self.draw_char(c, &info, x, y, ctx, crop);
 
             x += cwidth + info.kerning;
@@ -166,6 +168,18 @@ impl<E: UiElementStub> BoringText<E> {
             return info.space_adv;
         } else if c == '\t' {
             return info.space_adv * 4.0;
+        } else if c.is_control() {
+            let width = info.space_adv * CONTROL_WIDTH_MULTIPLIER;
+            let height = info.size;
+            let clip = width / 7.0;
+
+            let rect = shapes::void_rectangle0(x as i32, y as i32, width as i32, height as i32, clip as i32);
+
+            rect.draw(ctx, |v| {
+                v.color = info.color.as_vec4();
+            });
+
+            return width;
         }
 
         let data = info.font.get_char_data(c, info.size);
@@ -248,6 +262,8 @@ impl<E: UiElementStub> BoringText<E> {
             return info.space_adv;
         } else if c == '\t' {
             return info.space_adv * 4.0;
+        } else if c.is_control() {
+            return info.space_adv * CONTROL_WIDTH_MULTIPLIER;
         }
 
         let data = info.font.get_char_data(c, info.size);

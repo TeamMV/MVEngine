@@ -42,6 +42,7 @@ impl UiPageManager {
         if let Some(target_elem) = self.find_page(target) {
             //current will be some as find_page wouldnt return anything otherwise, still go safe route lmao
             if let Some(current) = self.current.take() {
+                current.get_mut().end_frame();
                 self.history.push(current);
                 target_elem.get_mut().state_mut().invalidate();
                 debug!("Transitioned to page: {target}");
@@ -53,16 +54,18 @@ impl UiPageManager {
     }
 
     pub fn close_all(&mut self) {
-        self.current = None;
+        if let Some(current) = self.current.take() {
+            current.get_mut().end_frame();
+        }
     }
 
     pub fn open(&mut self, target: &str) {
         if let Some(target_elem) = self.find_page(target) {
             target_elem.get_mut().state_mut().invalidate();
             if let Some(current) = self.current.take() {
+                current.get_mut().end_frame();
                 self.history.push(current);
             }
-            debug!("Opened page: {target}");
             self.current = Some(target_elem);
         } else {
             warn!("Cannot fing page: {}", target);
@@ -74,6 +77,7 @@ impl UiPageManager {
             new.get_mut().state_mut().invalidate();
             //I dont think pushing to the history would be the expected behavior
             let id = new.get().attributes().id.clone();
+            self.close_all();
             self.current = Some(new);
             id
         } else {

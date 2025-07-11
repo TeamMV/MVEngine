@@ -19,7 +19,7 @@ use mvengine::ui::geometry::shape::{shapes, VertexStream};
 use mvengine::ui::res::MVR;
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
-use mvengine::{debug, modify_style};
+use mvengine::{debug, expect_element_by_id, modify_style};
 use mvengine_proc_macro::resolve_resource;
 use mvengine_proc_macro::{style_expr, ui};
 use mvutils::once::CreateOnce;
@@ -31,7 +31,9 @@ use bytebuffer::ByteBuffer;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
 use mvengine::color::RgbColor;
+use mvengine::ui::attributes::UiState;
 use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
+use mvengine::ui::styles::{UiStyle, UiStyleWriteObserver};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -146,13 +148,13 @@ impl WindowCallbacks for Application {
             let button = ui! {
                 <Ui context={window.ui().context()}>
                     <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
-                        <Div style="width: auto; height: 100%; margin: none; direction: vertical;">
+                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
                             <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start; text.align_y: middle;"/>
-                            <CheckBox style="height: 7cm; text.align_x: start; text.size: 100%; text.align_y: end;">
-                                d
+                            <CheckBox id="my_cb" style="height: 2cm; width: 20cm; text.align_x: start; text.size: 100%; text.align_y: end;">
+                                dasdasdasds
                             </CheckBox>
                             <Div style="height: 10cm;">
                                 <Text style="width: 6cm;">
@@ -176,6 +178,9 @@ impl WindowCallbacks for Application {
                 </Ui>
             };
 
+            let cb = expect_element_by_id!(button, "my_cb");
+            println!("style: {:?}", cb.get().style());
+
             self.state.create(|| state);
 
             let b = button.get();
@@ -197,7 +202,7 @@ impl WindowCallbacks for Application {
             })
         }*/
         let area = window.area().clone();
-        window.ui_mut().draw(&mut self.draw_ctx, &area);
+        window.ui_mut().draw_debug(&mut self.draw_ctx, &area);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);

@@ -1,11 +1,14 @@
 use crate::color::{Color, ColorFormat};
 use crate::ui::elements::UiElementStub;
-use crate::ui::styles::{Resolve, UiStyle, UiValue};
+use crate::ui::styles::{Resolve, UiStyle, UiValue, DEFAULT_STYLE};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use std::cmp::Ordering;
+use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
+use crate::resolve;
+use crate::ui::styles::enums::TextAlign;
 
 pub trait Interpolator<T: PartialOrd + Clone + 'static> {
     fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
@@ -14,7 +17,7 @@ pub trait Interpolator<T: PartialOrd + Clone + 'static> {
         F: Fn(&UiStyle) -> &Self;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BasicInterpolatable<T: Clone + 'static> {
     t: T,
 }
@@ -298,6 +301,29 @@ impl Interpolator<UiStyle> for UiStyle {
             });
         self.text.fit = (percent < 50f32).yn(start.text.fit.clone(), end.text.fit.clone());
         self.text.font = (percent < 50f32).yn(start.text.font.clone(), end.text.font.clone());
+
+        //i wanted to write a funny comment but idk what to write
+        // this is so overdone its funny - max
+        //agreed.
+        fn interpolate_align<E: UiElementStub, F: Fn(&UiStyle) -> &Resolve<TextAlign>>(elem: &E, a: Resolve<TextAlign>, b: Resolve<TextAlign>, i: f32, map: F) -> Resolve<TextAlign> {
+            if i >= 100.0 {
+                return b;
+            } else if i <= 0.0 {
+                return a;
+            }
+            let a = a.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| map(s));
+            let b = b.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| map(s));
+            let a = a.unwrap_or_default(map(&DEFAULT_STYLE));
+            let b = b.unwrap_or_default(map(&DEFAULT_STYLE));
+            let a: u8 = unsafe { mem::transmute(a) };
+            let b: u8 = unsafe { mem::transmute(b) };
+            let c = (a as f32 * i + b as f32 * (100.0 - i)) / 200.0;
+            let align: TextAlign = unsafe { mem::transmute((c.round()) as u8) };
+            UiValue::Just(align).to_resolve()
+        }
+
+        self.text.align_x = interpolate_align(elem, start.text.align_x.clone(), end.text.align_x.clone(), percent, |s| &s.text.align_x);
+        self.text.align_y = interpolate_align(elem, start.text.align_y.clone(), end.text.align_y.clone(), percent, |s| &s.text.align_y);
 
         self.transform.translate.x.interpolate(
             &start.transform.translate.x,

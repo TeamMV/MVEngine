@@ -14,7 +14,7 @@ pub mod comp;
 pub mod particle;
 pub mod tileset;
 
-#[derive(Clone, Savable)]
+#[derive(Clone, Debug, Savable)]
 pub enum Drawable {
     Color(usize),
     Texture(usize),

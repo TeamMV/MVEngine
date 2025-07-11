@@ -25,6 +25,10 @@ impl SimpleRect {
         }
     }
 
+    pub fn new_floats(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self::new(x as i32, y as i32, w as i32, h as i32)
+    }
+
     pub fn inside(&self, x: i32, y: i32) -> bool {
         self.x <= x && self.x + self.width >= x && self.y <= y && self.y + self.height >= y
     }

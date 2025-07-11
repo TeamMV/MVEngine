@@ -14,7 +14,7 @@ use mvutils::utils::{PClamp, TetrahedronOp};
 use std::rc::Rc;
 use std::str::FromStr;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TextStyle {
     pub size: Resolve<f32>,
     pub kerning: Resolve<f32>,
@@ -55,6 +55,8 @@ impl TextStyle {
         self.fit.merge_unset(&other.fit);
         self.color.merge_unset(&other.color);
         self.select_color.merge_unset(&other.select_color);
+        self.align_y.merge_unset(&other.align_y);
+        self.align_x.merge_unset(&other.align_x);
     }
 
     pub fn merge_at_set(&mut self, other: &TextStyle) {
@@ -66,10 +68,12 @@ impl TextStyle {
         self.fit.merge_at_set(&other.fit);
         self.color.merge_at_set(&other.color);
         self.select_color.merge_at_set(&other.select_color);
+        self.align_y.merge_at_set(&other.align_y);
+        self.align_x.merge_at_set(&other.align_x);
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TransformStyle {
     pub translate: VectorField<i32>,
     pub scale: VectorField<f32>,
@@ -102,7 +106,7 @@ impl TransformStyle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VectorField<T: PartialOrd + Clone + 'static> {
     pub x: Resolve<T>,
     pub y: Resolve<T>,
@@ -166,7 +170,7 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LayoutField<T: PartialOrd + Clone + 'static> {
     pub value: UiValue<T>,
     pub min: UiValue<T>,
@@ -331,7 +335,7 @@ impl Interpolator<TextStyle> for TextStyle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SideStyle {
     pub top: Resolve<i32>,
     pub bottom: Resolve<i32>,
@@ -491,7 +495,7 @@ impl FromStr for SideStyle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
@@ -544,7 +548,7 @@ impl Interpolator<ShapeStyle> for ShapeStyle {
 
 blanked_partial_ord!(ShapeStyle);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScrollBarStyle {
     pub track: ShapeStyle,
     pub knob: ShapeStyle,

@@ -249,7 +249,7 @@ impl Drop for UiStyleWriteObserver<'_> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UiStyle {
     pub x: Resolve<i32>,
     pub y: Resolve<i32>,
@@ -330,7 +330,7 @@ blanked_partial_ord!(TextStyle);
 
 blanked_partial_ord!(SideStyle);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Resolve<T: PartialOrd + Clone + 'static> {
     UiValue(UiValue<T>),
     LayoutField(LayoutField<T>),
@@ -487,7 +487,7 @@ impl<T: PartialOrd + Clone + 'static> From<LayoutField<T>> for Resolve<T> {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub enum UiValue<T: Clone + 'static> {
     #[default]
     Unset,

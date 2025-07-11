@@ -95,7 +95,7 @@ impl Ui {
             let guard = arc.get_mut();
             guard.frame_callback(ctx, crop_area, true);
         }
-        self.page_manager.draw(ctx, crop_area);
+        self.page_manager.draw_debug(ctx, crop_area);
     }
 
     pub fn end_frame(&mut self) {
