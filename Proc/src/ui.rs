@@ -5,11 +5,7 @@ use syn::{parse_str, Expr};
 use ui_parsing::xml::{Entity, XmlValue};
 
 pub fn ui(input: TokenStream) -> TokenStream {
-    let rsx_raw = input.to_string();
-
-    if rsx_raw.trim().is_empty() {
-        return quote! { mvengine::ui::elements::blank::Blank::new(ui().context(), Attributes::new(), UiStyle::default()).wrap() }.into();
-    }
+    let rsx_raw: String = input.to_string().split_whitespace().map(|s| format!("{s} ")).collect();
 
     let rsx = ui_parsing::xml::parse_rsx(rsx_raw).unwrap_or_else(|err| panic!("{}", err));
     if rsx.name() != "Ui" {

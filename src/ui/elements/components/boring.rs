@@ -154,7 +154,6 @@ impl<E: UiElementStub> BoringText<E> {
 
 
         for c in text.chars() {
-            println!("drawing char: {c}, code: {}", c as u32);
             let cwidth = self.draw_char(c, &info, x, y, ctx, crop);
 
             x += cwidth + info.kerning;

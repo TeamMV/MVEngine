@@ -141,10 +141,18 @@ pub trait UiElementStub: UiElementCallbacks {
 
     fn body_mut(&mut self) -> &mut ElementBody;
 
-    /// Checks whether a given point is inside the element. In retrospective, this function is basic af and idk why its on the trait lol
+    /// Checks whether a given point is inside the element. This also works when this element is cropped by the parent.
     fn inside(&self, x: i32, y: i32) -> bool {
         let state = self.state();
-        state.rect.inside(x, y)
+        if !state.rect.inside(x, y) {
+            return false;
+        }
+        if let Some(parent) = &self.state().parent {
+            let content_rect = &parent.get().state().content_rect;
+            content_rect.inside(x, y)
+        } else {
+            true
+        }
     }
 
     /// This function should be called every frame instead of draw()
