@@ -3,7 +3,6 @@ use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
 use mvengine::audio::source::SoundWithAttributes;
 use mvengine::audio::{gen_sin_wave, AudioEngine};
-use mvengine::game::ecs::entity::EntityBehavior;
 use mvengine::rendering::pipeline::RenderingPipeline;
 use mvengine::rendering::OpenGLRenderer;
 use mvengine::ui::context::UiResources;
@@ -31,8 +30,10 @@ use bytebuffer::ByteBuffer;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
 use mvengine::color::RgbColor;
+use mvengine::math::vec::Vec2;
 use mvengine::ui::attributes::UiState;
 use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
+use mvengine::ui::geometry::SimpleRect;
 use mvengine::ui::styles::{UiStyle, UiStyleWriteObserver};
 
 pub fn main() -> Result<(), Error> {
@@ -152,7 +153,7 @@ impl WindowCallbacks for Application {
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
-                            <TextBox placeholder="type here" style="width: 10cm; height: 1cm; text.align_x: start; text.align_y: middle;"/>
+                            <TextBox placeholder="type here" style="width: 10cm; height: 10cm; text.align_x: start; text.align_y: middle; text.size: 100%;"/>
                             <CheckBox id="my_cb" style="height: 2cm; width: 20cm; text.align_x: start; text.size: 100%; text.align_y: end;">
                                 dasdasdasds
                             </CheckBox>
@@ -202,7 +203,7 @@ impl WindowCallbacks for Application {
             })
         }*/
         let area = window.area().clone();
-        window.ui_mut().draw_debug(&mut self.draw_ctx, &area);
+        //window.ui_mut().draw(&mut self.draw_ctx, &area);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);
@@ -215,7 +216,7 @@ impl WindowCallbacks for Application {
         //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
         //ad.draw(&mut *self.draw_ctx, &rect, AdaptiveFill::Drawable(Drawable::Texture(MVR.texture.test)), &window.ui.context());
 
-        /*let mx = window.input.mouse_x as f32;
+        let mx = window.input.mouse_x as f32;
         let my = window.input.mouse_y as f32;
         let mouse_pos = Vec2::new(mx, my);
 
@@ -234,9 +235,9 @@ impl WindowCallbacks for Application {
             }
 
             let rect = SimpleRect::new(250, 250, 300, 300);
-            //composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
+            composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
             //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
-        }*/
+        }
 
         self.draw_ctx.advance(window, |_| {});
 

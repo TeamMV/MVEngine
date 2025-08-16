@@ -11,6 +11,11 @@ name = "test"
 path = "tests/main.rs"
 harness = false
 
+[[test]]
+name = "ecs"
+path = "tests/ecs.rs"
+harness = false
+
 [dependencies]
 # proc macros
 mvengine-proc-macro = { path = "./Proc", version = "1.0.0" }
@@ -28,6 +33,8 @@ hashbrown = "0.15.1"
 bitflags = "2.5.0"
 parking_lot = "0.12.1"
 crossbeam-channel = "0.5.12"
+bimap = "0.6.3"
+auto_enums = "0.8.7"
 ahash = "0.8.11"
 rand = "0.9.0"
 include_dir = "0.7.3"

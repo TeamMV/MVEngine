@@ -1,17 +1,24 @@
 use crate::game::ecs::entity::EntityId;
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
-use mvengine_proc_macro::generate_get_components;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
+use mvutils::unsafe_utils::Unsafe;
 
 pub(crate) type ComponentIdx = u64;
+
+#[derive(Hash, PartialEq, Eq)]
+struct ComponentKey {
+    type_id: TypeId,
+    index: ComponentIdx,
+}
 
 pub struct ComponentStorage {
     components: HashMap<TypeId, ContinuousBlob>,
     entity_components:
         HashMap<EntityId, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
+    component_entities: HashMap<ComponentKey, EntityId>
 }
 
 impl ComponentStorage {
@@ -19,6 +26,7 @@ impl ComponentStorage {
         Self {
             components: HashMap::new(),
             entity_components: HashMap::with_hasher(U64IdentityHasher::default()),
+            component_entities: HashMap::new(),
         }
     }
 
@@ -44,6 +52,17 @@ impl ComponentStorage {
         None
     }
 
+    pub(crate) fn get_component_mut_bruh<T: Sized + 'static>(&self, entity: EntityId) -> Option<&mut T> {
+        if let Some(map) = self.entity_components.get(&entity) {
+            if let Some(idx) = map.get(&TypeId::of::<T>()) {
+                if let Some(blob) = self.components.get(&TypeId::of::<T>()) {
+                    return blob.get_mut_bruh(*idx);
+                }
+            }
+        }
+        None
+    }
+
     pub fn set_component<T: Sized + 'static>(&mut self, entity: EntityId, component: T) {
         let blob = if let Some(blob) = self.components.get_mut(&TypeId::of::<T>()) {
             blob
@@ -59,6 +78,10 @@ impl ComponentStorage {
             } else {
                 let map = HashMap::with_hasher(U64IdentityHasher::default());
                 self.entity_components.insert(entity, map);
+                self.component_entities.insert(ComponentKey {
+                    type_id: TypeId::of::<T>(),
+                    index: idx,
+                }, entity);
                 self.entity_components.get_mut(&entity).unwrap()
             };
 
@@ -82,85 +105,35 @@ impl ComponentStorage {
                 if let Some(blob) = self.components.get_mut(&ty) {
                     blob.remove(idx);
                 }
+                let key = ComponentKey {
+                    type_id: ty,
+                    index: idx,
+                };
+                self.component_entities.remove(&key);
             }
         }
     }
 
-    generate_get_components!(15);
-
-    /*pub fn get_components1<C1: Sized + 'static>(&self) -> Option<Vec<(EntityType, &C1)>> {
-        let c1s = self.components.get(&TypeId::of::<C1>())?.get_all::<C1>();
-
-        let mut out = vec![];
-
-        for (en, map) in self.entity_components.iter() {
-            if let Some(idx1) = map.get(&TypeId::of::<C1>()) {
-                if let Some(c1) = c1s.get(*idx1) {
-                    out.push((*en, *c1));
-                }
-            }
-        }
-
-        Some(out)
+    fn get_entity_from_component_instance<C: 'static>(&self, idx: ComponentIdx) -> Option<EntityId> {
+        let t = TypeId::of::<C>();
+        let key = ComponentKey {
+            type_id: t,
+            index: idx,
+        };
+        self.component_entities.get(&key).copied()
     }
 
-    pub fn get_components1_mut<C1: Sized + 'static>(&mut self) -> Option<Vec<(EntityType, &mut C1)>> {
-        let mut c1s = self.components.get_mut(&TypeId::of::<C1>())?.get_all_mut::<C1>();
-
-        let mut out = vec![];
-
-        for (en, map) in self.entity_components.iter_mut() {
-            if let Some(idx1) = map.get_mut(&TypeId::of::<C1>()) {
-                if let Some(c1) = c1s.get_mut(*idx1) {
-                    unsafe { out.push((*en, Unsafe::cast_mut_static(*c1))); }
-                }
-            }
-        }
-
-        Some(out)
+    #[auto_enums::auto_enum(Iterator)]
+    pub fn query1<C1: Sized + 'static>(&self) -> impl Iterator<Item=(EntityId, (&C1 ))> + '_ {
+        let t1 = std::any::TypeId::of::<C1>();
+        if let Some(blob1) = self.components.get(&t1) {
+            blob1.get_all::<C1>().filter_map(|(idx, C1)| {
+                println!("{idx}");
+                let en = self.get_entity_from_component_instance::<C1>(idx)?;
+                Some((en, (C1)))
+            })
+        } else { std::iter::empty() }
     }
 
-    pub fn get_components2<C1: Sized + 'static, C2: Sized + 'static>(&self) -> Option<Vec<(EntityType, &C1, &C2)>> {
-        let c1s = self.components.get(&TypeId::of::<C1>())?.get_all::<C1>();
-        let c2s = self.components.get(&TypeId::of::<C2>())?.get_all::<C2>();
-
-        let mut out = vec![];
-
-        for (en, map) in self.entity_components.iter() {
-            if let Some(idx1) = map.get(&TypeId::of::<C1>()) {
-                if let Some(idx2) = map.get(&TypeId::of::<C2>()) {
-                    if let Some(c1) = c1s.get(*idx1) {
-                        if let Some(c2) = c2s.get(*idx2) {
-                            out.push((*en, *c1, *c2));
-                        }
-                    }
-                }
-            }
-        }
-
-        Some(out)
-    }
-
-    pub fn get_components2_mut<C1: Sized + 'static, C2: Sized + 'static>(&mut self) -> Option<Vec<(EntityType, &mut C1, &mut C2)>> {
-        let mut c1s = self.components.get(&TypeId::of::<C1>())?.get_all::<C1>();
-        let mut c2s = self.components.get(&TypeId::of::<C2>())?.get_all::<C2>();
-
-        let mut out = vec![];
-
-        unsafe {
-            for (en, map) in self.entity_components.iter_mut() {
-                if let Some(idx1) = map.get(&TypeId::of::<C1>()) {
-                    if let Some(idx2) = map.get(&TypeId::of::<C2>()) {
-                        if let Some(c1) = c1s.get_mut(*idx1) {
-                            if let Some(c2) = c2s.get_mut(*idx2) {
-                                out.push((*en, (*c1 as *const C1 as *mut C1).as_mut().unwrap(), (*c2 as *const C2 as *mut C2).as_mut().unwrap()));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Some(out)
-    }*/
+    //mvengine_proc_macro::generate_queries!(20);
 }

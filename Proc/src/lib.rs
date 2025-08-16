@@ -12,8 +12,13 @@ mod resolve_resource;
 mod msfx_function;
 
 #[proc_macro]
-pub fn generate_get_components(input: TokenStream) -> TokenStream {
-    ecs::generate_get_components(input)
+pub fn generate_queries(input: TokenStream) -> TokenStream {
+    ecs::generate_queries(input)
+}
+
+#[proc_macro]
+pub fn generate_system_impls(input: TokenStream) -> TokenStream {
+    ecs::generate_system_impls(input)
 }
 
 #[proc_macro]

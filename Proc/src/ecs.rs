@@ -2,121 +2,131 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, LitInt, Ident};
 
-pub fn generate_get_components(input: TokenStream) -> TokenStream {
-    let num_generics = parse_macro_input!(input as LitInt).base10_parse::<usize>().unwrap();
+pub fn generate_queries(input: TokenStream) -> TokenStream {
+    let max_n = parse_macro_input!(input as LitInt).base10_parse::<usize>().unwrap();
 
-    let methods = (1..=num_generics).map(|n| {
-        // Create identifiers for generics (C1, C2, ...)
+    let methods = (1..=max_n).map(|n| {
+        // Generics: C1, C2, ...
         let generics: Vec<Ident> = (1..=n)
             .map(|i| Ident::new(&format!("C{}", i), proc_macro2::Span::call_site()))
             .collect();
 
-        // Create identifiers for component variables (c1, c2, ...)
-        let c_vars: Vec<Ident> = (1..=n)
-            .map(|i| Ident::new(&format!("c{}", i), proc_macro2::Span::call_site()))
-            .collect();
+        // Method names
+        let method_name = Ident::new(&format!("query{}", n), proc_macro2::Span::call_site());
+        let method_name_mut = Ident::new(&format!("query{}_mut", n), proc_macro2::Span::call_site());
 
-        // Create identifiers for indices (idx1, idx2, ...)
-        let idx_vars: Vec<Ident> = (1..=n)
-            .map(|i| Ident::new(&format!("idx{}", i), proc_macro2::Span::call_site()))
-            .collect();
-
-        // Immutable method
-        let fetch_components = quote! {
-            #(
-                let #c_vars = self.components.get(&TypeId::of::<#generics>())?.get_all::<#generics>();
-            )*
-        };
-
-        let nested_conditions = (0..n).rev().fold(quote! {
-            out.push((*en, #( *#c_vars ),*));
-        }, |acc, i| {
-            let idx_var = &idx_vars[i];
-            let c_var = &c_vars[i];
-            let generic = &generics[i];
-            quote! {
-                if let Some(#idx_var) = map.get(&TypeId::of::<#generic>()) {
-                    if let Some(#c_var) = #c_var.get(*#idx_var as usize) {
-                        #acc
-                    }
+        // Rest-of-components fetch for immutable
+        let rest_gets = if n > 1 {
+            let rest: Vec<_> = generics.iter().skip(1).map(|g| {
+                quote! {
+                    let #g = self.get_component::<#g>(en)?;
                 }
-            }
-        });
+            }).collect();
+            quote! { #(#rest)* }
+        } else { quote! {} };
 
-        let method_name = Ident::new(&format!("get_components{}", n), proc_macro2::Span::call_site());
-        let immutable_method = quote! {
-            pub fn #method_name< #( #generics : Sized + 'static ),* >(&self)
-                -> Option<Vec<(EntityId, #( & #generics ),*)>> {
+        // Tuple for immutable
+        let tuple_refs: Vec<_> = generics.iter().map(|g| quote! { #g }).collect();
 
-                #fetch_components
-
-                let mut out = vec![];
-
-                for (en, map) in self.entity_components.iter() {
-                    #nested_conditions
+        // Rest-of-components fetch for mutable
+        let rest_gets_mut = if n > 1 {
+            let rest: Vec<_> = generics.iter().skip(1).map(|g| {
+                quote! {
+                    let #g = self.get_component_mut_bruh::<#g>(en)?;
                 }
+            }).collect();
+            quote! { #(#rest)* }
+        } else { quote! {} };
 
-                Some(out)
-            }
-        };
-
-        // Mutable method
-        let fetch_components_mut = quote! {
-            #(
-                let mut #c_vars = self.components.get(&TypeId::of::<#generics>())?.get_all::<#generics>();
-            )*
-        };
-
-        let nested_conditions_mut = (0..n).rev().fold(quote! {
-            out.push((*en, #( unsafe { (*#c_vars as *const #generics as *mut #generics).as_mut().unwrap() } ),*));
-        }, |acc, i| {
-            let idx_var = &idx_vars[i];
-            let c_var = &c_vars[i];
-            let generic = &generics[i];
-            quote! {
-                if let Some(#idx_var) = map.get(&TypeId::of::<#generic>()) {
-                    if let Some(#c_var) = #c_var.get_mut(*#idx_var as usize) {
-                        #acc
-                    }
-                }
-            }
-        });
-
-        let method_name_mut = Ident::new(&format!("get_components{}_mut", n), proc_macro2::Span::call_site());
-        let mutable_method = quote! {
-            pub fn #method_name_mut< #( #generics : Sized + 'static ),* >(&mut self)
-                -> Option<Vec<(EntityId, #( &mut #generics ),*)>> {
-
-                #fetch_components_mut
-
-                let mut out = vec![];
-
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.ecs_find(|t| t.resume());
-                }
-
-                for (en, map) in self.entity_components.iter_mut() {
-                    #nested_conditions_mut
-                }
-
-                #[cfg(feature = "timed")] {
-                    crate::debug::PROFILER.ecs_find(|t| t.pause());
-                }
-
-                Some(out)
-            }
-        };
+        // Tuple for mutable
+        let tuple_refs_mut: Vec<_> = generics.iter().map(|g| quote! { #g }).collect();
 
         quote! {
-            #immutable_method
-            #mutable_method
+            #[auto_enums::auto_enum(Iterator)]
+            pub fn #method_name< #( #generics : Sized + 'static ),* >(
+                &self
+            ) -> impl Iterator<Item = (EntityId, ( #( & #tuple_refs ),* ))> + '_ {
+                let t1 = std::any::TypeId::of::<C1>();
+                if let Some(blob1) = self.components.get(&t1) {
+                    blob1.get_all::<C1>().filter_map(|(idx, C1)| {
+                        let en = self.get_entity_from_component_instance::<C1>(idx)?;
+                        #rest_gets
+                        Some((en, (#( #generics ),* )))
+                    })
+                } else {
+                    std::iter::empty()
+                }
+            }
+
+            #[auto_enums::auto_enum(Iterator)]
+            pub fn #method_name_mut< #( #generics : Sized + 'static ),* >(
+                &mut self
+            ) -> impl Iterator<Item = (EntityId, ( #( &mut #tuple_refs_mut ),* ))> + '_ {
+                let t1 = std::any::TypeId::of::<C1>();
+                if let Some(blob1) = self.components.get_mut(&t1) {
+                    let blob1 = unsafe { Unsafe::cast_lifetime_mut(blob1) };
+                    blob1.get_all_mut::<C1>().filter_map(|(idx, C1)| {
+                        let en = self.get_entity_from_component_instance::<C1>(idx)?;
+                        #rest_gets_mut
+                        Some((en, (#( #generics ),* )))
+                    })
+                } else {
+                    std::iter::empty()
+                }
+            }
         }
     });
 
-    // Combine all generated methods into one TokenStream
-    let expanded = quote! {
+    TokenStream::from(quote! {
         #( #methods )*
-    };
+    })
+}
 
-    TokenStream::from(expanded)
+pub fn generate_system_impls(input: TokenStream) -> TokenStream {
+    let max_n = parse_macro_input!(input as LitInt).base10_parse::<usize>().unwrap();
+
+    let impls = (1..=max_n).map(|n| {
+        // Generics: C1, C2, ...
+        let generics: Vec<Ident> = (1..=n)
+            .map(|i| Ident::new(&format!("C{}", i), proc_macro2::Span::call_site()))
+            .collect();
+
+        // System tuple type: (C1, C2, ...)
+        let tuple_type = if generics.len() == 1 {
+            let ident = &generics[0];
+            quote! { (#ident,) }
+        } else {
+            quote! { ( #( #generics ),* ) }
+        };
+
+        // query function name in storage: queryN / queryN_mut
+        let query_fn = Ident::new(&format!("query{}", n), proc_macro2::Span::call_site());
+        let query_fn_mut = Ident::new(&format!("query{}_mut", n), proc_macro2::Span::call_site());
+
+        quote! {
+            impl< #( #generics : Sized + 'static ),* > System<#tuple_type> {
+                #[auto_enums::auto_enum(Iterator)]
+                pub fn iter<'a>(&'a self, world: &'a World)
+                    -> impl Iterator<Item=(EntityId, ( #( & #generics ),* ))> + 'a {
+                    match world {
+                        World::SparseSet(ssw) => ssw.storage.#query_fn::<#( #generics ),*>(),
+                        World::ArchetypeWorld(atw) => std::iter::empty(),
+                    }
+                }
+
+                #[auto_enums::auto_enum(Iterator)]
+                pub fn iter_mut<'a>(&'a mut self, world: &'a mut World)
+                    -> impl Iterator<Item=(EntityId, ( #( &mut #generics ),* ))> + 'a {
+                    match world {
+                        World::SparseSet(ssw) => ssw.storage.#query_fn_mut::<#( #generics ),*>(),
+                        World::ArchetypeWorld(atw) => std::iter::empty(),
+                    }
+                }
+            }
+        }
+    });
+
+    TokenStream::from(quote! {
+        #( #impls )*
+    })
 }
