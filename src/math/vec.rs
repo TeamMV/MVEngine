@@ -2,7 +2,7 @@ use mvutils::Savable;
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::unsafe_utils::Unsafe;
 use std::fmt::{Debug, Formatter, Write};
-use std::ops::{AddAssign, Deref, DerefMut, Mul, MulAssign};
+use std::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::simd::f32x4;
 
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd, Savable)]
@@ -26,10 +26,84 @@ impl Vec2 {
     }
 }
 
+impl Add for Vec2 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
 impl AddAssign for Vec2 {
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;
+    }
+}
+
+impl Sub for Vec2 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self { x: self.x - rhs.x, y: self.y - rhs.y }
+    }
+}
+
+impl SubAssign for Vec2 {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+// Scalar multiplication: Vec2 * f32
+impl Mul<f32> for Vec2 {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self { x: self.x * rhs, y: self.y * rhs }
+    }
+}
+
+impl MulAssign<f32> for Vec2 {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+// Scalar division: Vec2 / f32
+impl Div<f32> for Vec2 {
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self::Output {
+        Self { x: self.x / rhs, y: self.y / rhs }
+    }
+}
+
+impl DivAssign<f32> for Vec2 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+    }
+}
+
+// Negation: -Vec2
+impl Neg for Vec2 {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self { x: -self.x, y: -self.y }
+    }
+}
+
+// Optional: elementwise Mul and Div (Vec2 * Vec2)
+impl Mul for Vec2 {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self { x: self.x * rhs.x, y: self.y * rhs.y }
+    }
+}
+
+impl Div for Vec2 {
+    type Output = Self;
+    fn div(self, rhs: Self) -> Self::Output {
+        Self { x: self.x / rhs.x, y: self.y / rhs.y }
     }
 }
 

@@ -1,28 +1,23 @@
-use mvengine::game::ecs::{Ecs, EcsBackend};
+use std::sync::Arc;
 use mvengine::game::ecs::entity::Entity;
-use mvengine::game::ecs::system::System;
+use mvengine::game::ecs::world::EcsWorld;
+use mvengine::game::ecs::{Ecs, EcsBackend};
+use mvengine::game::physics::components::{AABBCollider, RigidDynamic, Transform};
+use mvengine::game::physics::systems::PhysicsSystem;
 use mvengine::math::vec::Vec2;
-
-#[derive(Clone, Default, Debug)]
-struct Transform {
-    pos: Vec2
-}
-
-#[derive(Clone, Default)]
-struct Velocity {
-    vel: Vec2
-}
 
 fn main() {
     let mut ecs = Ecs::new(EcsBackend::SparseSet);
     let world = ecs.world_mut();
-    let en = Entity::<(Transform, Velocity)>::create(world);
-    let en = Entity::<(Transform, Velocity)>::create(world);
-    let en = Entity::<(Transform, Velocity)>::create(world);
+    let en1 = Entity::<(Transform, AABBCollider)>::create(world);
+    let en2 = Entity::<(Transform, AABBCollider)>::create(world);
+    let en3 = Entity::<(Transform, AABBCollider, RigidDynamic)>::create(world);
 
-    let sys = System::<(Transform,)>::new();
-    for (entity, transform) in sys.iter(world) {
-        println!("{entity}: {transform:?}")
+    if let Some(t1) = world.get_component_mut::<Transform>(en1) {
+        t1.position = Vec2::new(5.0, 5.0);
     }
+
+    let mut physics = PhysicsSystem::new();
+    physics.iterate(world, 1.0);
     println!("end");
 }

@@ -63,8 +63,7 @@ pub fn generate_queries(input: TokenStream) -> TokenStream {
                 &mut self
             ) -> impl Iterator<Item = (EntityId, ( #( &mut #tuple_refs_mut ),* ))> + '_ {
                 let t1 = std::any::TypeId::of::<C1>();
-                if let Some(blob1) = self.components.get_mut(&t1) {
-                    let blob1 = unsafe { Unsafe::cast_lifetime_mut(blob1) };
+                if let Some(blob1) = self.components.get(&t1) {
                     blob1.get_all_mut::<C1>().filter_map(|(idx, C1)| {
                         let en = self.get_entity_from_component_instance::<C1>(idx)?;
                         #rest_gets_mut

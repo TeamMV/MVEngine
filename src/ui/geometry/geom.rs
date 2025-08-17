@@ -2,7 +2,7 @@ use crate::math::vec::Vec2;
 use crate::ui::geometry::SimpleRect;
 use std::cmp::Ordering;
 use std::f32::consts::{FRAC_1_PI, FRAC_2_PI, PI, TAU};
-
+use num_traits::Zero;
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // This module is a collection of useful math stuff from math websites without css or stackoverflow //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,4 +259,8 @@ pub fn rotate_vector(v: Vec2, angle: f32) -> Vec2 {
 
 pub fn invert(v: Vec2) -> Vec2 {
     Vec2 { x: -v.x, y: -v.y }
+}
+
+pub fn is_vec_zero(v: Vec2) -> bool {
+    v.x.is_zero() && v.y.is_zero()
 }

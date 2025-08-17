@@ -31,4 +31,12 @@ impl EcsWorld for SparseSetWorld {
     fn set_component<C: 'static>(&mut self, id: EntityId, c: C) {
         self.storage.set_component::<C>(id, c);
     }
+
+    fn get_component<C: 'static>(&self, id: EntityId) -> Option<&C> {
+        self.storage.get_component::<C>(id)
+    }
+
+    fn get_component_mut<C: 'static>(&mut self, id: EntityId) -> Option<&mut C> {
+        self.storage.get_component_mut::<C>(id)
+    }
 }

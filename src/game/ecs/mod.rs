@@ -73,6 +73,14 @@ impl EcsWorld for World {
     }
 
     fn set_component<C: 'static>(&mut self, id: EntityId, c: C) {
-        world_fn!(self, set_component(id, c))
+        world_fn!(self, set_component(id, c));
+    }
+
+    fn get_component<C: 'static>(&self, id: EntityId) -> Option<&C> {
+        world_fn!(self, get_component(id))
+    }
+
+    fn get_component_mut<C: 'static>(&mut self, id: EntityId) -> Option<&mut C> {
+        world_fn!(self, get_component_mut(id))
     }
 }

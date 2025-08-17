@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
 #![feature(try_trait_v2)]

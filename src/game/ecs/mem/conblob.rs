@@ -4,9 +4,10 @@ use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::hash::DefaultHasher;
 use std::marker::PhantomData;
-use std::ptr;
+use std::{alloc, ptr};
 use std::ptr::Pointee;
 use bimap::BiHashMap;
+use crate::ui::styles::Resolve::LayoutField;
 
 pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
 
@@ -38,15 +39,16 @@ impl ContinuousBlob {
     }
 
     fn realloc(&mut self) {
+        let old_cap = self.capacity;
         self.capacity = (self.capacity as f64 * PHI).ceil() as usize;
+        if self.capacity - old_cap < self.layout.size() {
+            self.capacity += self.layout.size();
+        }
         unsafe {
             self.data = std::alloc::realloc(
                 self.data,
-                Layout::from_size_align_unchecked(
-                    self.capacity * self.layout.size(),
-                    self.layout.align(),
-                ),
-                self.capacity,
+                self.layout,
+                self.capacity * self.layout.size(),
             );
         }
     }
@@ -146,11 +148,20 @@ impl ContinuousBlob {
         }
     }
 
-    pub fn get_all_mut<T: Sized + 'static>(&mut self) -> impl Iterator<Item=(ComponentIdx, &mut T)> {
+    pub fn get_all_mut<T: Sized + 'static>(&self) -> impl Iterator<Item=(ComponentIdx, &mut T)> {
         IterMut {
             phantom: Default::default(),
             index: 0,
             blob: self,
+        }
+    }
+}
+
+impl Drop for ContinuousBlob {
+    fn drop(&mut self) {
+        unsafe {
+            let lay = Layout::from_size_align_unchecked(self.capacity * self.layout.size(), self.layout.align());
+            alloc::dealloc(self.data, lay);
         }
     }
 }
@@ -166,10 +177,13 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            let added = self.blob.data.add(self.index * self.blob.layout.size());
-            let typed = added as *mut T;
+            if self.index >= self.blob.len {
+                return None;
+            }
             let p = self.index;
             let p = *self.blob.memmap.get_by_right(&p)?;
+            let added = self.blob.data.add(self.index * self.blob.layout.size());
+            let typed = added as *mut T;
             self.index += 1;
             typed.as_ref().map(|x| (p, x))
         }
@@ -179,7 +193,7 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
 pub struct IterMut<'a, T> {
     phantom: PhantomData<T>,
     index: usize,
-    blob: &'a mut ContinuousBlob
+    blob: &'a ContinuousBlob
 }
 
 impl<'a, T: 'a> Iterator for IterMut<'a, T> {
@@ -187,10 +201,13 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            let added = self.blob.data.add(self.index * self.blob.layout.size());
-            let typed = added as *mut T;
+            if self.index >= self.blob.len {
+                return None;
+            }
             let p = self.index;
             let p = *self.blob.memmap.get_by_right(&p)?;
+            let added = self.blob.data.add(self.index * self.blob.layout.size());
+            let typed = added as *mut T;
             self.index += 1;
             typed.as_mut().map(|x| (p, x))
         }

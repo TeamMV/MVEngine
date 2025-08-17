@@ -4,7 +4,10 @@ use hashbrown::HashMap;
 use mvutils::hashers::U64IdentityHasher;
 use std::alloc::Layout;
 use std::any::TypeId;
+use std::fmt::Debug;
+use itertools::Itertools;
 use mvutils::unsafe_utils::Unsafe;
+use crate::game::ecs::mem::conblob;
 
 pub(crate) type ComponentIdx = u64;
 
@@ -123,17 +126,5 @@ impl ComponentStorage {
         self.component_entities.get(&key).copied()
     }
 
-    #[auto_enums::auto_enum(Iterator)]
-    pub fn query1<C1: Sized + 'static>(&self) -> impl Iterator<Item=(EntityId, (&C1 ))> + '_ {
-        let t1 = std::any::TypeId::of::<C1>();
-        if let Some(blob1) = self.components.get(&t1) {
-            blob1.get_all::<C1>().filter_map(|(idx, C1)| {
-                println!("{idx}");
-                let en = self.get_entity_from_component_instance::<C1>(idx)?;
-                Some((en, (C1)))
-            })
-        } else { std::iter::empty() }
-    }
-
-    //mvengine_proc_macro::generate_queries!(20);
+    mvengine_proc_macro::generate_queries!(20);
 }
