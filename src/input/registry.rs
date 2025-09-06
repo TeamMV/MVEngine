@@ -140,6 +140,14 @@ impl InputProcessor for ActionInputProcessor {
     fn end_frame(&mut self) {
         self.registry.end_frame();
         self.registry.process(&self.inputs);
+        //there is no "unscroll" event so clear manually
+        self.inputs.retain(|x| {
+            if let RawInput::Scroll(_) = x {
+                false
+            } else {
+                true
+            }
+        });
         //self.inputs.retain(|input| matches!(input, RawInput::MouseRelease(_) | RawInput::KeyRelease(_)))
         //bro i genuiely have no idea what you were trying to achieve here
     }

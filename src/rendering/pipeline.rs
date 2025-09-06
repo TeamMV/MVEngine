@@ -1,11 +1,15 @@
+use std::mem;
+use std::sync::atomic::Ordering;
+use gl::types::GLuint;
 use log::{trace, warn};
 use crate::math::vec::Vec2;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
 use crate::rendering::shader::OpenGLShader;
-use crate::rendering::{OpenGLRenderer, PrimitiveRenderer, RenderContext};
+use crate::rendering::{OpenGLRenderer, PrimitiveRenderer, RenderContext, CLEAR_FLAG};
+use crate::rendering::backbuffer::{BackBuffer, BackBufferTarget};
 use crate::rendering::camera::OrthographicCamera;
-use crate::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShader, RenderTarget};
+use crate::rendering::post::{OpenGLPostProcessRenderer, OpenGLPostProcessShader, OpenGlBlendShader, RenderTarget};
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::InheritSupplier;
 use crate::window::Window;
@@ -16,7 +20,6 @@ enum Post {
 }
 
 struct PostSources {
-    renderer: OpenGLPostProcessRenderer,
     target: Option<RenderTarget>,
     shaders: Vec<OpenGLPostProcessShader>,
     index: usize
@@ -25,7 +28,6 @@ struct PostSources {
 impl PostSources {
     fn new(window: &Window) -> Self {
         Self {
-            renderer: OpenGLPostProcessRenderer::new(window.width(), window.height()),
             target: None,
             shaders: vec![],
             index: 0,
@@ -42,6 +44,9 @@ pub struct RenderingPipeline<Renderer: PrimitiveRenderer> {
     rendered: bool,
     dimension: (u32, u32),
     dpi: u32,
+    backbuffer: BackBufferTarget,
+    post_renderer: OpenGLPostProcessRenderer,
+    blend_shader: Option<OpenGlBlendShader>,
 }
 
 impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
@@ -58,11 +63,23 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
             rendered: false,
             dimension: (window.info().width, window.info().width),
             dpi: window.dpi(),
+            backbuffer: BackBufferTarget::Screen,
+            post_renderer: OpenGLPostProcessRenderer::new(window.width(), window.height()),
+            blend_shader: None,
         })
     }
 
     pub fn create_post(&mut self, window: &Window) {
         self.post = Post::Some(PostSources::new(window))
+    }
+
+    ///Make this pipeline use a custom backbuffer. This is useful when multiple post pipelines will be combined on top of each other.
+    pub fn use_custom_backbuffer(&mut self, window: &Window) {
+        self.backbuffer = BackBufferTarget::Buffer(BackBuffer::new(window.width(), window.height()));
+    }
+
+    pub fn use_custom_blend_shader(&mut self, shader: OpenGlBlendShader) {
+        self.blend_shader = Some(shader);
     }
 
     ///Note: The shader is actually created inside the method, so dont call .make() and .bind() yet!
@@ -89,8 +106,9 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
         self.camera.update_projection(window.info().width, window.info().height);
         self.camera.update_view();
         self.renderer.recreate(window);
-        if let Post::Some(sources) = &mut self.post {
-            sources.renderer = OpenGLPostProcessRenderer::new(window.width(), window.height());
+        self.post_renderer = OpenGLPostProcessRenderer::new(window.width(), window.height());
+        if let BackBufferTarget::Buffer(bb) = &mut self.backbuffer {
+            *bb = BackBuffer::new(window.width(), window.height());
         }
         self.dimension = (window.info().width, window.info().height);
         self.dpi = window.dpi();
@@ -109,11 +127,13 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
     }
 
     /// Advances the pipeline by executing the next post process shader and drawing to the screen when that was the last one
-    pub fn advance<F: Fn(&mut OpenGLShader)>(&mut self, window: &Window, f: F) {
+    pub fn advance<F: Fn(&mut OpenGLPostProcessShader)>(&mut self, window: &Window, f: F) {
         if let Post::Some(sources) = &mut self.post {
             if !self.rendered {
+                let prev_clear = CLEAR_FLAG.swap(true, Ordering::Release);
                 let target = self.controller.draw_to_target(window, &self.camera, &mut self.renderer, &mut self.shader);
-                sources.renderer.set_target(target);
+                CLEAR_FLAG.store(prev_clear, Ordering::Release);
+                self.post_renderer.set_target(target);
                 self.rendered = true;
             } else {
                 if sources.index >= sources.shaders.len() {
@@ -123,19 +143,25 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
                     shader.use_program();
                     f(shader);
                     trace!("Running shader in pipeline");
-                    sources.renderer.run_shader(shader);
+                    self.post_renderer.run_shader(shader);
                     sources.index += 1;
                     //Idk i am more comfortable with >= than == and does it even matter
                     if sources.index >= sources.shaders.len() {
-                        sources.renderer.draw_to_screen();
-                        trace!("Drew pipeline to screen.");
+                        self.end_frame();
+                        //trace!("Drew pipeline to screen.");
                     }
                 }
             }
         } else {
             if !self.rendered {
-                self.controller.draw(window, &self.camera, &mut self.renderer, &mut self.shader);
-                trace!("Drew pipeline to screen.");
+                OpenGLRenderer::blend();
+                if let BackBufferTarget::Buffer(bb) = &self.backbuffer {
+                    trace!("Using backbuffer fbo: {}", bb.fbo);
+                } else {
+                    trace!("No fbo used!");
+                }
+                self.controller.draw(window, &self.camera, &mut self.renderer, &mut self.shader, &mut self.backbuffer);
+                trace!("Drew pipeline to backbuffer.");
                 self.rendered = true;
             } else {
                 warn!("A non post-mode pipeline that has been rendered already was called advance() on! Did you forget begin_frame()?");
@@ -151,7 +177,7 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
                 trace!("Skipped post-process step, new index is {}", sources.index);
 
                 if sources.index >= sources.shaders.len() {
-                    sources.renderer.draw_to_screen();
+                    self.post_renderer.draw_to_backbuffer(&mut self.backbuffer);
                     trace!("Drew pipeline to screen after skipping.");
                 }
             } else {
@@ -166,7 +192,35 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
     pub fn next_pipeline<R: PrimitiveRenderer>(&mut self, other: &mut RenderingPipeline<R>) {
         let z = self.next_z();
         other.controller.set_z(z);
+        if let BackBufferTarget::Buffer(bb) = &self.backbuffer {
+            other.backbuffer = BackBufferTarget::Buffer(bb.clone());
+        }
+        trace!("Next pipeline");
         other.begin_frame();
+        CLEAR_FLAG.store(false, Ordering::Release);
+    }
+
+    fn end_frame(&mut self) {
+        if let Post::Some(_) = &self.post {
+            if let Some(shader) = &self.blend_shader {
+                self.post_renderer.draw_to_backbuffer_custom_blend_shader(&mut self.backbuffer, shader);
+                trace!("Backbuffer draw with custom blend shader");
+            } else {
+                OpenGLRenderer::blend();
+                self.post_renderer.draw_to_backbuffer(&mut self.backbuffer);
+                trace!("Backbuffer draw");
+            }
+        }
+    }
+
+    pub fn flush(&mut self) {
+        trace!("Flushing pipeline to screen");
+        if let BackBufferTarget::Buffer(bb) = &mut self.backbuffer {
+            trace!("With fbo: {}", bb.fbo);
+            bb.swap(); //<----
+            self.post_renderer.set_target(RenderTarget::from_backbuffer(bb));
+            self.post_renderer.draw_to_screen();
+        }
     }
 }
 
@@ -186,6 +240,9 @@ impl RenderingPipeline<OpenGLRenderer> {
                 rendered: false,
                 dimension: (window.info().width, window.info().height),
                 dpi: window.dpi(),
+                backbuffer: BackBufferTarget::Screen,
+                post_renderer: OpenGLPostProcessRenderer::new(window.width(), window.height()),
+                blend_shader: None,
             })
         }
     }

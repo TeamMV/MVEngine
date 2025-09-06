@@ -75,6 +75,7 @@ r! {
             <drawable name="test" type="texture" ref="test"/>
             <drawable name="turret_base" type="tileset" ref="turret" tileref="base"/>
             <drawable name="turret_canon" type="tileset" ref="turret" tileref="canon"/>
+            <drawable name="tileset" type="tileset" ref="turret" tileref="canon"/>
         </drawables>
         <geometries>
             <geometry name="rect" type="shape" ref="rect"/>

@@ -45,12 +45,7 @@ impl Drawable {
         &self,
         res: &'static (impl UiResources + ?Sized),
     ) -> (&'static Texture, Vec4) {
-        let tex = match self {
-            Drawable::Texture(t) => res.resolve_texture(*t).map(|t| (t, Vec4::default_uv())),
-            Drawable::Animation(a) => res.resolve_animation(*a).map(|a| a.get_current()),
-            Drawable::TileSet(ts, idx) => res.resolve_tile(*ts, *idx),
-            _ => None,
-        };
+        let tex = self.get_texture(res);
         if let Some(tex) = tex {
             tex
         } else {

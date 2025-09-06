@@ -10,6 +10,7 @@ use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
 use glutin::context::PossiblyCurrentGlContext;
+use crate::rendering::backbuffer::BackBufferTarget;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -169,22 +170,18 @@ impl LightOpenGLRenderer {
 }
 
 impl PrimitiveRenderer for LightOpenGLRenderer {
-    fn begin_frame(&mut self) {
+    fn begin_frame(&mut self, back_target: &mut BackBufferTarget) {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.render_draw(|t| t.resume());
         }
-        unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-
-            //gl::DepthMask(gl::TRUE);
-            //gl::DepthFunc(gl::ALWAYS);
-        }
+        back_target.bind()
     }
 
-    fn end_frame(&mut self) {
+    fn end_frame(&mut self, back_target: &mut BackBufferTarget) {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.render_draw(|t| t.pause());
         }
+        back_target.unbind()
     }
 
     fn begin_frame_to_target(&mut self, post: &mut RenderTarget) {
@@ -234,6 +231,7 @@ impl PrimitiveRenderer for LightOpenGLRenderer {
         amount: u32,
         amount_textures: usize,
         shader: &mut OpenGLShader,
+        back_target: &mut BackBufferTarget
     ) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);

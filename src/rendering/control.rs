@@ -5,6 +5,7 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Triangle};
 use crate::window::Window;
 use gl::types::GLuint;
+use crate::rendering::backbuffer::BackBufferTarget;
 
 pub struct RenderController {
     default_shader: GLuint,
@@ -88,15 +89,16 @@ impl RenderController {
         camera: &OrthographicCamera,
         renderer: &mut impl PrimitiveRenderer,
         shader: &mut OpenGLShader,
+        back_target: &mut BackBufferTarget
     ) {
-        renderer.begin_frame();
+        renderer.begin_frame(back_target);
         for batch in &mut self.batches {
             if !batch.is_empty() {
-                batch.draw(window, camera, renderer, shader);
+                batch.draw(window, camera, renderer, shader, back_target);
             }
         }
         self.batch_index = 0;
-        renderer.end_frame();
+        renderer.end_frame(back_target);
         self.z = 99.0;
     }
 

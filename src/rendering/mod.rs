@@ -5,11 +5,14 @@ use crate::rendering::post::RenderTarget;
 use crate::rendering::shader::OpenGLShader;
 use crate::window::Window;
 use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
-use mvutils::Savable;
+use mvutils::{lazy, Savable};
 use std::mem::offset_of;
 use std::os::raw::c_void;
 use std::ptr::null;
+use std::sync::atomic::{AtomicBool, Ordering};
 use glutin::context::PossiblyCurrentGlContext;
+use crate::rendering::backbuffer::BackBufferTarget;
+use crate::ui::styles::InheritSupplier;
 
 pub mod batch;
 pub mod camera;
@@ -20,6 +23,7 @@ pub mod shader;
 pub mod text;
 pub mod texture;
 pub mod pipeline;
+pub mod backbuffer;
 
 pub trait RenderContext {
     fn controller(&mut self) -> &mut RenderController;
@@ -214,8 +218,8 @@ impl Quad {
 }
 
 pub trait PrimitiveRenderer {
-    fn begin_frame(&mut self);
-    fn end_frame(&mut self);
+    fn begin_frame(&mut self, back_target: &mut BackBufferTarget);
+    fn end_frame(&mut self, back_target: &mut BackBufferTarget);
     fn begin_frame_to_target(&mut self, post: &mut RenderTarget);
     fn end_frame_to_target(&mut self, post: &mut RenderTarget);
     fn draw_data(
@@ -230,6 +234,7 @@ pub trait PrimitiveRenderer {
         amount: u32,
         amount_textures: usize,
         shader: &mut OpenGLShader,
+        back_target: &mut BackBufferTarget
     );
     fn draw_data_to_target(
         &mut self,
@@ -264,102 +269,24 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn initialize(window: &Window) -> Self {
-        let mut offscreen_target_1 = 0;
-        gl::GenTextures(1, &mut offscreen_target_1);
-        gl::BindTexture(gl::TEXTURE_2D, offscreen_target_1);
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGBA as i32,
-            window.info.width as GLsizei,
-            window.info.height as GLsizei,
-            0,
-            gl::RGBA,
-            gl::UNSIGNED_BYTE,
-            null(),
-        );
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        let width = window.width();
+        let height = window.height();
 
-        let mut offscreen_target_2 = 0;
-        gl::GenTextures(1, &mut offscreen_target_2);
-        gl::BindTexture(gl::TEXTURE_2D, offscreen_target_2);
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGBA as i32,
-            window.info.width as GLsizei,
-            window.info.height as GLsizei,
-            0,
-            gl::RGBA,
-            gl::UNSIGNED_BYTE,
-            null(),
-        );
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        let offscreen_target_1 = Self::create_texture_rgba(width, height);
+        let offscreen_target_2 = Self::create_texture_rgba(width, height);
 
-        let mut fb = 0;
-        gl::GenFramebuffers(1, &mut fb);
-        gl::BindFramebuffer(gl::FRAMEBUFFER, fb);
-        gl::FramebufferTexture2D(
-            gl::FRAMEBUFFER,
-            gl::COLOR_ATTACHMENT0,
-            gl::TEXTURE_2D,
-            offscreen_target_1,
-            0,
-        );
+        let fb = Self::create_framebuffer_with_color(offscreen_target_1);
 
-        let mut rb = 0;
-        gl::GenRenderbuffers(1, &mut rb);
-        gl::BindRenderbuffer(gl::RENDERBUFFER, rb);
-        gl::RenderbufferStorage(
-            gl::RENDERBUFFER,
-            gl::DEPTH_COMPONENT,
-            window.info().width as GLsizei,
-            window.info().height as GLsizei,
-        );
-        gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, rb);
+        let rb = Self::create_depth_renderbuffer(width, height);
+        Self::attach_renderbuffer_to_framebuffer(fb, rb);
 
-        gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
-
-        let attachments = [gl::COLOR_ATTACHMENT0];
-        gl::DrawBuffers(1, attachments.as_ptr());
-
-        let mut depth_texture = 0;
-        gl::GenTextures(1, &mut depth_texture);
-        gl::BindTexture(gl::TEXTURE_2D, depth_texture);
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::DEPTH_COMPONENT24 as GLint,
-            window.info.width as GLsizei,
-            window.info.height as GLsizei,
-            0,
-            gl::DEPTH_COMPONENT,
-            gl::FLOAT,
-            null(),
-        );
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-        gl::FramebufferTexture2D(
-            gl::FRAMEBUFFER,
-            gl::DEPTH_ATTACHMENT,
-            gl::TEXTURE_2D,
-            depth_texture,
-            0,
-        );
+        let depth_texture = Self::create_texture_depth(width, height);
+        gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, depth_texture, 0);
 
         gl::Enable(gl::DEPTH_TEST);
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-
-        gl::Viewport(
-            0,
-            0,
-            window.info().width as GLsizei,
-            window.info().height as GLsizei,
-        );
+        gl::Viewport(0, 0, width, height);
 
         Self {
             framebuffer: fb,
@@ -370,10 +297,101 @@ impl OpenGLRenderer {
         }
     }
 
+    pub fn create_texture_rgba(width: i32, height: i32) -> GLuint {
+        unsafe {
+            let mut tex_id = 0;
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                null(),
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            tex_id
+        }
+    }
+
+    pub fn create_texture_depth(width: i32, height: i32) -> GLuint {
+        unsafe {
+            let mut tex_id = 0;
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::DEPTH_COMPONENT24 as GLint,
+                width,
+                height,
+                0,
+                gl::DEPTH_COMPONENT,
+                gl::FLOAT,
+                null(),
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            tex_id
+        }
+    }
+
+    pub fn create_framebuffer_with_color(texture: GLuint) -> GLuint {
+        unsafe {
+            let mut fb = 0;
+            gl::GenFramebuffers(1, &mut fb);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fb);
+
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                texture,
+                0,
+            );
+
+            let attachments = [gl::COLOR_ATTACHMENT0];
+            gl::DrawBuffers(1, attachments.as_ptr());
+
+            fb
+        }
+    }
+
+    pub fn create_depth_renderbuffer(width: i32, height: i32) -> GLuint {
+        unsafe {
+            let mut rb = 0;
+            gl::GenRenderbuffers(1, &mut rb);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, rb);
+            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT, width, height);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+            rb
+        }
+    }
+
+    pub fn attach_renderbuffer_to_framebuffer(fb: GLuint, rb: GLuint) {
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fb);
+            gl::FramebufferRenderbuffer(
+                gl::FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::RENDERBUFFER,
+                rb,
+            );
+        }
+    }
+
     pub fn clear() {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
+        CLEAR_FLAG.store(true, Ordering::Release);
     }
 
     pub fn enable_depth_test() {
@@ -402,25 +420,32 @@ impl OpenGLRenderer {
             gl::DepthMask(gl::FALSE);
         }
     }
+
+    pub fn blend() {
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+    }
+}
+
+lazy! {
+    pub static CLEAR_FLAG: AtomicBool = AtomicBool::new(true);
 }
 
 impl PrimitiveRenderer for OpenGLRenderer {
-    fn begin_frame(&mut self) {
+    fn begin_frame(&mut self, back_target: &mut BackBufferTarget) {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.render_draw(|t| t.resume());
         }
-        unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-
-            //gl::DepthMask(gl::TRUE);
-            //gl::DepthFunc(gl::ALWAYS);
-        }
+        back_target.bind();
     }
 
-    fn end_frame(&mut self) {
+    fn end_frame(&mut self, back_target: &mut BackBufferTarget) {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.render_draw(|t| t.pause());
         }
+        back_target.unbind();
     }
 
     fn begin_frame_to_target(&mut self, post: &mut RenderTarget) {
@@ -442,7 +467,9 @@ impl PrimitiveRenderer for OpenGLRenderer {
                 self.offscreen_target_2,
                 0,
             );
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            if CLEAR_FLAG.load(Ordering::Acquire) {
+                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            }
 
             //gl::DepthMask(gl::TRUE);
             //gl::DepthFunc(gl::ALWAYS);
@@ -470,6 +497,7 @@ impl PrimitiveRenderer for OpenGLRenderer {
         amount: u32,
         amount_textures: usize,
         shader: &mut OpenGLShader,
+        back_target: &mut BackBufferTarget
     ) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);

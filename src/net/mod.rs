@@ -2,7 +2,7 @@ pub mod client;
 pub mod server;
 
 use bytebuffer::ByteBuffer;
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use mvutils::Savable;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;

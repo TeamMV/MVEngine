@@ -144,18 +144,18 @@ impl Texture {
     pub fn get_uv_inner(&self, outer_uv: Vec4) -> [(f32, f32); 4] {
         [
             (outer_uv.x, outer_uv.y),
-            (outer_uv.x + outer_uv.z, outer_uv.y),
-            (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w),
             (outer_uv.x, outer_uv.y + outer_uv.w),
+            (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w),
+            (outer_uv.x + outer_uv.z, outer_uv.y),
         ]
     }
 
     pub fn get_uv_inner_static(outer_uv: Vec4) -> [(f32, f32); 4] {
         [
             (outer_uv.x, outer_uv.y),
-            (outer_uv.x + outer_uv.z, outer_uv.y),
-            (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w),
             (outer_uv.x, outer_uv.y + outer_uv.w),
+            (outer_uv.x + outer_uv.z, outer_uv.y + outer_uv.w),
+            (outer_uv.x + outer_uv.z, outer_uv.y),
         ]
     }
 }

@@ -30,7 +30,8 @@ use bytebuffer::ByteBuffer;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
 use mvengine::color::RgbColor;
-use mvengine::math::vec::Vec2;
+use mvengine::input::registry::{Direction, RawInput};
+use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::ui::attributes::UiState;
 use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 use mvengine::ui::geometry::SimpleRect;
@@ -96,6 +97,7 @@ pub fn main() -> Result<(), Error> {
 struct Application {
     rot: f32,
     draw_ctx: CreateOnce<RenderingPipeline<OpenGLRenderer>>,
+    other_pipeline: CreateOnce<RenderingPipeline<OpenGLRenderer>>,
     state: CreateOnce<State<String>>,
     audio: AudioEngine,
 }
@@ -132,6 +134,7 @@ impl Application {
         Self {
             rot: 0.0,
             draw_ctx: CreateOnce::new(),
+            other_pipeline: CreateOnce::new(),
             state: CreateOnce::new(),
             audio,
         }
@@ -150,6 +153,7 @@ impl WindowCallbacks for Application {
                 <Ui context={window.ui().context()}>
                     <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
                         <Div style="width: 100%; height: 100%; margin: none; direction: vertical;">
+                            <Div style="width: 10cm; height: 10cm; background.resource: texture; background.texture: @MVR.drawable/tileset;"/>
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
@@ -179,22 +183,42 @@ impl WindowCallbacks for Application {
                 </Ui>
             };
 
-            let cb = expect_element_by_id!(button, "my_cb");
-            println!("style: {:?}", cb.get().style());
+            //let button = ui! {
+            //    <Ui context={window.ui().context()}>
+            //        <Div style="width: 10cm; height: 10cm; background.resource: texture; background.texture: @MVR.drawable/tileset; border.resource: none;"/>
+            //    </Ui>
+            //};
 
             self.state.create(|| state);
 
             let b = button.get();
             window.ui_mut().add_root(button);
 
-            let pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
+            let mut pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
+            pipeline.use_custom_backbuffer(window);
             self.draw_ctx.create(|| pipeline);
+
+            let mut other_pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
+            self.other_pipeline.create(|| other_pipeline);
+
+            let reg = window.input.action_registry_mut();
+            reg.create_action("up");
+            reg.create_action("down");
+            reg.bind_action("up", vec![RawInput::Scroll(Direction::Up)]);
+            reg.bind_action("down", vec![RawInput::Scroll(Direction::Down)]);
         }
     }
 
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
+        if window.input.was_action("up") {
+            println!("up");
+        }
+        if window.input.was_action("down") {
+            println!("down");
+        }
+
         OpenGLRenderer::clear();
         self.draw_ctx.begin_frame();
         /*if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
@@ -203,7 +227,7 @@ impl WindowCallbacks for Application {
             })
         }*/
         let area = window.area().clone();
-        //window.ui_mut().draw(&mut self.draw_ctx, &area);
+        window.ui_mut().draw(&mut self.draw_ctx, &area);
 
         //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
         //let mut frame = self.morph.animate_frame(1.0);
@@ -216,6 +240,7 @@ impl WindowCallbacks for Application {
         //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
         //ad.draw(&mut *self.draw_ctx, &rect, AdaptiveFill::Drawable(Drawable::Texture(MVR.texture.test)), &window.ui.context());
 
+        /*
         let mx = window.input.mouse_x as f32;
         let my = window.input.mouse_y as f32;
         let mouse_pos = Vec2::new(mx, my);
@@ -238,8 +263,17 @@ impl WindowCallbacks for Application {
             composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
             //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
         }
+        */
 
         self.draw_ctx.advance(window, |_| {});
+        self.draw_ctx.next_pipeline(&mut self.other_pipeline);
+
+        let shape = shapes::rectangle0(100, 100, 100, 100);
+        shape.draw(&mut *self.other_pipeline, |v| {
+            v.color = RgbColor::red().as_vec4();
+        });
+        self.other_pipeline.advance(window, |_| {});
+        self.other_pipeline.flush();
 
         self.rot += 0.5;
     }

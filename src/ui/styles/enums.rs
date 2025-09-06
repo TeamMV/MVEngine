@@ -1,11 +1,11 @@
 use crate::ui::elements::UiElementState;
 use crate::ui::parse::parse_num;
 use crate::ui::res::MVR;
-use mvutils::{Savable, TryFromString};
+use mvutils::{Savable, TryFromString, TryFromStringLegacy};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-#[derive(Default, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -79,28 +79,28 @@ impl Origin {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum Position {
     Absolute,
     #[default]
     Relative,
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum Direction {
     Vertical,
     #[default]
     Horizontal,
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum TextFit {
     ExpandParent,
     #[default]
     CropText,
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 #[repr(u8)]
 pub enum TextAlign {
     Start,
@@ -109,7 +109,7 @@ pub enum TextAlign {
     End,
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum Overflow {
     Always,
     Never,
@@ -175,7 +175,7 @@ impl FromStr for ChildAlign {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromString)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, TryFromStringLegacy)]
 pub enum BackgroundRes {
     #[default]
     Color,

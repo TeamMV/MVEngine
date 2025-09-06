@@ -647,6 +647,20 @@ pub fn r(input: TokenStream) -> TokenStream {
         }
     };
 
+    let idk = if is_mv {
+        quote! {
+            log::info!("Loading Engine resources...");
+            #init_fn_ts
+            log::info!("Engine Resource loading complete.");
+        }
+    } else {
+        quote! {
+            log::info!("Loading resources...");
+            #init_fn_ts
+            log::info!("Resource loading complete.");
+        }
+    };
+
     let pm1 = quote! {
         mvutils::lazy! {
             pub static #r_ident: mvutils::once::CreateOnce<#r_ident> = mvutils::once::CreateOnce::new();
@@ -677,9 +691,7 @@ pub fn r(input: TokenStream) -> TokenStream {
 
         impl #r_ident {
             pub fn initialize() {
-                log::info!("Loading resources...");
-                #init_fn_ts
-                log::info!("Resource loading complete.");
+                #idk
             }
         }
 

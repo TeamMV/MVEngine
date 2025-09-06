@@ -138,31 +138,28 @@ pub fn draw_shape_textured_owned_at(
     ctx: &mut impl RenderContext,
     mut shape: Shape,
     texture: &Texture,
-    uv: Vec4,
+    mut uv: Vec4,
     area: &SimpleRect,
     crop: &SimpleRect,
 ) {
+    //let mut uv = Vec4::default_uv();
+    ////uv.x = 0.5;
+    //uv.z = 0.5;
+
+    let da = area.create_intersection(crop);
+
+    let a = da.x - area.x;
+    let b = da.y - area.y;
+    uv.x += a as f32 / area.width as f32;
+    uv.y += b as f32 / area.height as f32;
+    uv.z *= da.width as f32 / area.width as f32;
+    uv.w *= da.height as f32 / area.height as f32;
+
     shape.stream().texture(texture.id).uv(uv).compute();
     shape.draw_at(ctx, area, |v| {
         //crop to crop area
         v.pos.0 = v.pos.0.clamp(crop.x as f32, (crop.x + crop.width) as f32);
         v.pos.1 = v.pos.1.clamp(crop.y as f32, (crop.y + crop.height) as f32);
-
-        if v.has_texture >= 1.0 {
-            let x_ratio = if area.width > 0 {
-                (v.pos.0 - area.x as f32) / area.width as f32
-            } else {
-                0.0
-            };
-            let y_ratio = if area.height > 0 {
-                (v.pos.1 - area.y as f32) / area.height as f32
-            } else {
-                0.0
-            };
-
-            v.uv.0 = uv.x + x_ratio * (uv.z - uv.x);
-            v.uv.1 = uv.y + y_ratio * (uv.w - uv.y);
-        }
     });
 }
 

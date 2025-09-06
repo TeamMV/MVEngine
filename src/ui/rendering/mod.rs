@@ -4,6 +4,7 @@ use crate::rendering::camera::OrthographicCamera;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
 use crate::rendering::{OpenGLRenderer, Quad, RenderContext, Triangle};
+use crate::rendering::backbuffer::BackBufferTarget;
 use crate::ui::geometry::SimpleRect;
 use crate::ui::styles::InheritSupplier;
 use crate::window::Window;
@@ -58,7 +59,7 @@ impl UiRenderer {
 
         self.shader.use_program();
         self.controller
-            .draw(window, &self.camera, &mut self.renderer, &mut self.shader);
+            .draw(window, &self.camera, &mut self.renderer, &mut self.shader, &mut BackBufferTarget::Screen);
     }
 
     pub fn resize(&mut self, window: &mut Window) {

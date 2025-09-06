@@ -4,6 +4,7 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Triangle, Vertex};
 use crate::window::Window;
 use gl::types::GLuint;
+use crate::rendering::backbuffer::BackBufferTarget;
 
 pub const BATCH_VERTEX_AMOUNT: usize = 100_000;
 
@@ -326,6 +327,7 @@ impl RenderBatch {
         camera: &OrthographicCamera,
         renderer: &mut impl PrimitiveRenderer,
         shader: &mut OpenGLShader,
+        back_target: &mut BackBufferTarget
     ) {
         renderer.draw_data(
             window,
@@ -338,6 +340,7 @@ impl RenderBatch {
             self.triangle_index as u32 * 3,
             self.texture_index,
             shader,
+            back_target
         );
         self.prepare_batch();
     }
