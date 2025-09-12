@@ -23,18 +23,17 @@ pub struct Button {
     style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: BoringText<Button>,
+    text_body: BoringText,
 }
 
 impl UiElementCallbacks for Button {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
-        let this = unsafe { Unsafe::cast_lifetime(self) };
-        self.body.draw(this, ctx, &self.context, crop_area);
+        self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
                 Child::String(s) => {
-                    self.text_body.draw(0, 0, s, this, ctx, &self.context, crop_area);
+                    self.text_body.draw(0, 0, s, &self.state, &self.style, ctx, &self.context, crop_area);
                 }
                 Child::Element(e) => {
                     let guard = e.get_mut();
@@ -43,12 +42,12 @@ impl UiElementCallbacks for Button {
                 Child::State(s) => {
                     let guard = s.read();
                     let s = guard.deref();
-                    self.text_body.draw(0, 0, s, this, ctx, &self.context, crop_area);
+                    self.text_body.draw(0, 0, s, &self.state, &self.style, ctx, &self.context, crop_area);
                 }
                 _ => {}
             }
         }
-        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
+        self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
 }
 
@@ -64,7 +63,7 @@ impl UiElementStub for Button {
             style: style.clone(),
             attributes,
             body: ElementBody::new(),
-            text_body: BoringText::new(),
+            text_body: BoringText,
         };
         let rc = Rc::new(DangerousCell::new(this.wrap()));
         let e = rc.get_mut();

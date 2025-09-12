@@ -33,7 +33,7 @@ pub struct TextBox {
     content: UiState,
     placeholder: UiState,
     focused: bool,
-    helper: EditableTextHelper<TextBox>,
+    helper: EditableTextHelper,
 }
 
 impl TextBox {
@@ -52,8 +52,7 @@ impl TextBox {
 
 impl UiElementCallbacks for TextBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
-        let this = unsafe { Unsafe::cast_lifetime(self) };
-        self.body.draw(this, ctx, &self.context, crop_area);
+        self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
@@ -68,18 +67,18 @@ impl UiElementCallbacks for TextBox {
         if s.is_empty() {
             if !self.focused {
                 let placeholder = self.placeholder.read();
-                self.helper.draw_other(&*placeholder, this, ctx, &self.context, crop_area);
+                self.helper.draw_other(&*placeholder, &self.style, &self.state, ctx, &self.context, crop_area);
             } else {
-                self.helper.draw(this, ctx, &self.context, crop_area, true);
+                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, true);
             }
         } else {
             if self.focused {
-                self.helper.draw(this, ctx, &self.context, crop_area, true);
+                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, true);
             } else {
-                self.helper.draw(this, ctx, &self.context, crop_area, false);
+                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, false);
             }
         }
-        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
+        self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
 
     fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {

@@ -25,14 +25,13 @@ pub struct CheckBox {
     style: UiStyle,
     attributes: Attributes,
     body: ElementBody,
-    text_body: BoringText<CheckBox>,
+    text_body: BoringText,
     selected: State<bool>
 }
 
 impl UiElementCallbacks for CheckBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
-        let this = unsafe { Unsafe::cast_lifetime(self) };
-        self.body.draw_height_square(this, ctx, &self.context, crop_area);
+        self.body.draw_height_square(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         let text_w = if let Some(child) = self.state.children.first() {
             match child {
@@ -50,9 +49,9 @@ impl UiElementCallbacks for CheckBox {
         if *self.selected.read() {
             let cr = &self.state.content_rect;
             let rect = SimpleRect::new(cr.x(), cr.y(), cr.height(), cr.height());
-            shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, self, |s| &s.detail, Some(crop_area.clone()));
+            shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, &self.state, |s| &s.detail, Some(crop_area.clone()));
         }
-        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
+        self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
 
     fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
@@ -71,7 +70,7 @@ impl UiElementCallbacks for CheckBox {
 impl CheckBox {
     fn draw_text(&self, s: &Rope, ctx: &mut impl WideRenderContext, crop: &SimpleRect) -> i32 {
         let height = self.state.rect.height();
-        self.text_body.draw(height, 0, s, &self, ctx, &self.context, crop) + height
+        self.text_body.draw(height, 0, s, &self.state, &self.style, ctx, &self.context, crop) + height
     }
 }
 
@@ -92,7 +91,7 @@ impl UiElementStub for CheckBox {
             style: style.clone(),
             attributes,
             body: ElementBody::new(),
-            text_body: BoringText::new(),
+            text_body: BoringText,
             selected,
         };
         let rc = Rc::new(DangerousCell::new(this.wrap()));

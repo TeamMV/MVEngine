@@ -27,8 +27,7 @@ pub struct Div {
 
 impl UiElementCallbacks for Div {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
-        let this = unsafe { Unsafe::cast_lifetime(self) };
-        self.body.draw(this, ctx, &self.context, crop_area);
+        self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
         for children in &self.state.children {
             match children {
@@ -45,7 +44,7 @@ impl UiElementCallbacks for Div {
                 _ => {}
             }
         }
-        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
+        self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
 }
 

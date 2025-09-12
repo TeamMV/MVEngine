@@ -1,3 +1,4 @@
+use mvengine::ui::elements::slider::Slider;
 use log::LevelFilter;
 use mvengine::audio::decode::wav::WavDecoder;
 use mvengine::audio::decode::AudioDecoder;
@@ -157,8 +158,9 @@ impl WindowCallbacks for Application {
                             <Div style="width: 10cm; height: 10cm;">
                                 <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
                             </Div>
-                            <TextBox placeholder="type here" style="width: 10cm; height: 10cm; text.align_x: start; text.align_y: middle; text.size: 100%;"/>
-                            <CheckBox id="my_cb" style="height: 2cm; width: 20cm; text.align_x: start; text.size: 100%; text.align_y: end;">
+                            <Slider style="width: 10cm; height: 2cm;" range="1..10@1"/>
+                            <TextBox placeholder="type here" style="width: 10cm; height: 2cm; text.align_x: start; text.align_y: middle; text.size: 100%;"/>
+                            <CheckBox id="my_cb" style="height: 2cm; width: 10cm; text.align_x: start; text.size: 100%; text.align_y: end;">
                                 dasdasdasds
                             </CheckBox>
                             <Div style="height: 10cm;">
@@ -200,25 +202,12 @@ impl WindowCallbacks for Application {
 
             let mut other_pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
             self.other_pipeline.create(|| other_pipeline);
-
-            let reg = window.input.action_registry_mut();
-            reg.create_action("up");
-            reg.create_action("down");
-            reg.bind_action("up", vec![RawInput::Scroll(Direction::Up)]);
-            reg.bind_action("down", vec![RawInput::Scroll(Direction::Down)]);
         }
     }
 
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
     fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        if window.input.was_action("up") {
-            println!("up");
-        }
-        if window.input.was_action("down") {
-            println!("down");
-        }
-
         OpenGLRenderer::clear();
         self.draw_ctx.begin_frame();
         /*if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
@@ -266,14 +255,7 @@ impl WindowCallbacks for Application {
         */
 
         self.draw_ctx.advance(window, |_| {});
-        self.draw_ctx.next_pipeline(&mut self.other_pipeline);
-
-        let shape = shapes::rectangle0(100, 100, 100, 100);
-        shape.draw(&mut *self.other_pipeline, |v| {
-            v.color = RgbColor::red().as_vec4();
-        });
-        self.other_pipeline.advance(window, |_| {});
-        self.other_pipeline.flush();
+        self.draw_ctx.flush();
 
         self.rot += 0.5;
     }

@@ -109,10 +109,49 @@ pub fn parse_origin(s: &str) -> Result<Origin, String> {
     }
 }
 
-pub fn parse_num<T: FromStr<Err = S>, S: ToString>(s: &str) -> Result<T, String> {
+pub fn parse_num<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<T, String> {
     s.parse().map_err(|e: S| e.to_string())
 }
 
 pub fn parse_num_abstract(s: &str) -> Result<Resolve<i32>, String> {
     Ok(UiValue::<i32>::parse(s)?.to_resolve())
+}
+
+pub fn parse_num_list<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<Vec<T>, String> {
+    let s = s.trim();
+    if !(s.starts_with('[') && s.ends_with(']')) {
+        return Err(format!("List must start with '[' and end with ']', got: {s}"));
+    }
+
+    let inner = &s[1..s.len() - 1];
+    if inner.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    inner
+        .split(',')
+        .map(|x| x.trim().parse::<T>().map_err(|e| e.to_string()))
+        .collect()
+}
+
+pub fn parse_range<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<(T, T), String> {
+    let s = s.trim();
+
+    if let Some(idx) = s.find("..=") {
+        let start = &s[..idx];
+        let end = &s[idx + 3..];
+        let start_val = start.trim().parse::<T>().map_err(|e| e.to_string())?;
+        let end_val = end.trim().parse::<T>().map_err(|e| e.to_string())?;
+        return Ok((start_val, end_val));
+    }
+
+    if let Some(idx) = s.find("..") {
+        let start = &s[..idx];
+        let end = &s[idx + 2..];
+        let start_val = start.trim().parse::<T>().map_err(|e| e.to_string())?;
+        let end_val = end.trim().parse::<T>().map_err(|e| e.to_string())?;
+        return Ok((start_val, end_val));
+    }
+
+    Err(format!("Invalid range format: {}", s))
 }

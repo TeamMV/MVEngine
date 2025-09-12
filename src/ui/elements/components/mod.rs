@@ -13,7 +13,7 @@ use crate::ui::anim;
 use crate::ui::anim::UiAnim;
 use crate::ui::context::UiContext;
 use crate::ui::ease::{Easing, EasingGen, EasingMode};
-use crate::ui::elements::UiElementStub;
+use crate::ui::elements::{UiElementState, UiElementStub};
 use crate::ui::geometry::{SimpleRect, shape};
 use crate::ui::styles::UiStyle;
 use crate::ui::styles::interpolate::Interpolator;
@@ -93,21 +93,21 @@ impl ElementBody {
         }
     }
 
-    pub fn draw<E: UiElementStub + 'static>(
+    pub fn draw(
         &mut self,
-        elem: &E,
+        elem_style: &UiStyle,
+        elem_state: &UiElementState,
         ctx: &mut impl RenderContext,
         context: &UiContext,
         crop_area: &SimpleRect,
     ) {
-        let rect = elem.state().rect.bounding.clone();
-        let style = elem.style();
+        let rect = elem_state.rect.bounding.clone();
         shape::utils::draw_shape_style_at(
             ctx,
             context,
             &rect,
-            &style.background,
-            elem,
+            &elem_style.background,
+            elem_state,
             |s| &s.background,
             Some(crop_area.clone()),
         );
@@ -115,29 +115,29 @@ impl ElementBody {
             ctx,
             context,
             &rect,
-            &style.border,
-            elem,
+            &elem_style.border,
+            elem_state,
             |s| &s.border,
             Some(crop_area.clone()),
         );
     }
 
-    pub fn draw_height_square<E: UiElementStub + 'static>(
+    pub fn draw_height_square(
         &mut self,
-        elem: &E,
+        elem_style: &UiStyle,
+        elem_state: &UiElementState,
         ctx: &mut impl RenderContext,
         context: &UiContext,
         crop_area: &SimpleRect,
     ) {
-        let rect = &elem.state().rect.bounding;
+        let rect = &elem_state.rect.bounding;
         let rect = SimpleRect::new(rect.x, rect.y, rect.height, rect.height);
-        let style = elem.style();
         shape::utils::draw_shape_style_at(
             ctx,
             context,
             &rect,
-            &style.background,
-            elem,
+            &elem_style.background,
+            elem_state,
             |s| &s.background,
             Some(crop_area.clone()),
         );
@@ -145,17 +145,20 @@ impl ElementBody {
             ctx,
             context,
             &rect,
-            &style.border,
-            elem,
+            &elem_style.border,
+            elem_state,
             |s| &s.border,
             Some(crop_area.clone()),
         );
     }
     
-    pub fn draw_scrollbars<E: UiElementStub + 'static>(&mut self, elem: &E,
+    pub fn draw_scrollbars(&mut self,
+                           elem_style: &UiStyle,
+                           elem_state: &UiElementState,
                            ctx: &mut impl RenderContext,
                            context: &UiContext,
-                           crop_area: &SimpleRect) {
-        self.scroll_bars.draw(elem, ctx, context, crop_area);
+                           crop_area: &SimpleRect
+    ) {
+        self.scroll_bars.draw(elem_style, elem_state, ctx, context, crop_area);
     }
 }

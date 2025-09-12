@@ -3,37 +3,37 @@ use crate::math::vec::Vec4;
 use crate::rendering::{InputVertex, RenderContext};
 use crate::rendering::texture::Texture;
 use crate::ui::context::UiContext;
-use crate::ui::elements::UiElementStub;
-use crate::ui::geometry::SimpleRect;
+use crate::ui::elements::{UiElementState, UiElementStub};
+use crate::ui::geometry::{Rect, SimpleRect};
 use crate::ui::geometry::shape::{Shape, VertexStream};
 use crate::ui::rendering::adaptive::AdaptiveFill;
-use crate::ui::styles::enums::{BackgroundRes, Geometry};
+use crate::ui::styles::enums::{BackgroundRes, Direction, Geometry};
 use crate::ui::styles::groups::ShapeStyle;
 use crate::ui::styles::{DEFAULT_STYLE, UiStyle};
 use crate::ui::utils;
 use std::ops::Deref;
 
-pub fn draw_shape_style_at<E: UiElementStub + 'static, F: Fn(&UiStyle) -> &ShapeStyle>(
+pub fn draw_shape_style_at<F: Fn(&UiStyle) -> &ShapeStyle>(
     ctx: &mut impl RenderContext,
     ui_ctx: &UiContext,
     area: &SimpleRect,
     style: &ShapeStyle,
-    elem: &E,
+    elem_state: &UiElementState,
     map: F,
     crop_area: Option<SimpleRect>,
 ) {
-    let shape = utils::resolve_resolve(&style.shape, elem, |s| &map(s).shape);
+    let shape = utils::resolve_resolve(&style.shape, elem_state, |s| &map(s).shape);
     if !shape.is_none() {
         let shape = shape.unwrap_or_default(&map(&DEFAULT_STYLE).shape);
         let shape = &*shape;
 
-        let resource = utils::resolve_resolve(&style.resource, elem, |s| &map(s).resource);
+        let resource = utils::resolve_resolve(&style.resource, elem_state, |s| &map(s).resource);
         if !resource.is_none() {
             let resource = resource.unwrap_or_default(&map(&DEFAULT_STYLE).resource);
             let resource = &*resource;
             match resource {
                 BackgroundRes::Color => {
-                    let color = utils::resolve_resolve(&style.color, elem, |s| &map(s).color);
+                    let color = utils::resolve_resolve(&style.color, elem_state, |s| &map(s).color);
                     if !color.is_none() {
                         let color = color.unwrap_or_default(&map(&DEFAULT_STYLE).color);
                         match shape {
@@ -64,7 +64,7 @@ pub fn draw_shape_style_at<E: UiElementStub + 'static, F: Fn(&UiStyle) -> &Shape
                 }
                 BackgroundRes::Texture => {
                     let drawable =
-                        utils::resolve_resolve(&style.texture, elem, |s| &map(s).texture);
+                        utils::resolve_resolve(&style.texture, elem_state, |s| &map(s).texture);
                     if !drawable.is_none() {
                         let drawable = drawable.unwrap_or_default(&map(&DEFAULT_STYLE).texture);
                         let (tex, uv) = drawable.get_texture_or_default(ui_ctx.resources);
@@ -210,5 +210,55 @@ pub fn crop_with_uv(v: &mut InputVertex, crop: &SimpleRect, uv: Vec4, area: &Sim
         };
         v.uv.0 = uv.x + x_ratio * (uv.z - uv.x);
         v.uv.1 = uv.y + y_ratio * (uv.w - uv.y);
+    }
+}
+
+/// Computes the resulting shape size if this shape will be used to the max extent inside target.
+/// - For `Direction::Vertical`: height = target.height, width scaled accordingly.
+/// - For `Direction::Horizontal`: width = target.width, height scaled accordingly.
+/// - For adaptive shapes: uses `adaptive_ratio` (w / h).
+pub fn shape_size<F: Fn(&UiStyle) -> &ShapeStyle>(
+    shape_style: &ShapeStyle,
+    state: &UiElementState,
+    ui_ctx: &UiContext,
+    target: &SimpleRect,
+    direction: Direction,
+    adaptive_ratio: f32,
+    map: F,
+) -> (i32, i32) {
+    let shape = utils::resolve_resolve(&shape_style.shape, state, |s| &map(s).shape);
+    let shape = shape.unwrap_or_default(&map(&DEFAULT_STYLE).shape);
+
+    match &*shape {
+        Geometry::Shape(sid) => {
+            if let Some(s) = ui_ctx.resources.resolve_shape(*sid) {
+                let extent: &SimpleRect = &s.extent;
+
+                match direction {
+                    Direction::Vertical => {
+                        let scale = target.width as f32 / extent.width as f32;
+                        let shape_h = (extent.height as f32 * scale).round() as i32;
+                        (target.width, shape_h)
+                    }
+                    Direction::Horizontal => {
+                        let scale = target.height as f32 / extent.height as f32;
+                        let shape_w = (extent.width as f32 * scale).round() as i32;
+                        (shape_w, target.height)
+                    }
+                }
+            } else {
+                (target.width, target.height)
+            }
+        }
+        Geometry::Adaptive(_) => match direction {
+            Direction::Vertical => {
+                let shape_h = (target.width as f32 / adaptive_ratio).round() as i32;
+                (target.width, shape_h)
+            }
+            Direction::Horizontal => {
+                let shape_w = (target.height as f32 * adaptive_ratio).round() as i32;
+                (shape_w, target.height)
+            }
+        },
     }
 }

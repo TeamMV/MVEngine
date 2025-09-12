@@ -39,6 +39,7 @@ use std::rc::Rc;
 use num_traits::Zero;
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::ui::elements::checkbox::CheckBox;
+use crate::ui::elements::slider::Slider;
 use crate::ui::geometry::shape::shapes;
 
 pub trait UiElementCallbacks {
@@ -945,7 +946,8 @@ pub enum UiElement {
     Button(Button),
     TextBox(TextBox),
     Text(Text),
-    CheckBox(CheckBox)
+    CheckBox(CheckBox),
+    Slider(Slider)
 }
 
 impl ToChild for UiElement {
@@ -962,6 +964,7 @@ macro_rules! ui_element_fn {
             UiElement::TextBox(e) => e.$fn_name(),
             UiElement::Text(e) => e.$fn_name(),
             UiElement::CheckBox(e) => e.$fn_name(),
+            UiElement::Slider(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -971,6 +974,7 @@ macro_rules! ui_element_fn {
             UiElement::TextBox(e) => e.$fn_name($($args),*),
             UiElement::Text(e) => e.$fn_name($($args),*),
             UiElement::CheckBox(e) => e.$fn_name($($args),*),
+            UiElement::Slider(e) => e.$fn_name($($args),*),
         }
     };
 }

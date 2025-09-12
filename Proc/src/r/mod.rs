@@ -226,10 +226,12 @@ pub fn r(input: TokenStream) -> TokenStream {
                             let ast = mvengine::ui::geometry::shape::msfx::parser::MSFXParser::parse(include_str!(#path)).unwrap();
                             let mut executor = mvengine::ui::geometry::shape::msfx::executor::MSFXExecutor::new();
                             let res = executor.run(&ast, {#inputs_ts}).unwrap();
-                            match res {
+                            let mut s = match res {
                                 mvengine::ui::geometry::shape::msfx::executor::Return::Shape(s) => s,
                                 _ => panic!("The specified msfx code didnt result in a shape!")
-                            }
+                            };
+                            s.recompute();
+                            s
                         },
                     }
                 }

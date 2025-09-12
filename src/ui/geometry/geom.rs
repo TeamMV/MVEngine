@@ -2,6 +2,7 @@ use crate::math::vec::Vec2;
 use crate::ui::geometry::SimpleRect;
 use std::cmp::Ordering;
 use std::f32::consts::{FRAC_1_PI, FRAC_2_PI, PI, TAU};
+use mvutils::utils::PClamp;
 use num_traits::Zero;
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // This module is a collection of useful math stuff from math websites without css or stackoverflow //
@@ -263,4 +264,17 @@ pub fn invert(v: Vec2) -> Vec2 {
 
 pub fn is_vec_zero(v: Vec2) -> bool {
     v.x.is_zero() && v.y.is_zero()
+}
+
+pub fn lerp_num(val: f32, low: f32, high: f32, target_low: f32, target_high: f32) -> f32 {
+    let denom = high - low;
+    if denom.abs() < f32::EPSILON {
+        //idk chatgpt made this line here lmao but it works
+        // degenerate input range; choose target_low to avoid jump to target_high
+        return target_low;
+    }
+
+    let mut progress = (val - low) / denom;
+    progress = progress.clamp(0.0, 1.0);
+    target_low + (target_high - target_low) * progress
 }

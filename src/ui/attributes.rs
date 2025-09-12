@@ -1,6 +1,7 @@
 use hashbrown::HashMap;
 use mvutils::state::{MappedState, State};
 use ropey::{Rope, RopeSlice};
+use crate::ui::parse::parse_num;
 
 pub type UiState = MappedState<Rope, Rope>;
 
@@ -63,6 +64,7 @@ pub enum AttributeValue {
     Str(Rope),
     State(UiState),
     BoolState(State<bool>),
+    FloatState(State<f32>),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -78,7 +80,8 @@ impl AttributeValue {
             AttributeValue::Float(f) => f.to_rope(),
             AttributeValue::Bool(b) => b.to_rope(),
             AttributeValue::Char(c) => c.to_rope(),
-            AttributeValue::BoolState(b) => b.read().to_rope()
+            AttributeValue::BoolState(b) => b.read().to_rope(),
+            AttributeValue::FloatState(f) => f.read().to_rope()
         }
     }
 
@@ -90,7 +93,8 @@ impl AttributeValue {
             AttributeValue::Bool(b) => State::new(b.to_rope()).map_identity(),
             AttributeValue::Char(c) => State::new(c.to_rope()).map_identity(),
             AttributeValue::State(state) => state.clone(),
-            AttributeValue::BoolState(b) => State::new(b.read().to_rope()).map_identity()
+            AttributeValue::BoolState(b) => State::new(b.read().to_rope()).map_identity(),
+            AttributeValue::FloatState(f) => State::new(f.read().to_rope()).map_identity()
         }
     }
 
@@ -101,8 +105,22 @@ impl AttributeValue {
             AttributeValue::Float(f) => State::new(false),
             AttributeValue::Bool(b) => State::new(*b),
             AttributeValue::Char(c) => State::new(*c == 'y'),
-            AttributeValue::State(state) => State::new(false),
-            AttributeValue::BoolState(b) => b.clone()
+            AttributeValue::State(_) => State::new(false),
+            AttributeValue::BoolState(b) => b.clone(),
+            &AttributeValue::FloatState(_) => State::new(false)
+        }
+    }
+
+    pub fn as_float_state(&self) -> State<f32> {
+        match self {
+            AttributeValue::Str(s) => State::new(parse_num(&s.to_string()).unwrap_or_default()),
+            AttributeValue::Int(i) => State::new(*i as f32),
+            AttributeValue::Float(f) => State::new(*f as f32),
+            AttributeValue::Bool(_) => State::new(0.0),
+            AttributeValue::Char(_) => State::new(0.0),
+            AttributeValue::State(state) => State::new(parse_num(&state.read().to_string()).unwrap_or_default()),
+            AttributeValue::BoolState(_) => State::new(0.0),
+            AttributeValue::FloatState(f) => f.clone()
         }
     }
 }
@@ -139,6 +157,12 @@ impl ToAttrib for State<Rope> {
 impl ToAttrib for State<bool> {
     fn to_attrib(self) -> AttributeValue {
         AttributeValue::BoolState(self)
+    }
+}
+
+impl ToAttrib for State<f32> {
+    fn to_attrib(self) -> AttributeValue {
+        AttributeValue::FloatState(self)
     }
 }
 

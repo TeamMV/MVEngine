@@ -132,198 +132,28 @@ impl Interpolator<UiStyle> for UiStyle {
             .interpolate(&start.width, &end.width, percent, elem, |s| &s.width);
         self.height
             .interpolate(&start.height, &end.height, percent, elem, |s| &s.height);
-        self.padding
-            .left
-            .interpolate(&start.padding.left, &end.padding.left, percent, elem, |s| {
-                &s.padding.left
-            });
-        self.padding.right.interpolate(
-            &start.padding.right,
-            &end.padding.right,
-            percent,
-            elem,
-            |s| &s.padding.right,
-        );
-        self.padding
-            .top
-            .interpolate(&start.padding.top, &end.padding.top, percent, elem, |s| {
-                &s.padding.top
-            });
-        self.padding.bottom.interpolate(
-            &start.padding.bottom,
-            &end.padding.bottom,
-            percent,
-            elem,
-            |s| &s.padding.bottom,
-        );
 
-        self.margin
-            .left
-            .interpolate(&start.margin.left, &end.margin.left, percent, elem, |s| {
-                &s.margin.left
-            });
-        self.margin
-            .right
-            .interpolate(&start.margin.right, &end.margin.right, percent, elem, |s| {
-                &s.margin.right
-            });
-        self.margin
-            .top
-            .interpolate(&start.margin.top, &end.margin.top, percent, elem, |s| {
-                &s.margin.top
-            });
-        self.margin.bottom.interpolate(
-            &start.margin.bottom,
-            &end.margin.bottom,
-            percent,
-            elem,
-            |s| &s.margin.bottom,
-        );
+        self.padding.interpolate(&start.padding, &end.padding, percent, elem, |s| &s.padding);
+        self.margin.interpolate(&start.margin, &end.margin, percent, elem, |s| &s.margin);
 
         self.origin = (percent < 50f32).yn(start.origin.clone(), end.origin.clone());
         self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
         self.direction = (percent < 50f32).yn(start.direction.clone(), end.direction.clone());
         self.child_align_x =
             (percent < 50f32).yn(start.child_align_x.clone(), end.child_align_x.clone());
+        self.child_align_y =
+            (percent < 50f32).yn(start.child_align_y.clone(), end.child_align_y.clone());
 
-        self.background.resource.interpolate(
-            &start.background.resource,
-            &end.background.resource,
-            percent,
-            elem,
-            |s| &s.background.resource,
-        );
-        self.background.color.interpolate(
-            &start.background.color,
-            &end.background.color,
-            percent,
-            elem,
-            |s| &s.background.color,
-        );
-        self.background.texture.interpolate(
-            &start.background.texture,
-            &end.background.texture,
-            percent,
-            elem,
-            |s| &s.background.texture,
-        );
-        self.background.shape.interpolate(
-            &start.background.shape,
-            &end.background.shape,
-            percent,
-            elem,
-            |s| &s.background.shape,
-        );
+        self.background.interpolate(&start.background, &start.background, percent, elem, |s| &s.background);
+        self.border.interpolate(&start.border, &start.border, percent, elem, |s| &s.border);
+        self.detail.interpolate(&start.detail, &start.detail, percent, elem, |s| &s.detail);
 
-        self.border.resource.interpolate(
-            &start.border.resource,
-            &end.border.resource,
-            percent,
-            elem,
-            |s| &s.border.resource,
-        );
-        self.border
-            .color
-            .interpolate(&start.border.color, &end.border.color, percent, elem, |s| {
-                &s.border.color
-            });
-        self.border.texture.interpolate(
-            &start.border.texture,
-            &end.border.texture,
-            percent,
-            elem,
-            |s| &s.border.texture,
-        );
-        self.border.shape.interpolate(
-            &start.border.shape,
-            &end.border.shape,
-            percent,
-            elem,
-            |s| &s.border.shape,
-        );
-
-        self.detail.resource.interpolate(
-            &start.detail.resource,
-            &end.detail.resource,
-            percent,
-            elem,
-            |s| &s.detail.resource,
-        );
-        self.detail
-            .color
-            .interpolate(&start.detail.color, &end.detail.color, percent, elem, |s| {
-                &s.detail.color
-            });
-        self.detail.texture.interpolate(
-            &start.detail.texture,
-            &end.detail.texture,
-            percent,
-            elem,
-            |s| &s.detail.texture,
-        );
-        self.detail.shape.interpolate(
-            &start.detail.shape,
-            &end.detail.shape,
-            percent,
-            elem,
-            |s| &s.detail.shape,
-        );
-
-        self.text
-            .size
-            .interpolate(&start.text.size, &end.text.size, percent, elem, |s| {
-                &s.text.size
-            });
-        self.text
-            .stretch
-            .interpolate(&start.text.stretch, &end.text.stretch, percent, elem, |s| {
-                &s.text.stretch
-            });
-        self.text
-            .skew
-            .interpolate(&start.text.skew, &end.text.skew, percent, elem, |s| {
-                &s.text.skew
-            });
-        self.text
-            .kerning
-            .interpolate(&start.text.kerning, &end.text.kerning, percent, elem, |s| {
-                &s.text.kerning
-            });
-        self.text
-            .color
-            .interpolate(&start.text.color, &end.text.color, percent, elem, |s| {
-                &s.text.color
-            });
-        self.text
-            .select_color
-            .interpolate(&start.text.select_color, &end.text.select_color, percent, elem, |s| {
-                &s.text.select_color
-            });
-        self.text.fit = (percent < 50f32).yn(start.text.fit.clone(), end.text.fit.clone());
-        self.text.font = (percent < 50f32).yn(start.text.font.clone(), end.text.font.clone());
+        self.text.interpolate(&start.text, &end.text, percent, elem, |s| &s.text);
 
         //i wanted to write a funny comment but idk what to write
         // this is so overdone its funny - max
         //agreed.
-        fn interpolate_align<E: UiElementStub, F: Fn(&UiStyle) -> &Resolve<TextAlign>>(elem: &E, a: Resolve<TextAlign>, b: Resolve<TextAlign>, i: f32, map: F) -> Resolve<TextAlign> {
-            if i >= 100.0 {
-                return b;
-            } else if i <= 0.0 {
-                return a;
-            }
-            let a = a.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| map(s));
-            let b = b.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| map(s));
-            let a = a.unwrap_or_default(map(&DEFAULT_STYLE));
-            let b = b.unwrap_or_default(map(&DEFAULT_STYLE));
-            let a: u8 = unsafe { mem::transmute(a) };
-            let b: u8 = unsafe { mem::transmute(b) };
-            let c = (a as f32 * i + b as f32 * (100.0 - i)) / 200.0;
-            let align: TextAlign = unsafe { mem::transmute((c.round()) as u8) };
-            UiValue::Just(align).to_resolve()
-        }
-
-        self.text.align_x = interpolate_align(elem, start.text.align_x.clone(), end.text.align_x.clone(), percent, |s| &s.text.align_x);
-        self.text.align_y = interpolate_align(elem, start.text.align_y.clone(), end.text.align_y.clone(), percent, |s| &s.text.align_y);
+        //thats why i remade it now finally 11.09.2025 23:05
 
         self.transform.translate.x.interpolate(
             &start.transform.translate.x,

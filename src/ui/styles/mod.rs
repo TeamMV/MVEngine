@@ -44,6 +44,7 @@ lazy! {
             color: UiValue::Just(RgbColor::white()).to_resolve(),
             texture: UiValue::None.to_resolve(),
             shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
         },
         border: ShapeStyle {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
@@ -51,12 +52,14 @@ lazy! {
             texture: UiValue::None.to_resolve(),
             shape: UiValue::Just(BasicInterpolatable::new(Geometry::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
             //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
+            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
         },
         detail: ShapeStyle {
             resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
             color: UiValue::Just(RgbColor::black()).to_resolve(),
             texture: UiValue::None.to_resolve(),
             shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
         },
         text: TextStyle {
             size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve(),
@@ -84,12 +87,14 @@ lazy! {
                 color: UiValue::Just(scroll::OUTER_COLOR.clone()).to_resolve(),
                 texture: UiValue::None.to_resolve(),
                 shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+                adaptive_ratio: UiValue::Just(1.0).to_resolve(),
             },
             knob: ShapeStyle {
                 resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
                 color: UiValue::Just(scroll::INNER_COLOR.clone()).to_resolve(),
                 texture: UiValue::None.to_resolve(),
                 shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
+                adaptive_ratio: UiValue::Just(1.0).to_resolve(),
             },
             size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
         }
@@ -112,18 +117,21 @@ lazy! {
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
             shape: UiValue::Unset.to_resolve(),
+            adaptive_ratio: UiValue::Unset.to_resolve(),
         },
         border: ShapeStyle {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
             shape: UiValue::Unset.to_resolve(),
+            adaptive_ratio: UiValue::Unset.to_resolve(),
         },
         detail: ShapeStyle {
             resource: UiValue::Unset.to_resolve(),
             color: UiValue::Unset.to_resolve(),
             texture: UiValue::Unset.to_resolve(),
             shape: UiValue::Unset.to_resolve(),
+            adaptive_ratio: UiValue::Unset.to_resolve(),
         },
         text: TextStyle {
             size: UiValue::Unset.to_field().to_resolve(),
@@ -151,18 +159,21 @@ lazy! {
                 color: UiValue::Unset.to_resolve(),
                 texture: UiValue::Unset.to_resolve(),
                 shape: UiValue::Unset.to_resolve(),
+                adaptive_ratio: UiValue::Unset.to_resolve(),
             },
             knob: ShapeStyle {
                 resource: UiValue::Unset.to_resolve(),
                 color: UiValue::Unset.to_resolve(),
                 texture: UiValue::Unset.to_resolve(),
                 shape: UiValue::Unset.to_resolve(),
+                adaptive_ratio: UiValue::Unset.to_resolve(),
             },
             size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
         }
     };
 }
 
+/// Resolves the given style field by using the `UiElement` itself
 #[macro_export]
 macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
@@ -175,6 +186,16 @@ macro_rules! resolve {
             } else {
                 v
             }
+        }
+    };
+}
+
+/// Resolves the given style field by using the `UiElementState` and `UiStyle`
+#[macro_export]
+macro_rules! resolve2 {
+    ($elem_state:ident, $style_ident:ident.$($style:ident).*) => {
+        {
+            crate::ui::utils::resolve_resolve(&$style_ident.$($style).*, $elem_state, |s| &s.$($style).*)
         }
     };
 }

@@ -32,8 +32,7 @@ pub struct Text {
 
 impl Text {
     fn draw_string(&mut self, s: &Rope, ctx: &mut impl RenderContext, crop_area: &SimpleRect) {
-        let this = unsafe { Unsafe::cast_lifetime_mut(self) };
-        self.text.draw(this, s, ctx, crop_area);
+        self.text.draw(&self.style, &self.state, s, ctx, crop_area);
     }
 }
 
@@ -53,7 +52,7 @@ impl UiElementCallbacks for Text {
                 _ => {}
             }
         }
-        self.body.draw_scrollbars(this, ctx, &self.context, crop_area);
+        self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
 
     fn raw_input_callback(&mut self, _action: RawInputEvent, _input: &Input) -> bool {

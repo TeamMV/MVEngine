@@ -313,25 +313,29 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
 }
 
 impl Interpolator<TextStyle> for TextStyle {
-    fn interpolate<E, F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &E, _: F)
+    fn interpolate<E, F>(&mut self, start: &Self, end: &TextStyle, percent: f32, elem: &E, f: F)
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
     {
-        self.fit = (percent < 50f32).yn(self.fit.clone(), end.fit.clone());
+        self.fit = (percent < 50f32).yn(start.fit.clone(), end.fit.clone());
         self.size
-            .interpolate(&start.size, &end.size, percent, elem, |s| &s.text.size);
-        self.font = (percent < 50f32).yn(self.font.clone(), end.font.clone());
+            .interpolate(&start.size, &end.size, percent, elem, |s| &f(s).size);
+        self.font = (percent < 50f32).yn(start.font.clone(), end.font.clone());
         self.kerning
             .interpolate(&start.kerning, &end.kerning, percent, elem, |s| {
-                &s.text.kerning
+                &f(s).kerning
             });
         self.skew
-            .interpolate(&start.skew, &end.skew, percent, elem, |s| &s.text.skew);
+            .interpolate(&start.skew, &end.skew, percent, elem, |s| &f(s).skew);
         self.stretch
             .interpolate(&start.stretch, &end.stretch, percent, elem, |s| {
-                &s.text.stretch
+                &f(s).stretch
             });
+        self.color.interpolate(&start.color, &end.color, percent, elem, |s| &f(s).color);
+        self.select_color.interpolate(&start.select_color, &end.select_color, percent, elem, |s| &f(s).select_color);
+        self.align_x = (percent < 50f32).yn(start.align_x.clone(), end.align_x.clone());
+        self.align_y = (percent < 50f32).yn(start.align_y.clone(), end.align_y.clone());
     }
 }
 
@@ -495,12 +499,26 @@ impl FromStr for SideStyle {
     }
 }
 
+impl Interpolator<SideStyle> for SideStyle {
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
+    where
+        E: UiElementStub,
+        F: Fn(&UiStyle) -> &Self
+    {
+        self.left.interpolate(&start.left, &end.left, percent, elem, |s| &f(s).left);
+        self.right.interpolate(&start.right, &end.right, percent, elem, |s| &f(s).right);
+        self.top.interpolate(&start.top, &end.top, percent, elem, |s| &f(s).top);
+        self.bottom.interpolate(&start.bottom, &end.bottom, percent, elem, |s| &f(s).bottom);
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ShapeStyle {
     pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
     pub color: Resolve<RgbColor>,
     pub texture: Resolve<BasicInterpolatable<Drawable>>,
     pub shape: Resolve<BasicInterpolatable<Geometry>>,
+    pub adaptive_ratio: Resolve<f32>,
 }
 
 impl ShapeStyle {
@@ -511,19 +529,24 @@ impl ShapeStyle {
             texture: UiValue::None.to_resolve(),
             shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect)))
                 .to_resolve(),
+            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
         }
     }
 
     pub fn merge_unset(&mut self, other: &ShapeStyle) {
         self.resource.merge_unset(&other.resource);
+        self.shape.merge_unset(&other.shape);
         self.color.merge_unset(&other.color);
         self.texture.merge_unset(&other.texture);
+        self.adaptive_ratio.merge_unset(&other.adaptive_ratio);
     }
 
     pub fn merge_at_set(&mut self, other: &ShapeStyle) {
         self.resource.merge_at_set(&other.resource);
+        self.shape.merge_at_set(&other.shape);
         self.color.merge_at_set(&other.color);
         self.texture.merge_at_set(&other.texture);
+        self.adaptive_ratio.merge_at_set(&other.adaptive_ratio);
     }
 }
 
@@ -537,12 +560,18 @@ impl Interpolator<ShapeStyle> for ShapeStyle {
             .interpolate(&start.resource, &end.resource, percent, elem, |s| {
                 &f(s).resource
             });
+        self.shape
+            .interpolate(&start.shape, &end.shape, percent, elem, |s| {
+                &f(s).shape
+            });
         self.color
             .interpolate(&start.color, &end.color, percent, elem, |s| &f(s).color);
         self.texture
             .interpolate(&start.texture, &end.texture, percent, elem, |s| {
                 &f(s).texture
             });
+        self.adaptive_ratio
+            .interpolate(&start.adaptive_ratio, &end.adaptive_ratio, percent, elem, |s| &f(s).adaptive_ratio);
     }
 }
 

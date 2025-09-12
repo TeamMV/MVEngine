@@ -1,12 +1,12 @@
 use crate::rendering::text::Font;
 use crate::rendering::RenderContext;
-use crate::resolve;
+use crate::{resolve, resolve2};
 use crate::ui::context::UiContext;
-use crate::ui::elements::UiElementStub;
+use crate::ui::elements::{UiElementState, UiElementStub};
 use crate::ui::geometry::shape::{shapes, Indices, Shape, VertexStream};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::res::MVR;
-use crate::ui::styles::{InheritSupplier, ResolveResult};
+use crate::ui::styles::{InheritSupplier, ResolveResult, UiStyle};
 use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
 use ropey::Rope;
@@ -33,38 +33,30 @@ pub struct TextInfo<'a> {
 }
 
 #[derive(Clone)]
-pub struct BoringText<E: UiElementStub> {
-    _phantom: PhantomData<E>,
-}
+pub struct BoringText;
 
-impl<E: UiElementStub> BoringText<E> {
-    pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData::default(),
-        }
-    }
-
-    pub fn get_info(&self, elem: &E, context: &UiContext, sup: &impl InheritSupplier) -> Option<TextInfo> {
+impl BoringText {
+    pub fn get_info(&self, state: &UiElementState, style: &UiStyle, context: &UiContext, sup: &impl InheritSupplier) -> Option<TextInfo> {
         let text_align_x =
-            resolve!(elem, text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
+            resolve2!(state, style.text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
         let text_align_y =
-            resolve!(elem, text.align_y).unwrap_or_default(&DEFAULT_STYLE.text.align_y);
-        let font = resolve!(elem, text.font);
+            resolve2!(state, style.text.align_y).unwrap_or_default(&DEFAULT_STYLE.text.align_y);
+        let font = resolve2!(state, style.text.font);
         let font = font.unwrap_or(MVR.font.default);
         if let Some(font) = context.resources.resolve_font(font) {
-            let color = resolve!(elem, text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
-            let select_color = resolve!(elem, text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
-            let size = resolve!(elem, text.size);
+            let color = resolve2!(state, style.text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
+            let select_color = resolve2!(state, style.text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
+            let size = resolve2!(state, style.text.size);
             let size = if size.is_percent() {
-                size.compute_percent(elem.state().content_rect.height() as f32)
+                size.compute_percent(state.content_rect.height() as f32)
             } else {
                 size.unwrap_or_default(&DEFAULT_STYLE.text.size)
             };
             let kerning =
-                resolve!(elem, text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
+                resolve2!(state, style.text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
             let stretch =
-                resolve!(elem, text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
-            let skew = resolve!(elem, text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
+                resolve2!(state, style.text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
+            let skew = resolve2!(state, style.text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
             let ssize = size * stretch.height;
 
@@ -95,13 +87,14 @@ impl<E: UiElementStub> BoringText<E> {
         x_off: i32,
         y_off: i32,
         text: &Rope,
-        elem: &E,
+        state: &UiElementState,
+        style: &UiStyle,
         ctx: &mut impl WideRenderContext,
         context: &UiContext,
         crop: &SimpleRect,
     ) -> i32 {
-        if let Some(info) = self.get_info(elem, context, ctx) {
-            self.draw_with_info(x_off, y_off, text, elem, ctx, crop, info)
+        if let Some(info) = self.get_info(state, style, context, ctx) {
+            self.draw_with_info(x_off, y_off, text, state, ctx, crop, info)
         } else {
             0
         }
@@ -112,13 +105,11 @@ impl<E: UiElementStub> BoringText<E> {
         x_off: i32,
         y_off: i32,
         text: &Rope,
-        elem: &E,
+        state: &UiElementState,
         ctx: &mut impl RenderContext,
         crop: &SimpleRect,
         info: TextInfo,
     ) -> i32 {
-        let state = elem.state();
-
         //lil optimisation
         let total_text_w = if let TextAlign::Start = info.align_x {
             0.0
@@ -131,8 +122,8 @@ impl<E: UiElementStub> BoringText<E> {
             TextAlign::Middle => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32) * 0.5 - total_text_w * 0.5,
             TextAlign::End => state.content_rect.x() as f32 + x_off as f32 + (x_off as f32 + state.content_rect.width() as f32)- total_text_w
         };
-        if elem.state().scroll_x.available {
-            x += elem.state().scroll_x.get_absolute_offset(elem.state().content_rect.width()) as f32;
+        if state.scroll_x.available {
+            x += state.scroll_x.get_absolute_offset(state.content_rect.width()) as f32;
         }
         let start_x = x;
 
@@ -148,8 +139,8 @@ impl<E: UiElementStub> BoringText<E> {
                 - total_text_h,
         };
 
-        if elem.state().scroll_y.available {
-            y += elem.state().scroll_y.get_absolute_offset(elem.state().content_rect.height()) as f32;
+        if state.scroll_y.available {
+            y += state.scroll_y.get_absolute_offset(state.content_rect.height()) as f32;
         }
 
 
