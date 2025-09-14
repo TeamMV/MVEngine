@@ -6,7 +6,7 @@ use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, LocalElement, UiElement, UiElementBuilder, UiElementCallbacks, UiElementState, UiElementStub, _Self};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
@@ -16,7 +16,7 @@ use std::rc::{Rc, Weak};
 
 #[derive(Clone)]
 pub struct Button {
-    rc: Weak<DangerousCell<UiElement>>,
+    rc: LocalElement,
 
     context: UiContext,
     state: UiElementState,
@@ -33,16 +33,16 @@ impl UiElementCallbacks for Button {
         for children in &self.state.children {
             match children {
                 Child::String(s) => {
-                    self.text_body.draw(0, 0, s, &self.state, &self.style, ctx, &self.context, crop_area);
+                    self.text_body.draw(0, 0, s, &self.state, &self.style, &self.body, ctx, &self.context, crop_area);
                 }
                 Child::Element(e) => {
-                    let guard = e.get_mut();
+                    let guard = e.inner.get_mut();
                     guard.frame_callback(ctx, &inner_crop, debug);
                 }
                 Child::State(s) => {
                     let guard = s.read();
                     let s = guard.deref();
-                    self.text_body.draw(0, 0, s, &self.state, &self.style, ctx, &self.context, crop_area);
+                    self.text_body.draw(0, 0, s, &self.state, &self.style, &self.body, ctx, &self.context, crop_area);
                 }
                 _ => {}
             }
@@ -51,34 +51,37 @@ impl UiElementCallbacks for Button {
     }
 }
 
-impl UiElementStub for Button {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized,
-    {
-        let this = Self {
-            rc: Weak::new(),
+impl UiElementBuilder for Button {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
+
+    fn set_weak(&mut self, weak: LocalElement) {
+        self.rc = weak;
+    }
+
+    fn wrap(self) -> UiElement {
+        UiElement::Button(self)
+    }
+}
+
+impl Button {
+    pub fn builder(context: UiContext, attributes: Attributes, style: UiStyle) -> Self {
+        Self {
+            rc: LocalElement::new(),
             context: context.clone(),
             state: UiElementState::new(context),
             style: style.clone(),
             attributes,
             body: ElementBody::new(),
             text_body: BoringText,
-        };
-        let rc = Rc::new(DangerousCell::new(this.wrap()));
-        let e = rc.get_mut();
-        let btn = enum_val_ref_mut!(UiElement, e, Button);
-        btn.rc = Rc::downgrade(&rc);
-
-        rc
+        }
     }
+}
 
-    fn wrap(self) -> UiElement {
-        UiElement::Button(self)
-    }
-
+impl UiElementStub for Button {
     fn wrapped(&self) -> Element {
-        self.rc.upgrade().expect("Reference to this self")
+        self.rc.to_wrapped()
     }
 
     fn attributes(&self) -> &Attributes {

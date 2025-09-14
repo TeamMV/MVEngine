@@ -31,7 +31,7 @@ log = "0.4.20"
 num-traits = "0.2.17"
 hashbrown = "0.15.1"
 bitflags = "2.5.0"
-parking_lot = "0.12.1"
+parking_lot = { version = "0.12.1", features = ["deadlock_detection"] }
 crossbeam-channel = "0.5.12"
 bimap = "0.6.3"
 auto_enums = "0.8.7"

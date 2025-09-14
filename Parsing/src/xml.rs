@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Clone)]
 pub struct Entity {
     name: String,
     prefix: Option<String>,
@@ -32,12 +33,14 @@ impl Entity {
     }
 }
 
+#[derive(Clone)]
 pub enum XmlValue {
     Str(String),
     Entities(Vec<Entity>),
     Code(String),
 }
 
+#[derive(Clone)]
 pub struct Attribute {
     name: String,
     value: XmlValue,

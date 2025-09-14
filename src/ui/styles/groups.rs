@@ -1,7 +1,7 @@
 use crate::blanked_partial_ord;
 use crate::color::RgbColor;
 use crate::graphics::Drawable;
-use crate::ui::elements::{UiElement, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementStub};
 use crate::ui::parse::parse_4xi32_abstract;
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::{BackgroundRes, Geometry, Origin, TextAlign, TextFit};
@@ -125,7 +125,7 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn resolve<F>(
         &self,
         dpi: f32,
-        parent: Option<Rc<DangerousCell<UiElement>>>,
+        parent: Option<Element>,
         map: F,
     ) -> (ResolveResult<T>, ResolveResult<T>)
     where
@@ -139,7 +139,7 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
     pub fn resolve_with_default<F>(
         &self,
         dpi: f32,
-        parent: Option<Rc<DangerousCell<UiElement>>>,
+        parent: Option<Element>,
         map: F,
         def: (T, T),
     ) -> (T, T)
@@ -185,7 +185,7 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
     pub(crate) fn resolve<F>(
         &self,
         dpi: f32,
-        parent: Option<Rc<DangerousCell<UiElement>>>,
+        parent: Option<Element>,
         map: F,
     ) -> ResolveResult<T>
     where

@@ -1,6 +1,6 @@
 use crate::color::{Color, ColorFormat};
 use crate::ui::elements::UiElementStub;
-use crate::ui::styles::{Resolve, UiStyle, UiValue, DEFAULT_STYLE};
+use crate::ui::styles::{Resolve, UiStyle, UiStyleInner, UiValue, DEFAULT_STYLE};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use std::cmp::Ordering;
@@ -118,23 +118,25 @@ impl<T: FromStr + Clone> FromStr for BasicInterpolatable<T> {
     }
 }
 
-impl Interpolator<UiStyle> for UiStyle {
-    fn interpolate<E, F>(&mut self, start: &Self, end: &UiStyle, percent: f32, elem: &E, f: F)
+impl Interpolator<UiStyleInner> for UiStyleInner {
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
     where
         E: UiElementStub,
         F: Fn(&UiStyle) -> &Self,
     {
         self.x
-            .interpolate(&start.x, &end.x, percent, elem, |s| &s.x);
+            .interpolate(&start.x, &end.x, percent, elem, |s| &f(s).x);
         self.y
-            .interpolate(&start.y, &end.y, percent, elem, |s| &s.y);
+            .interpolate(&start.y, &end.y, percent, elem, |s| &f(s).y);
         self.width
-            .interpolate(&start.width, &end.width, percent, elem, |s| &s.width);
+            .interpolate(&start.width, &end.width, percent, elem, |s| &f(s).width);
         self.height
-            .interpolate(&start.height, &end.height, percent, elem, |s| &s.height);
+            .interpolate(&start.height, &end.height, percent, elem, |s| &f(s).height);
 
-        self.padding.interpolate(&start.padding, &end.padding, percent, elem, |s| &s.padding);
-        self.margin.interpolate(&start.margin, &end.margin, percent, elem, |s| &s.margin);
+        self.padding
+            .interpolate(&start.padding, &end.padding, percent, elem, |s| &f(s).padding);
+        self.margin
+            .interpolate(&start.margin, &end.margin, percent, elem, |s| &f(s).margin);
 
         self.origin = (percent < 50f32).yn(start.origin.clone(), end.origin.clone());
         self.position = (percent < 50f32).yn(start.position.clone(), end.position.clone());
@@ -144,11 +146,20 @@ impl Interpolator<UiStyle> for UiStyle {
         self.child_align_y =
             (percent < 50f32).yn(start.child_align_y.clone(), end.child_align_y.clone());
 
-        self.background.interpolate(&start.background, &start.background, percent, elem, |s| &s.background);
-        self.border.interpolate(&start.border, &start.border, percent, elem, |s| &s.border);
-        self.detail.interpolate(&start.detail, &start.detail, percent, elem, |s| &s.detail);
+        self.background.interpolate(
+            &start.background,
+            &start.background,
+            percent,
+            elem,
+            |s| &f(s).background,
+        );
+        self.border
+            .interpolate(&start.border, &start.border, percent, elem, |s| &f(s).border);
+        self.detail
+            .interpolate(&start.detail, &start.detail, percent, elem, |s| &f(s).detail);
 
-        self.text.interpolate(&start.text, &end.text, percent, elem, |s| &s.text);
+        self.text
+            .interpolate(&start.text, &end.text, percent, elem, |s| &f(s).text);
 
         //i wanted to write a funny comment but idk what to write
         // this is so overdone its funny - max

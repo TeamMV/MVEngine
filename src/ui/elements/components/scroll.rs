@@ -13,6 +13,7 @@ use crate::ui::styles::{DEFAULT_STYLE, ResolveResult, UiStyle};
 use crate::{get_adaptive, get_shape, resolve, resolve2};
 use mvutils::lazy;
 use std::ops::Deref;
+use crate::ui::elements::components::ElementBody;
 
 lazy! {
     pub static OUTER_COLOR: RgbColor = RgbColor::new([150, 150, 150, 255]);
@@ -20,18 +21,18 @@ lazy! {
 }
 
 #[derive(Clone)]
-pub struct ScrollBars {}
+pub struct ScrollBars;
 
 impl ScrollBars {
     pub fn draw(
-        &mut self,
         style: &UiStyle,
         state: &UiElementState,
+        body: &ElementBody,
         ctx: &mut impl RenderContext,
         context: &UiContext,
         crop_area: &SimpleRect,
     ) {
-        let bar_extent = resolve2!(state, style.scrollbar.size).unwrap_or_default_or_percentage(
+        let bar_extent = resolve2!(state, body, style.scrollbar.size).unwrap_or_default_or_percentage(
             &DEFAULT_STYLE.scrollbar.size,
             state.parent.clone(),
             |s| s.width(),
@@ -39,8 +40,8 @@ impl ScrollBars {
         );
 
         if state.scroll_x.available {
-            let resolved = resolve2!(state, style.scrollbar.track.shape);
-            let resource = resolve2!(state, style.scrollbar.track.resource);
+            let resolved = resolve2!(state, body, style.scrollbar.track.shape);
+            let resource = resolve2!(state, body, style.scrollbar.track.resource);
             if resolved.is_set() && !resource.is_none() {
                 let mut rect = state.content_rect.bounding.clone();
                 rect.height = bar_extent;
@@ -50,6 +51,7 @@ impl ScrollBars {
                     &rect,
                     &style.scrollbar.track,
                     state,
+                    body,
                     |s| &s.scrollbar.track,
                     Some(crop_area.clone()),
                 );
@@ -57,8 +59,8 @@ impl ScrollBars {
 
             let knob = Self::x_knob(state, bar_extent);
 
-            let resolved = resolve2!(state, style.scrollbar.knob.shape);
-            let resource = resolve2!(state, style.scrollbar.knob.resource);
+            let resolved = resolve2!(state, body, style.scrollbar.knob.shape);
+            let resource = resolve2!(state, body, style.scrollbar.knob.resource);
             if resolved.is_set() && !resource.is_none() {
                 shape::utils::draw_shape_style_at(
                     ctx,
@@ -66,6 +68,7 @@ impl ScrollBars {
                     &knob,
                     &style.scrollbar.knob,
                     state,
+                    body,
                     |s| &s.scrollbar.knob,
                     Some(crop_area.clone()),
                 );
@@ -73,8 +76,8 @@ impl ScrollBars {
         }
 
         if state.scroll_y.available {
-            let resolved = resolve2!(state, style.scrollbar.track.shape);
-            let resource = resolve2!(state, style.scrollbar.track.resource);
+            let resolved = resolve2!(state, body, style.scrollbar.track.shape);
+            let resource = resolve2!(state, body, style.scrollbar.track.resource);
             if resolved.is_set() && !resource.is_none() {
                 let rect = SimpleRect::new(
                     state.content_rect.x() + state.content_rect.width() - bar_extent,
@@ -89,6 +92,7 @@ impl ScrollBars {
                     &rect,
                     &style.scrollbar.track,
                     state,
+                    body,
                     |s| &s.scrollbar.track,
                     Some(crop_area.clone()),
                 );
@@ -96,8 +100,8 @@ impl ScrollBars {
 
             let knob = Self::y_knob(state, bar_extent);
 
-            let resolved = resolve2!(state, style.scrollbar.knob.shape);
-            let resource = resolve2!(state, style.scrollbar.knob.resource);
+            let resolved = resolve2!(state, body, style.scrollbar.knob.shape);
+            let resource = resolve2!(state, body, style.scrollbar.knob.resource);
             if resolved.is_set() && !resource.is_none() {
                 shape::utils::draw_shape_style_at(
                     ctx,
@@ -105,6 +109,7 @@ impl ScrollBars {
                     &knob,
                     &style.scrollbar.knob,
                     state,
+                    body,
                     |s| &s.scrollbar.knob,
                     Some(crop_area.clone()),
                 );

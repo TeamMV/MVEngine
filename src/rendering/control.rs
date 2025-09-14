@@ -5,13 +5,21 @@ use crate::rendering::shader::OpenGLShader;
 use crate::rendering::{InputVertex, PrimitiveRenderer, Quad, Triangle};
 use crate::window::Window;
 use gl::types::GLuint;
+use log::warn;
 use crate::rendering::backbuffer::BackBufferTarget;
+
+struct ControllerState {
+    z: f32,
+    layer: usize,
+}
 
 pub struct RenderController {
     default_shader: GLuint,
-    batches: Vec<RenderBatch>,
+    batches: Vec<Vec<RenderBatch>>,
     batch_index: usize,
     z: f32,
+    layer: usize,
+    state_stack: Vec<ControllerState>
 }
 
 impl RenderController {
@@ -19,20 +27,60 @@ impl RenderController {
         unsafe {
             Self {
                 default_shader,
-                batches: vec![RenderBatch::new(default_shader)],
+                batches: vec![vec![RenderBatch::new(default_shader)]],
                 batch_index: 0,
                 z: 99.0,
+                layer: 0,
+                state_stack: vec![],
             }
+        }
+    }
+    
+    pub fn push_state(&mut self) {
+        let state = ControllerState {
+            z: self.z,
+            layer: self.layer,
+        };
+        self.state_stack.push(state);
+    }
+    
+    pub fn pop_state(&mut self) {
+        if let Some(popped) = self.state_stack.pop() {
+            let ControllerState {
+                z, layer
+            } = popped;
+            self.z = z;
+            self.layer = layer;
+        } else {
+            warn!("A RenderController was called pop() on when its stack is empty!");
+        }
+    }
+    
+    pub fn next_layer0(&mut self) {
+        self.layer += 1;
+        if self.batches.len() <= self.layer {
+            unsafe {
+                self.batches.push(vec![RenderBatch::new(self.default_shader.clone())]);
+            }
+        }
+    }
+    
+    fn current_batch(&mut self) -> &mut RenderBatch {
+        if let Some(vec) = self.batches.get_mut(self.layer) {
+            &mut vec[self.batch_index]
+        } else {
+            //In theory this should never happen
+            panic!("RenderController fucked itself");
         }
     }
 
     pub fn push_triangle(&mut self, triangle: Triangle) {
         unsafe {
-            let current = &mut self.batches[self.batch_index];
+            let current = self.current_batch();
             if current.can_hold_triangle(&triangle) {
                 current.push_triangle(triangle);
             } else {
-                self.batches
+                self.batches[self.layer]
                     .push(RenderBatch::new(self.default_shader.clone()));
                 self.batch_index += 1;
                 self.push_triangle(triangle);
@@ -42,11 +90,11 @@ impl RenderController {
 
     pub fn push_quad(&mut self, quad: Quad) {
         unsafe {
-            let current = &mut self.batches[self.batch_index];
+            let current = self.current_batch();
             if current.can_hold_quad(&quad) {
                 current.push_quad(quad);
             } else {
-                self.batches
+                self.batches[self.layer]
                     .push(RenderBatch::new(self.default_shader.clone()));
                 self.batch_index += 1;
                 self.push_quad(quad);
@@ -62,11 +110,11 @@ impl RenderController {
         modifier: Option<F>,
     ) {
         unsafe {
-            let current = &mut self.batches[self.batch_index];
+            let current = self.current_batch();
             if current.can_hold_vertices(vertices, has_tex) {
                 current.push_raw(vertices, indices, modifier);
             } else {
-                self.batches
+                self.batches[self.layer]
                     .push(RenderBatch::new(self.default_shader.clone()));
                 self.batch_index += 1;
                 self.push_raw(vertices, indices, has_tex, modifier);
@@ -92,9 +140,11 @@ impl RenderController {
         back_target: &mut BackBufferTarget
     ) {
         renderer.begin_frame(back_target);
-        for batch in &mut self.batches {
-            if !batch.is_empty() {
-                batch.draw(window, camera, renderer, shader, back_target);
+        for batches in &mut self.batches {
+            for batch in batches {
+                if !batch.is_empty() {
+                    batch.draw(window, camera, renderer, shader, back_target);
+                }
             }
         }
         self.batch_index = 0;
@@ -119,9 +169,11 @@ impl RenderController {
         };
         renderer.begin_frame_to_target(&mut render_target);
 
-        for batch in &mut self.batches {
-            if !batch.is_empty() {
-                batch.draw_to_target(window, camera, renderer, shader, &mut render_target);
+        for batches in &mut self.batches {
+            for batch in batches {
+                if !batch.is_empty() {
+                    batch.draw_to_target(window, camera, renderer, shader, &mut render_target);
+                }
             }
         }
         renderer.end_frame_to_target(&mut render_target);

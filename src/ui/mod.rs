@@ -3,7 +3,7 @@ use crate::input::{Input, RawInputEvent};
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::rendering::{OpenGLRenderer, RenderContext};
 use crate::ui::context::{UiContext, UiResources};
-use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementCallbacks, UiElementStub};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::WideRenderContext;
 use crate::window::Window;
@@ -32,7 +32,7 @@ pub mod page;
 pub struct Ui {
     context: CreateOnce<UiContext>,
     enabled: bool,
-    root_elems: Vec<Rc<DangerousCell<UiElement>>>,
+    root_elems: Vec<Element>,
     page_manager: UiPageManager
 }
 
@@ -54,12 +54,12 @@ impl Ui {
         self.context.deref().clone()
     }
 
-    pub fn add_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
+    pub fn add_root(&mut self, mut elem: Element) {
         elem.get_mut().state_mut().invalidate();
         self.root_elems.push(elem);
     }
 
-    pub fn remove_root(&mut self, elem: Rc<DangerousCell<UiElement>>) {
+    pub fn remove_root(&mut self, mut elem: Element) {
         elem.get_mut().end_frame();
         self.root_elems.retain(|e| {
             let guard1 = e.get();
@@ -117,14 +117,14 @@ impl Ui {
 
 impl InputProcessor for Ui {
     fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
-        for root in &self.root_elems {
+        for root in &mut self.root_elems {
             let e = root.get_mut();
             e.raw_input(action.clone(), input);
         }
         self.page_manager.raw_input(action.clone(), input);
         match action {
             RawInputEvent::Keyboard(action) => unsafe {
-                for root in Unsafe::cast_lifetime(&self.root_elems) {
+                for root in Unsafe::cast_lifetime_mut(&mut self.root_elems) {
                     let mut guard = root.get_mut();
                     let guard_ref = Unsafe::cast_lifetime_mut(&mut guard);
                     let events = &mut guard.state_mut().events;
@@ -133,7 +133,7 @@ impl InputProcessor for Ui {
                 self.page_manager.keyboard_change(action, input, window);
             },
             RawInputEvent::Mouse(action) => unsafe {
-                for root in Unsafe::cast_lifetime(&self.root_elems) {
+                for root in Unsafe::cast_lifetime_mut(&mut self.root_elems) {
                     let mut guard = root.get_mut();
                     let guard_ref = Unsafe::cast_lifetime_mut(&mut guard);
                     let events = &mut guard.state_mut().events;

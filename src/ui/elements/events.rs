@@ -43,11 +43,11 @@ impl UiEvents {
         input: &Input,
         window: &mut Window,
     ) -> bool {
-        let state = elem.state();
-        let state = unsafe { Unsafe::cast_lifetime(state) };
+        let state = elem.state_mut();
+        let state = unsafe { Unsafe::cast_lifetime_mut(state) };
 
         let mut used = false;
-        for child in &state.children {
+        for child in &mut state.children {
             match child {
                 Child::Element(e) => unsafe {
                     let child_guard = e.get_mut();

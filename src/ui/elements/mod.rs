@@ -22,8 +22,7 @@ use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::drag::DragAssistant;
 use crate::ui::elements::components::scroll::ScrollBars;
 use crate::ui::elements::div::Div;
-use crate::ui::elements::events::UiEvents;
-use crate::ui::elements::text::Text;
+use crate::ui::elements::events::{UiClickAction, UiEvents};
 use crate::ui::elements::textbox::TextBox;
 use crate::ui::geometry::{shape, Rect, SimpleRect};
 use crate::ui::rendering::{UiRenderer, WideRenderContext};
@@ -35,12 +34,15 @@ use crate::ui::styles::{InheritSupplier, ResolveResult};
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::PClamp;
 use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
+use std::sync::{Arc, Weak};
+use itertools::Itertools;
 use num_traits::Zero;
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::ui::elements::checkbox::CheckBox;
+use crate::ui::elements::prelude::ComboBox;
 use crate::ui::elements::slider::Slider;
 use crate::ui::geometry::shape::shapes;
+use crate::window::Window;
 
 pub trait UiElementCallbacks {
     /// Do not call this function manually! instead, call frame_callback()
@@ -55,21 +57,39 @@ pub fn create_style_obs<'a>(style: &'a mut UiStyle, state: &'a mut UiElementStat
     UiStyleWriteObserver::new(style, &mut state.invalid)
 }
 
-pub trait UiElementStub: UiElementCallbacks {
+pub type _Self = ();
+
+pub trait UiElementBuilder {
+    /// This is a reminder to have an actual method with this signature and the actual Self and without &self
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self;
+
+    fn set_weak(&mut self, weak: LocalElement);
+
+    fn wrap(self) -> UiElement;
+
+    fn build(mut self) -> Element where Self: Sized {
+        let a = Arc::new_cyclic(|weak| {
+            self.set_weak(LocalElement {
+                inner: weak.clone(),
+            });
+            DangerousCell::new(self.wrap())
+        });
+
+        Element {
+            inner: a,
+        }
+    }
+}
+
+pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
     fn end_frame(&mut self) {
         self.state_mut().events.after_frame();
-        for child in &self.state_mut().children {
+        for child in &mut self.state_mut().children {
             if let Child::Element(e) = child {
                 e.get_mut().end_frame();
             }
         }
     }
-
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized;
-
-    fn wrap(self) -> UiElement;
 
     /// Return a valid reference counter (Rc<>) to this element. Should be implemented by storing a Weak<> inside the struct and upgrading it
     fn wrapped(&self) -> Element;
@@ -89,8 +109,8 @@ pub trait UiElementStub: UiElementCallbacks {
     fn context(&self) -> &UiContext;
 
     /// Adds a child to the element and also sets the childs parent to self
-    fn add_child(&mut self, child: Child) {
-        if let Child::Element(e) = &child {
+    fn add_child(&mut self, mut child: Child) {
+        if let Child::Element(e) = &mut child {
             e.get_mut().state_mut().parent = Some(self.wrapped());
         }
         if let Child::Iterator(children) = child {
@@ -100,10 +120,11 @@ pub trait UiElementStub: UiElementCallbacks {
         } else {
             self.state_mut().children.push(child);
         }
+        self.state_mut().invalidate();
     }
 
     fn remove_child_by_id(&mut self, id: &str) {
-        self.state_mut().children.retain(|c| {
+        self.state_mut().children.retain_mut(|c| {
             if let Child::Element(e) = c {
                 let r = e.get().attributes().id.as_ref().is_some_and(|a| a == id);
                 if r {
@@ -117,7 +138,7 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 
     fn remove_child_by_class(&mut self, class: &str) {
-        self.state_mut().children.retain(|c| {
+        self.state_mut().children.retain_mut(|c| {
             if let Child::Element(e) = c {
                 let r = e.get().attributes().classes.iter().any(|s| s == class);
                 if r {
@@ -128,6 +149,10 @@ pub trait UiElementStub: UiElementCallbacks {
                 true
             }
         });
+    }
+
+    fn remove_all_children(&mut self) {
+        self.state_mut().children.clear();
     }
 
     fn children(&self) -> &[Child] {
@@ -398,12 +423,12 @@ pub trait UiElementStub: UiElementCallbacks {
         let child_align_y = resolve!(self, child_align_y).unwrap_or(ChildAlign::Start);
 
         let (mut used_width, mut used_height) = (0, 0);
-        for child_elem in state.children.iter().filter_map(|e| match e {
+        for mut child_elem in state.children.iter().filter_map(|e| match e {
             Child::Element(c) => Some(c.clone()),
             _ => None,
         }) {
             let mut child_guard = child_elem.get_mut();
-            let child_binding = unsafe { Unsafe::cast_lifetime_mut(child_guard.deref_mut()) };
+            let child_binding: &mut UiElement = unsafe { Unsafe::cast_lifetime_mut(child_guard.deref_mut()) };
             let child_style = child_guard.style();
             let child_state = child_binding.state_mut();
 
@@ -649,7 +674,7 @@ pub trait UiElementStub: UiElementCallbacks {
     {
         let (mut w, mut h) = (0, 0);
         let font_size = font_size * font_stretch.height;
-        for child in &state.children {
+        for child in &mut state.children {
             match child {
                 Child::String(s) => {
                     if state.requested_width.is_some() && state.requested_height.is_some() {
@@ -748,7 +773,7 @@ pub trait UiElementStub: UiElementCallbacks {
         (w, h)
     }
 
-    fn find_element_by_id(&self, id: &str) -> Option<Rc<DangerousCell<UiElement>>> {
+    fn find_element_by_id(&self, id: &str) -> Option<Element> {
         for child in &self.state().children {
             if let Child::Element(e) = child {
                 let guard = e.get();
@@ -769,7 +794,7 @@ pub trait UiElementStub: UiElementCallbacks {
         None
     }
 
-    fn find_elements_by_class(&self, class: &str) -> Vec<Rc<DangerousCell<UiElement>>> {
+    fn find_elements_by_class(&self, class: &str) -> Vec<Element> {
         let mut res = vec![];
 
         for child in &self.state().children {
@@ -918,7 +943,7 @@ pub trait UiElementStub: UiElementCallbacks {
             return true;
         }
 
-        for elem in &self.state().children {
+        for elem in &mut self.state_mut().children {
             if let Child::Element(child) = elem {
                 let child = child.get_mut();
                 if child.raw_input(action.clone(), input) {
@@ -938,21 +963,115 @@ pub trait UiElementStub: UiElementCallbacks {
     }
 }
 
-pub type Element = Rc<DangerousCell<UiElement>>;
+#[derive(Clone)]
+pub struct Element {
+    inner: Arc<DangerousCell<UiElement>>
+}
+
+impl Element {
+    pub fn new(elem: UiElement) -> Self {
+        Self {
+            inner: Arc::new(DangerousCell::new(elem)),
+        }
+    }
+
+    pub fn get(&self) -> &UiElement {
+        self.inner.get()
+    }
+
+    pub fn get_mut(&self) -> &mut UiElement {
+        self.inner.get_mut()
+    }
+
+    pub fn add_child(&mut self, child: Child) {
+        let l = self.get_mut();
+        l.add_child(child);
+    }
+
+    pub fn remove_all_children(&mut self) {
+        let l = self.get_mut();
+        l.remove_all_children();
+    }
+
+    pub fn remove_child_by_id(&mut self, id: &str) {
+        let l = self.get_mut();
+        l.remove_child_by_id(id);
+    }
+
+    pub fn remove_child_by_class(&mut self, class: &str) {
+        let l = self.get_mut();
+        l.remove_child_by_class(class);
+    }
+
+    pub fn was_left_clicked(&self) -> bool {
+        if let Some(event) = &self.get().state().events.click_event {
+            if let UiClickAction::Click = event.base.action {
+                if let MouseButton::Left = event.button {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn navigate_page(&self, page: &str, window: &mut Window) -> bool {
+        if self.was_left_clicked() {
+            window.ui_mut().page_manager.open(page);
+            return true;
+        }
+        false
+    }
+
+    pub fn navigate_back(&self, window: &mut Window) -> bool {
+        if self.was_left_clicked() {
+            window.ui_mut().page_manager.go_back();
+            return true;
+        }
+        false
+    }
+
+    pub fn navigate_close_all(&self, window: &mut Window) -> bool {
+        if self.was_left_clicked() {
+            window.ui_mut().page_manager.close_all();
+            return true;
+        }
+        false
+    }
+}
+
+#[derive(Clone)]
+pub struct LocalElement {
+    inner: Weak<DangerousCell<UiElement>>
+}
+
+impl LocalElement {
+    pub fn new() -> Self {
+        Self {
+            inner: Weak::new(),
+        }
+    }
+
+    pub fn to_wrapped(&self) -> Element {
+        let inner = self.inner.upgrade().expect("This should be a weak to itself!");
+        Element {
+            inner,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum UiElement {
     Div(Div),
     Button(Button),
     TextBox(TextBox),
-    Text(Text),
     CheckBox(CheckBox),
-    Slider(Slider)
+    Slider(Slider),
+    ComboBox(ComboBox),
 }
 
 impl ToChild for UiElement {
     fn to_child(self) -> Child {
-        Child::Element(Rc::new(DangerousCell::new(self)))
+        Child::Element(Element::new(self))
     }
 }
 
@@ -962,9 +1081,9 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name(),
             UiElement::Button(e) => e.$fn_name(),
             UiElement::TextBox(e) => e.$fn_name(),
-            UiElement::Text(e) => e.$fn_name(),
             UiElement::CheckBox(e) => e.$fn_name(),
             UiElement::Slider(e) => e.$fn_name(),
+            UiElement::ComboBox(e) => e.$fn_name(),
         }
     };
     ($this:ident, $fn_name:ident($($args:ident),*)) => {
@@ -972,9 +1091,9 @@ macro_rules! ui_element_fn {
             UiElement::Div(e) => e.$fn_name($($args),*),
             UiElement::Button(e) => e.$fn_name($($args),*),
             UiElement::TextBox(e) => e.$fn_name($($args),*),
-            UiElement::Text(e) => e.$fn_name($($args),*),
             UiElement::CheckBox(e) => e.$fn_name($($args),*),
             UiElement::Slider(e) => e.$fn_name($($args),*),
+            UiElement::ComboBox(e) => e.$fn_name($($args),*),
         }
     };
 }
@@ -989,18 +1108,21 @@ impl UiElementCallbacks for UiElement {
     }
 }
 
-impl UiElementStub for UiElement {
-    fn new(_context: UiContext, _attributes: Attributes, _style: UiStyle) -> Element
-    where
-        Self: Sized,
-    {
-        unimplemented!("To instantiate an UiElement, use the struct's constructor!")
+impl UiElementBuilder for UiElement {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
+
+    fn set_weak(&mut self, weak: LocalElement) {
+        ui_element_fn!(self, set_weak(weak));
     }
 
     fn wrap(self) -> UiElement {
         self
     }
+}
 
+impl UiElementStub for UiElement {
     fn wrapped(&self) -> Element {
         ui_element_fn!(self, wrapped())
     }
@@ -1069,7 +1191,7 @@ impl UiScrollState {
 pub struct UiElementState {
     pub invalid: u8,
     pub ctx: ResCon,
-    pub parent: Option<Rc<DangerousCell<UiElement>>>,
+    pub parent: Option<Element>,
 
     pub children: Vec<Child>,
 
@@ -1179,8 +1301,21 @@ impl UiElementState {
         self.invalid = Self::FRAMES_TO_BE_INVALID;
     }
 
+    pub fn force_valid(&mut self) {
+        self.invalid = 0;
+    }
+
     pub fn is_valid(&self) -> bool {
         self.invalid == 0
+    }
+
+    pub fn move_to(&mut self, x: i32, y: i32) {
+        self.bounding_rect.set_x(x);
+        self.bounding_rect.set_y(y);
+        self.rect.set_x(self.bounding_rect.x() + self.margins[2]);
+        self.rect.set_y(self.bounding_rect.y() + self.margins[1]);
+        self.content_rect.set_x(self.rect.x() + self.paddings[2]);
+        self.content_rect.set_y(self.rect.y() + self.paddings[1]);
     }
 }
 

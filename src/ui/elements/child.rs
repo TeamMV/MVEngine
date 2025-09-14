@@ -1,6 +1,6 @@
 use crate::ui::elements::{Element, UiElement};
 use itertools::Itertools;
-use mvutils::state::MappedState;
+use mvutils::state::{MappedState, State};
 use mvutils::unsafe_utils::DangerousCell;
 use std::fmt;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ use crate::ui::attributes::UiState;
 #[derive(Clone)]
 pub enum Child {
     String(Rope),
-    Element(Rc<DangerousCell<UiElement>>),
+    Element(Element),
     State(UiState),
     Iterator(Vec<Child>),
 }
@@ -47,7 +47,7 @@ impl Child {
         }
     }
 
-    pub fn as_element(&self) -> Rc<DangerousCell<UiElement>> {
+    pub fn as_element(&self) -> Element {
         match self {
             Child::Element(e) => e.clone(),
             _ => unreachable!(),
@@ -66,6 +66,12 @@ pub trait ToChild {
     fn to_child(self) -> Child;
 }
 
+impl ToChild for Child {
+    fn to_child(self) -> Child {
+        self
+    }
+}
+
 impl ToChild for String {
     fn to_child(self) -> Child {
         Child::String(Rope::from(self))
@@ -75,6 +81,12 @@ impl ToChild for String {
 impl ToChild for &str {
     fn to_child(self) -> Child {
         Child::String(Rope::from_str(self))
+    }
+}
+
+impl ToChild for Rope {
+    fn to_child(self) -> Child {
+        Child::String(self)
     }
 }
 

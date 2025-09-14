@@ -7,7 +7,7 @@ pub mod unit;
 use crate::blanked_partial_ord;
 use crate::color::RgbColor;
 use crate::ui::elements::components::scroll;
-use crate::ui::elements::{UiElement, UiElementState, UiElementStub};
+use crate::ui::elements::{Element, UiElement, UiElementState, UiElementStub};
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::Overflow;
 use crate::ui::styles::groups::{ScrollBarStyle, VectorField};
@@ -25,9 +25,10 @@ use std::rc::Rc;
 use std::str::FromStr;
 use mvutils::save::{Loader, Savable, Saver};
 use unit::Unit;
+use crate::ui::geometry::SimpleRect;
 
 lazy! {
-    pub static DEFAULT_STYLE: UiStyle = UiStyle {
+    pub static DEFAULT_STYLE_INNER: UiStyleInner = UiStyleInner {
         x: UiValue::Just(0).to_field().to_resolve(),
         y: UiValue::Just(0).to_field().to_resolve(),
         width: UiValue::Auto.to_field().to_resolve(),
@@ -100,7 +101,7 @@ lazy! {
         }
     };
 
-    pub static EMPTY_STYLE: UiStyle = UiStyle {
+    pub static EMPTY_STYLE_INNER: UiStyleInner = UiStyleInner {
         x: UiValue::Unset.to_field().to_resolve(),
         y: UiValue::Unset.to_field().to_resolve(),
         width: UiValue::Unset.to_field().to_resolve(),
@@ -168,8 +169,21 @@ lazy! {
                 shape: UiValue::Unset.to_resolve(),
                 adaptive_ratio: UiValue::Unset.to_resolve(),
             },
+            //FUCK YOU WHY ARE YOU BREAKING WTF
             size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
         }
+    };
+
+    pub static DEFAULT_STYLE: UiStyle = UiStyle {
+        base: DEFAULT_STYLE_INNER.clone(),
+        transition_duration: UiValue::Just(0).to_resolve(),
+        hover: EMPTY_STYLE_INNER.clone()
+    };
+
+    pub static EMPTY_STYLE: UiStyle = UiStyle {
+        base: EMPTY_STYLE_INNER.clone(),
+        transition_duration: UiValue::Unset.to_resolve(),
+        hover: EMPTY_STYLE_INNER.clone()
     };
 }
 
@@ -179,23 +193,19 @@ macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
         {
             let s = &$elem.style().$($style).*;
-            let v: ResolveResult<_> = s.resolve($elem.state().ctx.dpi, $elem.state().parent.clone(), |s| {&s.$($style).*});
-            if v.is_use_default() {
-                $crate::ui::styles::DEFAULT_STYLE.$($style).*
-                .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
-            } else {
-                v
-            }
+            let state = $elem.state();
+            let body = $elem.body();
+            crate::ui::utils::resolve_resolve(s, state, body, |s| &s.$($style).*)
         }
     };
 }
 
-/// Resolves the given style field by using the `UiElementState` and `UiStyle`
+/// Resolves the given style field by using the `UiElementState`, `ElementBody` and `UiStyle`
 #[macro_export]
 macro_rules! resolve2 {
-    ($elem_state:ident, $style_ident:ident.$($style:ident).*) => {
+    ($elem_state:ident, $elem_body:ident, $style_ident:ident.$($style:ident).*) => {
         {
-            crate::ui::utils::resolve_resolve(&$style_ident.$($style).*, $elem_state, |s| &s.$($style).*)
+            crate::ui::utils::resolve_resolve(&$style_ident.$($style).*, $elem_state, $elem_body, |s| &s.$($style).*)
         }
     };
 }
@@ -271,7 +281,7 @@ impl Drop for UiStyleWriteObserver<'_> {
 }
 
 #[derive(Clone, Debug)]
-pub struct UiStyle {
+pub struct UiStyleInner {
     pub x: Resolve<i32>,
     pub y: Resolve<i32>,
     pub width: Resolve<i32>,
@@ -296,11 +306,43 @@ pub struct UiStyle {
     pub scrollbar: ScrollBarStyle,
 }
 
+#[derive(Clone, Debug)]
+pub struct UiStyle {
+    base: UiStyleInner,
+    //unused atm
+    pub transition_duration: Resolve<i32>, //just is in ms
+    pub hover: UiStyleInner,
+}
+
+impl Deref for UiStyle {
+    type Target = UiStyleInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl DerefMut for UiStyle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.base
+    }
+}
+
+impl From<UiStyleInner> for UiStyle {
+    fn from(value: UiStyleInner) -> Self {
+        Self {
+            base: value,
+            transition_duration: DEFAULT_STYLE.transition_duration.clone(),
+            hover: EMPTY_STYLE_INNER.clone(),
+        }
+    }
+}
+
 unsafe impl Sync for UiStyle {}
 unsafe impl Send for UiStyle {}
 
-impl UiStyle {
-    pub fn merge_unset(&mut self, other: &UiStyle) {
+impl UiStyleInner {
+    pub fn merge_unset(&mut self, other: &UiStyleInner) {
         self.x.merge_unset(&other.x);
         self.y.merge_unset(&other.y);
         self.width.merge_unset(&other.width);
@@ -322,7 +364,7 @@ impl UiStyle {
         self.scrollbar.merge_unset(&other.scrollbar);
     }
 
-    pub fn merge_at_set_of(&mut self, to: &UiStyle) {
+    pub fn merge_at_set_of(&mut self, to: &UiStyleInner) {
         self.x.merge_at_set(&to.x);
         self.y.merge_at_set(&to.y);
         self.width.merge_at_set(&to.width);
@@ -345,7 +387,28 @@ impl UiStyle {
     }
 }
 
+impl UiStyle {
+    pub fn merge_unset(&mut self, other: &UiStyle) {
+        self.base.merge_unset(&other.base);
+        self.transition_duration.merge_unset(&other.transition_duration);
+    }
+
+    pub fn merge_at_set_of(&mut self, to: &UiStyle) {
+        self.base.merge_at_set_of(&to.base);
+        self.transition_duration.merge_at_set(&to.transition_duration);
+    }
+
+    pub fn get_hover(&self) -> UiStyle {
+        let mut s = self.base.clone();
+        s.merge_at_set_of(&self.hover);
+        let mut s: UiStyle = s.into();
+        s.transition_duration = self.transition_duration.clone();
+        s
+    }
+}
+
 blanked_partial_ord!(UiStyle);
+blanked_partial_ord!(UiStyleInner);
 
 blanked_partial_ord!(TextStyle);
 
@@ -401,7 +464,7 @@ impl<T: PartialOrd + Clone + 'static> Resolve<T> {
     pub fn resolve<F>(
         &self,
         dpi: f32,
-        parent: Option<Rc<DangerousCell<UiElement>>>,
+        parent: Option<Element>,
         map: F,
     ) -> ResolveResult<T>
     where
@@ -665,7 +728,7 @@ impl ResolveResult<i32> {
     pub fn unwrap_or_default_or_percentage<F>(
         self,
         default: &Resolve<i32>,
-        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
     ) -> i32
@@ -683,7 +746,7 @@ impl ResolveResult<i32> {
 
     pub fn resolve_percent<F>(
         &self,
-        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
     ) -> i32
@@ -711,7 +774,7 @@ impl ResolveResult<f32> {
     pub fn unwrap_or_default_or_percentage<F>(
         self,
         default: &Resolve<f32>,
-        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
     ) -> f32
@@ -729,7 +792,7 @@ impl ResolveResult<f32> {
 
     pub fn resolve_percent<F>(
         &self,
-        maybe_parent: Option<Rc<DangerousCell<UiElement>>>,
+        maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
     ) -> f32
@@ -758,7 +821,7 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
     pub fn resolve<F>(
         &self,
         dpi: f32,
-        parent: Option<Rc<DangerousCell<UiElement>>>,
+        parent: Option<Element>,
         map: F,
     ) -> ResolveResult<T>
     where
@@ -779,12 +842,12 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
             UiValue::Measurement(u) => {
                 if TypeId::of::<T>() == TypeId::of::<i32>() {
                     unsafe {
-                        let a = u.as_px(dpi);
+                        let a = u.resolve(dpi);
                         ResolveResult::Value(Unsafe::cast_ref::<i32, T>(&a).clone())
                     }
                 } else if TypeId::of::<T>() == TypeId::of::<f32>() {
                     unsafe {
-                        let a = u.as_px(dpi) as f32;
+                        let a = u.resolve(dpi) as f32;
                         ResolveResult::Value(Unsafe::cast_ref::<f32, T>(&a).clone())
                     }
                 } else {
@@ -860,6 +923,82 @@ impl UiStyle {
         modify_style!(s.child_align_y = UiValue::Just(ChildAlign::Middle));
         s
     }
+
+    pub fn inheriting() -> Self {
+        let shape = ShapeStyle {
+            resource: UiValue::Inherit.to_resolve(),
+            color: UiValue::Inherit.to_resolve(),
+            texture: UiValue::Inherit.to_resolve(),
+            shape: UiValue::Inherit.to_resolve(),
+            adaptive_ratio: UiValue::Inherit.to_resolve(),
+        };
+
+        let trans = TransformStyle {
+            translate: VectorField {
+                x: UiValue::Inherit.to_resolve(),
+                y: UiValue::Inherit.to_resolve()
+            },
+            scale: VectorField {
+                x: UiValue::Inherit.to_resolve(),
+                y: UiValue::Inherit.to_resolve()
+            },
+            rotate: UiValue::Inherit.to_resolve(),
+            origin: UiValue::Inherit.to_resolve(),
+        };
+
+        let inner_inherit = UiStyleInner {
+            x: UiValue::Inherit.to_resolve(),
+            y: UiValue::Inherit.to_resolve(),
+            width: UiValue::Inherit.to_resolve(),
+            height: UiValue::Inherit.to_resolve(),
+            padding: SideStyle {
+                top: UiValue::Inherit.to_resolve(),
+                bottom: UiValue::Inherit.to_resolve(),
+                left: UiValue::Inherit.to_resolve(),
+                right: UiValue::Inherit.to_resolve(),
+            },
+            margin: SideStyle {
+                top: UiValue::Inherit.to_resolve(),
+                bottom: UiValue::Inherit.to_resolve(),
+                left: UiValue::Inherit.to_resolve(),
+                right: UiValue::Inherit.to_resolve(),
+            },
+            origin: UiValue::Inherit.to_resolve(),
+            position: UiValue::Inherit.to_resolve(),
+            direction: UiValue::Inherit.to_resolve(),
+            child_align_x: UiValue::Inherit.to_resolve(),
+            child_align_y: UiValue::Inherit.to_resolve(),
+            background: shape.clone(),
+            border: shape.clone(),
+            detail: shape.clone(),
+            text: TextStyle {
+                size: UiValue::Inherit.to_resolve(),
+                kerning: UiValue::Inherit.to_resolve(),
+                skew: UiValue::Inherit.to_resolve(),
+                stretch: UiValue::Inherit.to_resolve(),
+                font: UiValue::Inherit.to_resolve(),
+                fit: UiValue::Inherit.to_resolve(),
+                color: UiValue::Inherit.to_resolve(),
+                select_color: UiValue::Inherit.to_resolve(),
+                align_x: UiValue::Inherit.to_resolve(),
+                align_y: UiValue::Inherit.to_resolve(),
+            },
+            transform: trans.clone(),
+            overflow_x: UiValue::Inherit.to_resolve(),
+            overflow_y: UiValue::Inherit.to_resolve(),
+            scrollbar: ScrollBarStyle {
+                track: shape.clone(),
+                knob: shape,
+                size: UiValue::Inherit.to_resolve(),
+            },
+        };
+
+        Self {
+            base: inner_inherit.clone(),
+            transition_duration: UiValue::Inherit.to_resolve(),
+            hover: inner_inherit,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -880,6 +1019,14 @@ pub trait InheritSupplier {
     }
     fn rotation(&self) -> f32 {
         0.0
+    }
+
+    fn area(&self) -> SimpleRect {
+        let x = self.x();
+        let y = self.y();
+        let w = self.width();
+        let h = self.height();
+        SimpleRect::new(x, y, w, h)
     }
 }
 

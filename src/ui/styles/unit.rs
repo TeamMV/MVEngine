@@ -27,10 +27,14 @@ pub enum Unit {
     Quarter(f32),        // qr
     Pace(f32),           // pc
     BeardFortnight(f32), //bf
+    //time units
+    Ms(i32),
+    S(f32),
+    Min(f32)
 }
 
 impl Unit {
-    pub fn as_px(&self, dpi: f32) -> i32 {
+    pub fn resolve(&self, dpi: f32) -> i32 {
         match self {
             Unit::Px(px) => *px,
             Unit::MM(value) => ((value / 25.4) * dpi) as i32,
@@ -57,6 +61,10 @@ impl Unit {
             Unit::Quarter(value) => ((value * 36.0) * dpi) as i32,
             Unit::Pace(value) => ((value * 30.0) * dpi) as i32,
             Unit::BeardFortnight(value) => ((value * 0.6048 * 0.393701) * dpi) as i32,
+            
+            Unit::Ms(value) => *value,
+            Unit::S(value) => (*value * 1000.0) as i32,
+            Unit::Min(value) => (*value * 1000.0 * 60.0) as i32,
         }
     }
 }
@@ -105,6 +113,10 @@ impl TryFrom<String> for Unit {
         parse_unit!(lower, "qr", Quarter, f32);
         parse_unit!(lower, "pc", Pace, f32);
         parse_unit!(lower, "bf", BeardFortnight, f32);
+        
+        parse_unit!(lower, "min", Ms, i32);
+        parse_unit!(lower, "s", S, f32);
+        parse_unit!(lower, "ms", Min, f32);
 
         Err(format!("Unsupported unit or format: '{}'", value))
     }

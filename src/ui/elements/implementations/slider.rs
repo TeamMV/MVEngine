@@ -2,11 +2,11 @@ use crate::input::consts::MouseButton;
 use crate::input::{Input, RawInputEvent};
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::rendering::OpenGLRenderer;
-use crate::ui::attributes::{Attributes, ToRope};
+use crate::ui::attributes::{Attributes, IntoAttrib};
 use crate::ui::context::UiContext;
 use crate::ui::elements::components::drag::DragAssistant;
 use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, LocalElement, UiElement, UiElementBuilder, UiElementCallbacks, UiElementState, UiElementStub, _Self};
 use crate::ui::geometry::{geom, SimpleRect};
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver, DEFAULT_STYLE};
 use mvutils::unsafe_utils::DangerousCell;
@@ -14,6 +14,7 @@ use std::rc::{Rc, Weak};
 use std::str::FromStr;
 use mvutils::state::State;
 use mvutils::utils::PClamp;
+use ropey::Rope;
 use crate::resolve2;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::text::TextBody;
@@ -22,7 +23,7 @@ use crate::ui::styles::enums::Direction;
 
 #[derive(Clone)]
 pub struct Slider {
-    weak: Weak<DangerousCell<UiElement>>,
+    weak: LocalElement,
     drag_assistant: DragAssistant,
     enumeration: SliderEnumeration,
     attributes: Attributes,
@@ -36,49 +37,56 @@ pub struct Slider {
     dragged: bool
 }
 
-impl UiElementStub for Slider {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized
-    {
-        let enumeration = if let Some(val) = attributes.attribs.get("range") {
-            let s = val.as_rope().to_string();
-            SliderEnumeration::from_str(&s).unwrap() //the errmsg is already in there
-        } else {
-            SliderEnumeration::Range(SliderRange::from_range(0.0, 10.0))
-        };
+impl UiElementBuilder for Slider {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
 
-        let value = if let Some(val) = attributes.attribs.get("value") {
-            val.as_float_state()
-        } else {
-            State::new(enumeration.first())
-        };
-
-        Rc::new_cyclic(|weak| {
-            let this = Self {
-                weak: weak.clone(),
-                drag_assistant: DragAssistant::new(MouseButton::Left),
-                enumeration,
-                attributes,
-                state: UiElementState::new(context.clone()),
-                style,
-                body: ElementBody::new(),
-                text: BoringText,
-                context,
-                scroll_offset: 0,
-                value,
-                dragged: false,
-            };
-            DangerousCell::new(this.wrap())
-        })
+    fn set_weak(&mut self, weak: LocalElement) {
+        self.weak = weak;
     }
 
     fn wrap(self) -> UiElement {
         UiElement::Slider(self)
     }
+}
 
+impl Slider {
+    pub fn builder(context: UiContext, attributes: Attributes, style: UiStyle) -> Self {
+        Self {
+            weak: LocalElement::new(),
+            drag_assistant: DragAssistant::new(MouseButton::Left),
+            enumeration: SliderEnumeration::Range(SliderRange {
+                low: 0.0,
+                high: 10.0,
+                step: SliderStep::Continuous,
+            }),
+            attributes,
+            state: UiElementState::new(context.clone()),
+            style,
+            body: ElementBody::new(),
+            text: BoringText,
+            context,
+            scroll_offset: 0,
+            value: State::new(0.0),
+            dragged: false,
+        }
+    }
+    
+    pub fn range<T: IntoAttrib<SliderEnumeration>>(mut self, attrib: T) -> Self {
+        self.enumeration = attrib.into_attrib();
+        self
+    }
+    
+    pub fn value<T: IntoAttrib<State<f32>>>(mut self, attrib: T) -> Self {
+        self.value = attrib.into_attrib();
+        self
+    }
+}
+
+impl UiElementStub for Slider {
     fn wrapped(&self) -> Element {
-        self.weak.upgrade().expect("Weak to itself")
+        self.weak.to_wrapped()
     }
 
     fn attributes(&self) -> &Attributes {
@@ -122,13 +130,14 @@ impl UiElementCallbacks for Slider {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let state = &self.state;
+        let body = &self.body;
         let style = &self.style;
         //horizontal will always be default for slider so hardcoding it is perfectly fine
-        let direction = resolve2!(state, style.direction).unwrap_or(Direction::Horizontal);
+        let direction = resolve2!(state, body, style.direction).unwrap_or(Direction::Horizontal);
         let rect = &self.state.content_rect;
 
-        let ratio = resolve2!(state, style.detail.adaptive_ratio).unwrap_or_default(&DEFAULT_STYLE.detail.adaptive_ratio);
-        let (knob_w, knob_h) = utils::shape_size(&style.detail, state, &self.context, &rect.bounding, direction.clone(), ratio, |s| &s.detail);
+        let ratio = resolve2!(state, body, style.detail.adaptive_ratio).unwrap_or_default(&DEFAULT_STYLE.detail.adaptive_ratio);
+        let (knob_w, knob_h) = utils::shape_size(&style.detail, state, body, &self.context, &rect.bounding, direction.clone(), ratio, |s| &s.detail);
 
         let first = self.enumeration.first();
         let last = self.enumeration.last();
@@ -151,7 +160,7 @@ impl UiElementCallbacks for Slider {
             Direction::Horizontal => SimpleRect::new(rect.x() + self.scroll_offset, rect.y(), knob_w, knob_h),
         };
 
-        utils::draw_shape_style_at(ctx, &self.context, &knob, &style.detail, state, |s| &s.detail, Some(crop_area.clone()));
+        utils::draw_shape_style_at(ctx, &self.context, &knob, &style.detail, state, body, |s| &s.detail, Some(crop_area.clone()));
 
         self.drag_assistant.reference = (rect.x(), rect.y());
         if !self.drag_assistant.in_drag {
@@ -213,8 +222,8 @@ impl UiElementCallbacks for Slider {
         if self.enumeration.is_step_size_gte(1.0) {
             val = val.round();
         }
-        let text = val.to_rope();
-        self.text.draw(0, 0, &text, state, style, ctx, &self.context, crop_area);
+        let text = Rope::from(val.to_string());
+        self.text.draw(0, 0, &text, state, style, body, ctx, &self.context, crop_area);
     }
 
     fn raw_input_callback(&mut self, action: RawInputEvent, input: &Input) -> bool {
@@ -261,6 +270,12 @@ impl SliderRange {
 pub enum SliderEnumeration {
     List(Vec<f32>),
     Range(SliderRange)
+}
+
+impl IntoAttrib<SliderEnumeration> for &str {
+    fn into_attrib(self) -> SliderEnumeration {
+        SliderEnumeration::from_str(self).expect(&format!("Cannot parse '{self}' as SliderRange!"))
+    }
 }
 
 impl FromStr for SliderEnumeration {

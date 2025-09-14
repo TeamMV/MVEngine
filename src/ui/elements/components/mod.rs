@@ -29,23 +29,15 @@ enum State {
 
 #[derive(Clone)]
 pub struct ElementBody {
-    fade_time: u64,
     hover_state: State,
-    hover_style: Option<UiStyle>,
-    init_style: Option<UiStyle>,
-    easing: Easing,
-    scroll_bars: ScrollBars
+    active_style: Option<UiStyle>
 }
 
 impl ElementBody {
     pub fn new() -> Self {
         Self {
-            fade_time: 0,
             hover_state: State::Out,
-            hover_style: None,
-            init_style: None,
-            easing: anim::easing(EasingGen::linear(), EasingMode::InOut),
-            scroll_bars: ScrollBars {},
+            active_style: None,
         }
     }
 
@@ -63,12 +55,13 @@ impl ElementBody {
                     if e.inside(x, y) {
                         if let State::Out = self.hover_state {
                             self.hover_state = State::In;
-                            self.start_animation_in(e);
+                            let s = e.style().get_hover();
+                            self.active_style = Some(s);
                         }
                     } else {
                         if let State::In = self.hover_state {
                             self.hover_state = State::Out;
-                            self.start_animation_out(e);
+                            self.active_style = None;
                         }
                     }
                 }
@@ -78,20 +71,7 @@ impl ElementBody {
         };
     }
 
-    fn start_animation_in<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        if let Some(hover) = &self.hover_style {
-            self.init_style = elem.style().clone().into();
-            let state = elem.state_mut();
-            //state.animator.animate(UiAnim::new_simple(hover.clone(), self.easing.clone(), self.fade_time), elem.style());
-        }
-    }
 
-    fn start_animation_out<E: UiElementStub + 'static>(&mut self, elem: &mut E) {
-        if let Some(init) = &self.init_style {
-            let state = elem.state_mut();
-            //state.animator.animate(UiAnim::new_simple(init.clone(), self.easing.clone(), self.fade_time), elem.style());
-        }
-    }
 
     pub fn draw(
         &mut self,
@@ -108,6 +88,7 @@ impl ElementBody {
             &rect,
             &elem_style.background,
             elem_state,
+            self,
             |s| &s.background,
             Some(crop_area.clone()),
         );
@@ -117,6 +98,7 @@ impl ElementBody {
             &rect,
             &elem_style.border,
             elem_state,
+            self,
             |s| &s.border,
             Some(crop_area.clone()),
         );
@@ -138,6 +120,7 @@ impl ElementBody {
             &rect,
             &elem_style.background,
             elem_state,
+            self,
             |s| &s.background,
             Some(crop_area.clone()),
         );
@@ -147,6 +130,7 @@ impl ElementBody {
             &rect,
             &elem_style.border,
             elem_state,
+            self,
             |s| &s.border,
             Some(crop_area.clone()),
         );
@@ -159,6 +143,10 @@ impl ElementBody {
                            context: &UiContext,
                            crop_area: &SimpleRect
     ) {
-        self.scroll_bars.draw(elem_style, elem_state, ctx, context, crop_area);
+        ScrollBars::draw(elem_style, elem_state, self, ctx, context, crop_area);
+    }
+
+    pub fn active_style(&self) -> Option<&UiStyle> {
+        self.active_style.as_ref()
     }
 }

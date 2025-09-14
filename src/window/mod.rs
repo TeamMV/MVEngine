@@ -630,8 +630,4 @@ impl Window {
     pub fn ui_mut(&mut self) -> &mut Ui {
         self.ui.get_mut()
     }
-
-    pub fn area(&self) -> SimpleRect {
-        SimpleRect::new(0, 0, self.width(), self.height())
-    }
 }

@@ -1,5 +1,7 @@
+use ropey::Rope;
 use crate::color::{Color, ColorFormat, RgbColor};
 use crate::ui::elements::{UiElementState, UiElementStub};
+use crate::ui::elements::components::ElementBody;
 use crate::ui::styles::{Resolve, ResolveResult, UiStyle};
 #[macro_export]
 macro_rules! blanked_partial_ord {
@@ -116,7 +118,7 @@ macro_rules! expect_inner_element_by_id {
 #[macro_export]
 macro_rules! expect_inner_element_by_id_mut {
     ($parent:expr, $elem_type:ident, $id:literal, $var:ident => $body:block) => {{
-        let __e = $parent
+        let mut __e = $parent
             .get()
             .find_element_by_id($id)
             .expect(&format!("Element '{}' is not on parent!", $id));
@@ -174,12 +176,27 @@ macro_rules! find_element_by_id {
     ($parent:expr, $id:literal) => {{ $parent.get().find_element_by_id($id) }};
 }
 
-pub fn resolve_resolve<T, F>(res: &Resolve<T>, state: &UiElementState, map: F) -> ResolveResult<T>
+pub fn resolve_resolve<T, F>(res: &Resolve<T>, state: &UiElementState, body: &ElementBody, map: F) -> ResolveResult<T>
 where
     T: PartialOrd + Clone + 'static,
     F: Fn(&UiStyle) -> &Resolve<T>,
 {
+    let res = if let Some(active) = body.active_style() {
+        map(active)
+    } else {
+        res
+    };
     res.resolve(state.ctx.dpi, state.parent.clone(), |f| {
         map(f)
     })
+}
+
+pub trait ToRope {
+    fn to_rope(&self) -> Rope;
+}
+
+impl<T: ToString> ToRope for T {
+    fn to_rope(&self) -> Rope {
+        Rope::from(self.to_string())
+    }
 }

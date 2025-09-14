@@ -8,7 +8,7 @@ pub struct StyleSheet {
 }
 
 impl StyleSheet {
-    pub fn try_apply(&self, elem: Element) {
+    pub fn try_apply(&self, mut elem: Element) {
         let thingy = elem.get_mut();
         for block in &self.blocks {
             let cond = &block.cond;

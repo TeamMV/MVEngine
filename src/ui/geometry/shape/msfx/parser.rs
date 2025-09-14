@@ -2,9 +2,15 @@ use crate::ui::geometry::shape::msfx::ast::{BinaryExpr, DeclStmt, ExportAdaptive
 use crate::ui::geometry::shape::msfx::lexer::{MSFXKeyword, MSFXLexer, MSFXOperator, MSFXToken};
 use crate::ui::geometry::shape::msfx::ty::MSFXType;
 use hashbrown::HashMap;
+use mvutils::lazy;
 use mvutils::utils::TetrahedronOp;
+use crate::ui::geometry::shape::msfx::functions::INJECTED_PRE_CODE;
 
 const GLOBAL_SCOPE: &'static str = "function";
+
+lazy! {
+    static INJECTED_PRE_CODE_COMPILED: Vec<MSFXStmt> = MSFXParser::parse_internal(INJECTED_PRE_CODE, false).unwrap().elements;
+}
 
 pub struct MSFXParser<'a> {
     lexer: MSFXLexer<'a>,
@@ -16,6 +22,10 @@ pub struct MSFXParser<'a> {
 
 impl<'a> MSFXParser<'a> {
     pub fn parse(expr: &'a str) -> Result<MSFXAST, String> {
+        Self::parse_internal(expr, true)
+    }
+
+    fn parse_internal(expr: &'a str, inject: bool) -> Result<MSFXAST, String> {
         let mut this = Self {
             lexer: MSFXLexer::lex(expr),
             functions: HashMap::new(),
@@ -24,7 +34,9 @@ impl<'a> MSFXParser<'a> {
             inputs: Vec::new(),
         };
 
-        let mut stmts = vec![];
+        let mut stmts = if inject {
+            INJECTED_PRE_CODE_COMPILED.clone()
+        } else { vec![] };
         let mut next = this.lexer.next();
         while !matches!(next, MSFXToken::EOF) {
             this.lexer.putback(next);

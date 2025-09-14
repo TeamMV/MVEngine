@@ -31,6 +31,18 @@ pub trait RenderContext {
     fn next_z(&mut self) -> f32;
 
     fn set_z(&mut self, z: f32);
+    
+    fn push(&mut self) {
+        self.controller().push_state();
+    }
+    
+    fn pop(&mut self) {
+        self.controller().pop_state();
+    }
+    
+    fn next_layer(&mut self) {
+        self.controller().next_layer0();
+    }
 }
 
 impl RenderContext for RenderController {

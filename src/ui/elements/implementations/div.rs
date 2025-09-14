@@ -5,7 +5,7 @@ use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::scroll::ScrollBars;
-use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, LocalElement, UiElement, UiElementBuilder, UiElementCallbacks, UiElementState, UiElementStub, _Self};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
@@ -16,7 +16,7 @@ use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
 pub struct Div {
-    rc: Weak<DangerousCell<UiElement>>,
+    rc: LocalElement,
 
     context: UiContext,
     attributes: Attributes,
@@ -29,7 +29,7 @@ impl UiElementCallbacks for Div {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
-        for children in &self.state.children {
+        for children in &mut self.state.children {
             match children {
                 Child::String(_) => {}
                 Child::Element(e) => {
@@ -48,34 +48,36 @@ impl UiElementCallbacks for Div {
     }
 }
 
-impl UiElementStub for Div {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized,
-    {
-        let this = Self {
-            rc: Weak::new(),
-            context: context.clone(),
-            attributes,
-            style,
-            state: UiElementState::new(context),
-            body: ElementBody::new(),
-        };
+impl UiElementBuilder for Div {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
 
-        let rc = Rc::new(DangerousCell::new(this.wrap()));
-        let e = rc.get_mut();
-        let div = enum_val_ref_mut!(UiElement, e, Div);
-        div.rc = Rc::downgrade(&rc);
-
-        rc
+    fn set_weak(&mut self, weak: LocalElement) {
+        self.rc = weak;
     }
 
     fn wrap(self) -> UiElement {
         UiElement::Div(self)
     }
+}
 
+impl Div {
+    pub fn builder(context: UiContext, attributes: Attributes, style: UiStyle) -> Self {
+        Self {
+            rc: LocalElement::new(),
+            context: context.clone(),
+            attributes,
+            style,
+            state: UiElementState::new(context),
+            body: ElementBody::new(),
+        }
+    }
+}
+
+impl UiElementStub for Div {
     fn wrapped(&self) -> Element {
-        self.rc.upgrade().expect("Reference to this self")
+        self.rc.to_wrapped()
     }
 
     fn attributes(&self) -> &Attributes {

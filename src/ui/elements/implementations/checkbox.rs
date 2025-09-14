@@ -2,12 +2,12 @@ use crate::input::consts::MouseButton;
 use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::rendering::pipeline::RenderingPipeline;
 use crate::rendering::OpenGLRenderer;
-use crate::ui::attributes::Attributes;
+use crate::ui::attributes::{Attributes, IntoAttrib};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::ElementBody;
-use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, LocalElement, UiElement, UiElementBuilder, UiElementCallbacks, UiElementState, UiElementStub, _Self};
 use crate::ui::geometry::{shape, SimpleRect};
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
@@ -19,7 +19,7 @@ use std::rc::{Rc, Weak};
 
 #[derive(Clone)]
 pub struct CheckBox {
-    rc: Weak<DangerousCell<UiElement>>,
+    rc: LocalElement,
     context: UiContext,
     state: UiElementState,
     style: UiStyle,
@@ -49,7 +49,7 @@ impl UiElementCallbacks for CheckBox {
         if *self.selected.read() {
             let cr = &self.state.content_rect;
             let rect = SimpleRect::new(cr.x(), cr.y(), cr.height(), cr.height());
-            shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, &self.state, |s| &s.detail, Some(crop_area.clone()));
+            shape::utils::draw_shape_style_at(ctx, &self.context, &rect, &self.style.detail, &self.state, &self.body, |s| &s.detail, Some(crop_area.clone()));
         }
         self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
     }
@@ -70,44 +70,47 @@ impl UiElementCallbacks for CheckBox {
 impl CheckBox {
     fn draw_text(&self, s: &Rope, ctx: &mut impl WideRenderContext, crop: &SimpleRect) -> i32 {
         let height = self.state.rect.height();
-        self.text_body.draw(height, 0, s, &self.state, &self.style, ctx, &self.context, crop) + height
+        self.text_body.draw(height, 0, s, &self.state, &self.style, &self.body, ctx, &self.context, crop) + height
     }
 }
 
-impl UiElementStub for CheckBox {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized
-    {
-        let selected = match attributes.attribs.get("selected") {
-            None => State::new(false),
-            Some(v) => v.as_bool_state(),
-        };
-        
-        let this = Self {
-            rc: Weak::new(),
+impl UiElementBuilder for CheckBox {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
+
+    fn set_weak(&mut self, weak: LocalElement) {
+        self.rc = weak;
+    }
+
+    fn wrap(self) -> UiElement {
+        UiElement::CheckBox(self)
+    }
+}
+
+impl CheckBox {
+    pub fn builder(context: UiContext, attributes: Attributes, style: UiStyle) -> Self {
+        Self {
+            rc: LocalElement::new(),
             context: context.clone(),
             state: UiElementState::new(context),
             style: style.clone(),
             attributes,
             body: ElementBody::new(),
             text_body: BoringText,
-            selected,
-        };
-        let rc = Rc::new(DangerousCell::new(this.wrap()));
-        let e = rc.get_mut();
-        let cb = enum_val_ref_mut!(UiElement, e, CheckBox);
-        cb.rc = Rc::downgrade(&rc);
-
-        rc
+            selected: State::new(false),
+        }
     }
-
-    fn wrap(self) -> UiElement {
-        UiElement::CheckBox(self)
+    
+    pub fn selected<T: IntoAttrib<State<bool>>>(mut self, attrib: T) -> Self {
+        self.selected = attrib.into_attrib();
+        self
     }
+}
 
+impl UiElementStub for CheckBox {
     fn wrapped(&self) -> Element {
-        self.rc.upgrade().expect("Reference to this self")
+        self.rc.to_wrapped()
     }
 
     fn attributes(&self) -> &Attributes {

@@ -2,6 +2,8 @@ use crate::ui::geometry::shape::msfx::ty::{MappedVariable, Vec2};
 use crate::ui::geometry::shape::{Shape, shapes};
 use hashbrown::HashMap;
 use mvengine_proc_macro::msfx_fn;
+use crate::ui::geometry::modifier::boolean::compute_intersect;
+use crate::ui::geometry::modifier::MODIFIER_BOOLEAN;
 
 pub trait MSFXFunction {
     fn call_ordered(
@@ -24,6 +26,37 @@ fn get_unnamed(arguments: &HashMap<String, MappedVariable>, name: &str) -> Mappe
         value = arguments.get("_");
     }
     value.cloned().unwrap_or(MappedVariable::Null)
+}
+
+pub const INJECTED_PRE_CODE: &str = "
+let C_PI = 1;
+let C_PHI = 2;
+let C_E = 3;
+let C_CIRCLE50 = 4;
+let C_CIRCLE75 = 5;
+let C_CIRCLE100 = 6;
+let C_FRAC_1_SQRT_2PI = 7;
+
+let M_BOOLEAN_INTERSECT = 1;
+";
+
+struct GetConstant;
+
+impl MSFXFunction for GetConstant {
+    fn call(&self, arguments: HashMap<String, MappedVariable>) -> Result<MappedVariable, String> {
+        let id = get_unnamed(&arguments, "name").as_f64()?;
+
+        match id {
+            1.0 => Ok(MappedVariable::Number(std::f64::consts::PI)),
+            2.0 => Ok(MappedVariable::Number(std::f64::consts::PHI)),
+            3.0 => Ok(MappedVariable::Number(std::f64::consts::E)),
+            4.0 => Ok(MappedVariable::Shape(shapes::circle0(25, 25, 50, 20))),
+            5.0 => Ok(MappedVariable::Shape(shapes::circle0(37, 37, 75, 30))),
+            6.0 => Ok(MappedVariable::Shape(shapes::circle0(50, 50, 100, 40))),
+            7.0 => Ok(MappedVariable::Number(std::f64::consts::FRAC_1_SQRT_2PI)),
+            _ =>  Err("Unknown constant id".to_string())
+        }
+    }
 }
 
 struct Print;
@@ -511,11 +544,29 @@ fn vec2_project(v: Vec2, onto: Vec2) -> Vec2 {
     }
 }
 
+#[msfx_fn]
+fn combine(a: Shape, b: Shape) -> Shape {
+    let mut a = a;
+    a.combine(&b);
+    a
+}
+
+#[msfx_fn]
+fn modifier(base: Shape, modifier: f64, clip: Option<Shape>) -> Result<Shape, String> {
+    match modifier {
+        1.0 => {
+            let clipping = clip.ok_or("No clip shape given for intersect modifier!".to_string())?;
+            let s = compute_intersect(&base, &clipping)?;
+            Ok(s)
+        },
+        _ => Err("Modifier not found!".to_string())
+    }
+}
+
 pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
     match name {
         "print" => Some(Box::new(Print)),
         "assert" => Some(Box::new(Assert)),
-        "sameType" => Some(Box::new(SameType)),
         "same_type" => Some(Box::new(SameType)),
         "sin" => Some(Box::new(Sin)),
         "cos" => Some(Box::new(Cos)),
@@ -575,6 +626,9 @@ pub fn get_function(name: &str) -> Option<Box<dyn MSFXFunction>> {
         "vec2_rotate" => Some(Box::new(Vec2Rotate)),
         "vec2_reflect" => Some(Box::new(Vec2Reflect)),
         "vec2_project" => Some(Box::new(Vec2Project)),
+        "combine" => Some(Box::new(Combine)),
+        "modifier" => Some(Box::new(Modifier)),
+        "C" => Some(Box::new(GetConstant)),
         _ => None,
     }
 }

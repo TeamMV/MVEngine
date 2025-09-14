@@ -1,6 +1,7 @@
 pub mod transition;
 
 use log::{debug, warn};
+use mvutils::unsafe_utils::Unsafe;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::rendering::OpenGLRenderer;
 use crate::rendering::pipeline::RenderingPipeline;
@@ -39,9 +40,9 @@ impl UiPageManager {
 
     //TODO: make transitions lmao
     pub fn transition(&mut self, target: &str) {
-        if let Some(target_elem) = self.find_page(target) {
+        if let Some(mut target_elem) = self.find_page(target) {
             //current will be some as find_page wouldnt return anything otherwise, still go safe route lmao
-            if let Some(current) = self.current.take() {
+            if let Some(mut current) = self.current.take() {
                 current.get_mut().end_frame();
                 self.history.push(current);
                 target_elem.get_mut().state_mut().invalidate();
@@ -54,15 +55,15 @@ impl UiPageManager {
     }
 
     pub fn close_all(&mut self) {
-        if let Some(current) = self.current.take() {
+        if let Some(mut current) = self.current.take() {
             current.get_mut().end_frame();
         }
     }
 
     pub fn open(&mut self, target: &str) {
-        if let Some(target_elem) = self.find_page(target) {
+        if let Some(mut target_elem) = self.find_page(target) {
             target_elem.get_mut().state_mut().invalidate();
-            if let Some(current) = self.current.take() {
+            if let Some(mut current) = self.current.take() {
                 current.get_mut().end_frame();
                 self.history.push(current);
             }
@@ -73,7 +74,7 @@ impl UiPageManager {
     }
 
     pub fn go_back(&mut self) -> Option<String> {
-        if let Some(new) = self.history.pop() {
+        if let Some(mut new) = self.history.pop() {
             new.get_mut().state_mut().invalidate();
             //I dont think pushing to the history would be the expected behavior
             let id = new.get().attributes().id.clone();
@@ -105,13 +106,15 @@ impl UiPageManager {
 
     pub fn keyboard_change(&mut self, action: KeyboardAction, input: &Input, window: &mut Window) {
         if let Some(current) = &mut self.current {
-            current.get_mut().state_mut().events.keyboard_change(action, current.get_mut(), input);
+            let other_current = unsafe { Unsafe::cast_lifetime_mut(current) };
+            other_current.get_mut().state_mut().events.keyboard_change(action, current.get_mut(), input);
         }
     }
 
     pub fn mouse_change(&mut self, action: MouseAction, input: &Input, window: &mut Window) {
         if let Some(current) = &mut self.current {
-            current.get_mut().state_mut().events.mouse_change(action, current.get_mut(), input, window);
+            let other_current = unsafe { Unsafe::cast_lifetime_mut(current) };
+            other_current.get_mut().state_mut().events.mouse_change(action, current.get_mut(), input, window);
         }
     }
 

@@ -10,6 +10,7 @@ use crate::ui::geometry::shape::shapes;
 use crate::ui::geometry::{shape, SimpleRect};
 use crate::ui::rendering::WideRenderContext;
 use ropey::Rope;
+use crate::ui::elements::components::ElementBody;
 use crate::ui::styles::enums::TextAlign;
 use crate::ui::styles::UiStyle;
 use crate::utils::RopeFns;
@@ -253,7 +254,7 @@ impl EditableTextHelper {
         }
     }
 
-    pub fn draw(&mut self, style: &UiStyle, state: &UiElementState, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
+    pub fn draw(&mut self, style: &UiStyle, state: &UiElementState, body: &ElementBody, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect, draw_cursor: bool) {
         let s = self.content.read();
         let cursor_pos = self.cursor.get_cursor_pos();
         let diff = self.view_range.start as isize - cursor_pos as isize;
@@ -265,7 +266,7 @@ impl EditableTextHelper {
         let rect = &state.content_rect;
         let max_x = rect.width() + rect.x();
 
-        let info = self.text_body.get_info(state, style, ui_ctx, draw_ctx);
+        let info = self.text_body.get_info(state, style, body, ui_ctx, draw_ctx);
         if let Some(mut info) = info {
             let m_width = info.font.get_char_data('m', info.size).width;
             if self.view_range.start == self.view_range.end {
@@ -350,7 +351,11 @@ impl EditableTextHelper {
         });
     }
 
-    pub fn draw_other(&mut self, s: &Rope, style: &UiStyle, state: &UiElementState, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
-        self.text_body.draw(0, 0, s, state, style, draw_ctx, ui_ctx, crop);
+    pub fn draw_other(&mut self, s: &Rope, style: &UiStyle, state: &UiElementState, body: &ElementBody, draw_ctx: &mut impl WideRenderContext, ui_ctx: &UiContext, crop: &SimpleRect) {
+        self.text_body.draw(0, 0, s, state, style, body, draw_ctx, ui_ctx, crop);
+    }
+
+    pub fn set_content(&mut self, content: UiState) {
+        self.content = content;
     }
 }

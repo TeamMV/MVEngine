@@ -3,6 +3,7 @@
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
 #![feature(try_trait_v2)]
+#![feature(more_float_constants)]
 #![allow(static_mut_refs)]
 #![deny(clippy::unwrap_used, clippy::redundant_closure_for_method_calls)]
 #![cfg_attr(not(debug_assertions), deny(clippy::todo))]

@@ -11,6 +11,7 @@ use crate::ui::styles::DEFAULT_STYLE;
 use std::marker::PhantomData;
 use ropey::Rope;
 use crate::color::RgbColor;
+use crate::ui::elements::components::ElementBody;
 use crate::ui::rendering::WideRenderContext;
 use crate::ui::styles::enums::TextAlign;
 
@@ -36,27 +37,27 @@ pub struct TextInfo<'a> {
 pub struct BoringText;
 
 impl BoringText {
-    pub fn get_info(&self, state: &UiElementState, style: &UiStyle, context: &UiContext, sup: &impl InheritSupplier) -> Option<TextInfo> {
+    pub fn get_info(&self, state: &UiElementState, style: &UiStyle, body: &ElementBody, context: &UiContext, sup: &impl InheritSupplier) -> Option<TextInfo> {
         let text_align_x =
-            resolve2!(state, style.text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
+            resolve2!(state, body, style.text.align_x).unwrap_or_default(&DEFAULT_STYLE.text.align_x);
         let text_align_y =
-            resolve2!(state, style.text.align_y).unwrap_or_default(&DEFAULT_STYLE.text.align_y);
-        let font = resolve2!(state, style.text.font);
+            resolve2!(state, body, style.text.align_y).unwrap_or_default(&DEFAULT_STYLE.text.align_y);
+        let font = resolve2!(state, body, style.text.font);
         let font = font.unwrap_or(MVR.font.default);
         if let Some(font) = context.resources.resolve_font(font) {
-            let color = resolve2!(state, style.text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
-            let select_color = resolve2!(state, style.text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
-            let size = resolve2!(state, style.text.size);
+            let color = resolve2!(state, body, style.text.color).unwrap_or_default(&DEFAULT_STYLE.text.color);
+            let select_color = resolve2!(state, body, style.text.select_color).unwrap_or_default(&DEFAULT_STYLE.text.select_color);
+            let size = resolve2!(state, body, style.text.size);
             let size = if size.is_percent() {
                 size.compute_percent(state.content_rect.height() as f32)
             } else {
                 size.unwrap_or_default(&DEFAULT_STYLE.text.size)
             };
             let kerning =
-                resolve2!(state, style.text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
+                resolve2!(state, body, style.text.kerning).unwrap_or_default(&DEFAULT_STYLE.text.kerning);
             let stretch =
-                resolve2!(state, style.text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
-            let skew = resolve2!(state, style.text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
+                resolve2!(state, body, style.text.stretch).unwrap_or_default(&DEFAULT_STYLE.text.stretch);
+            let skew = resolve2!(state, body, style.text.skew).unwrap_or_default(&DEFAULT_STYLE.text.skew);
 
             let ssize = size * stretch.height;
 
@@ -89,11 +90,12 @@ impl BoringText {
         text: &Rope,
         state: &UiElementState,
         style: &UiStyle,
+        body: &ElementBody,
         ctx: &mut impl WideRenderContext,
         context: &UiContext,
         crop: &SimpleRect,
     ) -> i32 {
-        if let Some(info) = self.get_info(state, style, context, ctx) {
+        if let Some(info) = self.get_info(state, style, body, context, ctx) {
             self.draw_with_info(x_off, y_off, text, state, ctx, crop, info)
         } else {
             0

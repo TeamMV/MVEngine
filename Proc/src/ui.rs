@@ -48,6 +48,8 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     let attributes_xml = entity.get_attrib("attributes").unwrap_or(&new_attributes);
     let attributes_code = xml_value_to_tknstream(attributes_xml);
 
+    let mut attrib_builder_fns = quote! {};
+
     let mut attrib_tokens = quote! {};
     for attrib in entity
         .attributes()
@@ -55,28 +57,38 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         .filter(|a| a.name() != "style".to_string() && a.name() != "attributes".to_string())
     {
         let attrib_name = attrib.name();
+
         let attrib_value_xml = attrib.value();
         let attrib_value = match attrib_value_xml {
             XmlValue::Str(s) => {
                 quote! {
-                    mvengine::ui::attributes::AttributeValue::Str(ropey::Rope::from_str(#s))
-                }
+                        #s
+                    }
             }
             XmlValue::Entities(_) => unreachable!(),
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                    {
-                        use mvengine::ui::attributes::ToAttrib;
-                        #parsed_code.to_attrib()
+                        #parsed_code
                     }
-                }
             }
         };
 
-        attrib_tokens.extend(quote! {
-            #attribs_ident.with_attrib(#attrib_name.to_string(), #attrib_value);
-        });
+        if attrib_name == "id" {
+            attrib_tokens.extend(quote! {
+                #attribs_ident.with_id(#attrib_value);
+            });
+        } else if attrib_name == "class" {
+            attrib_tokens.extend(quote! {
+                #attribs_ident.with_class(#attrib_value);
+            });
+        } else {
+            let attrib_fn_name = Ident::new(&attrib_name, Span::call_site());
+            let attrib_fn = quote! {
+                .#attrib_fn_name(#attrib_value)
+            };
+            attrib_builder_fns.extend(attrib_fn);
+        }
     }
 
     let elem_ident = Ident::new(
@@ -102,7 +114,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
                     let ts = parse_entity(en);
                     en_qt.extend(quote! {
                         {
-                            let child = #ts;
+                            let mut child = #ts;
                             let cloned_elem = #elem_ident.clone();
                             let mut child_state = child.get_mut();
                             child_state.state_mut().parent = Some(cloned_elem);
@@ -135,7 +147,7 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
             #attrib_tokens
 
             let __attribs_ref__ = &mut #attribs_ident;
-            let #elem_ident = #name_ident::new(__context__.clone(), #attribs_ident, #style_code);
+            let mut #elem_ident = #name_ident::builder(__context__.clone(), #attribs_ident, #style_code)#attrib_builder_fns.build();
             #inner_code
             #elem_ident
         }

@@ -6,6 +6,7 @@ pub mod shape;
 use crate::math::vec::Vec2;
 use crate::rendering::Transform;
 use mvutils::Savable;
+use mvutils::utils::PClamp;
 
 #[derive(Clone, PartialEq, Debug, Savable)]
 pub struct SimpleRect {
@@ -55,6 +56,12 @@ impl SimpleRect {
         } else {
             SimpleRect::new(0, 0, 0, 0)
         }
+    }
+    
+    pub fn create_clamp(&self, parent: &SimpleRect) -> SimpleRect {
+        let nx = self.x.p_clamp(parent.x, parent.x + parent.width - self.width);
+        let ny = self.y.p_clamp(parent.y, parent.y + parent.height - self.height);
+        SimpleRect::new(nx, ny, self.width, self.height)
     }
 }
 

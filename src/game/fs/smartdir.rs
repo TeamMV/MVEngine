@@ -131,6 +131,49 @@ impl SmartDir {
             true
         }
     }
+
+    pub fn iter_dirs(&self) -> impl Iterator<Item = SmartDir> {
+        let root = self.root.clone();
+        fs::read_dir(root)
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.ok())// skip Errs from read_dir
+            .filter_map(|entry| {
+                let path = entry.path();
+                if path.is_dir() {
+                    // Construct a SmartDir child
+                    Some(self.join(path.file_name()?))
+                } else {
+                    None
+                }
+            })
+    }
+
+    pub fn dir_name(&self) -> String {
+        self.root
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    pub fn delete_child(&self, child_name: &str) {
+        let path = self.root.join(child_name);
+
+        let res = if path.is_dir() {
+            fs::remove_dir_all(&path)
+        } else if path.is_file() {
+            fs::remove_file(&path)
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("No such file or directory: {:?}", path),
+            ))
+        };
+        if let Err(e) = res {
+            warn!("Tried to delete '{child_name}' of '{:?}', but encountered error:\n{e:?}", self.root);
+        }
+    }
 }
 
 impl Debug for SmartDir {

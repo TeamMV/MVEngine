@@ -2,13 +2,13 @@ use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::RawInput;
 use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
 use crate::rendering::{OpenGLRenderer, RenderContext};
-use crate::ui::attributes::{Attributes, UiState};
+use crate::ui::attributes::{Attributes, IntoAttrib, UiState};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
 use crate::ui::elements::components::boring::BoringText;
 use crate::ui::elements::components::edittext::EditableTextHelper;
-use crate::ui::elements::{create_style_obs, Element, UiElement, UiElementCallbacks, UiElementState, UiElementStub};
+use crate::ui::elements::{create_style_obs, Element, LocalElement, UiElement, UiElementBuilder, UiElementCallbacks, UiElementState, UiElementStub, _Self};
 use crate::ui::geometry::SimpleRect;
 use crate::ui::rendering::UiRenderer;
 use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
@@ -23,7 +23,7 @@ use crate::utils::RopeFns;
 
 #[derive(Clone)]
 pub struct TextBox {
-    rc: Weak<DangerousCell<UiElement>>,
+    rc: LocalElement,
 
     context: UiContext,
     state: UiElementState,
@@ -37,11 +37,11 @@ pub struct TextBox {
 }
 
 impl TextBox {
-    pub fn content(&self) -> UiState {
+    pub fn get_content(&self) -> UiState {
         self.content.clone()
     }
 
-    pub fn placeholder(&self) -> UiState {
+    pub fn get_placeholder(&self) -> UiState {
         self.placeholder.clone()
     }
 
@@ -54,7 +54,7 @@ impl UiElementCallbacks for TextBox {
     fn draw(&mut self, ctx: &mut RenderingPipeline<OpenGLRenderer>, crop_area: &SimpleRect, debug: bool) {
         self.body.draw(&self.style, &self.state, ctx, &self.context, crop_area);
         let inner_crop = crop_area.create_intersection(&self.state.content_rect.bounding);
-        for children in &self.state.children {
+        for children in &mut self.state.children {
             match children {
                 Child::Element(e) => {
                     let guard = e.get_mut();
@@ -67,15 +67,15 @@ impl UiElementCallbacks for TextBox {
         if s.is_empty() {
             if !self.focused {
                 let placeholder = self.placeholder.read();
-                self.helper.draw_other(&*placeholder, &self.style, &self.state, ctx, &self.context, crop_area);
+                self.helper.draw_other(&*placeholder, &self.style, &self.state, &self.body, ctx, &self.context, crop_area);
             } else {
-                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, true);
+                self.helper.draw(&self.style, &self.state, &self.body, ctx, &self.context, crop_area, true);
             }
         } else {
             if self.focused {
-                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, true);
+                self.helper.draw(&self.style, &self.state, &self.body, ctx, &self.context, crop_area, true);
             } else {
-                self.helper.draw(&self.style, &self.state, ctx, &self.context, crop_area, false);
+                self.helper.draw(&self.style, &self.state, &self.body, ctx, &self.context, crop_area, false);
             }
         }
         self.body.draw_scrollbars(&self.style, &self.state, ctx, &self.context, crop_area);
@@ -136,48 +136,52 @@ impl UiElementCallbacks for TextBox {
     }
 }
 
-impl UiElementStub for TextBox {
-    fn new(context: UiContext, attributes: Attributes, style: UiStyle) -> Element
-    where
-        Self: Sized,
-    {
-        let content = match attributes.attribs.get("content") {
-            None => State::new(Rope::new()).map_identity(),
-            Some(v) => v.as_ui_state(),
-        };
+impl UiElementBuilder for TextBox {
+    fn _builder(&self, context: UiContext, attributes: Attributes, style: UiStyle) -> _Self {
+        ()
+    }
 
-        let placeholder = match attributes.attribs.get("placeholder") {
-            None => State::new(Rope::new()).map_identity(),
-            Some(v) => v.as_ui_state(),
-        };
+    fn set_weak(&mut self, weak: LocalElement) {
+        self.rc = weak;
+    }
 
-        let this = Self {
-            rc: Weak::new(),
+    fn wrap(self) -> UiElement {
+        UiElement::TextBox(self)
+    }
+}
+
+impl TextBox {
+    pub fn builder(context: UiContext, attributes: Attributes, style: UiStyle) -> Self {
+        let content = State::new(Rope::new()).map_identity();
+        Self {
+            rc: LocalElement::new(),
             context: context.clone(),
             state: UiElementState::new(context),
             style,
             attributes,
             body: ElementBody::new(),
             content: content.clone(),
-            placeholder,
+            placeholder: State::new(Rope::new()).map_identity(),
             focused: false,
             helper: EditableTextHelper::new(content),
-        };
-
-        let rc = Rc::new(DangerousCell::new(this.wrap()));
-        let e = rc.get_mut();
-        let bx = enum_val_ref_mut!(UiElement, e, TextBox);
-        bx.rc = Rc::downgrade(&rc);
-
-        rc
+        }
     }
-
-    fn wrap(self) -> UiElement {
-        UiElement::TextBox(self)
+    
+    pub fn content<T: IntoAttrib<UiState>>(mut self, attrib: T) -> Self {
+        self.content = attrib.into_attrib();
+        self.helper.set_content(self.content.clone());
+        self
     }
+    
+    pub fn placeholder<T: IntoAttrib<UiState>>(mut self, attrib: T) -> Self {
+        self.placeholder = attrib.into_attrib();
+        self
+    }
+}
 
+impl UiElementStub for TextBox {
     fn wrapped(&self) -> Element {
-        self.rc.upgrade().expect("Reference to this self")
+        self.rc.to_wrapped()
     }
 
     fn attributes(&self) -> &Attributes {
