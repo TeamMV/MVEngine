@@ -166,9 +166,9 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "dimension",
-        "mvengine::ui::styles::Resolve<i32>",
+        "mvengine::ui::styles::UiValue<i32>",
         dimensions,
-        |lit| { quote! { mvengine::ui::parse::parse_num_abstract(#lit).unwrap(), } }
+        |lit| { quote! { mvengine::ui::styles::UiValue::parse(#lit).unwrap(), } }
     );
 
     let (color_struct_ts, color_resolve_fn_ts) = extent_resource(

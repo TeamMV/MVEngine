@@ -13,7 +13,7 @@ use crate::ui::styles::enums::Geometry;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use crate::ui::styles::Resolve;
+use crate::ui::styles::{Resolve, UiValue};
 
 #[derive(Clone)]
 pub struct UiContext {
@@ -48,7 +48,7 @@ impl DerefMut for UiContext {
 
 pub trait UiResources {
     fn resolve_string(&self, id: usize) -> Option<&str>;
-    fn resolve_dimension(&self, id: usize) -> Option<&Resolve<i32>>;
+    fn resolve_dimension(&self, id: usize) -> Option<&UiValue<i32>>;
     fn resolve_color(&self, id: usize) -> Option<&RgbColor>;
     fn resolve_shape(&self, id: usize) -> Option<&Shape>;
     fn resolve_adaptive(&self, id: usize) -> Option<&AdaptiveShape>;

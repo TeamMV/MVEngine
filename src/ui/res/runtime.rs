@@ -16,11 +16,11 @@ use itertools::Itertools;
 use mvutils::once::Lazy;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
-use crate::ui::styles::Resolve;
+use crate::ui::styles::{Resolve, UiValue};
 
 pub struct RuntimeResources<'a> {
     strings: Vec<String>,
-    dimensions: Vec<Resolve<i32>>,
+    dimensions: Vec<UiValue<i32>>,
     colors: Vec<RgbColor>,
     shapes: Vec<Shape>,
     adaptives: Vec<AdaptiveShape>,
@@ -102,7 +102,7 @@ impl Savable for RuntimeResources<'_> {
 
     fn load(loader: &mut impl Loader) -> Result<Self, String> {
         let strings = Vec::<String>::load(loader)?;
-        let dimensions = Vec::<Resolve<i32>>::load(loader)?;
+        let dimensions = Vec::<UiValue<i32>>::load(loader)?;
         let colors = Vec::<RgbColor>::load(loader)?;
         let shapes = Vec::<Shape>::load(loader)?;
         let adaptives = Vec::<AdaptiveShape>::load(loader)?;
@@ -155,7 +155,7 @@ impl<'a> UiResources for RuntimeResources<'a> {
         }
     }
 
-    fn resolve_dimension(&self, id: usize) -> Option<&Resolve<i32>> {
+    fn resolve_dimension(&self, id: usize) -> Option<&UiValue<i32>> {
         if id < res::CR {
             MVR.resolve_dimension(id)
         } else {

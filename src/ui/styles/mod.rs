@@ -20,6 +20,8 @@ use interpolate::Interpolator;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::{enum_val_ref, lazy};
 use std::any::TypeId;
+use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::str::FromStr;
@@ -219,10 +221,10 @@ macro_rules! modify_style {
         $($style).*.x.for_value(|v| *v = $($ac)*);
         $($style).*.y.for_value(|v| *v = $($ac)*);
     };
-    ($($style:ident).*:$acc:ident = $($ac:tt)*) => {
+    ($($style:ident).*($acc:ident) = $($ac:tt)*) => {
         $($style).*.for_field(|l| (*l).$acc = $($ac)*);
     };
-    ($($style:ident).*!:$acc:ident = $($ac:tt)*) => {
+    ($($style:ident).*!($acc:ident) = $($ac:tt)*) => {
         $($style).*.x.for_field(|l| (*l).$acc = $($ac)*);
         $($style).*.y.for_field(|l| (*l).$acc = $($ac)*);
     };
@@ -413,6 +415,10 @@ blanked_partial_ord!(UiStyleInner);
 blanked_partial_ord!(TextStyle);
 
 blanked_partial_ord!(SideStyle);
+
+pub trait Resolvable<T> {
+    fn resolve<F, SF, R>(&self, dpi: f32, parent: Option<Element>, map: F, sup_map: SF, sup: &dyn InheritSupplier) -> ResolveResult<T> where F: Fn(&UiStyle) -> &R, SF: Fn(&dyn InheritSupplier) -> T, R: Resolvable<T>;
+}
 
 #[derive(Clone, Debug)]
 pub enum Resolve<T: PartialOrd + Clone + 'static> {
@@ -708,32 +714,57 @@ impl<T> ResolveResult<T> {
     }
 }
 
-impl<T: PartialOrd + Clone + 'static> ResolveResult<T> {
+impl<T> Debug for ResolveResult<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolveResult::Value(_) => f.write_str("value"),
+            ResolveResult::Auto => f.write_str("auto"),
+            ResolveResult::None => f.write_str("none"),
+            ResolveResult::UseDefault => f.write_str("default"),
+            ResolveResult::Percent(_) => f.write_str("percent"),
+        }
+    }
+}
+
+impl<T: PartialOrd + Clone + Sized + 'static> ResolveResult<T> {
     pub fn unwrap_or_default(self, default: &Resolve<T>) -> T {
         match self {
             Self::Value(t) => t,
             _ => default.resolve_just().clone(),
         }
     }
-}
 
-impl ResolveResult<i32> {
-    pub fn compute_percent(&self, parent: i32) -> i32 {
+    pub fn compute_percent(&self, parent: T) -> T {
         match self {
-            ResolveResult::Percent(p) => (*p * parent as f32) as i32,
+            ResolveResult::Percent(p) => {
+                unsafe {
+                    //this will be fine dw
+                    if TypeId::of::<T>() == TypeId::of::<i32>() {
+                        let parent_i32 = *( &parent as *const T as *const i32 );
+                        let r = (*p * parent_i32 as f32) as i32;
+                        mem::transmute_copy::<i32, T>(&r)
+                    } else if TypeId::of::<T>() == TypeId::of::<f32>() {
+                        let parent_f32 = *( &parent as *const T as *const f32 );
+                        let r = (*p * parent_f32);
+                        mem::transmute_copy::<f32, T>(&r)
+                    } else {
+                        parent
+                    }
+                }
+            },
             _ => parent,
         }
     }
 
     pub fn unwrap_or_default_or_percentage<F>(
         self,
-        default: &Resolve<i32>,
+        default: &Resolve<T>,
         maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
-    ) -> i32
+    ) -> T
     where
-        F: Fn(&dyn InheritSupplier) -> i32,
+        F: Fn(&dyn InheritSupplier) -> T,
     {
         if self.is_percent() {
             return self.resolve_percent(maybe_parent, map, sup);
@@ -749,55 +780,9 @@ impl ResolveResult<i32> {
         maybe_parent: Option<Element>,
         map: F,
         sup: &impl InheritSupplier,
-    ) -> i32
+    ) -> T
     where
-        F: Fn(&dyn InheritSupplier) -> i32,
-    {
-        if let Some(parent) = maybe_parent {
-            let binding = parent.get();
-            let total = map(binding.state());
-            self.compute_percent(total)
-        } else {
-            self.compute_percent(map(sup))
-        }
-    }
-}
-
-impl ResolveResult<f32> {
-    pub fn compute_percent(&self, parent: f32) -> f32 {
-        match self {
-            ResolveResult::Percent(p) => *p * parent,
-            _ => parent,
-        }
-    }
-
-    pub fn unwrap_or_default_or_percentage<F>(
-        self,
-        default: &Resolve<f32>,
-        maybe_parent: Option<Element>,
-        map: F,
-        sup: &impl InheritSupplier,
-    ) -> f32
-    where
-        F: Fn(&dyn InheritSupplier) -> f32,
-    {
-        if self.is_percent() {
-            return self.resolve_percent(maybe_parent, map, sup);
-        }
-        match self {
-            Self::Value(t) => t,
-            _ => default.resolve_just().clone(),
-        }
-    }
-
-    pub fn resolve_percent<F>(
-        &self,
-        maybe_parent: Option<Element>,
-        map: F,
-        sup: &impl InheritSupplier,
-    ) -> f32
-    where
-        F: Fn(&dyn InheritSupplier) -> f32,
+        F: Fn(&dyn InheritSupplier) -> T,
     {
         if let Some(parent) = maybe_parent {
             let binding = parent.get();

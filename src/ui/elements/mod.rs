@@ -987,6 +987,25 @@ impl Element {
         let l = self.get_mut();
         l.add_child(child);
     }
+    
+    pub fn collect_children(&self) -> Vec<Child> {
+        let l = self.get();
+        l.state().children.clone()
+    }
+
+    pub fn collect_elem_children(&self) -> Vec<Element> {
+        let l = self.get();
+        l.state().children
+            .iter()
+            .filter_map(|x| {
+                if let Child::Element(e) = x {
+                    Some(e.clone())
+                } else {
+                    None
+                }
+            })
+            .collect_vec()
+    }
 
     pub fn remove_all_children(&mut self) {
         let l = self.get_mut();
@@ -1001,6 +1020,16 @@ impl Element {
     pub fn remove_child_by_class(&mut self, class: &str) {
         let l = self.get_mut();
         l.remove_child_by_class(class);
+    }
+    
+    pub fn find_element_by_id(&self, id: &str) -> Option<Element> {
+        let l = self.get();
+        l.find_element_by_id(id)
+    }
+
+    pub fn find_elements_by_class(&self, class: &str) -> Vec<Element> {
+        let l = self.get();
+        l.find_elements_by_class(class)
     }
 
     pub fn was_left_clicked(&self) -> bool {
@@ -1038,6 +1067,9 @@ impl Element {
         false
     }
 }
+
+unsafe impl Send for Element {}
+unsafe impl Sync for Element {}
 
 #[derive(Clone)]
 pub struct LocalElement {

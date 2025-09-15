@@ -31,7 +31,7 @@ use mvengine::math::vec::{Vec2, Vec4};
 use mvengine::ui::attributes::UiState;
 use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
 use mvengine::ui::geometry::SimpleRect;
-use mvengine::ui::styles::{InheritSupplier, UiStyle, UiStyleWriteObserver};
+use mvengine::ui::styles::{InheritSupplier, UiStyle, UiStyleWriteObserver, UiValue};
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
@@ -151,33 +151,14 @@ impl WindowCallbacks for Application {
                 Rope::from_str("opt 3")
             ]);
 
+            let style = style_expr!("background.color: red; width: 100%; height: 50%; margin: none; height(max): 5cm;");
+
+            println!("{style:?}");
+
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none; padding: 1cm;">
-                        <Div style="width: 100%; height: 100%; margin: none; direction: vertical; scrollbar.size: 2mm;">
-                            <Div style="width: 10cm; height: 10cm; background.resource: texture; background.texture: @MVR.drawable/tileset;"/>
-                            <Div style="width: 10cm; height: 10cm;">
-                                <Div style="width: 50cm; height: 50cm; background.resource: texture; background.texture: @MVR.drawable/test; margin: none;"/>
-                            </Div>
-                            <Slider style="width: 10cm; height: 2cm; hover.background.color: red;" range="1..10@1"/>
-                            <ComboBox style="width: 10cm; height: 2cm;" values={values}/>
-                            <TextBox placeholder="type here" style="width: 10cm; height: 2cm; text.align_x: start; text.align_y: middle; text.size: 100%;"/>
-                            <CheckBox id="my_cb" style="height: 2cm; width: 10cm; text.align_x: start; text.size: 100%; text.align_y: end;">
-                                dasdasdasds
-                            </CheckBox>
-                            <Div style="direction: vertical; background.color: hsl(23, 1, 1);">
-                                {
-                                    (1..=20).map(|x| {
-                                        ui! {
-                                            <Ui context={window.ui().context()}>
-                                                <Button style="width: 5cm; height: 1cm;">{x.to_string()}</Button>
-                                            </Ui>
-                                        }
-                                    })
-                                }
-                            </Div>
-                            <Div style="width: 10bc; height: 5bf;"/>
-                        </Div>
+                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
+                        <Div style={style}/>
                     </Div>
                 </Ui>
             };

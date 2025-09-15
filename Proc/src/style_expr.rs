@@ -27,6 +27,13 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
                 })
             });
 
+        let sub_ts = if let Some(sub) = entry.sub_accessor {
+            let sub_ident = Ident::new(&sub, Span::call_site());
+            quote! { (#sub_ident) }
+        } else {
+            quote! {}
+        };
+
         let value = &entry.value;
 
         if value.starts_with('{') {
@@ -48,7 +55,7 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
             let value: Expr = parse_str(&inner).expect("Cannot parse inner rust code as expression! Note: values inside {} will be treated as rust code and does not call Parseable::parse.");
 
             mods.extend(quote! {
-                modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(#value)));
+                modify_style!(#accessor_expr #sub_ts = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(#value)));
             });
         } else if value.starts_with('@') {
             //@ means it's a resource
@@ -59,20 +66,20 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
                 mods.extend(quote! {
                     {
                         let r = resolve_resource!(#value).expect("Cannot find resource!");
-                        #accessor_expr = r.clone();
+                        modify_style!(#accessor_expr #sub_ts = r.clone());
                     }
                 });
             } else {
                 mods.extend(quote! {
                     {
                         let r = resolve_resource!(#value).expect("Cannot find resource!");
-                        modify_style!(#accessor_expr = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(r.clone())));
+                        modify_style!(#accessor_expr #sub_ts = mvengine::ui::styles::UiValue::Just(core::convert::Into::into(r.clone())));
                     }
                 });
             }
         } else {
             mods.extend(quote! {
-                modify_style!(#accessor_expr = mvengine::ui::styles::Parseable::parse(#value).expect("Cannot parse style"));
+                modify_style!(#accessor_expr #sub_ts = mvengine::ui::styles::Parseable::parse(#value).expect("Cannot parse style"));
             });
         }
     }

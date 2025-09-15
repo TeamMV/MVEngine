@@ -8,7 +8,7 @@ use crate::ui::styles::enums::{BackgroundRes, Geometry, Origin, TextAlign, TextF
 use crate::ui::styles::interpolate::{BasicInterpolatable, Interpolator};
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::unit::Unit;
-use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue};
+use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue, DEFAULT_STYLE};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{PClamp, TetrahedronOp};
 use std::rc::Rc;
@@ -182,22 +182,29 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         Resolve::LayoutField(self)
     }
 
-    pub(crate) fn resolve<F>(
+    pub(crate) fn resolve<F, SF>(
         &self,
         dpi: f32,
         parent: Option<Element>,
         map: F,
+        sup_map: SF,
+        sup: &dyn InheritSupplier
     ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
+        SF: Fn(&dyn InheritSupplier) -> T
     {
         let value = self.value.resolve(dpi, parent.clone(), |s| &map(s).value);
         let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
-        let max = self.max.resolve(dpi, parent, |s| &map(s).max);
+        let max = self.max.resolve(dpi, parent.clone(), |s| &map(s).max);
 
-        if !value.is_set() {
+        println!("max: {max:?}");
+
+        if value.is_none() {
             return value;
         }
+
+        let value = value.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).value, parent.clone(), |s| sup_map(s), sup);
 
         let emin;
         let emax;
@@ -208,8 +215,11 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
             emin = Some(value.clone().unwrap());
         }
 
+        println!("{}", max.is_set());
+
         if max.is_set() {
-            emax = Some(max.unwrap());
+            let unwrapped = max.unwrap();
+            emax = Some(unwrapped);
         } else {
             emax = Some(value.clone().unwrap());
         }
