@@ -8,7 +8,7 @@ use crate::ui::styles::enums::{BackgroundRes, Geometry, Origin, TextAlign, TextF
 use crate::ui::styles::interpolate::{BasicInterpolatable, Interpolator};
 use crate::ui::styles::types::Dimension;
 use crate::ui::styles::unit::Unit;
-use crate::ui::styles::{InheritSupplier, Resolve, ResolveResult, UiStyle, UiValue, DEFAULT_STYLE};
+use crate::ui::styles::{InheritSupplier, Parseable, ResolveResult, UiStyle, UiValue, DEFAULT_STYLE};
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{PClamp, TetrahedronOp};
 use std::rc::Rc;
@@ -16,36 +16,19 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct TextStyle {
-    pub size: Resolve<f32>,
-    pub kerning: Resolve<f32>,
-    pub skew: Resolve<f32>,
-    pub stretch: Resolve<Dimension<f32>>,
-    pub font: Resolve<usize>,
-    pub fit: Resolve<TextFit>,
-    pub color: Resolve<RgbColor>,
-    pub select_color: Resolve<RgbColor>,
-    pub align_x: Resolve<TextAlign>,
-    pub align_y: Resolve<TextAlign>,
+    pub size: UiValue<f32>,
+    pub kerning: UiValue<f32>,
+    pub skew: UiValue<f32>,
+    pub stretch: UiValue<Dimension<f32>>,
+    pub font: UiValue<usize>,
+    pub fit: UiValue<TextFit>,
+    pub color: UiValue<RgbColor>,
+    pub select_color: UiValue<RgbColor>,
+    pub align_x: UiValue<TextAlign>,
+    pub align_y: UiValue<TextAlign>,
 }
 
 impl TextStyle {
-    pub fn initial() -> Self {
-        Self {
-            size: UiValue::Measurement(Unit::BarleyCorn(1.0))
-                .to_field()
-                .into(),
-            kerning: UiValue::None.to_field().into(),
-            skew: UiValue::None.to_field().into(),
-            stretch: UiValue::None.to_field().into(),
-            font: UiValue::Auto.into(),
-            fit: UiValue::Auto.into(),
-            color: UiValue::Auto.into(),
-            select_color: UiValue::Auto.into(),
-            align_x: UiValue::Auto.into(),
-            align_y: UiValue::Auto.into(),
-        }
-    }
-
     pub fn merge_unset(&mut self, other: &TextStyle) {
         self.size.merge_unset(&other.size);
         self.kerning.merge_unset(&other.kerning);
@@ -77,16 +60,16 @@ impl TextStyle {
 pub struct TransformStyle {
     pub translate: VectorField<i32>,
     pub scale: VectorField<f32>,
-    pub rotate: Resolve<f32>,
-    pub origin: Resolve<Origin>,
+    pub rotate: UiValue<f32>,
+    pub origin: UiValue<Origin>,
 }
 
 impl TransformStyle {
     pub fn initial() -> Self {
         Self {
-            translate: VectorField::splat(UiValue::Just(0).to_field().into()),
-            scale: VectorField::splat(UiValue::Just(1.0).to_field().into()),
-            rotate: UiValue::Just(0.0).to_field().into(),
+            translate: VectorField::splat(UiValue::Just(0)),
+            scale: VectorField::splat(UiValue::Just(1.0)),
+            rotate: UiValue::Just(0.0),
             origin: UiValue::Just(Origin::Center).into(),
         }
     }
@@ -108,16 +91,16 @@ impl TransformStyle {
 
 #[derive(Clone, Debug)]
 pub struct VectorField<T: PartialOrd + Clone + 'static> {
-    pub x: Resolve<T>,
-    pub y: Resolve<T>,
+    pub x: UiValue<T>,
+    pub y: UiValue<T>,
 }
 
 impl<T: PartialOrd + Clone + 'static> VectorField<T> {
-    pub fn splat(t: Resolve<T>) -> Self {
+    pub fn splat(t: UiValue<T>) -> Self {
         Self { x: t.clone(), y: t }
     }
 
-    pub fn set(&mut self, t: Resolve<T>) {
+    pub fn set(&mut self, t: UiValue<T>) {
         self.x = t.clone();
         self.y = t;
     }
@@ -172,153 +155,148 @@ impl<T: PartialOrd + Clone + 'static> VectorField<T> {
 
 #[derive(Clone, Debug)]
 pub struct LayoutField<T: PartialOrd + Clone + 'static> {
-    pub value: UiValue<T>,
+    pub base: UiValue<T>,
     pub min: UiValue<T>,
     pub max: UiValue<T>,
 }
 
 impl<T: PartialOrd + Clone> LayoutField<T> {
-    pub fn to_resolve(self) -> Resolve<T> {
-        Resolve::LayoutField(self)
+    pub fn merge_at_set(&mut self, other: &Self) {
+        self.base.merge_at_set(&other.base);
+        self.min.merge_at_set(&other.min);
+        self.max.merge_at_set(&other.max);
     }
 
+    pub fn merge_unset(&mut self, other: &Self) {
+        self.base.merge_unset(&other.base);
+        self.min.merge_unset(&other.min);
+        self.max.merge_unset(&other.max);
+    }
+    
     pub(crate) fn resolve<F, SF>(
         &self,
         dpi: f32,
         parent: Option<Element>,
         map: F,
-        sup_map: SF,
-        sup: &dyn InheritSupplier
+        sup: &dyn InheritSupplier,
+        sup_map: SF
     ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
         SF: Fn(&dyn InheritSupplier) -> T
     {
-        let value = self.value.resolve(dpi, parent.clone(), |s| &map(s).value);
+        let value = self.base.resolve(dpi, parent.clone(), |s| &map(s).base);
         let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
         let max = self.max.resolve(dpi, parent.clone(), |s| &map(s).max);
-
-        println!("max: {max:?}");
 
         if value.is_none() {
             return value;
         }
 
-        let value = value.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).value, parent.clone(), |s| sup_map(s), sup);
+        let value = value.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).base, parent.clone(), |s| sup_map(s), sup);
 
-        let emin;
-        let emax;
+        let mut emin = value.clone();
+        let mut emax = value.clone();
 
-        if min.is_set() {
-            emin = Some(min.unwrap());
-        } else {
-            emin = Some(value.clone().unwrap());
+        if !min.is_none() {
+            let u = min.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).min, parent.clone(), |s| sup_map(s), sup);
+            emin = u;
         }
 
-        println!("{}", max.is_set());
-
-        if max.is_set() {
-            let unwrapped = max.unwrap();
-            emax = Some(unwrapped);
-        } else {
-            emax = Some(value.clone().unwrap());
+        if !max.is_none() {
+            let u = max.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).max, parent.clone(), |s| sup_map(s), sup);
+            emax = u;
         }
 
-        ResolveResult::Value(value.unwrap().p_clamp(emin.unwrap(), emax.unwrap()))
+        ResolveResult::Value(value.p_clamp(emin, emax))
     }
 }
 
 impl<T: PartialOrd + Clone> From<UiValue<T>> for LayoutField<T> {
     fn from(value: UiValue<T>) -> Self {
         LayoutField {
-            value,
-            min: UiValue::None,
-            max: UiValue::None,
+            base: value.clone(),
+            min: value.clone(),
+            max: value,
         }
     }
 }
 
 impl<T: PartialOrd + Clone> LayoutField<T> {
     pub fn is_set(&self) -> bool {
-        return self.value.is_set();
+        self.base.is_set()
     }
 
     pub fn is_none(&self) -> bool {
-        return matches!(self.value, UiValue::None);
+        matches!(self.base, UiValue::None)
     }
 
     pub fn is_auto(&self) -> bool {
-        return matches!(self.value, UiValue::Auto);
+        matches!(self.base, UiValue::Auto)
     }
 
     pub fn is_unset(&self) -> bool {
-        return matches!(self.value, UiValue::Unset);
+        matches!(self.base, UiValue::Unset)
     }
 
     pub fn is_min_set(&self) -> bool {
-        return self.min.is_set();
+        self.min.is_set()
     }
 
     pub fn is_min_none(&self) -> bool {
-        return matches!(self.min, UiValue::None);
+        matches!(self.min, UiValue::None)
     }
 
     pub fn is_min_auto(&self) -> bool {
-        return matches!(self.min, UiValue::Auto);
+        matches!(self.min, UiValue::Auto)
     }
 
     pub fn is_min_unset(&self) -> bool {
-        return matches!(self.min, UiValue::Unset);
+        matches!(self.min, UiValue::Unset)
     }
 
     pub fn is_max_set(&self) -> bool {
-        return self.max.is_set();
+        self.max.is_set()
     }
 
     pub fn is_max_none(&self) -> bool {
-        return matches!(self.max, UiValue::None);
+        matches!(self.max, UiValue::None)
     }
 
     pub fn is_max_auto(&self) -> bool {
-        return matches!(self.max, UiValue::Auto);
+        matches!(self.max, UiValue::Auto)
     }
 
     pub fn is_max_unset(&self) -> bool {
-        return matches!(self.max, UiValue::Unset);
+        matches!(self.max, UiValue::Unset)
     }
+}
 
-    pub fn apply<F>(&self, value: T, elem: &UiElement, map: F) -> T
-    where
-        F: Fn(&UiStyle) -> &Self,
-    {
-        let min = self
-            .min
-            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                &map(s).min
-            });
-        let max = self
-            .max
-            .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
-                &map(s).max
-            });
+impl<T: FromStr + Clone + PartialOrd + 'static> Parseable for LayoutField<T> {
+    fn parse(s: &str) -> Result<Self, String> {
+        let mut tokens = s.split_whitespace();
 
-        let mut ret = value;
+        let first = tokens.next().ok_or("expected base value")?;
+        let base = UiValue::<T>::parse(first)?;
+        let mut min = base.clone();
+        let mut max = base.clone();
 
-        if min.is_set() {
-            let min = min.unwrap();
-            if ret < min {
-                ret = min;
+        let mut t_iter = tokens.peekable();
+        while let Some(&kw) = t_iter.peek() {
+            t_iter.next();
+            let val_str = t_iter
+                .next()
+                .ok_or_else(|| format!("expected value after `{kw}`"))?;
+            let val = UiValue::<T>::parse(val_str)?;
+
+            match kw {
+                "min" => min = val,
+                "max" => max = val,
+                _ => return Err(format!("unexpected keyword: {kw}")),
             }
         }
 
-        if max.is_set() {
-            let max = max.unwrap();
-            if ret > max {
-                ret = max;
-            }
-        }
-
-        ret
+        Ok(LayoutField { base, min, max })
     }
 }
 
@@ -351,63 +329,54 @@ impl Interpolator<TextStyle> for TextStyle {
 
 #[derive(Clone, Debug)]
 pub struct SideStyle {
-    pub top: Resolve<i32>,
-    pub bottom: Resolve<i32>,
-    pub left: Resolve<i32>,
-    pub right: Resolve<i32>,
+    pub top: LayoutField<i32>,
+    pub bottom: LayoutField<i32>,
+    pub left: LayoutField<i32>,
+    pub right: LayoutField<i32>,
 }
 
 impl SideStyle {
-    // this is just so the proc macro doesnt fuck itself up
-    // band aid on leaky pipe type shit
-    pub fn for_value<F>(&mut self, f: F)
-    where
-        F: Fn(&mut SideStyle),
-    {
-        f(self);
-    }
-
     pub fn all_i32(v: i32) -> Self {
         Self {
-            top: UiValue::Just(v).to_field().to_resolve(),
-            bottom: UiValue::Just(v).to_field().to_resolve(),
-            left: UiValue::Just(v).to_field().to_resolve(),
-            right: UiValue::Just(v).to_field().to_resolve(),
+            top: UiValue::Just(v).to_field(),
+            bottom: UiValue::Just(v).to_field(),
+            left: UiValue::Just(v).to_field(),
+            right: UiValue::Just(v).to_field(),
         }
     }
 
-    pub fn all(v: Resolve<i32>) -> Self {
+    pub fn all(v: UiValue<i32>) -> Self {
         Self {
-            top: v.clone(),
-            bottom: v.clone(),
-            left: v.clone(),
-            right: v,
+            top: v.clone().to_field(),
+            bottom: v.clone().to_field(),
+            left: v.clone().to_field(),
+            right: v.to_field(),
         }
     }
 
-    pub fn inline(v: Resolve<i32>) -> Self {
+    pub fn inline(v: UiValue<i32>) -> Self {
         Self {
-            top: UiValue::None.to_resolve(),
-            bottom: UiValue::None.to_resolve(),
-            left: v.clone(),
-            right: v,
+            top: UiValue::None.to_field(),
+            bottom: UiValue::None.to_field(),
+            left: v.clone().to_field(),
+            right: v.to_field(),
         }
     }
 
-    pub fn block(v: Resolve<i32>) -> Self {
+    pub fn block(v: UiValue<i32>) -> Self {
         Self {
-            left: UiValue::None.to_resolve(),
-            right: UiValue::None.to_resolve(),
-            top: v.clone(),
-            bottom: v,
+            left: UiValue::None.to_field(),
+            right: UiValue::None.to_field(),
+            top: v.clone().to_field(),
+            bottom: v.to_field(),
         }
     }
 
-    pub fn set(&mut self, v: Resolve<i32>) {
-        self.top = v.clone();
-        self.bottom = v.clone();
-        self.left = v.clone();
-        self.right = v;
+    pub fn set(&mut self, v: UiValue<i32>) {
+        self.top = v.clone().to_field();
+        self.bottom = v.clone().to_field();
+        self.left = v.clone().to_field();
+        self.right = v.to_field();
     }
 
     pub fn get<E, F, PF>(
@@ -428,7 +397,7 @@ impl SideStyle {
             .top
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).top
-            });
+            }, sup, |s| percent_map(s)[0]);
         let top = if top.is_set() {
             top.unwrap()
         } else if top.is_percent() {
@@ -441,7 +410,7 @@ impl SideStyle {
             .bottom
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).bottom
-            });
+            }, sup, |s| percent_map(s)[1]);
         let bottom = if bottom.is_set() {
             bottom.unwrap()
         } else if bottom.is_percent() {
@@ -454,7 +423,7 @@ impl SideStyle {
             .left
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).left
-            });
+            }, sup, |s| percent_map(s)[2]);
         let left = if left.is_set() {
             left.unwrap()
         } else if left.is_percent() {
@@ -467,7 +436,7 @@ impl SideStyle {
             .right
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).right
-            });
+            }, sup, |s| percent_map(s)[3]);
         let right = if right.is_set() {
             right.unwrap()
         } else if right.is_percent() {
@@ -501,10 +470,10 @@ impl FromStr for SideStyle {
         let s = parse_4xi32_abstract(s).map_err(|_| "Whoops!?! Looks like your amazing string wasn't compatible with our patented parse_4xi32 function...".to_string())?;
         let [a, b, c, d] = s;
         Ok(Self {
-            top: a,
-            bottom: b,
-            left: c,
-            right: d,
+            top: a.to_field(),
+            bottom: b.to_field(),
+            left: c.to_field(),
+            right: d.to_field(),
         })
     }
 }
@@ -524,22 +493,21 @@ impl Interpolator<SideStyle> for SideStyle {
 
 #[derive(Clone, Debug)]
 pub struct ShapeStyle {
-    pub resource: Resolve<BasicInterpolatable<BackgroundRes>>,
-    pub color: Resolve<RgbColor>,
-    pub texture: Resolve<BasicInterpolatable<Drawable>>,
-    pub shape: Resolve<BasicInterpolatable<Geometry>>,
-    pub adaptive_ratio: Resolve<f32>,
+    pub resource: UiValue<BasicInterpolatable<BackgroundRes>>,
+    pub color: UiValue<RgbColor>,
+    pub texture: UiValue<BasicInterpolatable<Drawable>>,
+    pub shape: UiValue<BasicInterpolatable<Geometry>>,
+    pub adaptive_ratio: UiValue<f32>,
 }
 
 impl ShapeStyle {
     pub fn initial() -> Self {
         Self {
-            resource: UiValue::Just(BackgroundRes::Color.into()).to_resolve(),
-            color: UiValue::Just(RgbColor::white().into()).to_resolve(),
-            texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect)))
-                .to_resolve(),
-            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+            resource: UiValue::Just(BackgroundRes::Color.into()),
+            color: UiValue::Just(RgbColor::white().into()),
+            texture: UiValue::None,
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))),
+            adaptive_ratio: UiValue::Just(1.0),
         }
     }
 
@@ -591,7 +559,7 @@ blanked_partial_ord!(ShapeStyle);
 pub struct ScrollBarStyle {
     pub track: ShapeStyle,
     pub knob: ShapeStyle,
-    pub size: Resolve<i32>,
+    pub size: UiValue<i32>,
 }
 
 impl ScrollBarStyle {
@@ -599,7 +567,7 @@ impl ScrollBarStyle {
         Self {
             track: ShapeStyle::initial(),
             knob: ShapeStyle::initial(),
-            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)),
         }
     }
 

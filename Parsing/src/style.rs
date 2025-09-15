@@ -6,15 +6,9 @@ impl StyleParser {
         for line in expr.split(';') {
             if let Some((acc, val)) = line.split_once(':') {
                 if acc.is_empty() || val.is_empty() { continue }
-                let (acc, sub) = if let Some((l, r)) = acc.split_once('(') {
-                    let r = r.trim_end_matches(')');
-                    (l, Some(r.to_string()))
-                } else {
-                    (acc, None)
-                };
+                
                 e.entries.push(StyleExprEntry {
                     accessor: acc.trim().to_string(),
-                    sub_accessor: sub,
                     value: val.trim().to_string(),
                 });
             }
@@ -30,6 +24,5 @@ pub struct StyleExpr {
 
 pub struct StyleExprEntry {
     pub accessor: String,
-    pub sub_accessor: Option<String>,
     pub value: String
 }

@@ -13,7 +13,7 @@ use crate::ui::styles::enums::Geometry;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use crate::ui::styles::{Resolve, UiValue};
+use crate::ui::styles::{UiValue};
 
 #[derive(Clone)]
 pub struct UiContext {

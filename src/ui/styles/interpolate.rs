@@ -1,14 +1,12 @@
 use crate::color::{Color, ColorFormat};
 use crate::ui::elements::UiElementStub;
-use crate::ui::styles::{Resolve, UiStyle, UiStyleInner, UiValue, DEFAULT_STYLE};
+use crate::ui::styles::groups::LayoutField;
+use crate::ui::styles::{UiStyle, UiStyleInner, UiValue};
 use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 use std::cmp::Ordering;
-use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
-use crate::resolve;
-use crate::ui::styles::enums::TextAlign;
 
 pub trait Interpolator<T: PartialOrd + Clone + 'static> {
     fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
@@ -74,7 +72,7 @@ impl<T: Clone> DerefMut for BasicInterpolatable<T> {
     }
 }
 
-impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Resolve<T> {
+impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for UiValue<T> {
     fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
     where
         E: UiElementStub,
@@ -103,7 +101,7 @@ impl<T: PartialOrd + Clone + 'static + Interpolator<T>> Interpolator<T> for Reso
                 Unsafe::cast_lifetime(&f(s).resolve(dpi, parent.clone(), |s2| &f(s2)).unwrap())
             });
 
-            *self = Resolve::UiValue(UiValue::Just(self_resolve));
+            *self = UiValue::Just(self_resolve);
         }
     }
 }
@@ -249,5 +247,17 @@ where
                 &f(s).components()[i]
             });
         }
+    }
+}
+
+impl<T: Clone + PartialOrd + Interpolator<T> + 'static> Interpolator<T> for LayoutField<T> {
+    fn interpolate<E, F>(&mut self, start: &Self, end: &Self, percent: f32, elem: &E, f: F)
+    where
+        E: UiElementStub,
+        F: Fn(&UiStyle) -> &Self
+    {
+        self.min.interpolate(&start.base, &end.base, percent, elem, |s| &f(s).base);
+        self.min.interpolate(&start.min, &end.min, percent, elem, |s| &f(s).min);
+        self.max.interpolate(&start.max, &end.max, percent, elem, |s| &f(s).max);
     }
 }

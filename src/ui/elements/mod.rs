@@ -12,7 +12,7 @@ use crate::input::{Input, MouseAction, RawInputEvent};
 use crate::math::vec::Vec2;
 use crate::rendering::text::Font;
 use crate::rendering::{OpenGLRenderer, RenderContext, Transform};
-use crate::resolve;
+use crate::{resolve, resolve3};
 use crate::ui::anim::ElementAnimator;
 use crate::ui::attributes::Attributes;
 use crate::ui::context::{UiContext, UiResources};
@@ -238,7 +238,6 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         }
         let style = self.style();
 
-
         let state = this.state_mut();
         state.ctx.dpi = ctx.dpi() as f32;
 
@@ -324,7 +323,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
             crate::debug::PROFILER.ui_compute(|t| t.resume());
         }
 
-        let width = resolve!(self, width);
+        let width = resolve3!(self, width, ctx, |s| s.width());
         let width = if width.is_set() {
             width.unwrap()
         } else if width.is_percent() {
@@ -333,7 +332,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         } else {
             computed_size.0 + padding[2] + padding[3]
         };
-        let height = resolve!(self, height);
+        let height = resolve3!(self, height, ctx, |s| s.height());
         let height = if height.is_set() {
             height.unwrap()
         } else if height.is_percent() {
@@ -388,7 +387,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         };
 
         if let Position::Absolute = position {
-            let x = resolve!(self, x);
+            let x = resolve3!(self, x, ctx, |s| s.width());
             let x = if x.is_set() {
                 x.unwrap()
             } else if x.is_percent() {
@@ -397,7 +396,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
                 0
             };
 
-            let y = resolve!(self, y);
+            let y = resolve3!(self, y, ctx, |s| s.height());
             let y = if y.is_set() {
                 y.unwrap()
             } else if y.is_percent() {

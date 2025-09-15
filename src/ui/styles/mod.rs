@@ -31,160 +31,160 @@ use crate::ui::geometry::SimpleRect;
 
 lazy! {
     pub static DEFAULT_STYLE_INNER: UiStyleInner = UiStyleInner {
-        x: UiValue::Just(0).to_field().to_resolve(),
-        y: UiValue::Just(0).to_field().to_resolve(),
-        width: UiValue::Auto.to_field().to_resolve(),
-        height: UiValue::Auto.to_field().to_resolve(),
-        padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5)).to_field().to_resolve()),
-        margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5)).to_field().to_resolve()),
-        origin: UiValue::Just(Origin::BottomLeft).to_resolve(),
-        position: UiValue::Just(Position::Relative).to_resolve(),
-        direction: UiValue::Just(Direction::Horizontal).to_resolve(),
-        child_align_x: UiValue::Just(ChildAlign::Start).to_resolve(),
-        child_align_y: UiValue::Just(ChildAlign::Start).to_resolve(),
+        x: UiValue::Just(0).to_field(),
+        y: UiValue::Just(0).to_field(),
+        width: UiValue::Auto.to_field(),
+        height: UiValue::Auto.to_field(),
+        padding: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5))),
+        margin: SideStyle::all(UiValue::Measurement(Unit::BeardFortnight(0.5))),
+        origin: UiValue::Just(Origin::BottomLeft),
+        position: UiValue::Just(Position::Relative),
+        direction: UiValue::Just(Direction::Horizontal),
+        child_align_x: UiValue::Just(ChildAlign::Start),
+        child_align_y: UiValue::Just(ChildAlign::Start),
         background: ShapeStyle {
-            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
-            color: UiValue::Just(RgbColor::white()).to_resolve(),
-            texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
-            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)),
+            color: UiValue::Just(RgbColor::white()),
+            texture: UiValue::None,
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))),
+            adaptive_ratio: UiValue::Just(1.0),
         },
         border: ShapeStyle {
-            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
-            color: UiValue::Just(RgbColor::black()).to_resolve(),
-            texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Adaptive(MVR.adaptive.void_rect))).to_resolve(),
-            //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))).to_resolve(),
-            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)),
+            color: UiValue::Just(RgbColor::black()),
+            texture: UiValue::None,
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Adaptive(MVR.adaptive.void_rect))),
+            //shape: UiValue::Just(BasicInterpolatable::new(UiShape::Shape(MVR.shape.rect))),
+            adaptive_ratio: UiValue::Just(1.0),
         },
         detail: ShapeStyle {
-            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
-            color: UiValue::Just(RgbColor::black()).to_resolve(),
-            texture: UiValue::None.to_resolve(),
-            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
-            adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+            resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)),
+            color: UiValue::Just(RgbColor::black()),
+            texture: UiValue::None,
+            shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))),
+            adaptive_ratio: UiValue::Just(1.0),
         },
         text: TextStyle {
-            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_field().to_resolve(),
-            kerning: UiValue::Just(0.0).to_field().to_resolve(),
-            skew: UiValue::Just(0.0).to_field().to_resolve(),
-            stretch: UiValue::Just(Dimension::new(1.0, 1.0)).to_field().to_resolve(),
-            font: UiValue::Just(MVR.font.default).to_field().to_resolve(),
-            fit: UiValue::Just(TextFit::ExpandParent).to_resolve(),
-            color: UiValue::Just(RgbColor::black()).to_resolve(),
-            select_color: UiValue::Just(RgbColor::blue()).to_resolve(),
-            align_x: UiValue::Just(TextAlign::Middle).to_resolve(),
-            align_y: UiValue::Just(TextAlign::Middle).to_resolve(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)),
+            kerning: UiValue::Just(0.0),
+            skew: UiValue::Just(0.0),
+            stretch: UiValue::Just(Dimension::new(1.0, 1.0)),
+            font: UiValue::Just(MVR.font.default),
+            fit: UiValue::Just(TextFit::ExpandParent),
+            color: UiValue::Just(RgbColor::black()),
+            select_color: UiValue::Just(RgbColor::blue()),
+            align_x: UiValue::Just(TextAlign::Middle),
+            align_y: UiValue::Just(TextAlign::Middle),
         },
         transform: TransformStyle {
-            translate: VectorField::splat(UiValue::Just(0).to_field().to_resolve()),
-            scale: VectorField::splat(UiValue::Just(1.0).to_field().to_resolve()),
-            rotate: UiValue::Just(0.0).to_field().to_resolve(),
-            origin: UiValue::Just(Origin::BottomLeft).to_field().to_resolve(),
+            translate: VectorField::splat(UiValue::Just(0)),
+            scale: VectorField::splat(UiValue::Just(1.0)),
+            rotate: UiValue::Just(0.0),
+            origin: UiValue::Just(Origin::BottomLeft),
         },
-        overflow_x: UiValue::Just(Overflow::Normal).to_resolve(),
-        overflow_y: UiValue::Just(Overflow::Normal).to_resolve(),
+        overflow_x: UiValue::Just(Overflow::Normal),
+        overflow_y: UiValue::Just(Overflow::Normal),
         scrollbar: ScrollBarStyle {
             track: ShapeStyle {
-                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
-                color: UiValue::Just(scroll::OUTER_COLOR.clone()).to_resolve(),
-                texture: UiValue::None.to_resolve(),
-                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
-                adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)),
+                color: UiValue::Just(scroll::OUTER_COLOR.clone()),
+                texture: UiValue::None,
+                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))),
+                adaptive_ratio: UiValue::Just(1.0),
             },
             knob: ShapeStyle {
-                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)).to_resolve(),
-                color: UiValue::Just(scroll::INNER_COLOR.clone()).to_resolve(),
-                texture: UiValue::None.to_resolve(),
-                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))).to_resolve(),
-                adaptive_ratio: UiValue::Just(1.0).to_resolve(),
+                resource: UiValue::Just(BasicInterpolatable::new(BackgroundRes::Color)),
+                color: UiValue::Just(scroll::INNER_COLOR.clone()),
+                texture: UiValue::None,
+                shape: UiValue::Just(BasicInterpolatable::new(Geometry::Shape(MVR.shape.rect))),
+                adaptive_ratio: UiValue::Just(1.0),
             },
-            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)),
         }
     };
 
     pub static EMPTY_STYLE_INNER: UiStyleInner = UiStyleInner {
-        x: UiValue::Unset.to_field().to_resolve(),
-        y: UiValue::Unset.to_field().to_resolve(),
-        width: UiValue::Unset.to_field().to_resolve(),
-        height: UiValue::Unset.to_field().to_resolve(),
-        padding: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
-        margin: SideStyle::all(UiValue::Unset.to_field().to_resolve()),
-        origin: UiValue::Unset.to_resolve(),
-        position: UiValue::Unset.to_resolve(),
-        direction: UiValue::Unset.to_resolve(),
-        child_align_x: UiValue::Unset.to_resolve(),
-        child_align_y: UiValue::Unset.to_resolve(),
+        x: UiValue::Unset.to_field(),
+        y: UiValue::Unset.to_field(),
+        width: UiValue::Unset.to_field(),
+        height: UiValue::Unset.to_field(),
+        padding: SideStyle::all(UiValue::Unset),
+        margin: SideStyle::all(UiValue::Unset),
+        origin: UiValue::Unset,
+        position: UiValue::Unset,
+        direction: UiValue::Unset,
+        child_align_x: UiValue::Unset,
+        child_align_y: UiValue::Unset,
         background: ShapeStyle {
-            resource: UiValue::Unset.to_resolve(),
-            color: UiValue::Unset.to_resolve(),
-            texture: UiValue::Unset.to_resolve(),
-            shape: UiValue::Unset.to_resolve(),
-            adaptive_ratio: UiValue::Unset.to_resolve(),
+            resource: UiValue::Unset,
+            color: UiValue::Unset,
+            texture: UiValue::Unset,
+            shape: UiValue::Unset,
+            adaptive_ratio: UiValue::Unset,
         },
         border: ShapeStyle {
-            resource: UiValue::Unset.to_resolve(),
-            color: UiValue::Unset.to_resolve(),
-            texture: UiValue::Unset.to_resolve(),
-            shape: UiValue::Unset.to_resolve(),
-            adaptive_ratio: UiValue::Unset.to_resolve(),
+            resource: UiValue::Unset,
+            color: UiValue::Unset,
+            texture: UiValue::Unset,
+            shape: UiValue::Unset,
+            adaptive_ratio: UiValue::Unset,
         },
         detail: ShapeStyle {
-            resource: UiValue::Unset.to_resolve(),
-            color: UiValue::Unset.to_resolve(),
-            texture: UiValue::Unset.to_resolve(),
-            shape: UiValue::Unset.to_resolve(),
-            adaptive_ratio: UiValue::Unset.to_resolve(),
+            resource: UiValue::Unset,
+            color: UiValue::Unset,
+            texture: UiValue::Unset,
+            shape: UiValue::Unset,
+            adaptive_ratio: UiValue::Unset,
         },
         text: TextStyle {
-            size: UiValue::Unset.to_field().to_resolve(),
-            kerning: UiValue::Unset.to_field().to_resolve(),
-            skew: UiValue::Unset.to_field().to_resolve(),
-            stretch: UiValue::Unset.to_field().to_resolve(),
-            font: UiValue::Unset.to_field().to_resolve(),
-            fit: UiValue::Unset.to_field().to_resolve(),
-            color: UiValue::Unset.to_resolve(),
-            select_color: UiValue::Unset.to_resolve(),
-            align_x: UiValue::Unset.to_resolve(),
-            align_y: UiValue::Unset.to_resolve(),
+            size: UiValue::Unset,
+            kerning: UiValue::Unset,
+            skew: UiValue::Unset,
+            stretch: UiValue::Unset,
+            font: UiValue::Unset,
+            fit: UiValue::Unset,
+            color: UiValue::Unset,
+            select_color: UiValue::Unset,
+            align_x: UiValue::Unset,
+            align_y: UiValue::Unset,
         },
         transform: TransformStyle {
-            translate: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
-            scale: VectorField::splat(UiValue::Unset.to_field().to_resolve()),
-            rotate: UiValue::Unset.to_field().to_resolve(),
-            origin: UiValue::Unset.to_field().to_resolve(),
+            translate: VectorField::splat(UiValue::Unset),
+            scale: VectorField::splat(UiValue::Unset),
+            rotate: UiValue::Unset,
+            origin: UiValue::Unset,
         },
-        overflow_x: UiValue::Unset.to_resolve(),
-        overflow_y: UiValue::Unset.to_resolve(),
+        overflow_x: UiValue::Unset,
+        overflow_y: UiValue::Unset,
         scrollbar: ScrollBarStyle {
             track: ShapeStyle {
-                resource: UiValue::Unset.to_resolve(),
-                color: UiValue::Unset.to_resolve(),
-                texture: UiValue::Unset.to_resolve(),
-                shape: UiValue::Unset.to_resolve(),
-                adaptive_ratio: UiValue::Unset.to_resolve(),
+                resource: UiValue::Unset,
+                color: UiValue::Unset,
+                texture: UiValue::Unset,
+                shape: UiValue::Unset,
+                adaptive_ratio: UiValue::Unset,
             },
             knob: ShapeStyle {
-                resource: UiValue::Unset.to_resolve(),
-                color: UiValue::Unset.to_resolve(),
-                texture: UiValue::Unset.to_resolve(),
-                shape: UiValue::Unset.to_resolve(),
-                adaptive_ratio: UiValue::Unset.to_resolve(),
+                resource: UiValue::Unset,
+                color: UiValue::Unset,
+                texture: UiValue::Unset,
+                shape: UiValue::Unset,
+                adaptive_ratio: UiValue::Unset,
             },
             //FUCK YOU WHY ARE YOU BREAKING WTF
-            size: UiValue::Measurement(Unit::BeardFortnight(1.0)).to_resolve(),
+            size: UiValue::Measurement(Unit::BeardFortnight(1.0)),
         }
     };
 
     pub static DEFAULT_STYLE: UiStyle = UiStyle {
         base: DEFAULT_STYLE_INNER.clone(),
-        transition_duration: UiValue::Just(0).to_resolve(),
+        transition_duration: UiValue::Just(0),
         hover: EMPTY_STYLE_INNER.clone()
     };
 
     pub static EMPTY_STYLE: UiStyle = UiStyle {
         base: EMPTY_STYLE_INNER.clone(),
-        transition_duration: UiValue::Unset.to_resolve(),
+        transition_duration: UiValue::Unset,
         hover: EMPTY_STYLE_INNER.clone()
     };
 }
@@ -197,7 +197,7 @@ macro_rules! resolve {
             let s = &$elem.style().$($style).*;
             let state = $elem.state();
             let body = $elem.body();
-            crate::ui::utils::resolve_resolve(s, state, body, |s| &s.$($style).*)
+            crate::ui::utils::resolve_value(s, state, body, |s| &s.$($style).*)
         }
     };
 }
@@ -207,26 +207,28 @@ macro_rules! resolve {
 macro_rules! resolve2 {
     ($elem_state:ident, $elem_body:ident, $style_ident:ident.$($style:ident).*) => {
         {
-            crate::ui::utils::resolve_resolve(&$style_ident.$($style).*, $elem_state, $elem_body, |s| &s.$($style).*)
+            crate::ui::utils::resolve_value(&$style_ident.$($style).*, $elem_state, $elem_body, |s| &s.$($style).*)
         }
     };
 }
 
 #[macro_export]
+macro_rules! resolve3 {
+    ($elem:ident, $($style:ident).*, $sup:ident, $sup_a:expr) => {
+        {
+            let s = &$elem.style().$($style).*;
+            let state = $elem.state();
+            let body = $elem.body();
+            crate::ui::utils::resolve_field(s, state, body, |s| &s.$($style).*, $sup, $sup_a)
+        }
+    };
+}
+
+//this macro solely exists so the other macros dont break LOL
+#[macro_export]
 macro_rules! modify_style {
     ($($style:ident).* = $($ac:tt)*) => {
-        $($style).*.for_value(|v| *v = $($ac)*);
-    };
-    ($($style:ident).*! = $($ac:tt)*) => {
-        $($style).*.x.for_value(|v| *v = $($ac)*);
-        $($style).*.y.for_value(|v| *v = $($ac)*);
-    };
-    ($($style:ident).*($acc:ident) = $($ac:tt)*) => {
-        $($style).*.for_field(|l| (*l).$acc = $($ac)*);
-    };
-    ($($style:ident).*!($acc:ident) = $($ac:tt)*) => {
-        $($style).*.x.for_field(|l| (*l).$acc = $($ac)*);
-        $($style).*.y.for_field(|l| (*l).$acc = $($ac)*);
+        $($style).* = $($ac)*;
     };
 }
 
@@ -284,17 +286,17 @@ impl Drop for UiStyleWriteObserver<'_> {
 
 #[derive(Clone, Debug)]
 pub struct UiStyleInner {
-    pub x: Resolve<i32>,
-    pub y: Resolve<i32>,
-    pub width: Resolve<i32>,
-    pub height: Resolve<i32>,
+    pub x: LayoutField<i32>,
+    pub y: LayoutField<i32>,
+    pub width: LayoutField<i32>,
+    pub height: LayoutField<i32>,
     pub padding: SideStyle,
     pub margin: SideStyle,
-    pub origin: Resolve<Origin>,
-    pub position: Resolve<Position>,
-    pub direction: Resolve<Direction>,
-    pub child_align_x: Resolve<ChildAlign>,
-    pub child_align_y: Resolve<ChildAlign>,
+    pub origin: UiValue<Origin>,
+    pub position: UiValue<Position>,
+    pub direction: UiValue<Direction>,
+    pub child_align_x: UiValue<ChildAlign>,
+    pub child_align_y: UiValue<ChildAlign>,
 
     pub background: ShapeStyle,
     pub border: ShapeStyle,
@@ -303,8 +305,8 @@ pub struct UiStyleInner {
     pub text: TextStyle,
     pub transform: TransformStyle,
 
-    pub overflow_x: Resolve<Overflow>,
-    pub overflow_y: Resolve<Overflow>,
+    pub overflow_x: UiValue<Overflow>,
+    pub overflow_y: UiValue<Overflow>,
     pub scrollbar: ScrollBarStyle,
 }
 
@@ -312,7 +314,7 @@ pub struct UiStyleInner {
 pub struct UiStyle {
     base: UiStyleInner,
     //unused atm
-    pub transition_duration: Resolve<i32>, //just is in ms
+    pub transition_duration: UiValue<i32>, //just is in ms
     pub hover: UiStyleInner,
 }
 
@@ -415,167 +417,6 @@ blanked_partial_ord!(UiStyleInner);
 blanked_partial_ord!(TextStyle);
 
 blanked_partial_ord!(SideStyle);
-
-pub trait Resolvable<T> {
-    fn resolve<F, SF, R>(&self, dpi: f32, parent: Option<Element>, map: F, sup_map: SF, sup: &dyn InheritSupplier) -> ResolveResult<T> where F: Fn(&UiStyle) -> &R, SF: Fn(&dyn InheritSupplier) -> T, R: Resolvable<T>;
-}
-
-#[derive(Clone, Debug)]
-pub enum Resolve<T: PartialOrd + Clone + 'static> {
-    UiValue(UiValue<T>),
-    LayoutField(LayoutField<T>),
-}
-
-//This guys proc macro is not fancy enough to support generics 🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣🤣
-impl<T: Savable + PartialOrd + Clone + 'static> Savable for Resolve<T> {
-    fn save(&self, saver: &mut impl Saver) {
-        match self {
-            Resolve::UiValue(v) => {
-                0u8.save(saver);
-                v.save(saver);
-            }
-            Resolve::LayoutField(l) => {
-                1u8.save(saver);
-                l.value.save(saver);
-                l.min.save(saver);
-                l.max.save(saver);
-            }
-        }
-    }
-
-    fn load(loader: &mut impl Loader) -> Result<Self, String> {
-        let id = u8::load(loader)?;
-        match id {
-            0 => {
-                let v = UiValue::<T>::load(loader)?;
-                Ok(Self::UiValue(v))
-            },
-            1 => {
-                let val = UiValue::<T>::load(loader)?;
-                let min = UiValue::<T>::load(loader)?;
-                let max = UiValue::<T>::load(loader)?;
-                let f = LayoutField {
-                    value: val,
-                    min,
-                    max
-                };
-                Ok(Self::LayoutField(f))
-            },
-            _ => Err("Illegal id for Resolve when loading!".to_string())
-        }
-    }
-}
-
-impl<T: PartialOrd + Clone + 'static> Resolve<T> {
-    pub fn resolve<F>(
-        &self,
-        dpi: f32,
-        parent: Option<Element>,
-        map: F,
-    ) -> ResolveResult<T>
-    where
-        F: Fn(&UiStyle) -> &Self,
-    {
-        match self {
-            Resolve::UiValue(v) => v.resolve(dpi, parent, |s| map(s).get_value()),
-            Resolve::LayoutField(l) => l.resolve(dpi, parent, |s| map(s).get_field()),
-        }
-    }
-
-    pub fn get_value(&self) -> &UiValue<T> {
-        enum_val_ref!(Resolve, self, UiValue)
-    }
-
-    pub fn get_field(&self) -> &LayoutField<T> {
-        enum_val_ref!(Resolve, self, LayoutField)
-    }
-
-    pub fn for_value<F>(&mut self, f: F)
-    where
-        F: Fn(&mut UiValue<T>),
-    {
-        match self {
-            Resolve::UiValue(v) => f(v),
-            Resolve::LayoutField(l) => f(&mut l.value),
-        }
-    }
-
-    pub fn for_field<F>(&mut self, f: F)
-    where
-        F: Fn(&mut LayoutField<T>),
-    {
-        match self {
-            Resolve::LayoutField(l) => f(l),
-            _ => {}
-        }
-    }
-
-    pub fn is_set(&self) -> bool {
-        match self {
-            Resolve::UiValue(v) => v.is_set(),
-            Resolve::LayoutField(l) => l.is_set(),
-        }
-    }
-
-    pub fn is_auto(&self) -> bool {
-        match self {
-            Resolve::UiValue(v) => matches!(v, UiValue::Auto),
-            Resolve::LayoutField(l) => l.is_auto(),
-        }
-    }
-
-    pub fn is_none(&self) -> bool {
-        match self {
-            Resolve::UiValue(v) => matches!(v, UiValue::None),
-            Resolve::LayoutField(l) => l.is_none(),
-        }
-    }
-
-    pub fn is_unset(&self) -> bool {
-        match self {
-            Resolve::UiValue(v) => matches!(v, UiValue::Unset),
-            Resolve::LayoutField(l) => l.is_unset(),
-        }
-    }
-
-    pub fn merge_unset(&mut self, other: &Resolve<T>) {
-        if self.is_unset() {
-            *self = other.clone();
-        }
-    }
-
-    pub fn merge_at_set(&mut self, to: &Resolve<T>) {
-        if !to.is_unset() {
-            *self = to.clone();
-        }
-    }
-
-    pub fn resolve_just(&self) -> &T {
-        match self {
-            Resolve::UiValue(value) => match value {
-                UiValue::Just(j) => Some(j),
-                _ => None,
-            },
-            Resolve::LayoutField(field) => match &field.value {
-                UiValue::Just(j) => Some(j),
-                _ => None,
-            },
-        }
-        .unwrap()
-    }
-}
-
-impl<T: PartialOrd + Clone + 'static> From<UiValue<T>> for Resolve<T> {
-    fn from(value: UiValue<T>) -> Self {
-        Resolve::UiValue(value)
-    }
-}
-
-impl<T: PartialOrd + Clone + 'static> From<LayoutField<T>> for Resolve<T> {
-    fn from(value: LayoutField<T>) -> Self {
-        Resolve::LayoutField(value)
-    }
-}
 
 #[derive(Clone, Default, Debug)]
 pub enum UiValue<T: Clone + 'static> {
@@ -727,7 +568,7 @@ impl<T> Debug for ResolveResult<T> {
 }
 
 impl<T: PartialOrd + Clone + Sized + 'static> ResolveResult<T> {
-    pub fn unwrap_or_default(self, default: &Resolve<T>) -> T {
+    pub fn unwrap_or_default(self, default: &UiValue<T>) -> T {
         match self {
             Self::Value(t) => t,
             _ => default.resolve_just().clone(),
@@ -758,10 +599,10 @@ impl<T: PartialOrd + Clone + Sized + 'static> ResolveResult<T> {
 
     pub fn unwrap_or_default_or_percentage<F>(
         self,
-        default: &Resolve<T>,
+        default: &UiValue<T>,
         maybe_parent: Option<Element>,
         map: F,
-        sup: &impl InheritSupplier,
+        sup: &dyn InheritSupplier,
     ) -> T
     where
         F: Fn(&dyn InheritSupplier) -> T,
@@ -779,7 +620,7 @@ impl<T: PartialOrd + Clone + Sized + 'static> ResolveResult<T> {
         &self,
         maybe_parent: Option<Element>,
         map: F,
-        sup: &impl InheritSupplier,
+        sup: &dyn InheritSupplier,
     ) -> T
     where
         F: Fn(&dyn InheritSupplier) -> T,
@@ -797,10 +638,6 @@ impl<T: PartialOrd + Clone + Sized + 'static> ResolveResult<T> {
 impl<T: Clone + PartialOrd + 'static> UiValue<T> {
     pub fn to_field(self) -> LayoutField<T> {
         LayoutField::from(self)
-    }
-
-    pub fn to_resolve(self) -> Resolve<T> {
-        Resolve::UiValue(self)
     }
 
     pub fn resolve<F>(
@@ -852,11 +689,39 @@ impl<T: Clone + PartialOrd + 'static> UiValue<T> {
             UiValue::Percent(p) => ResolveResult::Percent(*p),
         }
     }
+
+    pub fn resolve_just(&self) -> &T {
+        enum_val_ref!(UiValue, self, Just)
+    }
 }
 
 impl<T: Clone + 'static> UiValue<T> {
     pub fn is_set(&self) -> bool {
         !matches!(self, UiValue::None | UiValue::Auto | UiValue::Unset)
+    }
+
+    pub fn is_auto(&self) -> bool {
+        matches!(self, UiValue::Auto)
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, UiValue::None)
+    }
+
+    pub fn is_unset(&self) -> bool {
+        matches!(self, UiValue::Unset)
+    }
+
+    pub fn merge_unset(&mut self, other: &UiValue<T>) {
+        if self.is_unset() {
+            *self = other.clone();
+        }
+    }
+
+    pub fn merge_at_set(&mut self, to: &UiValue<T>) {
+        if !to.is_unset() {
+            *self = to.clone();
+        }
     }
 }
 
@@ -911,76 +776,76 @@ impl UiStyle {
 
     pub fn inheriting() -> Self {
         let shape = ShapeStyle {
-            resource: UiValue::Inherit.to_resolve(),
-            color: UiValue::Inherit.to_resolve(),
-            texture: UiValue::Inherit.to_resolve(),
-            shape: UiValue::Inherit.to_resolve(),
-            adaptive_ratio: UiValue::Inherit.to_resolve(),
+            resource: UiValue::Inherit,
+            color: UiValue::Inherit,
+            texture: UiValue::Inherit,
+            shape: UiValue::Inherit,
+            adaptive_ratio: UiValue::Inherit,
         };
 
         let trans = TransformStyle {
             translate: VectorField {
-                x: UiValue::Inherit.to_resolve(),
-                y: UiValue::Inherit.to_resolve()
+                x: UiValue::Inherit,
+                y: UiValue::Inherit
             },
             scale: VectorField {
-                x: UiValue::Inherit.to_resolve(),
-                y: UiValue::Inherit.to_resolve()
+                x: UiValue::Inherit,
+                y: UiValue::Inherit
             },
-            rotate: UiValue::Inherit.to_resolve(),
-            origin: UiValue::Inherit.to_resolve(),
+            rotate: UiValue::Inherit,
+            origin: UiValue::Inherit,
         };
 
         let inner_inherit = UiStyleInner {
-            x: UiValue::Inherit.to_resolve(),
-            y: UiValue::Inherit.to_resolve(),
-            width: UiValue::Inherit.to_resolve(),
-            height: UiValue::Inherit.to_resolve(),
+            x: UiValue::Inherit.to_field(),
+            y: UiValue::Inherit.to_field(),
+            width: UiValue::Inherit.to_field(),
+            height: UiValue::Inherit.to_field(),
             padding: SideStyle {
-                top: UiValue::Inherit.to_resolve(),
-                bottom: UiValue::Inherit.to_resolve(),
-                left: UiValue::Inherit.to_resolve(),
-                right: UiValue::Inherit.to_resolve(),
+                top: UiValue::Inherit.to_field(),
+                bottom: UiValue::Inherit.to_field(),
+                left: UiValue::Inherit.to_field(),
+                right: UiValue::Inherit.to_field(),
             },
             margin: SideStyle {
-                top: UiValue::Inherit.to_resolve(),
-                bottom: UiValue::Inherit.to_resolve(),
-                left: UiValue::Inherit.to_resolve(),
-                right: UiValue::Inherit.to_resolve(),
+                top: UiValue::Inherit.to_field(),
+                bottom: UiValue::Inherit.to_field(),
+                left: UiValue::Inherit.to_field(),
+                right: UiValue::Inherit.to_field(),
             },
-            origin: UiValue::Inherit.to_resolve(),
-            position: UiValue::Inherit.to_resolve(),
-            direction: UiValue::Inherit.to_resolve(),
-            child_align_x: UiValue::Inherit.to_resolve(),
-            child_align_y: UiValue::Inherit.to_resolve(),
+            origin: UiValue::Inherit,
+            position: UiValue::Inherit,
+            direction: UiValue::Inherit,
+            child_align_x: UiValue::Inherit,
+            child_align_y: UiValue::Inherit,
             background: shape.clone(),
             border: shape.clone(),
             detail: shape.clone(),
             text: TextStyle {
-                size: UiValue::Inherit.to_resolve(),
-                kerning: UiValue::Inherit.to_resolve(),
-                skew: UiValue::Inherit.to_resolve(),
-                stretch: UiValue::Inherit.to_resolve(),
-                font: UiValue::Inherit.to_resolve(),
-                fit: UiValue::Inherit.to_resolve(),
-                color: UiValue::Inherit.to_resolve(),
-                select_color: UiValue::Inherit.to_resolve(),
-                align_x: UiValue::Inherit.to_resolve(),
-                align_y: UiValue::Inherit.to_resolve(),
+                size: UiValue::Inherit,
+                kerning: UiValue::Inherit,
+                skew: UiValue::Inherit,
+                stretch: UiValue::Inherit,
+                font: UiValue::Inherit,
+                fit: UiValue::Inherit,
+                color: UiValue::Inherit,
+                select_color: UiValue::Inherit,
+                align_x: UiValue::Inherit,
+                align_y: UiValue::Inherit,
             },
             transform: trans.clone(),
-            overflow_x: UiValue::Inherit.to_resolve(),
-            overflow_y: UiValue::Inherit.to_resolve(),
+            overflow_x: UiValue::Inherit,
+            overflow_y: UiValue::Inherit,
             scrollbar: ScrollBarStyle {
                 track: shape.clone(),
                 knob: shape,
-                size: UiValue::Inherit.to_resolve(),
+                size: UiValue::Inherit,
             },
         };
 
         Self {
             base: inner_inherit.clone(),
-            transition_duration: UiValue::Inherit.to_resolve(),
+            transition_duration: UiValue::Inherit,
             hover: inner_inherit,
         }
     }

@@ -2,7 +2,9 @@ use ropey::Rope;
 use crate::color::{Color, ColorFormat, RgbColor};
 use crate::ui::elements::{UiElementState, UiElementStub};
 use crate::ui::elements::components::ElementBody;
-use crate::ui::styles::{Resolve, ResolveResult, UiStyle};
+use crate::ui::styles::{InheritSupplier, ResolveResult, UiStyle, UiValue};
+use crate::ui::styles::groups::LayoutField;
+
 #[macro_export]
 macro_rules! blanked_partial_ord {
     ($t:ty) => {
@@ -38,13 +40,13 @@ macro_rules! fast_partial_ord {
 }
 
 pub fn resolve_color<F, Format: ColorFormat>(
-    res: &Resolve<Color<Format>>,
+    res: &UiValue<Color<Format>>,
     def: Color<Format>,
     state: &UiElementState,
     f: F,
 ) -> Color<Format>
 where
-    F: Fn(&UiStyle) -> &Resolve<Color<Format>>,
+    F: Fn(&UiStyle) -> &UiValue<Color<Format>>,
     Format::ComponentType: PartialOrd<Format::ComponentType>,
 {
     let resolved = res.resolve(state.ctx.dpi, state.parent.clone(), f);
@@ -176,10 +178,10 @@ macro_rules! find_element_by_id {
     ($parent:expr, $id:literal) => {{ $parent.get().find_element_by_id($id) }};
 }
 
-pub fn resolve_resolve<T, F>(res: &Resolve<T>, state: &UiElementState, body: &ElementBody, map: F) -> ResolveResult<T>
+pub fn resolve_value<T, F>(res: &UiValue<T>, state: &UiElementState, body: &ElementBody, map: F) -> ResolveResult<T>
 where
     T: PartialOrd + Clone + 'static,
-    F: Fn(&UiStyle) -> &Resolve<T>,
+    F: Fn(&UiStyle) -> &UiValue<T>,
 {
     let res = if let Some(active) = body.active_style() {
         map(active)
@@ -189,6 +191,22 @@ where
     res.resolve(state.ctx.dpi, state.parent.clone(), |f| {
         map(f)
     })
+}
+
+pub fn resolve_field<T, F, SF>(res: &LayoutField<T>, state: &UiElementState, body: &ElementBody, map: F, sup: &dyn InheritSupplier, sup_map: SF) -> ResolveResult<T>
+where
+    T: PartialOrd + Clone + 'static,
+    F: Fn(&UiStyle) -> &LayoutField<T>,
+    SF: Fn(&dyn InheritSupplier) -> T,
+{
+    let res = if let Some(active) = body.active_style() {
+        map(active)
+    } else {
+        res
+    };
+    res.resolve(state.ctx.dpi, state.parent.clone(), |f| {
+        map(f)
+    }, sup, sup_map)
 }
 
 pub trait ToRope {

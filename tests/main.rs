@@ -151,14 +151,14 @@ impl WindowCallbacks for Application {
                 Rope::from_str("opt 3")
             ]);
 
-            let style = style_expr!("background.color: red; width: 100%; height: 50%; margin: none; height(max): 5cm;");
+            let style = style_expr!("background.color: red; width: 100%; height: 50% max 10cm min 7cm; margin: none;");
 
             println!("{style:?}");
 
             let button = ui! {
                 <Ui context={window.ui().context()}>
-                    <Div style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
-                        <Div style={style}/>
+                    <Div id="outer" style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
+                        <Div id="inner" style={style}/>
                     </Div>
                 </Ui>
             };

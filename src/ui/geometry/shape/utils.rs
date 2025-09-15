@@ -24,18 +24,18 @@ pub fn draw_shape_style_at<F: Fn(&UiStyle) -> &ShapeStyle>(
     map: F,
     crop_area: Option<SimpleRect>,
 ) {
-    let shape = utils::resolve_resolve(&style.shape, elem_state, body, |s| &map(s).shape);
+    let shape = utils::resolve_value(&style.shape, elem_state, body, |s| &map(s).shape);
     if !shape.is_none() {
         let shape = shape.unwrap_or_default(&map(&DEFAULT_STYLE).shape);
         let shape = &*shape;
 
-        let resource = utils::resolve_resolve(&style.resource, elem_state, body, |s| &map(s).resource);
+        let resource = utils::resolve_value(&style.resource, elem_state, body, |s| &map(s).resource);
         if !resource.is_none() {
             let resource = resource.unwrap_or_default(&map(&DEFAULT_STYLE).resource);
             let resource = &*resource;
             match resource {
                 BackgroundRes::Color => {
-                    let color = utils::resolve_resolve(&style.color, elem_state, body, |s| &map(s).color);
+                    let color = utils::resolve_value(&style.color, elem_state, body, |s| &map(s).color);
                     if !color.is_none() {
                         let color = color.unwrap_or_default(&map(&DEFAULT_STYLE).color);
                         match shape {
@@ -66,7 +66,7 @@ pub fn draw_shape_style_at<F: Fn(&UiStyle) -> &ShapeStyle>(
                 }
                 BackgroundRes::Texture => {
                     let drawable =
-                        utils::resolve_resolve(&style.texture, elem_state, body, |s| &map(s).texture);
+                        utils::resolve_value(&style.texture, elem_state, body, |s| &map(s).texture);
                     if !drawable.is_none() {
                         let drawable = drawable.unwrap_or_default(&map(&DEFAULT_STYLE).texture);
                         let (tex, uv) = drawable.get_texture_or_default(ui_ctx.resources);
@@ -229,7 +229,7 @@ pub fn shape_size<F: Fn(&UiStyle) -> &ShapeStyle>(
     adaptive_ratio: f32,
     map: F,
 ) -> (i32, i32) {
-    let shape = utils::resolve_resolve(&shape_style.shape, state, body, |s| &map(s).shape);
+    let shape = utils::resolve_value(&shape_style.shape, state, body, |s| &map(s).shape);
     let shape = shape.unwrap_or_default(&map(&DEFAULT_STYLE).shape);
 
     match &*shape {

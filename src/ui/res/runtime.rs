@@ -1,8 +1,8 @@
 use crate::color::RgbColor;
-use crate::graphics::Drawable;
 use crate::graphics::animation::GlobalAnimation;
 use crate::graphics::comp::CompositeSprite;
 use crate::graphics::tileset::TileSet;
+use crate::graphics::Drawable;
 use crate::math::vec::Vec4;
 use crate::rendering::text::Font;
 use crate::rendering::texture::{NoCtxTexture, Texture};
@@ -12,11 +12,11 @@ use crate::ui::rendering::adaptive::AdaptiveShape;
 use crate::ui::res;
 use crate::ui::res::MVR;
 use crate::ui::styles::enums::Geometry;
+use crate::ui::styles::UiValue;
 use itertools::Itertools;
 use mvutils::once::Lazy;
 use mvutils::save::{Loader, Savable, Saver};
 use std::ops::Deref;
-use crate::ui::styles::{Resolve, UiValue};
 
 pub struct RuntimeResources<'a> {
     strings: Vec<String>,

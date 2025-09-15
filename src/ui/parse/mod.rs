@@ -1,5 +1,5 @@
 use crate::ui::styles::enums::Origin;
-use crate::ui::styles::{Parseable, Resolve, UiValue};
+use crate::ui::styles::{Parseable, UiValue};
 use mvutils::utils::TetrahedronOp;
 use std::str::FromStr;
 
@@ -32,7 +32,7 @@ pub fn parse_2xf64(s: &str) -> Result<[f64; 2], String> {
     }
 }
 
-pub fn parse_4xi32_abstract(s: &str) -> Result<[Resolve<i32>; 4], String> {
+pub fn parse_4xi32_abstract(s: &str) -> Result<[UiValue<i32>; 4], String> {
     let parts = s
         .split(",")
         .map(|x| x.trim().to_string())
@@ -44,7 +44,7 @@ pub fn parse_4xi32_abstract(s: &str) -> Result<[Resolve<i32>; 4], String> {
         );
     }
 
-    let t = UiValue::<i32>::parse(&parts[0])?.to_resolve();
+    let t = UiValue::<i32>::parse(&parts[0])?;
 
     [1, 2]
         .map(|_| 0)
@@ -55,13 +55,13 @@ pub fn parse_4xi32_abstract(s: &str) -> Result<[Resolve<i32>; 4], String> {
     match parts.len() {
         1 => Ok([0; 4].map(|_| t.clone())),
         2 => {
-            let b = UiValue::<i32>::parse(&parts[1])?.to_resolve();
+            let b = UiValue::<i32>::parse(&parts[1])?;
             Ok([t.clone(), t, b.clone(), b])
         }
         4 => {
-            let b = UiValue::<i32>::parse(&parts[1])?.to_resolve();
-            let l = UiValue::<i32>::parse(&parts[2])?.to_resolve();
-            let r = UiValue::<i32>::parse(&parts[3])?.to_resolve();
+            let b = UiValue::<i32>::parse(&parts[1])?;
+            let l = UiValue::<i32>::parse(&parts[2])?;
+            let r = UiValue::<i32>::parse(&parts[3])?;
             Ok([t, b, l, r])
         }
         _ => Err(format!("Illegal number of parts: {}", parts.len())),
@@ -113,8 +113,8 @@ pub fn parse_num<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<T, String> {
     s.parse().map_err(|e: S| e.to_string())
 }
 
-pub fn parse_num_abstract(s: &str) -> Result<Resolve<i32>, String> {
-    Ok(UiValue::<i32>::parse(s)?.to_resolve())
+pub fn parse_num_abstract(s: &str) -> Result<UiValue<i32>, String> {
+    Ok(UiValue::<i32>::parse(s)?)
 }
 
 pub fn parse_num_list<T: FromStr<Err=S>, S: ToString>(s: &str) -> Result<Vec<T>, String> {
