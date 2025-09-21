@@ -1,6 +1,6 @@
 use crate::input::{Input, RawInputEvent};
 use crate::rendering::{OpenGLRenderer, RenderContext};
-use crate::ui::attributes::Attributes;
+use crate::ui::attributes::{Attributes, IntoAttrib};
 use crate::ui::context::UiContext;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::components::ElementBody;
@@ -12,6 +12,7 @@ use crate::ui::styles::{UiStyle, UiStyleWriteObserver};
 use mvutils::enum_val_ref_mut;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use std::rc::{Rc, Weak};
+use crossbeam_channel::at;
 use crate::rendering::pipeline::RenderingPipeline;
 
 #[derive(Clone)]
@@ -23,6 +24,8 @@ pub struct Div {
     style: UiStyle,
     state: UiElementState,
     body: ElementBody,
+
+    catch_inputs: bool,
 }
 
 impl UiElementCallbacks for Div {
@@ -71,7 +74,14 @@ impl Div {
             style,
             state: UiElementState::new(context),
             body: ElementBody::new(),
+            catch_inputs: false,
         }
+    }
+
+    pub fn catch_inputs<T: IntoAttrib<bool>>(mut self, attrib: T) -> Self {
+        self.catch_inputs = attrib.into_attrib();
+        self.state.events.catch_inputs = self.catch_inputs;
+        self
     }
 }
 

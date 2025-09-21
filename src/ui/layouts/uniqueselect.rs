@@ -1,16 +1,24 @@
+use log::debug;
 use crate::ui::elements::{Element, UiElementStub};
 use crate::ui::styles::{UiStyle, EMPTY_STYLE};
 
-pub struct UniqueSelectGroup {
+pub struct UniqueSelectLayout {
     elements: Vec<Element>,
     selected: Option<usize>,
     prev_style: Option<UiStyle>,
     selected_style: UiStyle
 }
 
-//todo for tmr: use this in fi and launcher + make more layouts
+impl UniqueSelectLayout {
+    pub fn empty() -> Self {
+        Self {
+            elements: vec![],
+            selected: None,
+            prev_style: None,
+            selected_style: EMPTY_STYLE.clone(),
+        }
+    }
 
-impl UniqueSelectGroup {
     pub fn new(elements: Vec<Element>) -> Self {
         Self {
             elements,
@@ -38,15 +46,13 @@ impl UniqueSelectGroup {
         self.selected_style = style;
     }
 
-
-
-    fn check_events(&mut self) -> Option<usize> {
+    pub fn check_events(&mut self) -> Option<usize> {
         for (i, e) in self.elements.iter().enumerate() {
             if e.was_left_clicked() {
                 if let Some(prev) = self.selected {
                     //revert style
                     if let Some(p_style) = self.prev_style.take() {
-                        let prev_elem = &self.elements[i];
+                        let prev_elem = &self.elements[prev];
                         let mut prev_style = prev_elem.get_mut().style_mut();
                         *prev_style = p_style;
                     }
@@ -61,6 +67,8 @@ impl UniqueSelectGroup {
                 let mut style = e.get_mut().style_mut();
                 self.prev_style = Some(style.clone());
                 style.merge_at_set_of(&self.selected_style);
+                drop(style);
+                e.refresh_style();
                 return Some(i);
             }
         }

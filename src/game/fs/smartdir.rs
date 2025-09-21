@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use bytebuffer::ByteBuffer;
-use log::{error, warn};
+use log::{debug, error, warn};
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
 use crate::game::WorstCase;
@@ -71,7 +71,7 @@ impl SmartDir {
             .open(&path) {
             Ok(f) => Some(f),
             Err(e) => {
-                warn!("Error when opening file '{path:?}': {e}");
+                debug!("Error when opening file '{path:?}': {e}");
                 None
             }
         }
@@ -90,7 +90,7 @@ impl SmartDir {
             .open(&path) {
             Ok(f) => Some(f),
             Err(e) => {
-                warn!("Error when opening file '{path:?}': {e}");
+                error!("Error when opening/creating file '{path:?}': {e}");
                 None
             }
         }

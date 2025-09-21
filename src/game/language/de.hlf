@@ -1,9 +1,0 @@
->meta
-name=Deutsch
-region=Deutschland
-code=de-DE
->entries
-main.greeting = hallo, wie geht es dir?
-main.farewell = Auf wiedersehen!
-npc.dialogue = hello!
-message = hi!

@@ -28,7 +28,7 @@ pub mod styles;
 pub mod uix;
 pub mod utils;
 pub mod page;
-mod layouts;
+pub mod layouts;
 
 pub struct Ui {
     context: CreateOnce<UiContext>,

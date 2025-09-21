@@ -1,19 +1,12 @@
 use crate::color::RgbColor;
-use crate::graphics::Drawable;
 use crate::rendering::RenderContext;
 use crate::ui::context::UiContext;
-use crate::ui::elements::{UiElementState, UiElementStub};
-use crate::ui::geometry::shape::Shape;
-use crate::ui::geometry::{Rect, SimpleRect, shape};
-use crate::ui::rendering::adaptive::{AdaptiveFill, AdaptiveShape};
-use crate::ui::res::err::ResType;
-use crate::ui::res::err::UiResErr;
-use crate::ui::styles::enums::{BackgroundRes, Geometry};
-use crate::ui::styles::{DEFAULT_STYLE, ResolveResult, UiStyle};
-use crate::{get_adaptive, get_shape, resolve, resolve2};
-use mvutils::lazy;
-use std::ops::Deref;
 use crate::ui::elements::components::ElementBody;
+use crate::ui::elements::{UiElementState, UiElementStub};
+use crate::ui::geometry::{shape, SimpleRect};
+use crate::ui::styles::{UiStyle, DEFAULT_STYLE};
+use crate::resolve2;
+use mvutils::lazy;
 
 lazy! {
     pub static OUTER_COLOR: RgbColor = RgbColor::new([150, 150, 150, 255]);
@@ -43,7 +36,7 @@ impl ScrollBars {
             let resolved = resolve2!(state, body, style.scrollbar.track.shape);
             let resource = resolve2!(state, body, style.scrollbar.track.resource);
             if resolved.is_set() && !resource.is_none() {
-                let mut rect = state.content_rect.bounding.clone();
+                let mut rect = state.rect.bounding.clone();
                 rect.height = bar_extent;
                 shape::utils::draw_shape_style_at(
                     ctx,
@@ -80,10 +73,10 @@ impl ScrollBars {
             let resource = resolve2!(state, body, style.scrollbar.track.resource);
             if resolved.is_set() && !resource.is_none() {
                 let rect = SimpleRect::new(
-                    state.content_rect.x() + state.content_rect.width() - bar_extent,
-                    state.content_rect.y(),
+                    state.rect.x() + state.rect.width() - bar_extent,
+                    state.rect.y(),
                     bar_extent,
-                    state.content_rect.height(),
+                    state.rect.height(),
                 );
 
                 shape::utils::draw_shape_style_at(
@@ -118,24 +111,24 @@ impl ScrollBars {
     }
 
     pub fn x_knob(state: &UiElementState, bar_extent: i32) -> SimpleRect {
-        let knob_width = (state.content_rect.width() as f32 / state.scroll_x.whole as f32)
-            * state.content_rect.width() as f32;
+        let knob_width = (state.rect.width() as f32 / state.scroll_x.whole as f32)
+            * state.rect.width() as f32;
         let knob_width = knob_width as i32;
         SimpleRect::new(
-            state.content_rect.x() + state.scroll_x.offset,
-            state.content_rect.y(),
+            state.rect.x() + state.scroll_x.offset,
+            state.rect.y(),
             knob_width,
             bar_extent,
         )
     }
 
     pub fn y_knob(state: &UiElementState, bar_extent: i32) -> SimpleRect {
-        let knob_height = (state.content_rect.height() as f32 / state.scroll_y.whole as f32)
-            * state.content_rect.height() as f32;
+        let knob_height = (state.rect.height() as f32 / state.scroll_y.whole as f32)
+            * state.rect.height() as f32;
         let knob_height = knob_height as i32;
         SimpleRect::new(
-            state.content_rect.x() + state.content_rect.width() - bar_extent,
-            state.content_rect.y() + state.content_rect.height()
+            state.rect.x() + state.rect.width() - bar_extent,
+            state.rect.y() + state.rect.height()
                 - state.scroll_y.offset
                 - knob_height,
             bar_extent,

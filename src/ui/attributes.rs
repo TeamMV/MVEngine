@@ -1,9 +1,7 @@
-use std::str::FromStr;
-use hashbrown::HashMap;
-use mvutils::state::{MappedState, State};
-use ropey::{Rope, RopeSlice};
-use crate::ui::parse::parse_num;
 use crate::ui::utils::ToRope;
+use mvutils::state::{MappedState, State};
+use ropey::Rope;
+use std::str::FromStr;
 
 pub type UiState = MappedState<Rope, Rope>;
 
@@ -12,7 +10,6 @@ pub struct Attributes {
     pub elem_type: String,
     pub classes: Vec<String>,
     pub id: Option<String>,
-    //pub children: Option<Vec<VNode>>,
 }
 
 impl Attributes {
@@ -21,7 +18,6 @@ impl Attributes {
             elem_type: elem_type.to_string(),
             classes: vec![],
             id: None,
-            //children: None,
         }
     }
 

@@ -319,11 +319,14 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         let computed_size =
             Self::compute_children_size(state, &direction, font, size, stretch, skew, kerning, ctx);
 
+        let wh_computed_size = (computed_size.0 + padding[2] + padding[3], computed_size.1 + padding[0] + padding[1]);
+
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.ui_compute(|t| t.resume());
         }
 
-        let width = resolve3!(self, width, ctx, |s| s.width());
+        let self_width = wh_computed_size.0;
+        let width = resolve3!(self, width, self_width, ctx, |s| s.width());
         let width = if width.is_set() {
             width.unwrap()
         } else if width.is_percent() {
@@ -332,7 +335,8 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         } else {
             computed_size.0 + padding[2] + padding[3]
         };
-        let height = resolve3!(self, height, ctx, |s| s.height());
+        let self_height = wh_computed_size.1;
+        let height = resolve3!(self, height, self_height, ctx, |s| s.height());
         let height = if height.is_set() {
             height.unwrap()
         } else if height.is_percent() {
@@ -387,7 +391,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
         };
 
         if let Position::Absolute = position {
-            let x = resolve3!(self, x, ctx, |s| s.width());
+            let x = resolve3!(self, x, 0, ctx, |s| s.width());
             let x = if x.is_set() {
                 x.unwrap()
             } else if x.is_percent() {
@@ -396,7 +400,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
                 0
             };
 
-            let y = resolve3!(self, y, ctx, |s| s.height());
+            let y = resolve3!(self, y, 0, ctx, |s| s.height());
             let y = if y.is_set() {
                 y.unwrap()
             } else if y.is_percent() {
@@ -632,7 +636,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
 
         if let Overflow::Never = overflow_x {
         } else {
-            if computed_size.0 > state.content_rect.width() || always_x {
+            if computed_size.0 - padding[2] - padding[3] > state.content_rect.width() || always_x {
                 //content overflow
                 state.scroll_x.available = true;
             } else {
@@ -642,7 +646,7 @@ pub trait UiElementStub: UiElementCallbacks + UiElementBuilder {
 
         if let Overflow::Never = overflow_y {
         } else {
-            if computed_size.1 > state.content_rect.height() || always_y {
+            if computed_size.1 - padding[0] - padding[1] > state.content_rect.height() || always_y {
                 //content overflow
                 state.scroll_y.available = true;
             } else {
@@ -980,6 +984,14 @@ impl Element {
 
     pub fn get_mut(&self) -> &mut UiElement {
         self.inner.get_mut()
+    }
+
+    pub fn refresh_style(&self) {
+        let l = self.get_mut();
+        let style = l.style();
+        //i know that the style will live long enough cuz its getting cloned anyways
+        let style = unsafe { Unsafe::cast_lifetime(style) };
+        l.body_mut().refresh_style(style);
     }
 
     pub fn add_child(&mut self, child: Child) {

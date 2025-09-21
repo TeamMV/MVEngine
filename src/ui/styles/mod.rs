@@ -212,14 +212,15 @@ macro_rules! resolve2 {
     };
 }
 
+/// Resolves the given LayoutField field by using the elem
 #[macro_export]
 macro_rules! resolve3 {
-    ($elem:ident, $($style:ident).*, $sup:ident, $sup_a:expr) => {
+    ($elem:ident, $($style:ident).*, $self_value:expr, $sup:ident, $sup_a:expr) => {
         {
             let s = &$elem.style().$($style).*;
             let state = $elem.state();
             let body = $elem.body();
-            crate::ui::utils::resolve_field(s, state, body, |s| &s.$($style).*, $sup, $sup_a)
+            crate::ui::utils::resolve_field(s, state, body, |s| &s.$($style).*, $sup, $sup_a, $self_value)
         }
     };
 }

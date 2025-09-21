@@ -193,7 +193,7 @@ where
     })
 }
 
-pub fn resolve_field<T, F, SF>(res: &LayoutField<T>, state: &UiElementState, body: &ElementBody, map: F, sup: &dyn InheritSupplier, sup_map: SF) -> ResolveResult<T>
+pub fn resolve_field<T, F, SF>(res: &LayoutField<T>, state: &UiElementState, body: &ElementBody, map: F, sup: &dyn InheritSupplier, sup_map: SF, self_value: T) -> ResolveResult<T>
 where
     T: PartialOrd + Clone + 'static,
     F: Fn(&UiStyle) -> &LayoutField<T>,
@@ -206,7 +206,7 @@ where
     };
     res.resolve(state.ctx.dpi, state.parent.clone(), |f| {
         map(f)
-    }, sup, sup_map)
+    }, sup, sup_map, self_value)
 }
 
 pub trait ToRope {

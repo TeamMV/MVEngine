@@ -59,7 +59,7 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
                 mods.extend(quote! {
                     {
                         let r = resolve_resource!(#value).expect("Cannot find resource!");
-                        modify_style!(#accessor_expr = r.clone());
+                        modify_style!(#accessor_expr = r.clone().into());
                     }
                 });
             } else {

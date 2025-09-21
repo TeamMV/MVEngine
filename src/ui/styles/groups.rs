@@ -12,7 +12,7 @@ use crate::ui::styles::{InheritSupplier, Parseable, ResolveResult, UiStyle, UiVa
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::{PClamp, TetrahedronOp};
 use std::rc::Rc;
-use std::str::FromStr;
+use std::str::{FromStr, SplitWhitespace};
 
 #[derive(Clone, Debug)]
 pub struct TextStyle {
@@ -179,7 +179,8 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
         parent: Option<Element>,
         map: F,
         sup: &dyn InheritSupplier,
-        sup_map: SF
+        sup_map: SF,
+        self_value: T,
     ) -> ResolveResult<T>
     where
         F: Fn(&UiStyle) -> &Self,
@@ -193,17 +194,21 @@ impl<T: PartialOrd + Clone> LayoutField<T> {
             return value;
         }
 
-        let value = value.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).base, parent.clone(), |s| sup_map(s), sup);
+        let value = if value.is_auto() || value.is_use_default() {
+            self_value
+        } else {
+            value.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).base, parent.clone(), |s| sup_map(s), sup)
+        };
 
         let mut emin = value.clone();
         let mut emax = value.clone();
 
-        if !min.is_none() {
+        if !min.is_none() && !min.is_auto() && !min.is_use_default() {
             let u = min.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).min, parent.clone(), |s| sup_map(s), sup);
             emin = u;
         }
 
-        if !max.is_none() {
+        if !max.is_none() && !max.is_auto() && !max.is_use_default() {
             let u = max.unwrap_or_default_or_percentage(&map(&DEFAULT_STYLE).max, parent.clone(), |s| sup_map(s), sup);
             emax = u;
         }
@@ -397,7 +402,7 @@ impl SideStyle {
             .top
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).top
-            }, sup, |s| percent_map(s)[0]);
+            }, sup, |s| percent_map(s)[0], 0);
         let top = if top.is_set() {
             top.unwrap()
         } else if top.is_percent() {
@@ -410,7 +415,7 @@ impl SideStyle {
             .bottom
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).bottom
-            }, sup, |s| percent_map(s)[1]);
+            }, sup, |s| percent_map(s)[1], 0);
         let bottom = if bottom.is_set() {
             bottom.unwrap()
         } else if bottom.is_percent() {
@@ -423,7 +428,7 @@ impl SideStyle {
             .left
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).left
-            }, sup, |s| percent_map(s)[2]);
+            }, sup, |s| percent_map(s)[2], 0);
         let left = if left.is_set() {
             left.unwrap()
         } else if left.is_percent() {
@@ -436,7 +441,7 @@ impl SideStyle {
             .right
             .resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| {
                 &map(s).right
-            }, sup, |s| percent_map(s)[3]);
+            }, sup, |s| percent_map(s)[3], 0);
         let right = if right.is_set() {
             right.unwrap()
         } else if right.is_percent() {
@@ -525,6 +530,58 @@ impl ShapeStyle {
         self.color.merge_at_set(&other.color);
         self.texture.merge_at_set(&other.texture);
         self.adaptive_ratio.merge_at_set(&other.adaptive_ratio);
+    }
+}
+
+impl Parseable for ShapeStyle {
+    fn parse(s: &str) -> Result<Self, String> {
+        let mut color = None;
+        let mut texture = None;
+        let mut shape = None;
+        let mut ratio = None;
+
+        fn next<T: Clone + FromStr + 'static>(i: &mut SplitWhitespace) -> Result<UiValue<T>, String> {
+            let n = i.next().ok_or("Expected more tokens!".to_string())?;
+            Parseable::parse(n)
+        }
+
+        macro_rules! all {
+            ($v:expr) => {
+                return Ok(ShapeStyle {
+                    resource: $v,
+                    color: $v,
+                    texture: $v,
+                    shape: $v,
+                    adaptive_ratio: $v,
+                });
+            };
+        }
+
+        match s {
+            "none" => all!(UiValue::None),
+            "auto" => all!(UiValue::Auto),
+            "unset" => all!(UiValue::Unset),
+            "inherit" => all!(UiValue::Inherit),
+            _ => {}
+        }
+
+        let mut tokens = s.split_whitespace();
+        while let Some(token) = tokens.next() {
+            match token {
+                "color" => color = Some(next(&mut tokens)?),
+                "texture" => texture = Some(next(&mut tokens)?),
+                "shape" => shape = Some(next(&mut tokens)?),
+                "ratio" => ratio = Some(next(&mut tokens)?),
+                other => return Err(format!("Illegal ShapeStyle token: {other}")),
+            }
+        }
+        Ok(ShapeStyle {
+            resource: texture.is_some().yn(UiValue::Just(BackgroundRes::Texture.into()), UiValue::Auto),
+            color: color.unwrap_or(UiValue::Unset),
+            texture: texture.unwrap_or(UiValue::Unset),
+            shape: shape.unwrap_or(UiValue::Unset),
+            adaptive_ratio: ratio.unwrap_or(UiValue::Unset),
+        })
     }
 }
 

@@ -8,6 +8,7 @@ use mvutils::unsafe_utils::Unsafe;
 use mvutils::utils::TetrahedronOp;
 
 pub struct UiEvents {
+    pub(crate) catch_inputs: bool,
     last_inside: bool,
     pub click_event: Option<UiClickEvent>,
     pub hover_event: Option<UiHoverEvent>,
@@ -19,6 +20,7 @@ pub struct UiEvents {
 impl UiEvents {
     pub fn create() -> Self {
         Self {
+            catch_inputs: false,
             last_inside: false,
             click_event: None,
             hover_event: None,
@@ -56,7 +58,7 @@ impl UiEvents {
                     let res =
                         child_events.mouse_change(action.clone(), &mut *child_guard, input, window);
                     if res {
-                        used = res;
+                        used = res && !self.catch_inputs;
                     }
                 },
                 _ => {}

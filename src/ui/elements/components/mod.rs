@@ -22,6 +22,7 @@ use std::ops::Deref;
 use crate::ui::elements::components::scroll::ScrollBars;
 
 #[derive(Clone)]
+#[derive(PartialEq)]
 enum State {
     In,
     Out,
@@ -55,13 +56,12 @@ impl ElementBody {
                     if e.inside(x, y) {
                         if let State::Out = self.hover_state {
                             self.hover_state = State::In;
-                            let s = e.style().get_hover();
-                            self.active_style = Some(s);
+                            self.refresh_style(e.style());
                         }
                     } else {
                         if let State::In = self.hover_state {
                             self.hover_state = State::Out;
-                            self.active_style = None;
+                            self.refresh_style(e.style());
                         }
                     }
                 }
@@ -148,5 +148,14 @@ impl ElementBody {
 
     pub fn active_style(&self) -> Option<&UiStyle> {
         self.active_style.as_ref()
+    }
+
+    pub(crate) fn refresh_style(&mut self, style: &UiStyle) {
+        if self.hover_state == State::In {
+            let s = style.get_hover();
+            self.active_style = Some(s);
+        } else {
+            self.active_style = None;
+        }
     }
 }

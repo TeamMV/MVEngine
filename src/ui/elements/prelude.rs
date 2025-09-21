@@ -9,3 +9,6 @@ pub use super::UiElementStub;
 pub use super::UiElementBuilder;
 pub use super::child::ToChild;
 pub use super::child::ToChildFromIterator;
+pub use super::Element;
+pub use super::UiElement;
+pub use super::UiElementState;
