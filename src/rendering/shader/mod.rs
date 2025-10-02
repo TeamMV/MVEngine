@@ -43,7 +43,7 @@ impl OpenGLShader {
                     Self::get_shader_log(self.vertex_shader)
                 ));
             }
-
+            
             self.fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
             let fragment_code_cstr = CString::new(self.fragment_code.as_str()).unwrap();
             let fragment_source = [fragment_code_cstr.as_ptr()];

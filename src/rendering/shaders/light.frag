@@ -1,9 +1,5 @@
 #version 450
 
-#extension GL_EXT_nonuniform_qualifier : enable
-
-precision highp float;
-
 layout (location = 0) in vec4 fColor;
 layout (location = 1) in vec2 fUv;
 layout (location = 2) in vec2 fRes;
@@ -64,7 +60,7 @@ void main() {
         vec4 texColor;
         vec2 texSize = vec2(1.0);
 
-        switch (nonuniformEXT(index)) {
+        switch (index) {
             case 0: texColor = texture(TEX_SAMPLER_0, fUv); texSize = textureSize(TEX_SAMPLER_0, 0); break;
             case 1: texColor = texture(TEX_SAMPLER_1, fUv); texSize = textureSize(TEX_SAMPLER_1, 0); break;
             case 2: texColor = texture(TEX_SAMPLER_2, fUv); texSize = textureSize(TEX_SAMPLER_2, 0); break;

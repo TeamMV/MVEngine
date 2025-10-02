@@ -553,8 +553,8 @@ impl Parseable for ShapeStyle {
                     texture: $v,
                     shape: $v,
                     adaptive_ratio: $v,
-                });
-            };
+                })
+            }
         }
 
         match s {
