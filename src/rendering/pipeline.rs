@@ -2,6 +2,7 @@ use std::mem;
 use std::sync::atomic::Ordering;
 use gl::types::GLuint;
 use log::{trace, warn};
+use mvutils::enum_val_ref;
 use crate::math::vec::Vec2;
 use crate::rendering::control::RenderController;
 use crate::rendering::shader::default::DefaultOpenGLShader;
@@ -21,7 +22,7 @@ enum Post {
 
 struct PostSources {
     target: Option<RenderTarget>,
-    shaders: Vec<OpenGLPostProcessShader>,
+    steps: Vec<Option<OpenGLPostProcessShader>>,
     index: usize
 }
 
@@ -29,7 +30,7 @@ impl PostSources {
     fn new(window: &Window) -> Self {
         Self {
             target: None,
-            shaders: vec![],
+            steps: vec![],
             index: 0,
         }
     }
@@ -42,6 +43,7 @@ pub struct RenderingPipeline<Renderer: PrimitiveRenderer> {
     camera: OrthographicCamera,
     post: Post,
     rendered: bool,
+    reset_rendering: bool,
     dimension: (u32, u32),
     dpi: u32,
     backbuffer: BackBufferTarget,
@@ -61,7 +63,8 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
             camera: OrthographicCamera::new(window.info().width, window.info().height),
             post: Post::None,
             rendered: false,
-            dimension: (window.info().width, window.info().width),
+            reset_rendering: false,
+            dimension: (window.info().width, window.info().height),
             dpi: window.dpi(),
             backbuffer: BackBufferTarget::Screen,
             post_renderer: OpenGLPostProcessRenderer::new(window.width(), window.height()),
@@ -95,9 +98,16 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
             return;
         }
         if let Post::Some(sources) = &mut self.post {
-            sources.shaders.push(shader);
+            sources.steps.push(Some(shader));
         } else {
             warn!("Cannot add post step as this rendering pipeline is not in post-mode!")
+        }
+    }
+
+    /// Adds another step to the pipeline where data can be drawn to the screen. Keep in mind that post steps before will not affect this geometry!
+    pub fn add_geometry_step(&mut self) {
+        if let Post::Some(post) = &mut self.post {
+            post.steps.push(None);
         }
     }
 
@@ -120,35 +130,63 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
             OpenGLRenderer::enable_depth_buffer();
         }
         self.rendered = false;
+        self.reset_rendering = false;
         if let Post::Some(sources) = &mut self.post {
             sources.index = 0;
         }
         self.shader.use_program();
     }
 
-    /// Advances the pipeline by executing the next post process shader and drawing to the screen when that was the last one
+    /// Advances the pipeline by executing the next post process shader and drawing to the backbuffer when that was the last one
     pub fn advance<F: Fn(&mut OpenGLPostProcessShader)>(&mut self, window: &Window, f: F) {
         if let Post::Some(sources) = &mut self.post {
-            if !self.rendered {
-                let prev_clear = CLEAR_FLAG.swap(true, Ordering::Release);
+            if !self.rendered || self.reset_rendering {
+                let prev_clear = CLEAR_FLAG.swap(true && !self.reset_rendering, Ordering::Release);
                 let target = self.controller.draw_to_target(window, &self.camera, &mut self.renderer, &mut self.shader);
                 CLEAR_FLAG.store(prev_clear, Ordering::Release);
                 self.post_renderer.set_target(target);
                 self.rendered = true;
             } else {
-                if sources.index >= sources.shaders.len() {
+                if sources.index >= sources.steps.len() {
                     warn!("Illegal call to advance() on RenderingPipeline as there are no more shaders to process!");
                 } else {
-                    let shader = &mut sources.shaders[sources.index];
-                    shader.use_program();
-                    f(shader);
-                    trace!("Running shader in pipeline");
-                    self.post_renderer.run_shader(shader);
-                    sources.index += 1;
-                    //Idk i am more comfortable with >= than == and does it even matter
-                    if sources.index >= sources.shaders.len() {
-                        self.end_frame();
-                        //trace!("Drew pipeline to screen.");
+                    let shader = &mut sources.steps[sources.index];
+                    match shader {
+                        None => {
+                            //geometry step
+                            trace!("Running geometry step in pipeline");
+                            sources.index += 1;
+                            let new_index = sources.index;
+                            let amount_steps = sources.steps.len();
+                            self.end_frame();
+
+                            //Idk i am more comfortable with >= than == and does it even matter
+                            if new_index >= amount_steps {
+                                //draw geometry directly to window
+                                self.controller.draw(window, &self.camera, &mut self.renderer, &mut self.shader, &mut self.backbuffer);
+                            } else {
+                                //draw to target but like take the current scene as background
+                                let target = self.controller.draw_to_target(window, &self.camera, &mut self.renderer, &mut self.shader);
+                                let prev_target = self.post_renderer.target();
+                                self.post_renderer.set_target(target);
+                                self.end_frame();
+
+                                self.post_renderer.set_target(prev_target);
+                            }
+                        }
+                        Some(shader) => {
+                            //shader step
+                            shader.use_program();
+                            f(shader);
+                            trace!("Running shader in pipeline");
+                            self.post_renderer.run_shader(shader);
+                            sources.index += 1;
+                            //Idk i am more comfortable with >= than == and does it even matter
+                            if sources.index >= sources.steps.len() {
+                                self.end_frame();
+                                //trace!("Drew pipeline to screen.");
+                            }
+                        }
                     }
                 }
             }
@@ -172,11 +210,11 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
     /// Skips the current post process step and draws the result to the screen if there is nothing left
     pub fn skip(&mut self) {
         if let Post::Some(sources) = &mut self.post {
-            if sources.index < sources.shaders.len() {
+            if sources.index < sources.steps.len() {
                 sources.index += 1;
                 trace!("Skipped post-process step, new index is {}", sources.index);
 
-                if sources.index >= sources.shaders.len() {
+                if sources.index >= sources.steps.len() {
                     self.post_renderer.draw_to_backbuffer(&mut self.backbuffer);
                     trace!("Drew pipeline to screen after skipping.");
                 }
@@ -213,6 +251,10 @@ impl<Renderer: PrimitiveRenderer> RenderingPipeline<Renderer> {
         }
     }
 
+    pub fn reset_rendering_status(&mut self) {
+        self.reset_rendering = true;
+    }
+
     pub fn flush(&mut self) {
         trace!("Flushing pipeline to screen");
         if let BackBufferTarget::Buffer(bb) = &mut self.backbuffer {
@@ -238,6 +280,7 @@ impl RenderingPipeline<OpenGLRenderer> {
                 camera: OrthographicCamera::new(window.info().width, window.info().height),
                 post: Post::None,
                 rendered: false,
+                reset_rendering: false,
                 dimension: (window.info().width, window.info().height),
                 dpi: window.dpi(),
                 backbuffer: BackBufferTarget::Screen,

@@ -357,6 +357,11 @@ impl OpenGLRenderer {
 
     pub fn create_framebuffer_with_color(texture: GLuint) -> GLuint {
         unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, texture);
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+
             let mut fb = 0;
             gl::GenFramebuffers(1, &mut fb);
             gl::BindFramebuffer(gl::FRAMEBUFFER, fb);

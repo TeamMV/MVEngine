@@ -7,6 +7,7 @@ use std::ops::{Deref, DerefMut};
 use std::os::raw::c_void;
 use std::ptr::null;
 use std::sync::atomic::{AtomicU8, Ordering};
+use crate::rendering::CLEAR_FLAG;
 
 const RESERVED_TEXTURES: u8 = 2;
 
