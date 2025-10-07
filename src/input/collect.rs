@@ -5,6 +5,7 @@ use crate::window::Window;
 use mvutils::unsafe_utils::DangerousCell;
 use parking_lot::Mutex;
 use std::sync::Arc;
+use log::debug;
 
 pub trait InputProcessor {
     fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window);

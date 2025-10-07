@@ -22,6 +22,7 @@ use glutin::display::{GetGlDisplay, GlDisplay};
 use glutin::surface::{GlSurface, SwapInterval};
 use glutin_winit::{ApiPreference, DisplayBuilder, GlWindow};
 use log::warn;
+use mvutils::utils::TetrahedronOp;
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::{PhysicalSize, Size};
 use winit::error::{EventLoopError, OsError};
@@ -221,7 +222,7 @@ impl Window {
     ) -> Result<(), Error> {
         let mut event_loop = EventLoopBuilder::new().build()?;
         let builder = WindowBuilder::new()
-             .with_visible(true)
+            .with_visible(true)
             .with_title(self.info.title.clone())
             .with_decorations(self.info.decorated)
             .with_theme(self.info.theme)
@@ -234,9 +235,9 @@ impl Window {
 
         let template = ConfigTemplateBuilder::new()
             .with_api(Api::OPENGL)
-            .with_alpha_size(8)
+            .with_alpha_size(self.info.transparent.yn(8, 0))
             .with_single_buffering(false)
-            .with_transparency(true);
+            .with_transparency(self.info.transparent);
 
         let builder = DisplayBuilder::new()
             .with_preference(ApiPreference::FallbackEgl)
@@ -371,12 +372,12 @@ impl Window {
                                     .collector
                                     .dispatch_input(event, &this.input, this2);
                             }
-                            if let Some(text) = text && !text.is_empty() {
-                                let char = text.chars().next().unwrap();
-                                let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
-                                self.input
-                                    .collector
-                                    .dispatch_input(action, &this.input, this2);
+                            if state == ElementState::Pressed {
+                                if let Some(text) = text && !text.is_empty() {
+                                    let char = text.chars().next().unwrap();
+                                    let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
+                                    self.input.collector.dispatch_input(action, &this.input, this2);
+                                }
                             }
                         }
                         WindowEvent::CursorMoved { position, .. } => {

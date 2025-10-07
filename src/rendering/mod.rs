@@ -437,6 +437,9 @@ impl OpenGLRenderer {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            //to avoid transparent window
+            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA,
+                                  gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
         }
     }
 }
