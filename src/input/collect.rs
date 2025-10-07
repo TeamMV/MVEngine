@@ -1,6 +1,5 @@
 use crate::input::registry::ActionInputProcessor;
 use crate::input::{Input, RawInputEvent};
-use crate::ui::Ui;
 use crate::window::Window;
 use mvutils::unsafe_utils::DangerousCell;
 use parking_lot::Mutex;
@@ -25,15 +24,15 @@ pub trait InputProcessor {
 pub struct InputCollector {
     pub(crate) action_processor: ActionInputProcessor,
     targets: Vec<Arc<Mutex<dyn InputProcessor>>>,
-    ui: Arc<DangerousCell<Ui>>,
+    //ui: Arc<DangerousCell<Ui>>,
 }
 
 impl InputCollector {
-    pub fn new(ui: Arc<DangerousCell<Ui>>) -> Self {
+    pub fn new(/*ui: Arc<DangerousCell<Ui>>*/) -> Self {
         Self {
             action_processor: ActionInputProcessor::new(),
             targets: vec![],
-            ui,
+            //ui,
         }
     }
 
@@ -45,9 +44,9 @@ impl InputCollector {
         #[cfg(feature = "timed")] {
             crate::debug::PROFILER.input(|t| t.resume());
         }
-        self.ui
-            .get_mut()
-            .digest_action(action.clone(), input, window);
+        //self.ui
+        //    .get_mut()
+        //    .digest_action(action.clone(), input, window);
         self.action_processor
             .digest_action(action.clone(), input, window);
         for target in &mut self.targets {

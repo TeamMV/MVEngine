@@ -1,83 +1,14 @@
-use mvengine::ui::elements::combobox::ComboBox;
-use mvengine::ui::elements::slider::Slider;
 use log::LevelFilter;
-use mvengine::audio::decode::wav::WavDecoder;
-use mvengine::audio::decode::AudioDecoder;
-use mvengine::audio::source::SoundWithAttributes;
-use mvengine::audio::{gen_sin_wave, AudioEngine};
-use mvengine::rendering::pipeline::RenderingPipeline;
-use mvengine::rendering::OpenGLRenderer;
-use mvengine::ui::context::UiResources;
-use mvengine::ui::elements::prelude::*;
-use mvengine::ui::geometry::shape::{shapes, VertexStream};
-use mvengine::ui::res::MVR;
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
-use mvengine::{debug, expect_element_by_id, modify_style};
-use mvengine_proc_macro::resolve_resource;
-use mvengine_proc_macro::{style_expr, ui};
-use mvutils::once::CreateOnce;
-use mvutils::state::State;
 use parking_lot::RwLock;
-use std::ops::Deref;
 use std::sync::Arc;
-use bytebuffer::ByteBuffer;
-use mvutils::bytebuffer::ByteBufferExtras;
-use mvutils::save::Savable;
-use ropey::Rope;
-use mvengine::color::RgbColor;
-use mvengine::input::registry::{Direction, RawInput};
-use mvengine::math::vec::{Vec2, Vec4};
-use mvengine::ui::attributes::UiState;
-use mvengine::ui::geometry::shape::msfx::minifier::MSFXMinifier;
-use mvengine::ui::geometry::SimpleRect;
-use mvengine::ui::styles::{InheritSupplier, UiStyle, UiStyleWriteObserver, UiValue};
+use mvutils::once::CreateOnce;
+use mvutils::version::Version;
+use mvengine::rendering::api::Renderer;
 
 pub fn main() -> Result<(), Error> {
     mvlogger::init(std::io::stdout(), LevelFilter::Debug);
-
-    // let data = include_str!("test.msfx");
-    // let ast = MSFXParser::parse(data).unwrap();
-    // println!("{:?}", ast);
-    // let mut minifier = MSFXMinifier::new();
-    // let ast = minifier.minify(ast);
-    // println!("{:?}", ast);
-    //
-    // let mut buf = ByteBuffer::new_le();
-    // ast.save(&mut buf);
-    // let mut file = OpenOptions::new().create(true).truncate(true).write(true).open("compiled.msb").unwrap();
-    // file.write_all(buf.as_bytes()).unwrap();
-    //
-    // let mut executor = MSFXExecutor::new();
-    // let mut inputs = HashMap::new();
-    // inputs.insert("num".to_string(), 1.0.into());
-    // println!("\nOutput:");
-    // let result = executor.run_debug(&ast, inputs);
-    // println!();
-    //
-    // match result {
-    //     Ok((ret, variables)) => {
-    //         println!("Variables:");
-    //         for (name, variable) in variables {
-    //             println!("{name} = {:?}", variable);
-    //         }
-    //         println!("Return:");
-    //         match ret {
-    //             Return::Shape(s) => println!("{:?}", s),
-    //             Return::Adaptive(a) => println!("{:?}", a),
-    //         }
-    //     }
-    //     Err((err, variables)) => {
-    //         println!("Variables:");
-    //         for (name, variable) in variables {
-    //             println!("{name} = {:?}", variable);
-    //         }
-    //         println!("Error:");
-    //         println!("{err}");
-    //     }
-    // }
-
-    // exit(0);
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -91,159 +22,31 @@ pub fn main() -> Result<(), Error> {
 }
 
 struct Application {
-    rot: f32,
-    draw_ctx: CreateOnce<RenderingPipeline<OpenGLRenderer>>,
-    other_pipeline: CreateOnce<RenderingPipeline<OpenGLRenderer>>,
-    state: CreateOnce<State<String>>,
-    audio: AudioEngine,
+    renderer: CreateOnce<Renderer>
 }
 
 impl Application {
     fn new() -> Self {
-        let audio = AudioEngine::setup().expect("Cannot start audio");
-        let decoder = WavDecoder;
-        let sin = gen_sin_wave(440, 48000, 5000);
-        let test_sound_a = decoder.decode(include_bytes!("fart.wav"));
-        let wrapped_a = SoundWithAttributes::new(sin);
-        wrapped_a.set_looping(true);
-        wrapped_a.set_volume(1.0);
-        wrapped_a.set_balance(1.0);
-
-        //audio.play_sound(wrapped_a);
-        // std::thread::sleep(Duration::from_millis(200));
-        // wrapped_a.set_volume(0.3);
-        // wrapped_a.set_balance(1.0);
-        // wrapped_a.set_looping(false);
-        // audio.play_sound(wrapped_a.full_clone());
-        // std::thread::sleep(Duration::from_millis(200));
-        // wrapped_a.set_volume(1.5);
-        // wrapped_a.set_balance(0.0);
-        // audio.play_sound(wrapped_a);
-        // let test_sound1 = gen_sin_wave(440, audio.sample_rate(), 5000);
-        // let wrapped_1 = SoundWithAttributes::new(test_sound1);
-        // let test_sound2 = gen_sin_wave(220, audio.sample_rate(), 2000);
-        // let wrapped_2 = SoundWithAttributes::new(test_sound2);
-        // wrapped_2.set_volume(1.0);
-        // audio.play_sound(wrapped_1);
-        // audio.play_sound(wrapped_2);
 
         Self {
-            rot: 0.0,
-            draw_ctx: CreateOnce::new(),
-            other_pipeline: CreateOnce::new(),
-            state: CreateOnce::new(),
-            audio,
+            renderer: CreateOnce::new(),
         }
     }
 }
 
 impl WindowCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
-        unsafe {
-            MVR::initialize();
-            window.ui_mut().init(MVR.deref().deref());
-
-            let state = State::new(String::new());
-
-            let values = State::new(vec![
-                Rope::from_str("opt 1"),
-                Rope::from_str("opt 2"),
-                Rope::from_str("opt 3")
-            ]);
-
-            let style = style_expr!("background.color: red; width: 100%; height: 50% max 10cm min 7cm; margin: none;");
-
-            println!("{style:?}");
-
-            let button = ui! {
-                <Ui context={window.ui().context()}>
-                    <Div id="outer" style="position: absolute; x: 0; y: 0; width: 100%; height: 100%; background.color: @MVR.color/yellow; margin: none;">
-                        <Div id="inner" style={style}/>
-                    </Div>
-                </Ui>
-            };
-
-            //let button = ui! {
-            //    <Ui context={window.ui().context()}>
-            //        <Div style="width: 10cm; height: 10cm; background.resource: texture; background.texture: @MVR.drawable/tileset; border.resource: none;"/>
-            //    </Ui>
-            //};
-
-            self.state.create(|| state);
-
-            window.ui_mut().add_root(button);
-
-            let mut pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
-            pipeline.use_custom_backbuffer(window);
-            self.draw_ctx.create(|| pipeline);
-
-            let mut other_pipeline = RenderingPipeline::new_default_opengl(window).unwrap();
-            self.other_pipeline.create(|| other_pipeline);
-        }
+        let renderer = Renderer::new_x(window, "HelloGPUApplication", Version::new(0, 1, 0, 0));
+        self.renderer.create(|| renderer);
     }
 
     fn update(&mut self, window: &mut Window, delta_u: f64) {}
 
-    fn draw(&mut self, window: &mut Window, delta_t: f64) {
-        OpenGLRenderer::clear();
-        self.draw_ctx.begin_frame();
-        /*if let Some(s) = resolve_resource!("@MVR.shape/rect1") {
-            s.draw(&mut *self.draw_ctx, |v| {
-                v.color = RgbColor::red().as_vec4();
-            })
-        }*/
-        let area = window.area();
-        window.ui_mut().draw(&mut self.draw_ctx, &area);
+    fn draw(&mut self, window: &mut Window, delta_t: f64) {}
 
-        //let p = self.rot.sin().map(&(-1.0..1.0), &(0.0..1.0));
-        //let mut frame = self.morph.animate_frame(1.0);
-        //self.morph.debug_draw(&mut self.draw_ctx);
-        //frame.set_translate(300, 400);
-        //self.draw_ctx.shape(frame);
-
-        //let mut rect = Rect::simple(100, 100, w, h);
-        //rect.set_origin(rect.center());
-        //let mut ad = MVR.resolve_adaptive(MVR.adaptive.void_rect).unwrap();
-        //ad.draw(&mut *self.draw_ctx, &rect, AdaptiveFill::Drawable(Drawable::Texture(MVR.texture.test)), &window.ui.context());
-
-        /*
-        let mx = window.input.mouse_x as f32;
-        let my = window.input.mouse_y as f32;
-        let mouse_pos = Vec2::new(mx, my);
-
-        if let Some(composite) = MVR.resolve_composite(MVR.composite.turret) {
-            if let Some(bone) = composite.rig.skeleton.bones.get("left_turret") {
-                let mut l = bone.write();
-                l.set_aim(mouse_pos);
-            }
-            if let Some(bone) = composite.rig.skeleton.bones.get("right_turret") {
-                let mut l = bone.write();
-                l.set_aim(mouse_pos);
-            }
-            {
-                let mut l = composite.rig.root_bone.write();
-                l.rotate(0.5f32.to_radians());
-            }
-
-            let rect = SimpleRect::new(250, 250, 300, 300);
-            composite.draw(&mut *self.draw_ctx, MVR.deref().deref(), &rect);
-            //composite.rig.debug_draw(&mut self.draw_ctx, &rect, window);
-        }
-        */
-
-        self.draw_ctx.advance(window, |_| {});
-        self.draw_ctx.flush();
-
-        self.rot += 0.5;
-    }
-
-    fn post_draw(&mut self, window: &mut Window, delta_t: f64) {
-        //debug::print_summary(1000);
-    }
+    fn post_draw(&mut self, window: &mut Window, delta_t: f64) {}
 
     fn exiting(&mut self, window: &mut Window) {}
 
-    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {
-        self.draw_ctx.resize(window);
-    }
+    fn resize(&mut self, window: &mut Window, width: u32, height: u32) {}
 }

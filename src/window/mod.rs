@@ -1,34 +1,23 @@
-pub mod app;
-
-use std::ffi::{CStr, CString};
-use std::num::{NonZeroI32, NonZeroU32};
-use std::ops::Add;
-use crate::input::consts::{Key, MouseButton};
-use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
-use crate::ui::Ui;
-use crate::ui::geometry::SimpleRect;
-use crate::ui::styles::InheritSupplier;
-use crate::window::app::WindowCallbacks;
+use std::num::NonZeroU32;
+use std::ops::Try;
+use std::sync::Arc;
+use std::time::SystemTime;
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use parking_lot::RwLock;
-use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
-use gl::types::GLsizei;
-use glutin::config::{Api, Config, ConfigTemplateBuilder, GlConfig};
-use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentGlContext, Version};
-use glutin::display::{GetGlDisplay, GlDisplay};
-use glutin::surface::{GlSurface, SwapInterval};
-use glutin_winit::{ApiPreference, DisplayBuilder, GlWindow};
-use log::warn;
-use mvutils::utils::TetrahedronOp;
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::{PhysicalSize, Size};
 use winit::error::{EventLoopError, OsError};
 use winit::event::{ElementState, Event, KeyEvent, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoopBuilder};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
+use crate::input::consts::{Key, MouseButton};
+use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::rendering::backend::Extent2D;
+use crate::window::app::WindowCallbacks;
+
+pub mod app;
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
@@ -100,7 +89,7 @@ impl Default for WindowCreateInfo {
         WindowCreateInfo {
             width: 800,
             height: 600,
-            title: "MVEngine Application".to_string(),
+            title: "MVCore Application".to_string(),
             fullscreen: false,
             decorated: true,
             resizable: true,
@@ -125,8 +114,9 @@ pub enum State {
 pub enum Error {
     Window(OsError),
     EventLoop(EventLoopError),
-    OpenGL,
+    Vulkan,
 }
+
 
 impl From<OsError> for Error {
     fn from(residual: OsError) -> Self {
@@ -142,31 +132,15 @@ impl From<EventLoopError> for Error {
 
 impl From<Box<dyn std::error::Error>> for Error {
     fn from(_: Box<dyn std::error::Error>) -> Self {
-        Error::OpenGL
+        Error::Vulkan
     }
 }
 
-fn gl_config_picker(configs: Box<dyn Iterator<Item = Config> + '_>) -> Config {
-    configs
-        .reduce(|accum, config| {
-            let transparency_check = config.supports_transparency().unwrap_or(false)
-                & !accum.supports_transparency().unwrap_or(false);
-
-            if transparency_check || config.num_samples() > accum.num_samples() {
-                config
-            } else {
-                accum
-            }
-        })
-        .unwrap()
-}
 
 pub struct Window {
     pub(crate) info: WindowCreateInfo,
 
     handle: CreateOnce<winit::window::Window>,
-    context: CreateOnce<glutin::context::PossiblyCurrentContext>,
-    surface: CreateOnce<glutin::surface::Surface<glutin::surface::WindowSurface>>,
     state: State,
 
     dpi: u32,
@@ -177,14 +151,8 @@ pub struct Window {
     delta_u: f64,
     time_f: SystemTime,
     time_u: SystemTime,
-
-    // cached_pos: (i32, i32),
-    // cached_size: (u32, u32),
-
-    pub input: Input,
+    input: Input,
     pressed_keys: HashSet<Key>,
-
-    pub(crate) ui: Arc<DangerousCell<Ui>>,
 }
 
 impl Window {
@@ -192,15 +160,12 @@ impl Window {
         let frame_time_nanos = NANOS_PER_SEC / info.fps as u64;
         let update_time_nanos = NANOS_PER_SEC / info.ups as u64;
 
-        let ui = Ui::new();
-        let ui = Arc::new(DangerousCell::new(ui));
+        let input = Input::new();
 
         Window {
             info,
 
             handle: CreateOnce::new(),
-            context: CreateOnce::new(),
-            surface: CreateOnce::new(),
             state: State::Ready,
 
             dpi: 96,
@@ -210,9 +175,8 @@ impl Window {
             delta_u: 0.0,
             time_f: SystemTime::now(),
             time_u: SystemTime::now(),
-            input: Input::new(ui.clone()),
+            input,
             pressed_keys: HashSet::new(),
-            ui,
         }
     }
 
@@ -233,55 +197,7 @@ impl Window {
                 height: self.info.height,
             }));
 
-        let template = ConfigTemplateBuilder::new()
-            .with_api(Api::OPENGL)
-            .with_alpha_size(self.info.transparent.yn(8, 0))
-            .with_single_buffering(false)
-            .with_transparency(self.info.transparent);
-
-        let builder = DisplayBuilder::new()
-            .with_preference(ApiPreference::FallbackEgl)
-            .with_window_builder(Some(builder));
-
-        let (window, gl_config) = builder.build(&event_loop, template, gl_config_picker)?;
-
-        let Some(mut window) = window else {
-            return Err(Error::OpenGL);
-        };
-
-        let raw_window_handle = window.raw_window_handle();
-
-        let gl_display = gl_config.display();
-
-        let context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 6))))
-            .with_profile(glutin::context::GlProfile::Compatibility)
-            .build(Some(raw_window_handle));
-
-        let mut not_current_gl_context = Some(unsafe {
-            gl_display.create_context(&gl_config, &context_attributes).map_err(|_| Error::OpenGL)?
-        });
-
-        let attrs = window.build_surface_attributes(<_>::default());
-        let gl_surface = unsafe {
-            gl_config.display().create_window_surface(&gl_config, &attrs).unwrap()
-        };
-
-        let gl_context =
-            not_current_gl_context.take().unwrap().make_current(&gl_surface).unwrap();
-
-        gl::load_with(|symbol| {
-            let symbol = CString::new(symbol).unwrap();
-            gl_display.get_proc_address(symbol.as_c_str()).cast()
-        });
-
-        if self.info.vsync {
-            gl_surface.set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap())).map_err(|_| Error::OpenGL)?;
-        } else {
-            gl_surface.set_swap_interval(&gl_context, SwapInterval::DontWait).map_err(|_| Error::OpenGL)?;
-        }
-
-        gl_surface.resize(&gl_context, NonZeroU32::new(self.info.width).unwrap(),  NonZeroU32::new(self.info.height).unwrap());
+        let window = builder.build(&mut event_loop).map_err(|x| Error::from(x))?;
 
         // unsafe {
         //     if cfg!(windows) {
@@ -299,8 +215,6 @@ impl Window {
         // }
 
         self.handle.create(|| window);
-        self.context.create(|| gl_context);
-        self.surface.create(|| gl_surface);
 
         let mut lock = callbacks.write();
         lock.post_init(&mut self);
@@ -322,13 +236,12 @@ impl Window {
                 } if window_id == self.handle.id() => {
                     match event {
                         WindowEvent::Resized(PhysicalSize { width, height }) => {
-                            if let Some(nzw) = NonZeroU32::new(width) && let Some(nzh) = NonZeroU32::new(height) {
+                            if let Some(_) = NonZeroU32::new(width) && let Some(_) = NonZeroU32::new(height) {
                                 self.info.width = width;
                                 self.info.height = height;
-                                self.surface.resize(&self.context, nzw,  nzh);
+                                //self.surface.resize(&self.context, nzw,  nzh);
                                 let mut app_loop = callbacks.write();
                                 app_loop.resize(&mut self, width, height);
-                                self.ui.get_mut().invalidate();
                             }
                         }
                         WindowEvent::Moved(_) => {}
@@ -372,12 +285,12 @@ impl Window {
                                     .collector
                                     .dispatch_input(event, &this.input, this2);
                             }
-                            if state == ElementState::Pressed {
-                                if let Some(text) = text && !text.is_empty() {
-                                    let char = text.chars().next().unwrap();
-                                    let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
-                                    self.input.collector.dispatch_input(action, &this.input, this2);
-                                }
+                            if let Some(text) = text && !text.is_empty() {
+                                let char = text.chars().next().unwrap();
+                                let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
+                                self.input
+                                    .collector
+                                    .dispatch_input(action, &this.input, this2);
                             }
                         }
                         WindowEvent::CursorMoved { position, .. } => {
@@ -461,15 +374,11 @@ impl Window {
                                 crate::debug::PROFILER.render_swap(|t| t.start());
                             }
 
-                            if self.surface.swap_buffers(&self.context).is_err() {
-                                error = Some(Error::OpenGL);
-                                target.exit();
-                            };
                             #[cfg(feature = "timed")] {
                                 crate::debug::PROFILER.render_swap(|t| t.stop());
                             }
 
-                            self.ui.get_mut().end_frame();
+                            //self.ui.get_mut().end_frame();
 
                             #[cfg(feature = "timed")] {
                                 crate::debug::PROFILER.render_batch(|t| t.stop());
@@ -556,14 +465,6 @@ impl Window {
         &self.handle
     }
 
-    pub fn get_surface(&self) -> &glutin::surface::Surface<glutin::surface::WindowSurface> {
-        &self.surface
-    }
-
-    pub fn get_context(&self) -> &glutin::context::PossiblyCurrentContext {
-        &self.context
-    }
-
     pub fn get_delta_t(&self) -> f64 {
         self.delta_t
     }
@@ -622,13 +523,5 @@ impl Window {
 
             self.handle.set_fullscreen(None);
         }
-    }
-
-    pub fn ui(&self) -> &Ui {
-        self.ui.get()
-    }
-
-    pub fn ui_mut(&mut self) -> &mut Ui {
-        self.ui.get_mut()
     }
 }

@@ -37,6 +37,19 @@ ahash = "0.8.11"
 rand = "0.9.0"
 include_dir = "0.7.3"
 ropey = "1.6.1"
+gltf = { version = "1.4.0", features = [
+    "KHR_lights_punctual",
+    "KHR_materials_emissive_strength",
+    "KHR_materials_ior",
+    "KHR_materials_pbrSpecularGlossiness",
+    "KHR_materials_specular",
+    "KHR_materials_transmission",
+    "KHR_materials_unlit",
+    "KHR_materials_variants",
+    "KHR_materials_volume",
+    "KHR_texture_transform",
+    "extensions",
+]}
 
 #audio
 cpal = "0.15.3"
@@ -51,6 +64,11 @@ glutin = "0.31.0"
 glutin-winit = "0.4.2"
 raw-window-handle = "0.5.2"
 
+# vulkan dependencies
+ash = "0.37.3"
+gpu-alloc = "0.6.0"
+gpu-alloc-ash = "0.6.0"
+shaderc = "0.8.3"
+
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser"] }
-

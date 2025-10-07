@@ -10,6 +10,7 @@ mod style_expr;
 mod multiline_str_into;
 mod resolve_resource;
 mod msfx_function;
+mod graphics_item;
 
 #[proc_macro]
 pub fn generate_queries(input: TokenStream) -> TokenStream {
@@ -64,4 +65,9 @@ pub fn resolve_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn msfx_fn(attr: TokenStream, body: TokenStream) -> TokenStream {
     msfx_function::msfx_fn(attr, body)
+}
+
+#[proc_macro_attribute]
+pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
+    graphics_item::graphics_item(attrib, input)
 }

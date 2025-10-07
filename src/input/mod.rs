@@ -1,7 +1,7 @@
 use crate::input::collect::{InputCollector, InputProcessor};
 use crate::input::consts::{Key, MouseButton};
 use crate::input::registry::{ActionInputProcessor, InputRegistry};
-use crate::ui::Ui;
+//use crate::ui::Ui;
 use bitflags::Bits;
 use log::error;
 use mvutils::unsafe_utils::DangerousCell;
@@ -46,9 +46,9 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new(ui: Arc<DangerousCell<Ui>>) -> Self {
+    pub fn new(/*ui: Arc<DangerousCell<Ui>>*/) -> Self {
         Self {
-            collector: InputCollector::new(ui),
+            collector: InputCollector::new(/*ui*/),
             mouse_x: i32::EMPTY,
             mouse_y: i32::EMPTY,
         }

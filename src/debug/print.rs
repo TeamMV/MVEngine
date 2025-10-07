@@ -50,10 +50,10 @@ pub fn print_summary(print_interval_ms: u64) {
     let printer = print_entry(printer, "ui", Col::Cyan, ui_time);
     let printer = print_entry(printer, "ui/compute", Col::Cyan, ui_compute_time);
     let printer = print_entry(printer, "ui/draw", Col::Cyan, ui_draw_time);
-    let printer = print_entry(printer, "render", Col::BrightRed, render_time);
-    let printer = print_entry(printer, "render/batch", Col::BrightRed, render_batch_time);
-    let printer = print_entry(printer, "render/draw", Col::BrightRed, render_draw_time);
-    let printer = print_entry(printer, "render/swap", Col::BrightRed, render_swap_time);
+    let printer = print_entry(printer, "rendering", Col::BrightRed, render_time);
+    let printer = print_entry(printer, "rendering/batch", Col::BrightRed, render_batch_time);
+    let printer = print_entry(printer, "rendering/draw", Col::BrightRed, render_draw_time);
+    let printer = print_entry(printer, "rendering/swap", Col::BrightRed, render_swap_time);
     let printer = print_entry(printer, "ecs", Col::BrightBlue, ecs_time);
     let printer = print_entry(printer, "ecs/find", Col::BrightBlue, ecs_find_time);
     let printer = print_entry(printer, "input", Col::Magenta, input_time);
