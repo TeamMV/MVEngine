@@ -1,7 +1,6 @@
 use gpu_alloc::UsageFlags;
 use mvutils::version::Version;
-use shaderc::{Error, ShaderKind};
-use crate::rendering::api::err::RenderingError;
+use shaderc::ShaderKind;
 use crate::rendering::api::ShaderType;
 use crate::rendering::backend::{Backend, Extent2D};
 use crate::rendering::backend::buffer::MemoryProperties;
@@ -31,24 +30,21 @@ impl XRendererImpl {
     }
 
     /// Compile a new shader using shaderc and return the abstract Shader instance.
-    pub fn load_shader(&self, name: &str, ty: ShaderType, source: &str) -> Result<Shader, RenderingError> {
+    pub fn load_shader(&self, name: &str, ty: ShaderType, source: &str) -> Result<Shader, shaderc::Error> {
         let kind = match ty {
             ShaderType::Vertex => ShaderKind::Vertex,
             ShaderType::Fragment => ShaderKind::Fragment,
             ShaderType::Compute => ShaderKind::Compute
         };
-        let r = Shader::compile(self.device.clone(), source, kind, stropt(name));
-        match r {
-            Ok(s) => Ok(s),
-            Err(e) => Err(RenderingError::ShaderError(e))
-        }
+        Shader::compile(self.device.clone(), source, kind, stropt(name))
     }
 
-    pub fn load_texture(&self, name: &str, data: &[u8], memory_properties: MemoryProperties, usage: ImageUsage, memory_usage_flags: UsageFlags) -> Result<Image, RenderingError> {
+    pub fn load_texture(&self, name: &str, data: &[u8], memory_properties: MemoryProperties, usage: ImageUsage, memory_usage_flags: UsageFlags) -> Image {
         //todo for max: load the image with image crate and extract like dimensions, format and all the shittyty shittaton
         // thats like 2 of the 10 properties we need
 
-        let image = image::load_from_memory(data).map_err(|e| RenderingError::ImageError(e))?.into_rgba8();
+        // TODO: this error we might wanna handle idk
+        let image = image::load_from_memory(data).unwrap().into_rgba8();
 
         Image::new(self.device.clone(), MVImageCreateInfo {
             size: Extent2D {
@@ -69,7 +65,7 @@ impl XRendererImpl {
         })
     }
 
-    pub fn create_texture_manually(&self, create_info: MVImageCreateInfo) -> Result<Image, RenderingError> {
+    pub fn create_texture_manually(&self, create_info: MVImageCreateInfo) -> Image {
         Image::new(self.device.clone(), create_info)
     }
 }

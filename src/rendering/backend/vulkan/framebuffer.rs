@@ -7,7 +7,6 @@ use crate::rendering::backend::vulkan::device::VkDevice;
 use crate::rendering::backend::vulkan::image::VkImage;
 use ash::vk::DependencyFlags;
 use std::sync::Arc;
-use crate::rendering::api::err::RenderingError;
 
 impl From<ClearColor> for ash::vk::ClearValue {
     fn from(value: ClearColor) -> Self {
@@ -129,15 +128,13 @@ impl From<MVFramebufferCreateInfo> for CreateInfo {
 }
 
 impl VkFramebuffer {
-    pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Result<Self, RenderingError> {
+    pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
         let mut images = Vec::new();
         let mut image_views = Vec::new();
 
         for image_format in &create_info.attachment_formats {
             match *image_format {
-                //
                 // These are the formats that we'll ever gonna use btw
-                //
                 ash::vk::Format::R32G32B32A32_SFLOAT
                 | ash::vk::Format::R16G16B16A16_SFLOAT
                 | ash::vk::Format::R8G8B8A8_UNORM
@@ -155,7 +152,7 @@ impl VkFramebuffer {
                         create_info.image_usage_flags,
                         #[cfg(debug_assertions)]
                         create_info.debug_name.clone(),
-                    )?;
+                    );
                     image_views.push(image.get_view(0));
                     images.push(image);
                 }
@@ -170,11 +167,14 @@ impl VkFramebuffer {
                         create_info.image_usage_flags,
                         #[cfg(debug_assertions)]
                         create_info.debug_name.clone(),
-                    )?;
+                    );
                     image_views.push(image.get_view(0));
                     images.push(image);
                 }
-                _ => return Err(RenderingError::Other("Trying to use unsupported format!".to_string())),
+                _ => {
+                    log::error!("Unsupported framebuffer format provided");
+                    panic!()
+                },
             }
         }
 
@@ -206,7 +206,10 @@ impl VkFramebuffer {
             device
                 .get_device()
                 .create_framebuffer(&framebuffer_create_info, None)
-        }.map_err(|e| RenderingError::VulkanError(e))?;
+        }.unwrap_or_else(|e| {
+            log::error!("Failed to create framebuffer, error: {e}");
+            panic!();
+        });
 
         #[cfg(debug_assertions)]
         device.set_object_name(
@@ -234,7 +237,7 @@ impl VkFramebuffer {
 
         let images = images.into_iter().map(|vk_image| vk_image.into()).collect();
 
-        Ok(Self {
+        Self {
             device,
             images,
             handle,
@@ -243,7 +246,7 @@ impl VkFramebuffer {
             attachment_formats: create_info.attachment_formats,
             drop_render_pass: true,
             final_layouts,
-        })
+        }
     }
 
     fn is_depth_format(format: ash::vk::Format) -> bool {
@@ -262,7 +265,7 @@ impl VkFramebuffer {
         format: ash::vk::Format,
         image_usage_flag: ash::vk::ImageUsageFlags,
         #[cfg(debug_assertions)] name: std::ffi::CString,
-    ) -> Result<VkImage, RenderingError> {
+    ) -> VkImage {
         #[cfg(debug_assertions)]
         let debug_name = name.to_string_lossy() + " color image";
         let image_create_info = crate::rendering::backend::vulkan::image::CreateInfo {
@@ -293,7 +296,7 @@ impl VkFramebuffer {
         format: ash::vk::Format,
         image_usage_flag: ash::vk::ImageUsageFlags,
         #[cfg(debug_assertions)] name: std::ffi::CString,
-    ) -> Result<VkImage, RenderingError> {
+    ) -> VkImage {
         #[cfg(debug_assertions)]
         let debug_name = name.to_string_lossy() + " depth image";
         let image_create_info = crate::rendering::backend::vulkan::image::CreateInfo {

@@ -6,7 +6,6 @@ use mvutils::version::Version;
 use parking_lot::Mutex;
 use std::ffi::{c_void, CStr, CString};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
-use crate::rendering::api::err::RenderingError;
 
 pub struct VkDevice {
     #[allow(unused)]
@@ -1016,10 +1015,10 @@ impl VkDevice {
         create_info: &ash::vk::ImageCreateInfo,
         flags: ash::vk::MemoryPropertyFlags,
         usage_flags: gpu_alloc::UsageFlags,
-    ) -> Result<(
+    ) -> (
         ash::vk::Image,
         gpu_alloc::MemoryBlock<ash::vk::DeviceMemory>,
-    ), RenderingError> {
+    ) {
         let image = unsafe { self.device.create_image(create_info, None) }.unwrap();
         let req = unsafe { self.device.get_image_memory_requirements(image) };
 
@@ -1041,15 +1040,17 @@ impl VkDevice {
                 },
             )
         }
-        .map_err(|s| RenderingError::AllocationError(s))?;
+            .unwrap_or_else(|e| {
+                log::error!("Failed to allocate memory, error: {e}");
+                panic!()
+            });
 
-        unsafe {
-            self.device
-                .bind_image_memory(image, *block.memory(), block.offset())
-        }
-        .map_err(|e| RenderingError::VulkanError(e))?;
+        unsafe { self.device.bind_image_memory(image, *block.memory(), block.offset()) }.unwrap_or_else(|e| {
+            log::error!("Failed to bind buffer memory");
+            panic!();
+        });
 
-        Ok((image, block))
+        (image, block)
     }
 
     fn find_memory_type(&self, type_filter: u32, flag: ash::vk::MemoryPropertyFlags) -> u32 {
@@ -1099,21 +1100,27 @@ impl VkDevice {
     pub(crate) fn begin_single_time_command(
         &self,
         pool: ash::vk::CommandPool,
-    ) -> Result<ash::vk::CommandBuffer, RenderingError> {
+    ) -> ash::vk::CommandBuffer {
         let alloc_info = ash::vk::CommandBufferAllocateInfo::builder()
             .command_pool(pool)
             .level(ash::vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1);
 
         let cmd =
-            unsafe { self.device.allocate_command_buffers(&alloc_info) }.map_err(|e| RenderingError::VulkanError(e))?[0];
+            unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
+                log::error!("Failed to allocate command buffer, error: {e}");
+                panic!()
+            })[0];
 
         let begin_info = ash::vk::CommandBufferBeginInfo::builder()
             .flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-        unsafe { self.device.begin_command_buffer(cmd, &begin_info) }.map_err(|e| RenderingError::VulkanError(e))?;
+        unsafe { self.device.begin_command_buffer(cmd, &begin_info) }.unwrap_or_else(|e| {
+            log::error!("Failed to begin recording command buffer, error: {e}");
+            panic!();
+        });
 
-        Ok(cmd)
+        cmd
     }
 
     pub(crate) fn end_single_time_command(
@@ -1121,8 +1128,11 @@ impl VkDevice {
         command_buffer: ash::vk::CommandBuffer,
         pool: ash::vk::CommandPool,
         queue: ash::vk::Queue,
-    ) -> Result<(), RenderingError> {
-        unsafe { self.device.end_command_buffer(command_buffer) }.map_err(|e| RenderingError::VulkanError(e))?;
+    ) {
+        unsafe { self.device.end_command_buffer(command_buffer) }.unwrap_or_else(|e| {
+            log::error!("Failed to end command buffer, error: {e}");
+            panic!();
+        });
 
         let cmd_vec = vec![command_buffer];
         let submit_info = ash::vk::SubmitInfo::builder().command_buffers(&cmd_vec);
@@ -1132,14 +1142,12 @@ impl VkDevice {
             self.device
                 .queue_submit(queue, &vk_info, ash::vk::Fence::null())
         }
-            .map_err(|e| RenderingError::VulkanError(e))?;
+            .expect("Failed to submit cmd buffer");
 
         // Wait for GPU
-        unsafe { self.device.queue_wait_idle(queue) }.map_err(|e| RenderingError::VulkanError(e))?;
+        unsafe { self.device.queue_wait_idle(queue) }.unwrap();
 
         unsafe { self.device.free_command_buffers(pool, &cmd_vec) };
-
-        Ok(())
     }
 
     pub(crate) fn get_compute_command_pool(&self) -> ash::vk::CommandPool {
@@ -1162,9 +1170,8 @@ impl VkDevice {
         self.queues.present_queue
     }
 
-    pub(crate) fn wait_idle(&self) -> Result<(), RenderingError> {
-        unsafe { self.device.device_wait_idle() }.map_err(|e| RenderingError::VulkanError(e))?;
-        Ok(())
+    pub(crate) fn wait_idle(&self) {
+        unsafe { self.device.device_wait_idle().unwrap() };
     }
 
     pub(crate) fn get_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {

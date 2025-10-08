@@ -7,7 +7,6 @@ use crate::rendering::backend::vulkan::buffer::VkBuffer;
 use crate::rendering::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::rendering::backend::Extent3D;
 use mvengine_proc_macro::graphics_item;
-use crate::rendering::api::err::RenderingError;
 
 pub enum CommandBufferLevel {
     Primary,
@@ -84,7 +83,7 @@ impl CommandBuffer {
         size: u64,
         src_offset: u64,
         dst_offset: u64,
-    ) -> Result<(), RenderingError> {
+    ) {
         match self {
             CommandBuffer::Vulkan(cmd) => VkBuffer::copy_buffer(
                 src.as_vulkan(),
@@ -93,13 +92,12 @@ impl CommandBuffer {
                 src_offset,
                 dst_offset,
                 Some(cmd.get_handle()),
-            )?,
+            ),
             #[cfg(target_os = "macos")]
             CommandBuffer::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             CommandBuffer::DirectX => unimplemented!(),
         }
-        Ok(())
     }
 
     pub fn draw(&self, vertex_count: u32, first_vertex: u32) {

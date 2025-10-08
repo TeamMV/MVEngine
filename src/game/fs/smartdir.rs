@@ -8,7 +8,6 @@ use bytebuffer::ByteBuffer;
 use log::{debug, error, warn};
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
-use crate::game::WorstCase;
 
 /// A directory that creates itself and children when requested automatically
 pub struct SmartDir {
@@ -122,7 +121,7 @@ impl SmartDir {
         }
     }
 
-    fn create_self(&self) -> bool {
+    pub fn create_self(&self) -> bool {
         if let Err(e) = fs::create_dir_all(&self.root) {
             error!("Error when creating SmartDir: {e}");
             false

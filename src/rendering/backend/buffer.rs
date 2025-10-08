@@ -3,7 +3,6 @@ use crate::rendering::backend::device::Device;
 use crate::rendering::backend::vulkan::buffer::VkBuffer;
 use bitflags::bitflags;
 use mvengine_proc_macro::graphics_item;
-use crate::rendering::api::err::RenderingError;
 
 pub struct MVBufferCreateInfo {
     pub instance_size: u64,
@@ -79,7 +78,7 @@ impl Buffer {
         src_offset: u64,
         dst_offset: u64,
         command_buffer: Option<&CommandBuffer>,
-    ) -> Result<(), RenderingError> {
+    ) {
         match (src, dst) {
             (Buffer::Vulkan(src), Buffer::Vulkan(dst)) => VkBuffer::copy_buffer(
                 src,
@@ -88,7 +87,7 @@ impl Buffer {
                 src_offset,
                 dst_offset,
                 command_buffer.map(|buffer| buffer.as_vulkan().get_handle()),
-            )?,
+            ),
             #[cfg(target_os = "macos")]
             (Buffer::Metal, Buffer::Metal) => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -96,7 +95,6 @@ impl Buffer {
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             (_, _) => unreachable!(),
         }
-        Ok(())
     }
 
     pub fn map(&mut self) {

@@ -32,7 +32,7 @@ impl<T: Sized> VkPushConstant<T> {
         let range = ash::vk::PushConstantRange {
             stage_flags: create_info.stage,
             offset: 0,
-            size: std::mem::size_of::<T>() as u32,
+            size: size_of::<T>() as u32,
         };
 
         Self {
@@ -51,7 +51,7 @@ impl<T: Sized> VkPushConstant<T> {
         let bytes = unsafe {
             std::slice::from_raw_parts(
                 &self.value as *const _ as *const u8,
-                std::mem::size_of::<T>(),
+                size_of::<T>(),
             )
         };
 

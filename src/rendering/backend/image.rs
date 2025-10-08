@@ -4,7 +4,6 @@ use bitflags::bitflags;
 use image::ColorType;
 
 use mvengine_proc_macro::graphics_item;
-use crate::rendering::api::err::RenderingError;
 use crate::rendering::backend::buffer::{Buffer, MemoryProperties};
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::device::Device;
@@ -120,10 +119,10 @@ pub enum Image {
 }
 
 impl Image {
-    pub fn new(device: Device, create_info: MVImageCreateInfo) -> Result<Self, RenderingError> {
+    pub fn new(device: Device, create_info: MVImageCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
-                Ok(Image::Vulkan(VkImage::new(device, create_info.into())?.into()))
+                Image::Vulkan(VkImage::new(device, create_info.into()).into())
             }
             #[cfg(target_os = "macos")]
             Device::Metal => unreachable!(),
@@ -138,34 +137,32 @@ impl Image {
         command_buffer: Option<&CommandBuffer>,
         src: AccessFlags,
         dst: AccessFlags,
-    ) -> Result<(), RenderingError> {
+    ) {
         match self {
             Image::Vulkan(image) => image.transition_layout(
                 new_layout.into(),
                 command_buffer.map(|cmd| cmd.as_vulkan()),
                 ash::vk::AccessFlags::from_raw(src.bits()),
                 ash::vk::AccessFlags::from_raw(dst.bits()),
-            )?,
+            ),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
             Image::DirectX => unreachable!(),
         }
-        Ok(())
     }
 
-    pub fn copy_buffer_to_image(&self, buffer: &Buffer, command_buffer: Option<&CommandBuffer>) -> Result<(), RenderingError> {
+    pub fn copy_buffer_to_image(&self, buffer: &Buffer, command_buffer: Option<&CommandBuffer>) {
         match self {
             Image::Vulkan(image) => image.copy_buffer_to_image(
                 buffer.as_vulkan(),
                 command_buffer.map(|cmd| cmd.as_vulkan()),
-            )?,
+            ),
             #[cfg(target_os = "macos")]
             Image::Metal => unreachable!(),
             #[cfg(target_os = "windows")]
             Image::DirectX => unreachable!(),
         }
-        Ok(())
     }
 
     pub fn get_extent(&self) -> Extent2D {

@@ -100,10 +100,10 @@ where
 {
     pub fn as_vec4(&self) -> Vec4 {
         Vec4::new(
-            self.components[0].to_f32().unwrap() / 255.0,
-            self.components[1].to_f32().unwrap() / 255.0,
-            self.components[2].to_f32().unwrap() / 255.0,
-            self.components[3].to_f32().unwrap() / 255.0,
+            self.components[0].to_f32().unwrap_or_default() / 255.0,
+            self.components[1].to_f32().unwrap_or_default() / 255.0,
+            self.components[2].to_f32().unwrap_or_default() / 255.0,
+            self.components[3].to_f32().unwrap_or_default() / 255.0,
         )
     }
 }

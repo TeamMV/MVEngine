@@ -1,7 +1,6 @@
 use crate::rendering::backend::buffer::MVBufferCreateInfo;
 use crate::rendering::backend::vulkan::device::VkDevice;
 use std::sync::Arc;
-use crate::rendering::api::err::RenderingError;
 
 pub(crate) struct CreateInfo {
     pub instance_size: ash::vk::DeviceSize,
@@ -177,14 +176,14 @@ impl VkBuffer {
         src_offset: ash::vk::DeviceSize,
         dst_offset: ash::vk::DeviceSize,
         provided_cmd: Option<ash::vk::CommandBuffer>,
-    ) -> Result<(), RenderingError> {
+    ) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd, false)
         } else {
             (
                 src_buffer
                     .device
-                    .begin_single_time_command(src_buffer.device.get_graphics_command_pool())?,
+                    .begin_single_time_command(src_buffer.device.get_graphics_command_pool()),
                 true,
             )
         };
@@ -209,9 +208,8 @@ impl VkBuffer {
                 cmd,
                 src_buffer.device.get_graphics_command_pool(),
                 src_buffer.device.get_graphics_queue(),
-            )?;
+            );
         }
-        Ok(())
     }
 
     pub(crate) fn map(&mut self) {

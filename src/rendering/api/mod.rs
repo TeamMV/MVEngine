@@ -1,6 +1,5 @@
 use gpu_alloc::UsageFlags;
 use mvutils::version::Version;
-use crate::rendering::api::err::RenderingError;
 use crate::rendering::backend::buffer::MemoryProperties;
 use crate::rendering::backend::image::{Image, ImageUsage, MVImageCreateInfo};
 use crate::rendering::backend::shader::Shader;
@@ -26,24 +25,24 @@ impl Renderer {
         Self::X(XRendererImpl::new(window, app_name, version))
     }
 
-    pub fn load_shader(&self, ty: ShaderType, source: &str, name: &str) -> Result<MVShader, RenderingError> {
+    pub fn load_shader(&self, ty: ShaderType, source: &str, name: &str) -> Result<MVShader, shaderc::Error> {
         match self {
             Renderer::L() => no_l!(),
             Renderer::X(x) => x.load_shader(name, ty, source).map(|s| MVShader::X(s))
         }
     }
 
-    pub fn load_texture(&self, name: &str, source: &[u8], memory_properties: MemoryProperties, usage: ImageUsage, memory_usage_flags: UsageFlags) -> Result<MVTexture, RenderingError> {
+    pub fn load_texture(&self, name: &str, source: &[u8], memory_properties: MemoryProperties, usage: ImageUsage, memory_usage_flags: UsageFlags) -> MVTexture {
         match self {
             Renderer::L() => no_l!(),
-            Renderer::X(x) => x.load_texture(name, source, memory_properties, usage, memory_usage_flags).map(|t| MVTexture::X(t))
+            Renderer::X(x) => MVTexture::X(x.load_texture(name, source, memory_properties, usage, memory_usage_flags))
         }
     }
 
-    pub fn create_texture(&self, create_info: MVImageCreateInfo) -> Result<MVTexture, RenderingError> {
+    pub fn create_texture(&self, create_info: MVImageCreateInfo) -> MVTexture {
         match self {
             Renderer::L() => no_l!(),
-            Renderer::X(x) => x.create_texture_manually(create_info).map(|t| MVTexture::X(t))
+            Renderer::X(x) => MVTexture::X(x.create_texture_manually(create_info))
         }
     }
 }

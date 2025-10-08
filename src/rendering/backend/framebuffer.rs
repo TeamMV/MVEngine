@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use bitflags::bitflags;
 use mvengine_proc_macro::graphics_item;
-use crate::rendering::api::err::RenderingError;
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::image::{AccessFlags, Image, ImageFormat, ImageLayout, ImageUsage};
@@ -63,10 +62,10 @@ pub enum Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn new(device: Device, create_info: MVFramebufferCreateInfo) -> Result<Self, RenderingError> {
+    pub fn new(device: Device, create_info: MVFramebufferCreateInfo) -> Self {
         match device {
             Device::Vulkan(device) => {
-                Ok(Framebuffer::Vulkan(VkFramebuffer::new(device, create_info.into())?.into()))
+                Framebuffer::Vulkan(VkFramebuffer::new(device, create_info.into()).into())
             }
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),

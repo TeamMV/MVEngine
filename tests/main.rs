@@ -1,14 +1,17 @@
+use std::io::stdout;
 use log::LevelFilter;
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use mvutils::once::CreateOnce;
+use mvutils::utils::setup_private_panic;
 use mvutils::version::Version;
 use mvengine::rendering::api::Renderer;
 
 pub fn main() -> Result<(), Error> {
-    mvlogger::init(std::io::stdout(), LevelFilter::Debug);
+    mvengine::panic::setup_logger(stdout(), LevelFilter::Debug, 10);
+    mvengine::panic::setup_panic(true, "mve/logs");
 
     let mut info = WindowCreateInfo::default();
     info.title = "Window demo".to_string();
@@ -38,6 +41,7 @@ impl WindowCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
         let renderer = Renderer::new_x(window, "HelloGPUApplication", Version::new(0, 1, 0, 0));
         self.renderer.create(|| renderer);
+        panic!("Oh no!");
     }
 
     fn update(&mut self, window: &mut Window, delta_u: f64) {}

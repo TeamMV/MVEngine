@@ -5,7 +5,6 @@ use bitflags::bitflags;
 use mvengine_proc_macro::graphics_item;
 use mvutils::version::Version;
 use std::sync::Arc;
-use crate::rendering::api::err::RenderingError;
 use crate::rendering::backend::vulkan::device::VkDevice;
 
 pub struct MVDeviceCreateInfo {
@@ -42,12 +41,12 @@ impl Device {
         }
     }
 
-    pub fn begin_single_time_command(&self, pool: CommandPool) -> Result<CommandBuffer, RenderingError> {
+    pub fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {
         match self {
-            Device::Vulkan(device) => Ok(CommandBuffer::Vulkan(VkCommandBuffer::from(
+            Device::Vulkan(device) => CommandBuffer::Vulkan(VkCommandBuffer::from(
                 device.clone(),
-                device.begin_single_time_command(pool.as_vulkan())?,
-            ))),
+                device.begin_single_time_command(pool.as_vulkan()),
+            )),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
@@ -55,19 +54,18 @@ impl Device {
         }
     }
 
-    pub fn end_single_time_command(&self, buffer: CommandBuffer, pool: CommandPool, queue: Queue) -> Result<(), RenderingError> {
+    pub fn end_single_time_command(&self, buffer: CommandBuffer, pool: CommandPool, queue: Queue) {
         match self {
             Device::Vulkan(device) => device.end_single_time_command(
                 buffer.as_vulkan().get_handle(),
                 pool.as_vulkan(),
                 queue.as_vulkan(),
-            )?,
+            ),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             Device::DirectX => unimplemented!(),
         }
-        Ok(())
     }
 
     pub fn get_graphics_command_pool(&self) -> CommandPool {
@@ -120,15 +118,14 @@ impl Device {
         }
     }
 
-    pub fn wait_idle(&self) -> Result<(), RenderingError> {
+    pub fn wait_idle(&self) {
         match self {
-            Device::Vulkan(device) => device.wait_idle()?,
+            Device::Vulkan(device) => device.wait_idle(),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             Device::DirectX => unimplemented!(),
         }
-        Ok(())
     }
 }
 

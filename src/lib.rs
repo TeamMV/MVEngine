@@ -13,14 +13,15 @@ extern crate core;
 //pub mod audio;
 pub mod color;
 //pub mod event;
-//pub mod game;
+pub mod game;
 //pub mod graphics;
 pub mod input;
 pub mod math;
 pub mod net;
 //pub mod ui;
-//pub mod utils;
+pub mod utils;
 pub mod window;
-//pub mod debug;
+pub mod debug;
 pub mod rendering;
+pub mod panic;
 

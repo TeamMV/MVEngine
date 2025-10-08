@@ -8,7 +8,6 @@ use crate::rendering::backend::vulkan::device::VkDevice;
 use mvutils::unsafe_utils::DangerousCell;
 use std::ffi::CString;
 use std::sync::Arc;
-use crate::rendering::api::err::RenderingError;
 
 pub struct VkImage {
     pub(crate) device: Arc<VkDevice>,
@@ -118,7 +117,7 @@ impl From<ImageFormat> for ash::vk::Format {
 }
 
 impl VkImage {
-    pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Result<Self, RenderingError> {
+    pub(crate) fn new(device: Arc<VkDevice>, create_info: CreateInfo) -> Self {
         let flags = if create_info.cubemap {
             ash::vk::ImageCreateFlags::CUBE_COMPATIBLE
         } else {
@@ -151,7 +150,7 @@ impl VkImage {
             &create_info_vk,
             create_info.memory_properties,
             create_info.memory_usage_flags,
-        )?;
+        );
 
         #[cfg(debug_assertions)]
         device.set_object_name(
@@ -179,7 +178,11 @@ impl VkImage {
                     layer_count: create_info.layer_count,
                 });
 
-            let view = unsafe { device.get_device().create_image_view(&view_info, None) }.map_err(|e| RenderingError::VulkanError(e))?;
+            let view = unsafe { device.get_device().create_image_view(&view_info, None) }
+                .unwrap_or_else(|e| {
+                    log::error!("Failed to create image view, error: {e}");
+                    panic!();
+                });
 
             views.push(view);
 
@@ -214,7 +217,7 @@ impl VkImage {
             this.write_pixels(&data, None);
         }
 
-        Ok(this)
+        this
     }
 
     #[allow(clippy::identity_op)]
@@ -235,13 +238,13 @@ impl VkImage {
         }
     }
 
-    pub fn write_pixels(&mut self, pixels: &[u8], provided_cmd: Option<&VkCommandBuffer>) -> Result<(), RenderingError> {
+    pub fn write_pixels(&mut self, pixels: &[u8], provided_cmd: Option<&VkCommandBuffer>) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd.get_handle(), false)
         } else {
             (
                 self.device
-                    .begin_single_time_command(self.device.get_graphics_command_pool())?,
+                    .begin_single_time_command(self.device.get_graphics_command_pool()),
                 true,
             )
         };
@@ -290,10 +293,8 @@ impl VkImage {
                 cmd,
                 self.device.get_graphics_command_pool(),
                 self.device.get_graphics_queue(),
-            )?;
+            );
         }
-        
-        Ok(())
     }
 
     pub(crate) fn transition_layout(
@@ -302,13 +303,13 @@ impl VkImage {
         provided_cmd: Option<&VkCommandBuffer>,
         src_access: ash::vk::AccessFlags,
         dst_access: ash::vk::AccessFlags,
-    ) -> Result<(), RenderingError> {
+    ) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd.get_handle(), false)
         } else {
             (
                 self.device
-                    .begin_single_time_command(self.device.get_graphics_command_pool())?,
+                    .begin_single_time_command(self.device.get_graphics_command_pool()),
                 true,
             )
         };
@@ -436,23 +437,21 @@ impl VkImage {
                 cmd,
                 self.device.get_graphics_command_pool(),
                 self.device.get_graphics_queue(),
-            )?;
+            );
         }
-        
-        Ok(())
     }
 
     pub(crate) fn copy_buffer_to_image(
         &self,
         buffer: &VkBuffer,
         provided_cmd: Option<&VkCommandBuffer>,
-    ) -> Result<(), RenderingError> {
+    ) {
         let (cmd, end) = if let Some(cmd) = provided_cmd {
             (cmd.get_handle(), false)
         } else {
             (
                 self.device
-                    .begin_single_time_command(self.device.get_graphics_command_pool())?,
+                    .begin_single_time_command(self.device.get_graphics_command_pool()),
                 true,
             )
         };
@@ -492,10 +491,8 @@ impl VkImage {
                 cmd,
                 self.device.get_graphics_command_pool(),
                 self.device.get_graphics_queue(),
-            )?;
+            );
         }
-        
-        Ok(())
     }
 
     pub(crate) fn get_view(&self, index: u32) -> ash::vk::ImageView {
