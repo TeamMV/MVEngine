@@ -68,7 +68,7 @@ impl VkDescriptorSetLayout {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create descriptor set layout, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(debug_assertions)]

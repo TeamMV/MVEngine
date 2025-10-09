@@ -242,7 +242,7 @@ impl<Type: PipelineType> VkPipeline<Type> {
         }
             .unwrap_or_else(|e| {
                 log::error!("Failed to create pipeline layout for error: {e}");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             })
     }
 
@@ -329,7 +329,7 @@ impl VkPipeline {
         }
             .unwrap_or_else(|(_, e)| {
                 log::error!("Failed to create pipeline! error: {e}");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             })[0];
 
         #[cfg(debug_assertions)]
@@ -441,7 +441,7 @@ impl VkPipeline<Compute> {
         }
             .unwrap_or_else(|e| {
                 log::error!("Failed to create pipeline! error: {}", e.1);
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             })[0];
 
         #[cfg(debug_assertions)]

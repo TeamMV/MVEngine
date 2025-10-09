@@ -130,9 +130,9 @@ impl Swapchain {
         }
     }
 
-    pub fn acquire_next_image(&mut self) -> Result<u32, SwapchainError> {
+    pub fn acquire_next_image(&mut self) -> Result<u32, (u32, SwapchainError)> {
         match self {
-            Swapchain::Vulkan(swapchain) => swapchain.acquire_next_image().map_err(Into::into),
+            Swapchain::Vulkan(swapchain) => swapchain.acquire_next_image().map_err(|(i, e)| (i, e.into())),
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

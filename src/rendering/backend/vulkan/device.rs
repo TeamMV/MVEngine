@@ -42,6 +42,7 @@ pub(crate) struct CreateInfo {
 
     // Extensions
     device_extensions: Extensions,
+    green_eco_mode: bool,
 }
 
 impl From<MVDeviceCreateInfo> for CreateInfo {
@@ -52,6 +53,7 @@ impl From<MVDeviceCreateInfo> for CreateInfo {
             engine_name: to_ascii_cstring(value.engine_name),
             engine_version: value.engine_version,
             device_extensions: value.device_extensions,
+            green_eco_mode: value.green_eco_mode,
         }
     }
 }
@@ -90,7 +92,7 @@ impl QueueIndices {
 }
 
 impl VkDevice {
-    pub(crate) fn new(create_info: CreateInfo, window: &winit::window::Window) -> Self {
+    pub(crate) fn new(create_info: CreateInfo, window: &winit::window::Window) -> Option<Self> {
         let entry: ash::Entry = unsafe { ash::Entry::load() }.unwrap();
 
         let instance = Self::create_instance(&entry, &create_info);
@@ -114,7 +116,7 @@ impl VkDevice {
 
         let extensions = Self::get_required_extensions(&create_info.device_extensions);
         let physical_device =
-            Self::pick_physical_device(&surface, &surface_khr, &instance, true, &extensions);
+            Self::pick_physical_device(&surface, &surface_khr, &instance, !create_info.green_eco_mode, &extensions)?;
 
         let properties = Self::get_physical_device_properties(&instance, &physical_device);
 
@@ -138,7 +140,7 @@ impl VkDevice {
         }
         .unwrap_or_else(|e| {
             log::error!("vkGetPhysicalDeviceSurfacePresentModes failed, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         });
 
         let vsync_present_mode = [ash::vk::PresentModeKHR::FIFO]
@@ -158,7 +160,7 @@ impl VkDevice {
         let swapchain_khr = ash::extensions::khr::Swapchain::new(&instance, &device);
         let (allocator, valid_memory_types) = Self::create_allocator(&instance, physical_device);
 
-        Self {
+        Some(Self {
             entry,
             instance,
             #[cfg(debug_assertions)]
@@ -178,7 +180,7 @@ impl VkDevice {
             available_present_modes,
             allocator: allocator.into(),
             valid_memory_types,
-        }
+        })
     }
 
     fn create_command_pools(
@@ -221,7 +223,7 @@ impl VkDevice {
         };
         let instance_extensions = instance_extensions.unwrap_or_else(|e| {
             log::error!("vkEnumerateInstanceExtensionProperties failed, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(not(target_os = "windows"))]
@@ -374,7 +376,7 @@ impl VkDevice {
         log::trace!("vkCreateInstance");
         unsafe { entry.create_instance(&create_info, None) }.unwrap_or_else(|e| {
             log::error!("vkCreateInstance failed, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         })
     }
 
@@ -402,7 +404,7 @@ impl VkDevice {
         unsafe { debug_utils.create_debug_utils_messenger(&create_info, None) }.unwrap_or_else(
             |e| {
                 log::error!("Failed to create debug utils messenger, error: {e}");
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             },
         )
     }
@@ -424,7 +426,7 @@ impl VkDevice {
         ) -> ash::vk::SurfaceKHR {
             if !extensions.contains(&ash::extensions::khr::XlibSurface::name()) {
                 log::error!("Vulkan driver does not support VK_KHR_xlib_surface");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
 
             let xlib_loader = ash::extensions::khr::XlibSurface::new(entry, instance);
@@ -437,7 +439,7 @@ impl VkDevice {
                 .create_xlib_surface(&info, None)
                 .unwrap_or_else(|_| {
                     log::error!("XlibSurface::create_xlib_surface() failed");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 })
         }
 
@@ -451,7 +453,7 @@ impl VkDevice {
         ) -> ash::vk::SurfaceKHR {
             if !extensions.contains(&ash::extensions::khr::XcbSurface::name()) {
                 log::error!("Vulkan driver does not support VK_KHR_xcb_surface");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
 
             let xcb_loader = ash::extensions::khr::XcbSurface::new(entry, instance);
@@ -464,7 +466,7 @@ impl VkDevice {
                 .create_xcb_surface(&info, None)
                 .unwrap_or_else(|_| {
                     log::error!("XcbSurface::create_xcb_surface() failed");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 })
         }
 
@@ -478,7 +480,7 @@ impl VkDevice {
         ) -> ash::vk::SurfaceKHR {
             if !extensions.contains(&ash::extensions::khr::WaylandSurface::name()) {
                 log::error!("Vulkan driver does not support VK_KHR_wayland_surface");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
 
             let w_loader = ash::extensions::khr::WaylandSurface::new(entry, instance);
@@ -491,7 +493,7 @@ impl VkDevice {
                 .create_wayland_surface(&info, None)
                 .unwrap_or_else(|_| {
                     log::error!("WaylandSurface::create_wayland_surface() failed");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 })
         }
 
@@ -505,7 +507,7 @@ impl VkDevice {
         ) -> ash::vk::SurfaceKHR {
             if !extensions.contains(&ash::extensions::khr::Win32Surface::name()) {
                 log::error!("Vulkan driver does not support VK_KHR_win32_surface");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
 
             let info = ash::vk::Win32SurfaceCreateInfoKHR::builder()
@@ -517,7 +519,7 @@ impl VkDevice {
                 .create_win32_surface(&info, None)
                 .unwrap_or_else(|_| {
                     log::error!("Unable to create Win32 surface");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 })
         }
 
@@ -641,7 +643,7 @@ impl VkDevice {
         instance: &ash::Instance,
         prioritize_discrete: bool,
         extensions: &[&CStr],
-    ) -> ash::vk::PhysicalDevice {
+    ) -> Option<ash::vk::PhysicalDevice> {
         let devices = unsafe { instance.enumerate_physical_devices() }.expect("No Devices Found!");
 
         let mut physical_device: Option<ash::vk::PhysicalDevice> = None;
@@ -650,17 +652,21 @@ impl VkDevice {
             if Self::is_device_suitable(&device, instance, surface_khr, surface, extensions) {
                 physical_device = Some(device);
                 let properties = unsafe { instance.get_physical_device_properties(device) };
-                if properties.device_type == ash::vk::PhysicalDeviceType::DISCRETE_GPU
-                    && prioritize_discrete
-                {
-                    break;
+                match properties.device_type {
+                    ash::vk::PhysicalDeviceType::DISCRETE_GPU => if prioritize_discrete {
+                        break
+                    }
+                    ash::vk::PhysicalDeviceType::INTEGRATED_GPU | ash::vk::PhysicalDeviceType::VIRTUAL_GPU | ash::vk::PhysicalDeviceType::CPU => if !prioritize_discrete {
+                        break
+                    }
+                    _ => {}
                 }
             }
         }
 
-        physical_device.unwrap_or_else(|| {
+        physical_device.or_else(|| {
             log::error!("Could find any suitable physical device!");
-            panic!()
+            None
         })
     }
 
@@ -714,7 +720,10 @@ impl VkDevice {
                     *surface,
                 )
             }
-            .unwrap()
+            .unwrap_or_else(|e| {
+                log::error!("vkGetPhysicalDeviceSurfaceSupport failed: {e}");
+                panic!("Critical Vulkan driver ERROR")
+            })
             {
                 queue_indices.present_queue_index = Some(queue.0 as u32);
             }
@@ -995,7 +1004,7 @@ impl VkDevice {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to allocate memory, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         });
 
         unsafe {
@@ -1004,7 +1013,7 @@ impl VkDevice {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         (buffer, block)
@@ -1042,12 +1051,12 @@ impl VkDevice {
         }
             .unwrap_or_else(|e| {
                 log::error!("Failed to allocate memory, error: {e}");
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             });
 
         unsafe { self.device.bind_image_memory(image, *block.memory(), block.offset()) }.unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         (image, block)
@@ -1068,7 +1077,7 @@ impl VkDevice {
         }
 
         // so real
-        panic!()
+        panic!("Critical Vulkan driver ERROR")
     }
 
     pub(crate) fn deallocate_buffer(
@@ -1109,7 +1118,7 @@ impl VkDevice {
         let cmd =
             unsafe { self.device.allocate_command_buffers(&alloc_info) }.unwrap_or_else(|e| {
                 log::error!("Failed to allocate command buffer, error: {e}");
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             })[0];
 
         let begin_info = ash::vk::CommandBufferBeginInfo::builder()
@@ -1117,7 +1126,7 @@ impl VkDevice {
 
         unsafe { self.device.begin_command_buffer(cmd, &begin_info) }.unwrap_or_else(|e| {
             log::error!("Failed to begin recording command buffer, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         cmd
@@ -1131,7 +1140,7 @@ impl VkDevice {
     ) {
         unsafe { self.device.end_command_buffer(command_buffer) }.unwrap_or_else(|e| {
             log::error!("Failed to end command buffer, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         let cmd_vec = vec![command_buffer];

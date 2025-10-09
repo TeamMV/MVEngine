@@ -1,79 +1,78 @@
-use gpu_alloc::UsageFlags;
-use mvutils::version::Version;
-use shaderc::ShaderKind;
-use crate::rendering::api::ShaderType;
-use crate::rendering::backend::{Backend, Extent2D};
-use crate::rendering::backend::buffer::MemoryProperties;
-use crate::rendering::backend::device::{Device, Extensions, MVDeviceCreateInfo};
-use crate::rendering::backend::image::{Image, ImageAspect, ImageFormat, ImageTiling, ImageType, ImageUsage, MVImageCreateInfo};
+use crate::rendering::api::{RendererCreateInfo, RendererFlavor, ShaderFlavor};
+use crate::rendering::backend::pipeline::Pipeline;
 use crate::rendering::backend::shader::Shader;
+use crate::rendering::backend::swapchain::SwapchainError;
+use crate::rendering::implementation::x::core::XRendererCore;
+use crate::rendering::implementation::x::x2d::XRenderer2DAddon;
+use crate::rendering::implementation::x::x3d::XRenderer3DAddon;
 use crate::window::Window;
 
-pub struct XRendererImpl {
-    device: Device
+pub mod core;
+pub mod x2d;
+pub mod x3d;
+
+pub struct XRenderer {
+    core: XRendererCore,
+    // $4.99 in app store
+    x2d: Option<XRenderer2DAddon>,
+    // $9.99 in app store
+    x3d: Option<XRenderer3DAddon>,
 }
 
-impl XRendererImpl {
-    /// Create a new instance of our amazing new modern fast and performant XRenderer!
-    pub fn new(window: &Window, app_name: &str, version: Version) -> Self {
-        let device = Device::new(Backend::Vulkan, MVDeviceCreateInfo {
-            app_name: app_name.to_string(),
-            app_version: version,
-            engine_name: "MVEngine".to_string(),
-            engine_version: Version::new(0, 1, 0, 0),
-            device_extensions: Extensions::DESCRIPTOR_INDEXING,
-        }, window.get_handle());
+impl XRenderer {
+    pub fn new(window: &Window, create_info: RendererCreateInfo) -> Option<Self> {
+        let x2d = if create_info.flavor.contains(RendererFlavor::FLAVOR_2D) {
+            Some(XRenderer2DAddon::new())
+        } else { None };
 
-        Self {
-            device,
-        }
-    }
+        let x3d = if create_info.flavor.contains(RendererFlavor::FLAVOR_3D) {
+            Some(XRenderer3DAddon::new())
+        } else { None };
 
-    /// Compile a new shader using shaderc and return the abstract Shader instance.
-    pub fn load_shader(&self, name: &str, ty: ShaderType, source: &str) -> Result<Shader, shaderc::Error> {
-        let kind = match ty {
-            ShaderType::Vertex => ShaderKind::Vertex,
-            ShaderType::Fragment => ShaderKind::Fragment,
-            ShaderType::Compute => ShaderKind::Compute
-        };
-        Shader::compile(self.device.clone(), source, kind, stropt(name))
-    }
-
-    pub fn load_texture(&self, name: &str, data: &[u8], memory_properties: MemoryProperties, usage: ImageUsage, memory_usage_flags: UsageFlags) -> Image {
-        //todo for max: load the image with image crate and extract like dimensions, format and all the shittyty shittaton
-        // thats like 2 of the 10 properties we need
-
-        // TODO: this error we might wanna handle idk
-        let image = image::load_from_memory(data).unwrap().into_rgba8();
-
-        Image::new(self.device.clone(), MVImageCreateInfo {
-            size: Extent2D {
-                width: image.width(),
-                height: image.height(),
-            },
-            format: ImageFormat::R8G8B8A8,
-            usage,
-            memory_properties,
-            aspect: ImageAspect::COLOR,
-            tiling: ImageTiling::Optimal,
-            layer_count: 1,
-            image_type: ImageType::Image2D,
-            cubemap: false,
-            memory_usage_flags,
-            data: Some(image.into_raw()),
-            label: stropt(name),
+        Some(Self {
+            core: XRendererCore::new(window, create_info)?,
+            x2d,
+            x3d,
         })
     }
 
-    pub fn create_texture_manually(&self, create_info: MVImageCreateInfo) -> Image {
-        Image::new(self.device.clone(), create_info)
-    }
-}
+    pub fn draw(&mut self) {
+        let image_index = match self.core.begin_draw() {
+            Ok(image_index) => {
+                image_index
+            }
+            Err((i, e)) if matches!(e, SwapchainError::Suboptimal) => {
+                i
+            }
+            Err((_, e)) => {
+                log::info!("Swapchain: {e:?}, waiting for recreation!");
+                return;
+            }
+        };
 
-fn stropt(s: &str) -> Option<String> {
-    if s.is_empty() {
-        None
-    } else {
-        Some(s.to_string())
+        if let Some(x3d) = &mut self.x3d {
+
+        }
+
+        if let Some(x2d) = &mut self.x2d {
+
+        }
+
+        if let Err(e) = self.core.end_draw() {
+            if let SwapchainError::Suboptimal = e {
+                //recreate
+                self.core.recreate_in_place();
+                return;
+            }
+            log::info!("Swapchain: {e:?}, waiting for recreation!");
+        }
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.core.resize(width, height);
+    }
+
+    pub fn compile_shader(&self, name: &str, flavor: ShaderFlavor, source: &str) -> Result<Shader, shaderc::Error> {
+        self.core.load_shader(name, flavor, source)
     }
 }

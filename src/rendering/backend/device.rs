@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::vulkan::command_buffer::VkCommandBuffer;
 use crate::rendering::backend::Backend;
@@ -12,6 +13,7 @@ pub struct MVDeviceCreateInfo {
     pub app_version: Version,
     pub engine_name: String,
     pub engine_version: Version,
+    pub green_eco_mode: bool,
 
     pub device_extensions: Extensions,
 }
@@ -31,14 +33,14 @@ impl Device {
         backend: Backend,
         create_info: MVDeviceCreateInfo,
         window: &winit::window::Window,
-    ) -> Self {
-        match backend {
-            Backend::Vulkan => Device::Vulkan(VkDevice::new(create_info.into(), window).into()),
+    ) -> Option<Self> {
+        Some(match backend {
+            Backend::Vulkan => Device::Vulkan(VkDevice::new(create_info.into(), window)?.into()),
             #[cfg(target_os = "macos")]
             Backend::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]
             Backend::DirectX => unimplemented!(),
-        }
+        })
     }
 
     pub fn begin_single_time_command(&self, pool: CommandPool) -> CommandBuffer {

@@ -3,7 +3,6 @@ use std::path::Path;
 use std::process::Command;
 use ::log::LevelFilter;
 use itertools::Itertools;
-use native_dialog::MessageDialogBuilder;
 use crate::game::fs::cfgdir;
 use crate::panic::alert::{AlertButtons, AlertFlavor};
 

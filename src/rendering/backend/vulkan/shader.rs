@@ -47,7 +47,7 @@ impl VkShader {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create shader module, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(debug_assertions)]

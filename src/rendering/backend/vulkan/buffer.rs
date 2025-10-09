@@ -218,7 +218,7 @@ impl VkBuffer {
             .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
         {
             log::error!("Can't map device local buffer!");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         let block = self
@@ -235,7 +235,7 @@ impl VkBuffer {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to flush buffer, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         })
         .as_ptr();
     }
@@ -246,7 +246,7 @@ impl VkBuffer {
             .contains(ash::vk::MemoryPropertyFlags::DEVICE_LOCAL)
         {
             log::error!("Can't unmap device local buffer!");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         unsafe {

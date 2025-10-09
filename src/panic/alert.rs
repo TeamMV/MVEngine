@@ -1,9 +1,9 @@
+use bitflags::bitflags;
 use std::ffi::OsStr;
 use std::os::windows::prelude::OsStrExt;
 use std::thread;
-use bitflags::bitflags;
 use winapi::um::winuser;
-use winapi::um::winuser::{MessageBoxW, MB_CANCELTRYCONTINUE, MB_ICONERROR, MB_ICONINFORMATION, MB_OK, MB_OKCANCEL, MB_RETRYCANCEL, MB_YESNO, MB_YESNOCANCEL};
+use winapi::um::winuser::{MessageBoxW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK, MB_OKCANCEL, MB_RETRYCANCEL, MB_YESNO, MB_YESNOCANCEL};
 
 pub enum AlertFlavor {
     Info,

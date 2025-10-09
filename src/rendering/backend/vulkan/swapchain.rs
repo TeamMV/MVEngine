@@ -90,7 +90,7 @@ impl From<ash::vk::Result> for SwapchainError {
             ash::vk::Result::SUBOPTIMAL_KHR => SwapchainError::Suboptimal,
             _ => {
                 log::error!("vkAcquireNextImageKHR failed, error: {value}");
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             }
         }
     }
@@ -158,8 +158,14 @@ impl VkSwapchain {
         let indices = device.get_indices();
 
         let indices_vec = [
-            indices.graphics_queue_index.unwrap(),
-            indices.compute_queue_index.unwrap(),
+            indices.graphics_queue_index.unwrap_or_else(|| {
+                log::error!("Queue indices during swapchain creation miraculously vanished");
+                panic!("Critical Vulkan driver ERROR")
+            }),
+            indices.compute_queue_index.unwrap_or_else(|| {
+                log::error!("Queue indices during swapchain creation miraculously vanished");
+                panic!("Critical Vulkan driver ERROR")
+            }),
         ];
 
         // if graphics and present queue are the same which happens on some hardware create images in exclusive sharing mode
@@ -180,7 +186,7 @@ impl VkSwapchain {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create swapchain, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         });
 
         let images = unsafe {
@@ -190,7 +196,7 @@ impl VkSwapchain {
         }
         .unwrap_or_else(|e| {
             log::error!("Couldn't get swapchain images. error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         let render_pass = Self::create_render_pass(&device, color_format.format);
@@ -217,7 +223,7 @@ impl VkSwapchain {
                 }
                 .unwrap_or_else(|e| {
                     log::error!("Create image view failed, error: {e}");
-                    panic!()
+                    panic!("Critical Vulkan driver ERROR")
                 });
 
                 let vk_image = VkImage {
@@ -307,7 +313,10 @@ impl VkSwapchain {
                     device.get_surface(),
                 )
         }
-        .unwrap();
+        .unwrap_or_else(|e| {
+            log::error!("vkGetPhysicalDeviceSurfaceCapabilities failed: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        });
         let formats = unsafe {
             device
                 .get_surface_khr()
@@ -315,8 +324,10 @@ impl VkSwapchain {
                     device.get_physical_device(),
                     device.get_surface(),
                 )
-        }
-        .unwrap();
+        }.unwrap_or_else(|e| {
+            log::error!("vkGetPhysicalDeviceSurfaceCapabilities failed: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        });
         let present_modes = device.get_available_present_modes().clone();
 
         SwapchainCapabilities {
@@ -386,7 +397,7 @@ impl VkSwapchain {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create swapchain rendering pass! error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         })
     }
 
@@ -415,7 +426,7 @@ impl VkSwapchain {
                 }
                 .unwrap_or_else(|e| {
                     log::error!("Failed to create wait semaphore, error {e}");
-                    panic!()
+                    panic!("Critical Vulkan driver ERROR")
                 }),
             );
 
@@ -427,7 +438,7 @@ impl VkSwapchain {
                 }
                 .unwrap_or_else(|e| {
                     log::error!("Failed to create signal semaphore, error {e}");
-                    panic!()
+                    panic!("Critical Vulkan driver ERROR")
                 }),
             );
 
@@ -435,7 +446,7 @@ impl VkSwapchain {
                 unsafe { device.get_device().create_fence(&fence_create_info, None) }
                     .unwrap_or_else(|e| {
                         log::error!("Failed to create fence, error {e}");
-                        panic!()
+                        panic!("Critical Vulkan driver ERROR")
                     }),
             );
         }
@@ -511,15 +522,21 @@ impl VkSwapchain {
             .ok_or(ash::vk::Result::SUBOPTIMAL_KHR)
     }
 
-    pub(crate) fn acquire_next_image(&mut self) -> Result<u32, ash::vk::Result> {
+    pub(crate) fn acquire_next_image(&mut self) -> Result<u32, (u32, ash::vk::Result)> {
         let fences = [self.in_flight_fences[self.current_frame as usize]];
         unsafe {
             self.device
                 .get_device()
                 .wait_for_fences(&fences, true, u64::MAX)
         }
-        .unwrap();
-        unsafe { self.device.get_device().reset_fences(&fences) }.unwrap();
+        .unwrap_or_else(|e| {
+            log::error!("Failed to wait for fences before acquiring next image: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        });
+        unsafe { self.device.get_device().reset_fences(&fences) } .unwrap_or_else(|e| {
+            log::error!("Failed to reset fences before acquiring next image: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        });
 
         let (image, suboptimal) = unsafe {
             self.device.get_swapchain_extension().acquire_next_image(
@@ -528,14 +545,14 @@ impl VkSwapchain {
                 self.wait_semaphores[self.current_frame as usize],
                 ash::vk::Fence::null(),
             )
-        }?;
+        }.map_err(|e| (0, e))?;
 
         self.current_image_index = image;
 
         suboptimal
             .not()
             .then_some(image)
-            .ok_or(ash::vk::Result::SUBOPTIMAL_KHR)
+            .ok_or((image, ash::vk::Result::SUBOPTIMAL_KHR))
     }
 
     pub(crate) fn get_current_frame(&self) -> u32 {

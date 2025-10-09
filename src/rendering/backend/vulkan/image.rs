@@ -181,7 +181,7 @@ impl VkImage {
             let view = unsafe { device.get_device().create_image_view(&view_info, None) }
                 .unwrap_or_else(|e| {
                     log::error!("Failed to create image view, error: {e}");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 });
 
             views.push(view);
@@ -233,7 +233,7 @@ impl VkImage {
             ash::vk::Format::R8_UNORM => 1 * 1,
             _ => {
                 log::error!("Format unsupported!");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
         }
     }

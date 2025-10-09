@@ -173,7 +173,7 @@ impl VkFramebuffer {
                 }
                 _ => {
                     log::error!("Unsupported framebuffer format provided");
-                    panic!()
+                    panic!("Critical Vulkan driver ERROR")
                 },
             }
         }
@@ -208,7 +208,7 @@ impl VkFramebuffer {
                 .create_framebuffer(&framebuffer_create_info, None)
         }.unwrap_or_else(|e| {
             log::error!("Failed to create framebuffer, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(debug_assertions)]
@@ -330,7 +330,7 @@ impl VkFramebuffer {
         let use_final_layouts = if !render_pass_create_info.final_layouts.is_empty() {
             if (render_pass_create_info.final_layouts.len() as u32) < attachment_count {
                 log::error!("You have to specify final layout for all attachments!");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             };
 
             true
@@ -341,7 +341,7 @@ impl VkFramebuffer {
         let use_loads_op = if !render_pass_create_info.load_op.is_empty() {
             if (render_pass_create_info.load_op.len() as u32) < attachment_count {
                 log::error!("You have to specify load op for all attachments!");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             };
 
             true
@@ -352,7 +352,7 @@ impl VkFramebuffer {
         let use_store_op = if !render_pass_create_info.store_op.is_empty() {
             if (render_pass_create_info.store_op.len() as u32) < attachment_count {
                 log::error!("You have to specify final layout for all attachments!");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             };
 
             true
@@ -375,7 +375,7 @@ impl VkFramebuffer {
 
             if depth_attachment_count > 1 {
                 log::error!("Can't have more than one depth attachment in framebuffer!");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             }
 
             let load_op = if use_loads_op {
@@ -480,7 +480,7 @@ impl VkFramebuffer {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create rendering pass, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         })
     }
 
@@ -502,7 +502,7 @@ impl VkFramebuffer {
         let handle = unsafe { device.get_device().create_framebuffer(&create_info, None) }
             .unwrap_or_else(|e| {
                 log::error!("Failed to create framebuffer, error: {e}");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             });
 
         let final_layouts = vec![ash::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL];

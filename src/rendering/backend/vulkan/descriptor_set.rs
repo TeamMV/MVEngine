@@ -183,7 +183,7 @@ impl VkDescriptorSet {
                         "Descriptor type not supported, type: {}",
                         binding.descriptor_type.as_raw()
                     );
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 }
             }
         }
@@ -209,7 +209,7 @@ impl VkDescriptorSet {
                 "There is no such binding in the layout you provided, last binding is {}",
                 self.layout.get_bindings_count()
             );
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         // Check if the binding type matches TYPE_UNIFORM_BUFFER or STORAGE_BUFFER.
@@ -220,7 +220,7 @@ impl VkDescriptorSet {
             == 0
         {
             log::error!("Binding in the layout has different type, type in the layout: {}. type you want to add: {}", self.layout.get_binding(binding).descriptor_type.as_raw(), self.layout.get_binding(binding).descriptor_type.as_raw());
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         // Check if the number of descriptors exceeds the specified count for the binding in the descriptor set layout.
@@ -234,7 +234,7 @@ impl VkDescriptorSet {
                 "Too many descriptors in the binding, count specified in layout: {}",
                 self.layout.get_binding(binding).descriptor_count
             );
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         let descriptor_index = self.bindings_write_info[binding as usize].descriptor_count;
@@ -253,7 +253,7 @@ impl VkDescriptorSet {
                 "There is no such binding in the layout you provided, last binding is {}",
                 self.layout.get_bindings_count()
             );
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         // Check if the binding type matches CombinedImageSampler or STORAGE_IMAGE.
@@ -264,7 +264,7 @@ impl VkDescriptorSet {
             == 0
         {
             log::error!("Binding in the layout has different type, type in the layout: {}. type you want to add: {}", self.layout.get_binding(binding).descriptor_type.as_raw(), self.layout.get_binding(binding).descriptor_type.as_raw());
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         // Check if the number of descriptors exceeds the specified count for the binding in the descriptor set layout.
@@ -278,7 +278,7 @@ impl VkDescriptorSet {
                 "Too many descriptors in the binding, count specified in layout: {}",
                 self.layout.get_binding(binding).descriptor_count
             );
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         }
 
         let descriptor_index = self.bindings_write_info[binding as usize].descriptor_count;
@@ -309,7 +309,7 @@ impl VkDescriptorSet {
                         .map(|data| {
                             let BindingData::Image(image) = data else {
                                 log::error!("Invalid binding data for Image descriptor type");
-                                panic!()
+                                panic!("Critical Vulkan driver ERROR")
                             };
                             *image
                         })
@@ -329,7 +329,7 @@ impl VkDescriptorSet {
                         .map(|data| {
                             let BindingData::Buffer(buffer) = data else {
                                 log::error!("Invalid binding data for Buffer descriptor type");
-                                panic!()
+                                panic!("Critical Vulkan driver ERROR")
                             };
                             *buffer
                         })
@@ -407,11 +407,11 @@ impl VkDescriptorSet {
                 ash::vk::PipelineBindPoint::RAY_TRACING_KHR
             } else {
                 log::error!("Invalid pipeline type");
-                panic!()
+                panic!("Critical Vulkan driver ERROR")
             }
             #[cfg(not(feature = "ray-tracing"))]
             log::error!("Invalid pipeline type");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         };
 
         let sets = [self.handle];

@@ -10,7 +10,7 @@ use mvutils::version::Version;
 use mvengine::rendering::api::Renderer;
 
 pub fn main() -> Result<(), Error> {
-    mvengine::panic::setup_logger(stdout(), LevelFilter::Debug, 10);
+    mvengine::panic::setup_logger(stdout(), LevelFilter::Trace, 1000);
     mvengine::panic::setup_panic(true, "mve/logs");
 
     let mut info = WindowCreateInfo::default();

@@ -60,7 +60,7 @@ impl VkDescriptorPool {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create descriptor pool, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(debug_assertions)]
@@ -115,7 +115,7 @@ impl VkDescriptorPool {
             .unwrap_or_else(|e| {
                 // If it fails again we panic
                 log::error!("Failed to allocate descriptor set, error: {e}");
-                panic!();
+                panic!("Critical Vulkan driver ERROR")
             });
 
             descriptor
@@ -132,7 +132,7 @@ impl VkDescriptorPool {
                 .free_descriptor_sets(self.handles[pool_index], &sets)
                 .unwrap_or_else(|e| {
                     log::error!("Failed to free descriptor set, error: {e}");
-                    panic!();
+                    panic!("Critical Vulkan driver ERROR")
                 });
         }
     }
@@ -150,7 +150,7 @@ impl VkDescriptorPool {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to create descriptor pool, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         });
 
         #[cfg(debug_assertions)]

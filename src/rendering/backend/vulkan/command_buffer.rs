@@ -47,7 +47,7 @@ impl VkCommandBuffer {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to allocate command buffer, error: {e}");
-            panic!()
+            panic!("Critical Vulkan driver ERROR")
         })[0];
 
         #[cfg(debug_assertions)]
@@ -81,14 +81,14 @@ impl VkCommandBuffer {
         }
         .unwrap_or_else(|e| {
             log::error!("Failed to begin recording command buffer, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         })
     }
 
     pub(crate) fn end(&self) {
         unsafe { self.device.get_device().end_command_buffer(self.handle) }.unwrap_or_else(|e| {
             log::error!("Failed to end recording command buffer, error: {e}");
-            panic!();
+            panic!("Critical Vulkan driver ERROR")
         })
     }
 
