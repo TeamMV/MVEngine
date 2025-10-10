@@ -160,7 +160,6 @@ impl XRendererCore {
     }
 
     pub fn begin_draw(&mut self) -> Result<u32, (u32, SwapchainError)> {
-        self.device.wait_idle();
         match self.swapchain.acquire_next_image() {
             Ok(i) => {
                 self.image_index = i;

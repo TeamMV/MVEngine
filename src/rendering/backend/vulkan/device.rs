@@ -204,7 +204,7 @@ impl VkDevice {
         let compute_pool: ash::vk::CommandPool;
         {
             let pool_info = ash::vk::CommandPoolCreateInfo::builder()
-                .queue_family_index(indices.graphics_queue_index.unwrap())
+                .queue_family_index(indices.compute_queue_index.unwrap())
                 .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
 
             compute_pool = unsafe { device.create_command_pool(&pool_info, None) }.unwrap();
@@ -552,17 +552,16 @@ impl VkDevice {
         match (window_handle, display_handle) {
             #[cfg(target_os = "linux")]
             (RawWindowHandle::Wayland(handle), RawDisplayHandle::Wayland(display)) => wayland(
-                display.display.as_ptr(),
-                handle.surface.as_ptr(),
+                display.display,
+                handle.surface,
                 extensions,
                 entry,
                 instance,
             ),
             #[cfg(target_os = "linux")]
             (RawWindowHandle::Xlib(handle), RawDisplayHandle::Xlib(display)) => {
-                let display = display.display.expect("Display pointer is not set.");
                 xlib(
-                    display.as_ptr() as *mut *const c_void,
+                    display.display as *mut *const c_void,
                     handle.window,
                     extensions,
                     entry,
@@ -571,10 +570,9 @@ impl VkDevice {
             }
             #[cfg(target_os = "linux")]
             (RawWindowHandle::Xcb(handle), RawDisplayHandle::Xcb(display)) => {
-                let connection = display.connection.expect("Pointer to X-Server is not set.");
                 xcb(
-                    connection.as_ptr(),
-                    handle.window.get(),
+                    display.connection,
+                    handle.window,
                     extensions,
                     entry,
                     instance,
