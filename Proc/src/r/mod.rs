@@ -1,24 +1,26 @@
-mod color;
-mod shape;
 mod adaptive;
-mod texture;
-mod font;
 mod animation;
+mod color;
 mod composite;
-mod tileset;
-mod drawable;
-mod geometry;
-mod string;
 mod dimension;
+mod drawable;
+mod font;
+mod geometry;
+mod shape;
+mod string;
+mod texture;
+mod tileset;
 
 use crate::r::adaptive::parse_adaptive;
 use crate::r::animation::parse_animation;
 use crate::r::color::parse_color;
 use crate::r::composite::parse_composite;
+use crate::r::dimension::parse_dimension;
 use crate::r::drawable::{parse_drawable, DrawableType, ParsedDrawable};
 use crate::r::font::parse_font;
 use crate::r::geometry::{parse_geometry, GeomType, ParsedGeometry};
 use crate::r::shape::{parse_shape, ParsedShape, ShapeLan};
+use crate::r::string::{parse_string, ParsedString};
 use crate::r::texture::parse_texture;
 use crate::r::tileset::parse_tileset;
 use animation::ParsedAnimation;
@@ -30,8 +32,6 @@ use quote::quote;
 use syn::{parse_str, Expr, Path};
 use tileset::ParsedTileSet;
 use ui_parsing::xml::{parse_rsx, XmlValue};
-use crate::r::dimension::parse_dimension;
-use crate::r::string::{parse_string, ParsedString};
 
 pub fn r(input: TokenStream) -> TokenStream {
     let content = input.to_string();
@@ -43,7 +43,7 @@ pub fn r(input: TokenStream) -> TokenStream {
     let mut struct_name = "R";
     let mut cdir = "./".to_string();
     let mut is_mv = false;
-    let mut is_noctx= false;
+    let mut is_noctx = false;
 
     if let Some(value) = rsx.get_attrib("structName") {
         if let XmlValue::Str(s) = value {
@@ -83,17 +83,15 @@ pub fn r(input: TokenStream) -> TokenStream {
         if let XmlValue::Entities(children) = inner {
             for child in children {
                 macro_rules! branch {
-                    ($arr:ident, $fun:ident) => {
-                        {
-                            if let Some(inner2) = child.inner() {
-                                if let XmlValue::Entities(children2) = inner2 {
-                                    for entity in children2 {
-                                        $arr.push($fun(entity));
-                                    }
+                    ($arr:ident, $fun:ident) => {{
+                        if let Some(inner2) = child.inner() {
+                            if let XmlValue::Entities(children2) = inner2 {
+                                for entity in children2 {
+                                    $arr.push($fun(entity));
                                 }
                             }
                         }
-                    };
+                    }};
                 }
                 let name = child.name();
                 let ty = name.as_str();
@@ -111,7 +109,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     "drawables" => branch!(drawables, parse_drawable),
                     "geometries" => branch!(geometries, parse_geometry),
 
-                    _ => panic!("Invalid resource type {ty}")
+                    _ => panic!("Invalid resource type {ty}"),
                 }
             }
         }
@@ -148,16 +146,14 @@ pub fn r(input: TokenStream) -> TokenStream {
         "string",
         "#&'static str",
         strings,
-        |lit| {
-            match lit {
-                ParsedString::S(s) => {
-                    quote! { #s, }
-                }
-                ParsedString::File(f) => {
-                    quote! { include_str!(#f), }
-                }
+        |lit| match lit {
+            ParsedString::S(s) => {
+                quote! { #s, }
             }
-        }
+            ParsedString::File(f) => {
+                quote! { include_str!(#f), }
+            }
+        },
     );
 
     let (dimension_struct_ts, dimension_resolve_fn_ts) = extent_resource(
@@ -168,7 +164,9 @@ pub fn r(input: TokenStream) -> TokenStream {
         "dimension",
         "mvengine::ui::styles::UiValue<i32>",
         dimensions,
-        |lit| { quote! { mvengine::ui::styles::UiValue::parse(#lit).unwrap(), } }
+        |lit| {
+            quote! { mvengine::ui::styles::UiValue::parse(#lit).unwrap(), }
+        },
     );
 
     let (color_struct_ts, color_resolve_fn_ts) = extent_resource(
@@ -179,7 +177,9 @@ pub fn r(input: TokenStream) -> TokenStream {
         "color",
         "mvengine::color::RgbColor",
         colors,
-        |lit| { quote! { mvengine::color::parse::parse_color(#lit).unwrap(), } }
+        |lit| {
+            quote! { mvengine::color::parse::parse_color(#lit).unwrap(), }
+        },
     );
 
     let (shape_struct_ts, shape_resolve_fn_ts) = extent_resource(
@@ -236,7 +236,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-        }
+        },
     );
 
     let (adaptive_struct_ts, adaptive_resolve_fn_ts) = extent_resource(
@@ -290,7 +290,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-        }
+        },
     );
 
     let (texture_struct_ts, texture_resolve_fn_ts) = extent_resource(
@@ -299,10 +299,15 @@ pub fn r(input: TokenStream) -> TokenStream {
         &mut res_gens_ts,
         struct_name,
         "texture",
-        is_noctx.yn("mvengine::rendering::texture::NoCtxTexture", "mvengine::rendering::texture::Texture"),
+        is_noctx.yn(
+            "mvengine::rendering::texture::NoCtxTexture",
+            "mvengine::rendering::texture::Texture",
+        ),
         textures,
         |lit| {
-            let (src, sampler) = lit.split_once('|').expect("Meta should always contain a colon");
+            let (src, sampler) = lit
+                .split_once('|')
+                .expect("Meta should always contain a colon");
             let path = get_src(cdir.as_str(), src);
             let linear = "linear" == sampler.to_lowercase();
 
@@ -321,7 +326,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     },
                 }
             }
-        }
+        },
     );
 
     let (font_struct_ts, font_resolve_fn_ts) = extent_resource(
@@ -333,7 +338,9 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvengine::rendering::text::Font",
         fonts,
         |lit| {
-            let (src, atlas) = lit.split_once('|').expect("Meta should always contain a colon");
+            let (src, atlas) = lit
+                .split_once('|')
+                .expect("Meta should always contain a colon");
             let path = get_src(cdir.as_str(), src);
             let atlas_path = get_src(cdir.as_str(), atlas);
 
@@ -346,10 +353,16 @@ pub fn r(input: TokenStream) -> TokenStream {
                     font
                 },
             }
-        }
+        },
     );
 
-    let (tile_struct_ts, tile_resolve_fn_ts, _) = extend_tiles(&tilesets, &mut r_fields_ts, &mut res_gens_ts, struct_name, is_mv);
+    let (tile_struct_ts, tile_resolve_fn_ts, _) = extend_tiles(
+        &tilesets,
+        &mut r_fields_ts,
+        &mut res_gens_ts,
+        struct_name,
+        is_mv,
+    );
 
     let (tileset_struct_ts, tileset_resolve_fn_ts) = extent_resource(
         is_mv,
@@ -373,7 +386,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     set
                 },
             }
-        }
+        },
     );
 
     let (animation_struct_ts, _) = extent_resource(
@@ -390,7 +403,8 @@ pub fn r(input: TokenStream) -> TokenStream {
             let fps = animation.fps;
 
             let tile_ident = Ident::new(tileset, Span::call_site());
-            let range_ts: Expr = parse_str(range).expect("range attribute must be a valid rust range");
+            let range_ts: Expr =
+                parse_str(range).expect("range attribute must be a valid rust range");
 
             let err_msg = format!("Cannot find tileset '{tileset}'!");
 
@@ -407,7 +421,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     anim
                 }),
             }
-        }
+        },
     );
 
     let animation_resolve_fn_ts = if !is_mv {
@@ -437,7 +451,6 @@ pub fn r(input: TokenStream) -> TokenStream {
         "mvutils::once::Lazy<mvengine::graphics::comp::CompositeSprite>",
         composites,
         |composite| {
-
             let mut vec_ts = quote! {};
             for part in &composite.parts {
                 let mut n = struct_name.to_string();
@@ -465,7 +478,7 @@ pub fn r(input: TokenStream) -> TokenStream {
                     })
                 },
             }
-        }
+        },
     );
 
     let composite_resolve_fn_ts = if !is_mv {
@@ -485,7 +498,6 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     };
-
 
     let (drawable_struct_ts, _) = extent_resource(
         is_mv,
@@ -522,7 +534,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             };
 
             quote! { mvutils::once::Lazy::new(|| #init_ts), }
-        }
+        },
     );
 
     let drawable_resolve_fn_ts = if !is_mv {
@@ -566,7 +578,7 @@ pub fn r(input: TokenStream) -> TokenStream {
             };
 
             quote! { mvutils::once::Lazy::new(|| #init_ts), }
-        }
+        },
     );
 
     let geometry_resolve_fn_ts = if !is_mv {
@@ -586,7 +598,6 @@ pub fn r(input: TokenStream) -> TokenStream {
             }
         }
     };
-
 
     // ########################################
     // ###########  R struct setup ############
@@ -611,7 +622,9 @@ pub fn r(input: TokenStream) -> TokenStream {
 
     let propagate_tick = if !is_mv {
         quote! { self.mv.tick_all_animations(); }
-    } else { quote!{} };
+    } else {
+        quote! {}
+    };
 
     let impl_ctx = if is_noctx {
         quote! {}
@@ -744,8 +757,11 @@ fn extent_resource<F, T>(
     res_name: &str,
     res_type: &str,
     parsed: Vec<(String, T)>,
-    creator: F
-) -> (TS, TS) where F: Fn(&T) -> TS {
+    creator: F,
+) -> (TS, TS)
+where
+    F: Fn(&T) -> TS,
+{
     let struct_ident = Ident::new(&format!("{struct_name}_{res_name}"), Span::call_site());
     let field_ident = Ident::new(res_name, Span::call_site());
     let res_arr_ident = Ident::new(&format!("{res_name}_arr"), Span::call_site());
@@ -842,15 +858,24 @@ fn extent_resource<F, T>(
         }
     };
 
-    (quote! {
-        pub struct #struct_ident {
-            #res_arr_ident: [#type_path; #index],
-            #res_fields_ts
-        }
-    }, res_fn_ts)
+    (
+        quote! {
+            pub struct #struct_ident {
+                #res_arr_ident: [#type_path; #index],
+                #res_fields_ts
+            }
+        },
+        res_fn_ts,
+    )
 }
 
-fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r_field_gens_tokens: &mut TS, struct_name: &str, is_mv: bool) -> (TS, TS, TS) {
+fn extend_tiles(
+    tilesets: &[(String, ParsedTileSet)],
+    r_field_tokens: &mut TS,
+    r_field_gens_tokens: &mut TS,
+    struct_name: &str,
+    is_mv: bool,
+) -> (TS, TS, TS) {
     let mut tile_struct_fields_ts = quote! {};
     let mut tile_struct_fields_init_ts = quote! {};
     let mut structs = quote! {};
@@ -868,7 +893,10 @@ fn extend_tiles(tilesets: &[(String, ParsedTileSet)], r_field_tokens: &mut TS, r
             });
         }
 
-        let ty = Ident::new(&format!("{struct_name}_tile_{tileset_name}"), Span::call_site());
+        let ty = Ident::new(
+            &format!("{struct_name}_tile_{tileset_name}"),
+            Span::call_site(),
+        );
         let ident = Ident::new(&tileset_name, Span::call_site());
         tile_struct_fields_ts.extend(quote! {
             pub #ident: #ty,

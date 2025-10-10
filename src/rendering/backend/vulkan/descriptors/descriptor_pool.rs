@@ -41,7 +41,9 @@ impl From<MVDescriptorPoolCreateInfo> for CreateInfo {
             pool_flags: ash::vk::DescriptorPoolCreateFlags::from_raw(value.flags.bits() as u32),
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }

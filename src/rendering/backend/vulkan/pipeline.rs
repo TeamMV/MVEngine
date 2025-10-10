@@ -151,7 +151,9 @@ impl From<MVGraphicsPipelineCreateInfo> for GraphicsCreateInfo {
             color_attachments_count: value.color_attachments_count,
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -168,7 +170,9 @@ impl From<MVComputePipelineCreateInfo> for ComputeCreateInfo {
             push_constants: value.push_constants.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -240,10 +244,10 @@ impl<Type: PipelineType> VkPipeline<Type> {
                 .get_device()
                 .create_pipeline_layout(&layout_info, None)
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to create pipeline layout for error: {e}");
-                panic!("Critical Vulkan driver ERROR")
-            })
+        .unwrap_or_else(|e| {
+            log::error!("Failed to create pipeline layout for error: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        })
     }
 
     pub(crate) fn get_handle(&self) -> ash::vk::Pipeline {
@@ -327,10 +331,10 @@ impl VkPipeline {
                 None,
             )
         }
-            .unwrap_or_else(|(_, e)| {
-                log::error!("Failed to create pipeline! error: {e}");
-                panic!("Critical Vulkan driver ERROR")
-            })[0];
+        .unwrap_or_else(|(_, e)| {
+            log::error!("Failed to create pipeline! error: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        })[0];
 
         #[cfg(debug_assertions)]
         device.set_object_name(
@@ -439,10 +443,10 @@ impl VkPipeline<Compute> {
                 None,
             )
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to create pipeline! error: {}", e.1);
-                panic!("Critical Vulkan driver ERROR")
-            })[0];
+        .unwrap_or_else(|e| {
+            log::error!("Failed to create pipeline! error: {}", e.1);
+            panic!("Critical Vulkan driver ERROR")
+        })[0];
 
         #[cfg(debug_assertions)]
         device.set_object_name(

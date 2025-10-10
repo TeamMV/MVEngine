@@ -122,7 +122,9 @@ impl From<MVFramebufferCreateInfo> for CreateInfo {
             render_pass_info: value.render_pass_info.map(Into::into),
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -174,7 +176,7 @@ impl VkFramebuffer {
                 _ => {
                     log::error!("Unsupported framebuffer format provided");
                     panic!("Critical Vulkan driver ERROR")
-                },
+                }
             }
         }
 
@@ -206,7 +208,8 @@ impl VkFramebuffer {
             device
                 .get_device()
                 .create_framebuffer(&framebuffer_create_info, None)
-        }.unwrap_or_else(|e| {
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to create framebuffer, error: {e}");
             panic!("Critical Vulkan driver ERROR")
         });

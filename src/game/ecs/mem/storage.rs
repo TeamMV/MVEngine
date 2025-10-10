@@ -1,13 +1,13 @@
 use crate::game::ecs::entity::EntityId;
+use crate::game::ecs::mem::conblob;
 use crate::game::ecs::mem::conblob::ContinuousBlob;
 use hashbrown::HashMap;
+use itertools::Itertools;
 use mvutils::hashers::U64IdentityHasher;
+use mvutils::unsafe_utils::Unsafe;
 use std::alloc::Layout;
 use std::any::TypeId;
 use std::fmt::Debug;
-use itertools::Itertools;
-use mvutils::unsafe_utils::Unsafe;
-use crate::game::ecs::mem::conblob;
 
 pub(crate) type ComponentIdx = u64;
 
@@ -21,7 +21,7 @@ pub struct ComponentStorage {
     components: HashMap<TypeId, ContinuousBlob>,
     entity_components:
         HashMap<EntityId, HashMap<TypeId, ComponentIdx, U64IdentityHasher>, U64IdentityHasher>,
-    component_entities: HashMap<ComponentKey, EntityId>
+    component_entities: HashMap<ComponentKey, EntityId>,
 }
 
 impl ComponentStorage {
@@ -55,7 +55,10 @@ impl ComponentStorage {
         None
     }
 
-    pub(crate) fn get_component_mut_bruh<T: Sized + 'static>(&self, entity: EntityId) -> Option<&mut T> {
+    pub(crate) fn get_component_mut_bruh<T: Sized + 'static>(
+        &self,
+        entity: EntityId,
+    ) -> Option<&mut T> {
         if let Some(map) = self.entity_components.get(&entity) {
             if let Some(idx) = map.get(&TypeId::of::<T>()) {
                 if let Some(blob) = self.components.get(&TypeId::of::<T>()) {
@@ -81,10 +84,13 @@ impl ComponentStorage {
             } else {
                 let map = HashMap::with_hasher(U64IdentityHasher::default());
                 self.entity_components.insert(entity, map);
-                self.component_entities.insert(ComponentKey {
-                    type_id: TypeId::of::<T>(),
-                    index: idx,
-                }, entity);
+                self.component_entities.insert(
+                    ComponentKey {
+                        type_id: TypeId::of::<T>(),
+                        index: idx,
+                    },
+                    entity,
+                );
                 self.entity_components.get_mut(&entity).unwrap()
             };
 
@@ -117,7 +123,10 @@ impl ComponentStorage {
         }
     }
 
-    fn get_entity_from_component_instance<C: 'static>(&self, idx: ComponentIdx) -> Option<EntityId> {
+    fn get_entity_from_component_instance<C: 'static>(
+        &self,
+        idx: ComponentIdx,
+    ) -> Option<EntityId> {
         let t = TypeId::of::<C>();
         let key = ComponentKey {
             type_id: t,

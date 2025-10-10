@@ -14,9 +14,7 @@ impl Language {
                 map.insert(key.to_string(), value.to_string());
             }
         }
-        Language {
-            lookup: map
-        }
+        Language { lookup: map }
     }
 
     pub fn lookup(&self, key: &str) -> Option<&String> {

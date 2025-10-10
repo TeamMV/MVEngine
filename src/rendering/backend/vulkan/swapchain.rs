@@ -324,7 +324,8 @@ impl VkSwapchain {
                     device.get_physical_device(),
                     device.get_surface(),
                 )
-        }.unwrap_or_else(|e| {
+        }
+        .unwrap_or_else(|e| {
             log::error!("vkGetPhysicalDeviceSurfaceCapabilities failed: {e}");
             panic!("Critical Vulkan driver ERROR")
         });
@@ -533,7 +534,7 @@ impl VkSwapchain {
             log::error!("Failed to wait for fences before acquiring next image: {e}");
             panic!("Critical Vulkan driver ERROR")
         });
-        unsafe { self.device.get_device().reset_fences(&fences) } .unwrap_or_else(|e| {
+        unsafe { self.device.get_device().reset_fences(&fences) }.unwrap_or_else(|e| {
             log::error!("Failed to reset fences before acquiring next image: {e}");
             panic!("Critical Vulkan driver ERROR")
         });
@@ -545,7 +546,8 @@ impl VkSwapchain {
                 self.wait_semaphores[self.current_frame as usize],
                 ash::vk::Fence::null(),
             )
-        }.map_err(|e| (0, e))?;
+        }
+        .map_err(|e| (0, e))?;
 
         self.current_image_index = image;
 

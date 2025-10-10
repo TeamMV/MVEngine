@@ -1,8 +1,8 @@
+use crate::rendering::backend::Extent2D;
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::framebuffer::Framebuffer;
 use crate::rendering::backend::vulkan::swapchain::VkSwapchain;
-use crate::rendering::backend::Extent2D;
 use mvengine_proc_macro::graphics_item;
 
 pub struct MVSwapchainCreateInfo {
@@ -132,7 +132,9 @@ impl Swapchain {
 
     pub fn acquire_next_image(&mut self) -> Result<u32, (u32, SwapchainError)> {
         match self {
-            Swapchain::Vulkan(swapchain) => swapchain.acquire_next_image().map_err(|(i, e)| (i, e.into())),
+            Swapchain::Vulkan(swapchain) => swapchain
+                .acquire_next_image()
+                .map_err(|(i, e)| (i, e.into())),
             #[cfg(target_os = "macos")]
             Swapchain::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

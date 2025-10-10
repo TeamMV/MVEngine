@@ -1,3 +1,4 @@
+use crate::rendering::backend::Extent3D;
 use crate::rendering::backend::buffer::Buffer;
 use crate::rendering::backend::descriptor_set::DescriptorSet;
 use crate::rendering::backend::device::{CommandPool, Device};
@@ -5,7 +6,6 @@ use crate::rendering::backend::image::Image;
 use crate::rendering::backend::pipeline::{Pipeline, PipelineType};
 use crate::rendering::backend::vulkan::buffer::VkBuffer;
 use crate::rendering::backend::vulkan::command_buffer::VkCommandBuffer;
-use crate::rendering::backend::Extent3D;
 use mvengine_proc_macro::graphics_item;
 
 pub enum CommandBufferLevel {

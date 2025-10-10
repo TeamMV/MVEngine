@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use crate::game::fs::smartdir::SmartDir;
+use std::path::PathBuf;
 
 /// Returns the configuration app directory, e.g. APPDATA on windows
 pub fn acquire_config_dir() -> PathBuf {
@@ -32,7 +32,9 @@ pub fn acquire_config_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = std::env::var_os("HOME") {
-            PathBuf::from(home).join("Library").join("Application Support")
+            PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
         } else {
             panic!("HOME is not set on macOS")
         }

@@ -9,14 +9,19 @@ pub struct ParsedAnimation {
 
 pub fn parse_animation(entity: &Entity) -> (String, ParsedAnimation) {
     if entity.name().as_str() != "animation" {
-        panic!("Animation resource must be named animation, got {}!", entity.name());
+        panic!(
+            "Animation resource must be named animation, got {}!",
+            entity.name()
+        );
     }
 
     let tileset = entity.get_attrib("tileset");
     let name = entity.get_attrib("name");
     let fps = entity.get_attrib("fps");
 
-    if let (Some(XmlValue::Str(tileset)), Some(XmlValue::Str(name)), Some(XmlValue::Str(fps))) = (tileset, name, fps) {
+    if let (Some(XmlValue::Str(tileset)), Some(XmlValue::Str(name)), Some(XmlValue::Str(fps))) =
+        (tileset, name, fps)
+    {
         let range = if let Some(XmlValue::Str(range)) = entity.get_attrib("range") {
             range.to_string()
         } else {
@@ -29,12 +34,17 @@ pub fn parse_animation(entity: &Entity) -> (String, ParsedAnimation) {
             false
         };
 
-        (name.to_string(), ParsedAnimation {
-            tileset: tileset.to_string(),
-            range,
-            fps: fps.parse::<u16>().expect("fps must be a positive number between 0-65535"),
-            use_mv,
-        })
+        (
+            name.to_string(),
+            ParsedAnimation {
+                tileset: tileset.to_string(),
+                range,
+                fps: fps
+                    .parse::<u16>()
+                    .expect("fps must be a positive number between 0-65535"),
+                use_mv,
+            },
+        )
     } else {
         panic!("Animation must contain 'tileset', 'name' and 'fps' attributes");
     }

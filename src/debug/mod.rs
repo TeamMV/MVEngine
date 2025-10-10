@@ -10,10 +10,8 @@ lazy! {
     pub static PROFILER: MVEngineProfiler = MVEngineProfiler::new();
 }
 
-
-
 pub struct MVEngineProfiler {
-    inner: RwLock<MVEnPrInner>
+    inner: RwLock<MVEnPrInner>,
 }
 
 impl MVEngineProfiler {

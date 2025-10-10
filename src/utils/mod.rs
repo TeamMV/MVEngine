@@ -1,12 +1,13 @@
 pub mod args;
 pub mod mapto;
 pub mod savers;
+pub mod hashable;
 
+use ropey::Rope;
 use std::collections::Bound;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, RangeBounds};
 use std::str::CharIndices;
-use ropey::Rope;
 
 /// This type is just an f64 which is expected to be between 0 and 1. Mostly used for percentages.
 pub type F0To1 = f64;
@@ -23,7 +24,7 @@ impl<'a, T> CopyMut<'a, T> {
     pub fn new(t: &'a mut T) -> Self {
         Self {
             inner: t as *mut _,
-            _phantom: PhantomData::default()
+            _phantom: PhantomData::default(),
         }
     }
 }
@@ -102,7 +103,7 @@ impl RopeFns for Rope {
         let start = match char_range.start_bound() {
             Bound::Included(i) => *i,
             Bound::Excluded(i) => *i + 1,
-            Bound::Unbounded => 0
+            Bound::Unbounded => 0,
         };
         self.insert(start, with);
     }

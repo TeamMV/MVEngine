@@ -390,7 +390,7 @@ impl TryFrom<PhysicalKey> for Key {
                 KeyCode::Undo => return Err(()),
                 KeyCode::Hiragana => return Err(()),
                 KeyCode::Katakana => return Err(()),
-                
+
                 // all F16-F35 keys
                 _ => return Err(()),
             })

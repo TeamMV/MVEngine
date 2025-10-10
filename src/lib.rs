@@ -1,5 +1,4 @@
 #![allow(warnings)]
-
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
 #![feature(try_trait_v2)]
@@ -19,9 +18,8 @@ pub mod input;
 pub mod math;
 pub mod net;
 //pub mod ui;
+pub mod debug;
+pub mod panic;
+pub mod rendering;
 pub mod utils;
 pub mod window;
-pub mod debug;
-pub mod rendering;
-pub mod panic;
-

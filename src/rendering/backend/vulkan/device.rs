@@ -4,8 +4,10 @@ use gpu_alloc::Config;
 use hashbrown::HashSet;
 use mvutils::version::Version;
 use parking_lot::Mutex;
-use std::ffi::{c_void, CStr, CString};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{
+    HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
+};
+use std::ffi::{CStr, CString, c_void};
 
 pub struct VkDevice {
     #[allow(unused)]
@@ -115,8 +117,13 @@ impl VkDevice {
         let surface_khr = ash::extensions::khr::Surface::new(&entry, &instance);
 
         let extensions = Self::get_required_extensions(&create_info.device_extensions);
-        let physical_device =
-            Self::pick_physical_device(&surface, &surface_khr, &instance, !create_info.green_eco_mode, &extensions)?;
+        let physical_device = Self::pick_physical_device(
+            &surface,
+            &surface_khr,
+            &instance,
+            !create_info.green_eco_mode,
+            &extensions,
+        )?;
 
         let properties = Self::get_physical_device_properties(&instance, &physical_device);
 
@@ -551,33 +558,25 @@ impl VkDevice {
 
         match (window_handle, display_handle) {
             #[cfg(target_os = "linux")]
-            (RawWindowHandle::Wayland(handle), RawDisplayHandle::Wayland(display)) => wayland(
-                display.display,
-                handle.surface,
+            (RawWindowHandle::Wayland(handle), RawDisplayHandle::Wayland(display)) => {
+                wayland(display.display, handle.surface, extensions, entry, instance)
+            }
+            #[cfg(target_os = "linux")]
+            (RawWindowHandle::Xlib(handle), RawDisplayHandle::Xlib(display)) => xlib(
+                display.display as *mut *const c_void,
+                handle.window,
                 extensions,
                 entry,
                 instance,
             ),
             #[cfg(target_os = "linux")]
-            (RawWindowHandle::Xlib(handle), RawDisplayHandle::Xlib(display)) => {
-                xlib(
-                    display.display as *mut *const c_void,
-                    handle.window,
-                    extensions,
-                    entry,
-                    instance,
-                )
-            }
-            #[cfg(target_os = "linux")]
-            (RawWindowHandle::Xcb(handle), RawDisplayHandle::Xcb(display)) => {
-                xcb(
-                    display.connection,
-                    handle.window,
-                    extensions,
-                    entry,
-                    instance,
-                )
-            }
+            (RawWindowHandle::Xcb(handle), RawDisplayHandle::Xcb(display)) => xcb(
+                display.connection,
+                handle.window,
+                extensions,
+                entry,
+                instance,
+            ),
             #[cfg(target_os = "windows")]
             (RawWindowHandle::Win32(handle), _) => {
                 let hinstance = winapi::um::libloaderapi::GetModuleHandleW(std::ptr::null());
@@ -651,11 +650,17 @@ impl VkDevice {
                 physical_device = Some(device);
                 let properties = unsafe { instance.get_physical_device_properties(device) };
                 match properties.device_type {
-                    ash::vk::PhysicalDeviceType::DISCRETE_GPU => if prioritize_discrete {
-                        break
+                    ash::vk::PhysicalDeviceType::DISCRETE_GPU => {
+                        if prioritize_discrete {
+                            break;
+                        }
                     }
-                    ash::vk::PhysicalDeviceType::INTEGRATED_GPU | ash::vk::PhysicalDeviceType::VIRTUAL_GPU | ash::vk::PhysicalDeviceType::CPU => if !prioritize_discrete {
-                        break
+                    ash::vk::PhysicalDeviceType::INTEGRATED_GPU
+                    | ash::vk::PhysicalDeviceType::VIRTUAL_GPU
+                    | ash::vk::PhysicalDeviceType::CPU => {
+                        if !prioritize_discrete {
+                            break;
+                        }
                     }
                     _ => {}
                 }
@@ -721,8 +726,7 @@ impl VkDevice {
             .unwrap_or_else(|e| {
                 log::error!("vkGetPhysicalDeviceSurfaceSupport failed: {e}");
                 panic!("Critical Vulkan driver ERROR")
-            })
-            {
+            }) {
                 queue_indices.present_queue_index = Some(queue.0 as u32);
             }
         }
@@ -779,13 +783,15 @@ impl VkDevice {
         let mut scalar_block =
             *ash::vk::PhysicalDeviceScalarBlockLayoutFeatures::builder().scalar_block_layout(true);
 
-        let mut indexingFeatures = *ash::vk::PhysicalDeviceDescriptorIndexingFeatures::builder().runtime_descriptor_array(true);
+        let mut indexingFeatures = *ash::vk::PhysicalDeviceDescriptorIndexingFeatures::builder()
+            .runtime_descriptor_array(true);
 
         device_address.p_next =
             &mut synch2 as *mut ash::vk::PhysicalDeviceSynchronization2Features as *mut c_void;
         synch2.p_next = &mut scalar_block as *mut ash::vk::PhysicalDeviceScalarBlockLayoutFeatures
             as *mut c_void;
-        scalar_block.p_next = &mut indexingFeatures as *mut ash::vk::PhysicalDeviceDescriptorIndexingFeatures
+        scalar_block.p_next = &mut indexingFeatures
+            as *mut ash::vk::PhysicalDeviceDescriptorIndexingFeatures
             as *mut c_void;
         features = features.push_next(&mut device_address);
 
@@ -1047,12 +1053,16 @@ impl VkDevice {
                 },
             )
         }
-            .unwrap_or_else(|e| {
-                log::error!("Failed to allocate memory, error: {e}");
-                panic!("Critical Vulkan driver ERROR")
-            });
+        .unwrap_or_else(|e| {
+            log::error!("Failed to allocate memory, error: {e}");
+            panic!("Critical Vulkan driver ERROR")
+        });
 
-        unsafe { self.device.bind_image_memory(image, *block.memory(), block.offset()) }.unwrap_or_else(|e| {
+        unsafe {
+            self.device
+                .bind_image_memory(image, *block.memory(), block.offset())
+        }
+        .unwrap_or_else(|e| {
             log::error!("Failed to bind buffer memory");
             panic!("Critical Vulkan driver ERROR")
         });
@@ -1149,7 +1159,7 @@ impl VkDevice {
             self.device
                 .queue_submit(queue, &vk_info, ash::vk::Fence::null())
         }
-            .expect("Failed to submit cmd buffer");
+        .expect("Failed to submit cmd buffer");
 
         // Wait for GPU
         unsafe { self.device.queue_wait_idle(queue) }.unwrap();

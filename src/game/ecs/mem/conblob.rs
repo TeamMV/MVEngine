@@ -41,11 +41,8 @@ impl ContinuousBlob {
             self.capacity += self.layout.size();
         }
         unsafe {
-            self.data = std::alloc::realloc(
-                self.data,
-                self.layout,
-                self.capacity * self.layout.size(),
-            );
+            self.data =
+                std::alloc::realloc(self.data, self.layout, self.capacity * self.layout.size());
         }
     }
 
@@ -136,7 +133,7 @@ impl ContinuousBlob {
         }
     }
 
-    pub fn get_all<T: Sized + 'static>(&self) -> impl Iterator<Item=(ComponentIdx, &T)> {
+    pub fn get_all<T: Sized + 'static>(&self) -> impl Iterator<Item = (ComponentIdx, &T)> {
         Iter {
             phantom: Default::default(),
             index: 0,
@@ -144,7 +141,7 @@ impl ContinuousBlob {
         }
     }
 
-    pub fn get_all_mut<T: Sized + 'static>(&self) -> impl Iterator<Item=(ComponentIdx, &mut T)> {
+    pub fn get_all_mut<T: Sized + 'static>(&self) -> impl Iterator<Item = (ComponentIdx, &mut T)> {
         IterMut {
             phantom: Default::default(),
             index: 0,
@@ -156,7 +153,10 @@ impl ContinuousBlob {
 impl Drop for ContinuousBlob {
     fn drop(&mut self) {
         unsafe {
-            let lay = Layout::from_size_align_unchecked(self.capacity * self.layout.size(), self.layout.align());
+            let lay = Layout::from_size_align_unchecked(
+                self.capacity * self.layout.size(),
+                self.layout.align(),
+            );
             alloc::dealloc(self.data, lay);
         }
     }
@@ -165,7 +165,7 @@ impl Drop for ContinuousBlob {
 pub struct Iter<'a, T> {
     phantom: PhantomData<T>,
     index: usize,
-    blob: &'a ContinuousBlob
+    blob: &'a ContinuousBlob,
 }
 
 impl<'a, T: 'a> Iterator for Iter<'a, T> {
@@ -189,7 +189,7 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
 pub struct IterMut<'a, T> {
     phantom: PhantomData<T>,
     index: usize,
-    blob: &'a ContinuousBlob
+    blob: &'a ContinuousBlob,
 }
 
 impl<'a, T: 'a> Iterator for IterMut<'a, T> {

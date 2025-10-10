@@ -2,7 +2,9 @@ use mvutils::Savable;
 use mvutils::save::{Loader, Savable, Saver};
 use mvutils::unsafe_utils::Unsafe;
 use std::fmt::{Debug, Formatter, Write};
-use std::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 use std::simd::f32x4;
 
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd, Savable)]
@@ -29,7 +31,10 @@ impl Vec2 {
 impl Add for Vec2 {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
-        Self { x: self.x + rhs.x, y: self.y + rhs.y }
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
@@ -43,7 +48,10 @@ impl AddAssign for Vec2 {
 impl Sub for Vec2 {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
-        Self { x: self.x - rhs.x, y: self.y - rhs.y }
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
     }
 }
 
@@ -58,7 +66,10 @@ impl SubAssign for Vec2 {
 impl Mul<f32> for Vec2 {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self::Output {
-        Self { x: self.x * rhs, y: self.y * rhs }
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
     }
 }
 
@@ -73,7 +84,10 @@ impl MulAssign<f32> for Vec2 {
 impl Div<f32> for Vec2 {
     type Output = Self;
     fn div(self, rhs: f32) -> Self::Output {
-        Self { x: self.x / rhs, y: self.y / rhs }
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+        }
     }
 }
 
@@ -88,7 +102,10 @@ impl DivAssign<f32> for Vec2 {
 impl Neg for Vec2 {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        Self { x: -self.x, y: -self.y }
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
@@ -96,14 +113,20 @@ impl Neg for Vec2 {
 impl Mul for Vec2 {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
-        Self { x: self.x * rhs.x, y: self.y * rhs.y }
+        Self {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+        }
     }
 }
 
 impl Div for Vec2 {
     type Output = Self;
     fn div(self, rhs: Self) -> Self::Output {
-        Self { x: self.x / rhs.x, y: self.y / rhs.y }
+        Self {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+        }
     }
 }
 
@@ -132,7 +155,7 @@ impl Debug for Vec2 {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub struct Vec3 {
     pub x: f32,
@@ -180,7 +203,7 @@ impl Into<Vec4> for Vec3 {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 #[repr(transparent)]
 pub struct Vec4(f32x4);
 

@@ -1,2 +1,2 @@
-pub mod xml;
 pub mod style;
+pub mod xml;

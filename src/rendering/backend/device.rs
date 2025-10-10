@@ -1,12 +1,12 @@
-use std::ops::Deref;
+use crate::rendering::backend::Backend;
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::vulkan::command_buffer::VkCommandBuffer;
-use crate::rendering::backend::Backend;
+use crate::rendering::backend::vulkan::device::VkDevice;
 use bitflags::bitflags;
 use mvengine_proc_macro::graphics_item;
 use mvutils::version::Version;
+use std::ops::Deref;
 use std::sync::Arc;
-use crate::rendering::backend::vulkan::device::VkDevice;
 
 pub struct MVDeviceCreateInfo {
     pub app_name: String,

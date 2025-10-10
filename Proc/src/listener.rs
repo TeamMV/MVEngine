@@ -1,14 +1,19 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use std::ops::Deref;
-use syn::{parse_macro_input, FnArg, ImplItem, ItemImpl, Path, Token, Type};
 use syn::punctuated::Punctuated;
+use syn::{parse_macro_input, FnArg, ImplItem, ItemImpl, Path, Token, Type};
 
 pub fn listener(head: TokenStream, body: TokenStream) -> TokenStream {
-    let paths: Punctuated<Path, Token![,]> = parse_macro_input!(head with Punctuated::parse_terminated);
+    let paths: Punctuated<Path, Token![,]> =
+        parse_macro_input!(head with Punctuated::parse_terminated);
     let mut iter = paths.into_iter();
-    let event_enum_path = iter.next().expect("Expected two items in the head section!");
-    let event_context_path = iter.next().expect("Expected two items in the head section!");
+    let event_enum_path = iter
+        .next()
+        .expect("Expected two items in the head section!");
+    let event_context_path = iter
+        .next()
+        .expect("Expected two items in the head section!");
     let mut enum_match_ts = quote! {};
 
     let impl_block = parse_macro_input!(body as ItemImpl);
@@ -37,7 +42,9 @@ pub fn listener(head: TokenStream, body: TokenStream) -> TokenStream {
 
         for arg in &method.sig.inputs {
             match arg {
-                FnArg::Receiver(_) => { has_self = true; }
+                FnArg::Receiver(_) => {
+                    has_self = true;
+                }
                 FnArg::Typed(arg) => {
                     if found_event_ty {
                         //must be queue argument

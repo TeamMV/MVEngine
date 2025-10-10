@@ -89,12 +89,17 @@ impl Shader {
             Device::DirectX => unimplemented!(),
         }
     }
-    
-    pub fn compile(device: Device, data: &str, kind: ShaderKind, name: Option<String>) -> Result<Shader, shaderc::Error> {
+
+    pub fn compile(
+        device: Device,
+        data: &str,
+        kind: ShaderKind,
+        name: Option<String>,
+    ) -> Result<Shader, shaderc::Error> {
         match device {
-            Device::Vulkan(device) => {
-                Ok(Shader::Vulkan(VkShader::compile_shader(device, data, kind, name)?.into()))
-            }
+            Device::Vulkan(device) => Ok(Shader::Vulkan(
+                VkShader::compile_shader(device, data, kind, name)?.into(),
+            )),
             #[cfg(target_os = "macos")]
             Device::Metal => unimplemented!(),
             #[cfg(target_os = "windows")]

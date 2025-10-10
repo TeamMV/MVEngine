@@ -38,6 +38,8 @@ ahash = "0.8.11"
 rand = "0.9.0"
 include_dir = "0.7.3"
 ropey = "1.6.1"
+ordered-float = "5.1.0"
+indexmap = "2.11.4"
 gltf = { version = "1.4.0", features = [
     "KHR_lights_punctual",
     "KHR_materials_emissive_strength",

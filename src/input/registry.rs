@@ -5,6 +5,7 @@ use crate::window::Window;
 use bytebuffer::ByteBuffer;
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
+use log::debug;
 use mvutils::Savable;
 use mvutils::bytebuffer::ByteBufferExtras;
 use mvutils::save::Savable;
@@ -13,7 +14,6 @@ use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::mem;
-use log::debug;
 
 #[derive(Debug)]
 pub enum State {

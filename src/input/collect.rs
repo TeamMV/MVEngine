@@ -1,10 +1,10 @@
 use crate::input::registry::ActionInputProcessor;
 use crate::input::{Input, RawInputEvent};
 use crate::window::Window;
+use log::debug;
 use mvutils::unsafe_utils::DangerousCell;
 use parking_lot::Mutex;
 use std::sync::Arc;
-use log::debug;
 
 pub trait InputProcessor {
     fn digest_action(&mut self, action: RawInputEvent, input: &Input, window: &mut Window);
@@ -41,7 +41,8 @@ impl InputCollector {
     }
 
     pub fn dispatch_input(&mut self, action: RawInputEvent, input: &Input, window: &mut Window) {
-        #[cfg(feature = "timed")] {
+        #[cfg(feature = "timed")]
+        {
             crate::debug::PROFILER.input(|t| t.resume());
         }
         //self.ui
@@ -55,7 +56,8 @@ impl InputCollector {
                 lock.digest_action(action.clone(), input, window);
             }
         }
-        #[cfg(feature = "timed")] {
+        #[cfg(feature = "timed")]
+        {
             crate::debug::PROFILER.input(|t| t.pause());
         }
     }

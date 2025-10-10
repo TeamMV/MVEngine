@@ -1,2 +1,2 @@
-pub mod smartdir;
 pub mod cfgdir;
+pub mod smartdir;

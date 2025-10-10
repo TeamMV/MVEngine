@@ -9,11 +9,11 @@ const RAW_TYPES: [&str; 1] = ["dimension"];
 pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as LitStr);
     let parsed = StyleParser::parse_expr(&inp.value());
-    
+
     let mut mods = quote! {};
     for entry in parsed.entries {
         let accessor = entry.accessor;
-        
+
         let base: Expr = parse_str("style").unwrap();
         let accessor_expr = accessor
             .split('.')
@@ -34,10 +34,10 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
             let mut inner = String::new();
             let mut paren_depth = 0;
             for c in value.chars() {
-                if c == '}' && paren_depth == 0 { 
+                if c == '}' && paren_depth == 0 {
                     break;
                 } else {
-                    if c == '{' { 
+                    if c == '{' {
                         paren_depth += 1;
                     } else if c == '}' {
                         paren_depth -= 1;
@@ -53,8 +53,14 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
         } else if value.starts_with('@') {
             //@ means it's a resource
             let thingy = &value[1..];
-            let structs = thingy.split_once('/').expect("Invalid resource expression!").0;
-            let r_type = structs.split_once('.').expect("Invalid resource expression!").1;
+            let structs = thingy
+                .split_once('/')
+                .expect("Invalid resource expression!")
+                .0;
+            let r_type = structs
+                .split_once('.')
+                .expect("Invalid resource expression!")
+                .1;
             if RAW_TYPES.contains(&r_type) {
                 mods.extend(quote! {
                     {
@@ -76,12 +82,12 @@ pub(crate) fn style_expr(base_style: proc_macro2::TokenStream, input: TokenStrea
             });
         }
     }
-    
+
     let base_ts = quote! {
         let mut style = #base_style;
         #mods
     };
-    
+
     let ts = quote! {
         {
             #base_ts

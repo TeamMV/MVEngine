@@ -1,13 +1,19 @@
 use bitflags::bitflags;
 use std::ffi::OsStr;
+#[cfg(target_os = "windows")]
 use std::os::windows::prelude::OsStrExt;
 use std::thread;
+#[cfg(target_os = "windows")]
 use winapi::um::winuser;
-use winapi::um::winuser::{MessageBoxW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK, MB_OKCANCEL, MB_RETRYCANCEL, MB_YESNO, MB_YESNOCANCEL};
+#[cfg(target_os = "windows")]
+use winapi::um::winuser::{
+    MB_ICONERROR, MB_ICONINFORMATION, MB_OK, MB_OKCANCEL, MB_RETRYCANCEL, MB_YESNO, MB_YESNOCANCEL,
+    MessageBoxW,
+};
 
 pub enum AlertFlavor {
     Info,
-    Error
+    Error,
 }
 
 bitflags! {
@@ -21,21 +27,37 @@ bitflags! {
     }
 }
 
-pub fn os_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButtons) -> Option<AlertButtons> {
+pub fn os_alert(
+    title: &str,
+    msg: &str,
+    flavor: AlertFlavor,
+    buttons: AlertButtons,
+) -> Option<AlertButtons> {
     #[cfg(target_os = "windows")]
-    { return windows_alert(title, msg, flavor, buttons); }
+    {
+        return windows_alert(title, msg, flavor, buttons);
+    }
 
     #[cfg(target_os = "linux")]
-    { return linux_alert(title, msg, flavor, buttons); }
+    {
+        return linux_alert(title, msg, flavor, buttons);
+    }
 
     #[cfg(target_os = "macos")]
-    { return macos_alert(title, msg, flavor, buttons); }
+    {
+        return macos_alert(title, msg, flavor, buttons);
+    }
 
     eprintln!("Bro what os u on?");
 }
 
 #[cfg(target_os = "windows")]
-fn windows_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButtons) -> Option<AlertButtons> {
+fn windows_alert(
+    title: &str,
+    msg: &str,
+    flavor: AlertFlavor,
+    buttons: AlertButtons,
+) -> Option<AlertButtons> {
     let title_wide: Vec<u16> = OsStr::new(title).encode_wide().chain(Some(0)).collect();
     let msg_wide: Vec<u16> = OsStr::new(msg).encode_wide().chain(Some(0)).collect();
 
@@ -45,7 +67,12 @@ fn windows_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButt
     };
 
     let button_flag = match buttons {
-        b if b.contains(AlertButtons::YES) && b.contains(AlertButtons::NO) && b.contains(AlertButtons::CANCEL) => MB_YESNOCANCEL,
+        b if b.contains(AlertButtons::YES)
+            && b.contains(AlertButtons::NO)
+            && b.contains(AlertButtons::CANCEL) =>
+        {
+            MB_YESNOCANCEL
+        }
         b if b.contains(AlertButtons::YES) && b.contains(AlertButtons::NO) => MB_YESNO,
         b if b.contains(AlertButtons::OK) && b.contains(AlertButtons::CANCEL) => MB_OKCANCEL,
         b if b.contains(AlertButtons::TRY) && b.contains(AlertButtons::CANCEL) => MB_RETRYCANCEL,
@@ -54,16 +81,14 @@ fn windows_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButt
     };
 
     let (tx, rx) = crossbeam_channel::bounded(0);
-    let handle = thread::spawn(move || {
-        unsafe {
-            let pressed = MessageBoxW(
-                std::ptr::null_mut(),
-                msg_wide.as_ptr(),
-                title_wide.as_ptr(),
-                button_flag | icon_flag,
-            );
-            let _ = tx.send(pressed);
-        }
+    let handle = thread::spawn(move || unsafe {
+        let pressed = MessageBoxW(
+            std::ptr::null_mut(),
+            msg_wide.as_ptr(),
+            title_wide.as_ptr(),
+            button_flag | icon_flag,
+        );
+        let _ = tx.send(pressed);
     });
 
     let pressed = rx.recv().unwrap_or(0);
@@ -82,17 +107,28 @@ fn windows_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButt
 }
 
 #[cfg(target_os = "linux")]
-fn linux_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButtons) -> Option<AlertButtons> {
+fn linux_alert(
+    title: &str,
+    msg: &str,
+    flavor: AlertFlavor,
+    buttons: AlertButtons,
+) -> Option<AlertButtons> {
     use std::process::Command;
 
     let mut command = if Command::new("zenity").arg("--version").output().is_ok() {
         let mut cmd = Command::new("zenity");
         cmd.arg("--question")
-            .arg("--title").arg(title)
-            .arg("--text").arg(msg);
+            .arg("--title")
+            .arg(title)
+            .arg("--text")
+            .arg(msg);
         match flavor {
-            AlertFlavor::Error => { cmd.arg("--icon-name=dialog-error"); }
-            AlertFlavor::Info => { cmd.arg("--icon-name=dialog-information"); }
+            AlertFlavor::Error => {
+                cmd.arg("--icon-name=dialog-error");
+            }
+            AlertFlavor::Info => {
+                cmd.arg("--icon-name=dialog-information");
+            }
         }
 
         // Map buttons roughly
@@ -134,7 +170,12 @@ fn linux_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButton
 }
 
 #[cfg(target_os = "macos")]
-fn macos_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButtons) -> Option<AlertButtons> {
+fn macos_alert(
+    title: &str,
+    msg: &str,
+    flavor: AlertFlavor,
+    buttons: AlertButtons,
+) -> Option<AlertButtons> {
     use std::process::Command;
 
     // Compose AppleScript for dialog
@@ -162,7 +203,8 @@ fn macos_alert(title: &str, msg: &str, flavor: AlertFlavor, buttons: AlertButton
     );
 
     let output = Command::new("osascript")
-        .arg("-e").arg(&script)
+        .arg("-e")
+        .arg(&script)
         .output()
         .ok()?;
 

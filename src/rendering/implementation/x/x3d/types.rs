@@ -19,7 +19,5 @@ pub struct XRenderer3DSets {
 }
 
 impl XRenderer3DPipelines {
-    pub fn new(device: Device) -> Self {
-
-    }
+    pub fn new(device: Device) -> Self {}
 }

@@ -1,12 +1,12 @@
 use mvengine_proc_macro::graphics_item;
 
+use crate::rendering::backend::Extent2D;
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::descriptor_set::DescriptorSetLayout;
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::framebuffer::Framebuffer;
 use crate::rendering::backend::shader::{Shader, ShaderStage};
 use crate::rendering::backend::vulkan::pipeline::VkPipeline;
-use crate::rendering::backend::Extent2D;
 
 pub trait PipelineType {}
 

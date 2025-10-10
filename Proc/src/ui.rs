@@ -5,7 +5,11 @@ use syn::{parse_str, Expr};
 use ui_parsing::xml::{Entity, XmlValue};
 
 pub fn ui(input: TokenStream) -> TokenStream {
-    let rsx_raw: String = input.to_string().split_whitespace().map(|s| format!("{s} ")).collect();
+    let rsx_raw: String = input
+        .to_string()
+        .split_whitespace()
+        .map(|s| format!("{s} "))
+        .collect();
 
     let rsx = ui_parsing::xml::parse_rsx(rsx_raw).unwrap_or_else(|err| panic!("{}", err));
     if rsx.name() != "Ui" {
@@ -33,15 +37,16 @@ pub fn ui(input: TokenStream) -> TokenStream {
 
 fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     let name = entity.name();
-    
+
     let new_ui_style: XmlValue =
         XmlValue::Code("mvengine::ui::styles::UiStyle::default()".to_string());
-    let new_attributes: XmlValue =
-        XmlValue::Code(format!("mvengine::ui::attributes::Attributes::new(\"{name}\")"));
+    let new_attributes: XmlValue = XmlValue::Code(format!(
+        "mvengine::ui::attributes::Attributes::new(\"{name}\")"
+    ));
 
     let id = mvutils::utils::next_id("MVEngine::ui::proc_parse_entity").to_string();
     let attribs_ident = Ident::new(&format!("__attributes_{}__", id), Span::call_site());
-    
+
     let style_xml = entity.get_attrib("style").unwrap_or(&new_ui_style);
     let style_code = xml_value_as_style(style_xml);
 
@@ -62,15 +67,15 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
         let attrib_value = match attrib_value_xml {
             XmlValue::Str(s) => {
                 quote! {
-                        #s
-                    }
+                    #s
+                }
             }
             XmlValue::Entities(_) => unreachable!(),
             XmlValue::Code(c) => {
                 let parsed_code: Expr = parse_str(&c).expect("Failed to parse code as expression");
                 quote! {
-                        #parsed_code
-                    }
+                    #parsed_code
+                }
             }
         };
 
@@ -154,7 +159,6 @@ fn parse_entity(entity: &Entity) -> proc_macro2::TokenStream {
     };
     q
 }
-
 
 fn xml_value_to_tknstream(value: &XmlValue) -> proc_macro2::TokenStream {
     match value {

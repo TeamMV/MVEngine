@@ -1,9 +1,9 @@
 // fuck this compiler who gives a shit about naming conventions
 #![allow(non_snake_case)]
 
-use std::fmt::Debug;
-use crate::game::ecs::entity::EntityId;
 use crate::game::ecs::World;
+use crate::game::ecs::entity::EntityId;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub struct System<C> {

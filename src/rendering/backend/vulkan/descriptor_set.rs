@@ -52,7 +52,9 @@ impl From<MVDescriptorSetCreateInfo> for CreateInfo {
             bindings: value.bindings.into_iter().map(Into::into).collect(),
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -64,7 +66,9 @@ impl From<MVDescriptorSetFromLayoutCreateInfo> for FromLayoutCreateInfo {
             layout: value.layout.into_vulkan(),
 
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -219,7 +223,11 @@ impl VkDescriptorSet {
                 | ash::vk::DescriptorType::STORAGE_BUFFER.as_raw())
             == 0
         {
-            log::error!("Binding in the layout has different type, type in the layout: {}. type you want to add: {}", self.layout.get_binding(binding).descriptor_type.as_raw(), self.layout.get_binding(binding).descriptor_type.as_raw());
+            log::error!(
+                "Binding in the layout has different type, type in the layout: {}. type you want to add: {}",
+                self.layout.get_binding(binding).descriptor_type.as_raw(),
+                self.layout.get_binding(binding).descriptor_type.as_raw()
+            );
             panic!("Critical Vulkan driver ERROR")
         }
 
@@ -263,7 +271,11 @@ impl VkDescriptorSet {
                 | ash::vk::DescriptorType::STORAGE_IMAGE.as_raw())
             == 0
         {
-            log::error!("Binding in the layout has different type, type in the layout: {}. type you want to add: {}", self.layout.get_binding(binding).descriptor_type.as_raw(), self.layout.get_binding(binding).descriptor_type.as_raw());
+            log::error!(
+                "Binding in the layout has different type, type in the layout: {}. type you want to add: {}",
+                self.layout.get_binding(binding).descriptor_type.as_raw(),
+                self.layout.get_binding(binding).descriptor_type.as_raw()
+            );
             panic!("Critical Vulkan driver ERROR")
         }
 

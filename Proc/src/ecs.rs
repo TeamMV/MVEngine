@@ -1,9 +1,11 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, LitInt, Ident};
+use syn::{parse_macro_input, Ident, LitInt};
 
 pub fn generate_queries(input: TokenStream) -> TokenStream {
-    let max_n = parse_macro_input!(input as LitInt).base10_parse::<usize>().unwrap();
+    let max_n = parse_macro_input!(input as LitInt)
+        .base10_parse::<usize>()
+        .unwrap();
 
     let methods = (1..=max_n).map(|n| {
         // Generics: C1, C2, ...
@@ -13,30 +15,43 @@ pub fn generate_queries(input: TokenStream) -> TokenStream {
 
         // Method names
         let method_name = Ident::new(&format!("query{}", n), proc_macro2::Span::call_site());
-        let method_name_mut = Ident::new(&format!("query{}_mut", n), proc_macro2::Span::call_site());
+        let method_name_mut =
+            Ident::new(&format!("query{}_mut", n), proc_macro2::Span::call_site());
 
         // Rest-of-components fetch for immutable
         let rest_gets = if n > 1 {
-            let rest: Vec<_> = generics.iter().skip(1).map(|g| {
-                quote! {
-                    let #g = self.get_component::<#g>(en)?;
-                }
-            }).collect();
+            let rest: Vec<_> = generics
+                .iter()
+                .skip(1)
+                .map(|g| {
+                    quote! {
+                        let #g = self.get_component::<#g>(en)?;
+                    }
+                })
+                .collect();
             quote! { #(#rest)* }
-        } else { quote! {} };
+        } else {
+            quote! {}
+        };
 
         // Tuple for immutable
         let tuple_refs: Vec<_> = generics.iter().map(|g| quote! { #g }).collect();
 
         // Rest-of-components fetch for mutable
         let rest_gets_mut = if n > 1 {
-            let rest: Vec<_> = generics.iter().skip(1).map(|g| {
-                quote! {
-                    let #g = self.get_component_mut_bruh::<#g>(en)?;
-                }
-            }).collect();
+            let rest: Vec<_> = generics
+                .iter()
+                .skip(1)
+                .map(|g| {
+                    quote! {
+                        let #g = self.get_component_mut_bruh::<#g>(en)?;
+                    }
+                })
+                .collect();
             quote! { #(#rest)* }
-        } else { quote! {} };
+        } else {
+            quote! {}
+        };
 
         // Tuple for mutable
         let tuple_refs_mut: Vec<_> = generics.iter().map(|g| quote! { #g }).collect();
@@ -82,7 +97,9 @@ pub fn generate_queries(input: TokenStream) -> TokenStream {
 }
 
 pub fn generate_system_impls(input: TokenStream) -> TokenStream {
-    let max_n = parse_macro_input!(input as LitInt).base10_parse::<usize>().unwrap();
+    let max_n = parse_macro_input!(input as LitInt)
+        .base10_parse::<usize>()
+        .unwrap();
 
     let impls = (1..=max_n).map(|n| {
         // Generics: C1, C2, ...

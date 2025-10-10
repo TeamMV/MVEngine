@@ -1,2 +1,2 @@
-pub mod x;
 mod model;
+pub mod x;

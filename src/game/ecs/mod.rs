@@ -1,17 +1,17 @@
-use crate::game::ecs::mem::storage::ComponentStorage;
-use world::sparse::SparseSetWorld;
 use crate::game::ecs::entity::EntityId;
-use crate::game::ecs::world::arch::ArchetypeWorld;
+use crate::game::ecs::mem::storage::ComponentStorage;
 use crate::game::ecs::world::EcsWorld;
+use crate::game::ecs::world::arch::ArchetypeWorld;
+use world::sparse::SparseSetWorld;
 
+pub mod entity;
 pub mod mem;
 pub mod system;
 pub mod world;
-pub mod entity;
 
 pub enum EcsBackend {
     SparseSet,
-    Archetype
+    Archetype,
 }
 
 pub struct Ecs {
@@ -36,14 +36,14 @@ impl Ecs {
 
 pub enum World {
     SparseSet(SparseSetWorld),
-    ArchetypeWorld(ArchetypeWorld)
+    ArchetypeWorld(ArchetypeWorld),
 }
 
 impl World {
     pub(crate) fn new(backend: EcsBackend) -> Self {
         match backend {
             EcsBackend::SparseSet => World::SparseSet(SparseSetWorld::new(ComponentStorage::new())),
-            EcsBackend::Archetype => World::ArchetypeWorld(ArchetypeWorld {})
+            EcsBackend::Archetype => World::ArchetypeWorld(ArchetypeWorld {}),
         }
     }
 }

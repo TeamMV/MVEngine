@@ -1,18 +1,18 @@
+use bytebuffer::ByteBuffer;
+use log::{debug, error, warn};
+use mvutils::bytebuffer::ByteBufferExtras;
+use mvutils::save::Savable;
 use std::fmt::{Debug, Display, Formatter};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use bytebuffer::ByteBuffer;
-use log::{debug, error, warn};
-use mvutils::bytebuffer::ByteBufferExtras;
-use mvutils::save::Savable;
 
 /// A directory that creates itself and children when requested automatically
 pub struct SmartDir {
     root: PathBuf,
-    exists: AtomicBool
+    exists: AtomicBool,
 }
 
 impl Clone for SmartDir {
@@ -29,20 +29,14 @@ impl SmartDir {
         let root = path.as_ref().to_path_buf();
         let exists = fs::exists(path).unwrap_or_default();
         let exists = AtomicBool::new(exists);
-        Self {
-            root,
-            exists,
-        }
+        Self { root, exists }
     }
 
     pub fn join<P: AsRef<Path>>(&self, path: P) -> SmartDir {
         let root = self.root.join(&path);
         let exists = fs::exists(path).unwrap_or_default();
         let exists = AtomicBool::new(exists);
-        Self {
-            root,
-            exists,
-        }
+        Self { root, exists }
     }
 
     pub fn path(&self) -> &PathBuf {
@@ -65,9 +59,7 @@ impl SmartDir {
             }
         }
         let path = self.root.join(name);
-        match File::options()
-            .read(true)
-            .open(&path) {
+        match File::options().read(true).open(&path) {
             Ok(f) => Some(f),
             Err(e) => {
                 debug!("Error when opening file '{path:?}': {e}");
@@ -83,10 +75,7 @@ impl SmartDir {
             }
         }
         let path = self.root.join(name);
-        match File::options()
-            .write(true)
-            .create(true)
-            .open(&path) {
+        match File::options().write(true).create(true).open(&path) {
             Ok(f) => Some(f),
             Err(e) => {
                 error!("Error when opening/creating file '{path:?}': {e}");
@@ -103,7 +92,10 @@ impl SmartDir {
         match T::load(&mut buffer) {
             Ok(t) => Some(t),
             Err(e) => {
-                warn!("Could not construct T from {:?}/{}!\n{e}", self.root, filename);
+                warn!(
+                    "Could not construct T from {:?}/{}!\n{e}",
+                    self.root, filename
+                );
                 None
             }
         }
@@ -136,7 +128,7 @@ impl SmartDir {
         fs::read_dir(root)
             .into_iter()
             .flatten()
-            .filter_map(|x| x.ok())// skip Errs from read_dir
+            .filter_map(|x| x.ok()) // skip Errs from read_dir
             .filter_map(|entry| {
                 let path = entry.path();
                 if path.is_dir() {
@@ -170,7 +162,10 @@ impl SmartDir {
             ))
         };
         if let Err(e) = res {
-            warn!("Tried to delete '{child_name}' of '{:?}', but encountered error:\n{e:?}", self.root);
+            warn!(
+                "Tried to delete '{child_name}' of '{:?}', but encountered error:\n{e:?}",
+                self.root
+            );
         }
     }
 }

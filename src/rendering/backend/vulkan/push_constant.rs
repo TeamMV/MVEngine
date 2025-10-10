@@ -49,10 +49,7 @@ impl<T: Sized> VkPushConstant<T> {
         pipeline: &VkPipeline<Type>,
     ) {
         let bytes = unsafe {
-            std::slice::from_raw_parts(
-                &self.value as *const _ as *const u8,
-                size_of::<T>(),
-            )
+            std::slice::from_raw_parts(&self.value as *const _ as *const u8, size_of::<T>())
         };
 
         unsafe {

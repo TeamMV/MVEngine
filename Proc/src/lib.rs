@@ -1,16 +1,17 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
+mod cached_hash;
 mod ecs;
+mod graphics_item;
+mod listener;
+mod msfx_function;
+mod multiline_str_into;
 mod r;
+mod resolve_resource;
+mod style_expr;
 mod ui;
 mod uix;
-mod listener;
-mod style_expr;
-mod multiline_str_into;
-mod resolve_resource;
-mod msfx_function;
-mod graphics_item;
 
 #[proc_macro]
 pub fn generate_queries(input: TokenStream) -> TokenStream {
@@ -70,4 +71,9 @@ pub fn msfx_fn(attr: TokenStream, body: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
     graphics_item::graphics_item(attrib, input)
+}
+
+#[proc_macro_attribute]
+pub fn chash(_: TokenStream, input: TokenStream) -> TokenStream {
+    cached_hash::cached_hash(input)
 }

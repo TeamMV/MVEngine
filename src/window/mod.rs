@@ -1,21 +1,21 @@
-use std::num::NonZeroU32;
-use std::ops::Try;
-use std::sync::Arc;
-use std::time::SystemTime;
+use crate::input::consts::{Key, MouseButton};
+use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
+use crate::rendering::backend::Extent2D;
+use crate::window::app::WindowCallbacks;
 use hashbrown::HashSet;
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use parking_lot::RwLock;
 use raw_window_handle::HasRawWindowHandle;
+use std::num::NonZeroU32;
+use std::ops::Try;
+use std::sync::Arc;
+use std::time::SystemTime;
 use winit::dpi::{PhysicalSize, Size};
 use winit::error::{EventLoopError, OsError};
 use winit::event::{ElementState, Event, KeyEvent, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Fullscreen, Theme, WindowBuilder};
-use crate::input::consts::{Key, MouseButton};
-use crate::input::{Input, KeyboardAction, MouseAction, RawInputEvent};
-use crate::rendering::backend::Extent2D;
-use crate::window::app::WindowCallbacks;
 
 pub mod app;
 
@@ -117,7 +117,6 @@ pub enum Error {
     Vulkan,
 }
 
-
 impl From<OsError> for Error {
     fn from(residual: OsError) -> Self {
         Error::Window(residual)
@@ -135,7 +134,6 @@ impl From<Box<dyn std::error::Error>> for Error {
         Error::Vulkan
     }
 }
-
 
 pub struct Window {
     pub(crate) info: WindowCreateInfo,
@@ -231,12 +229,12 @@ impl Window {
         event_loop.run(|event, target| {
             match event {
                 Event::Resumed => {}
-                Event::WindowEvent {
-                    window_id, event
-                } if window_id == self.handle.id() => {
+                Event::WindowEvent { window_id, event } if window_id == self.handle.id() => {
                     match event {
                         WindowEvent::Resized(PhysicalSize { width, height }) => {
-                            if let Some(_) = NonZeroU32::new(width) && let Some(_) = NonZeroU32::new(height) {
+                            if let Some(_) = NonZeroU32::new(width)
+                                && let Some(_) = NonZeroU32::new(height)
+                            {
                                 self.info.width = width;
                                 self.info.height = height;
                                 //self.surface.resize(&self.context, nzw,  nzh);
@@ -255,10 +253,7 @@ impl Window {
                         //     }
                         // }
                         WindowEvent::Focused(_) => {}
-                        WindowEvent::KeyboardInput {
-                            event,
-                            ..
-                        } => {
+                        WindowEvent::KeyboardInput { event, .. } => {
                             let KeyEvent {
                                 physical_key,
                                 state,
@@ -285,7 +280,9 @@ impl Window {
                                     .collector
                                     .dispatch_input(event, &this.input, this2);
                             }
-                            if let Some(text) = text && !text.is_empty() {
+                            if let Some(text) = text
+                                && !text.is_empty()
+                            {
                                 let char = text.chars().next().unwrap();
                                 let action = RawInputEvent::Keyboard(KeyboardAction::Char(char));
                                 self.input
@@ -297,7 +294,10 @@ impl Window {
                             let x = position.x as i32;
                             let y = position.y as i32;
                             self.input.collector.dispatch_input(
-                                RawInputEvent::Mouse(MouseAction::Move(x, self.info.height as i32 - y)),
+                                RawInputEvent::Mouse(MouseAction::Move(
+                                    x,
+                                    self.info.height as i32 - y,
+                                )),
                                 &this.input,
                                 this2,
                             );
@@ -322,7 +322,7 @@ impl Window {
                                 );
                             }
                         },
-                        WindowEvent::MouseInput { state, button,  .. } => {
+                        WindowEvent::MouseInput { state, button, .. } => {
                             let button = MouseButton::from(button);
                             match state {
                                 ElementState::Pressed => {
@@ -344,14 +344,16 @@ impl Window {
                         WindowEvent::TouchpadPressure { .. } => {}
                         WindowEvent::RedrawRequested => {
                             let delta_t = self.delta_t;
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.app_draw(|t| t.start());
                             }
 
                             self.time_f = SystemTime::now();
 
                             let mut app_loop = callbacks.write();
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.render_batch(|t| t.start());
                                 crate::debug::PROFILER.render_draw(|t| t.start());
                                 crate::debug::PROFILER.ui_compute(|t| t.start());
@@ -370,17 +372,20 @@ impl Window {
                             app_loop.draw(&mut self, delta_t);
                             self.input.collector.end_frame();
 
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.render_swap(|t| t.start());
                             }
 
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.render_swap(|t| t.stop());
                             }
 
                             //self.ui.get_mut().end_frame();
 
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.render_batch(|t| t.stop());
                                 crate::debug::PROFILER.render_draw(|t| t.stop());
                                 crate::debug::PROFILER.app_draw(|t| t.stop());
@@ -391,7 +396,8 @@ impl Window {
                                 crate::debug::PROFILER.waiting(|t| t.stop());
                             }
                             app_loop.post_draw(&mut self, delta_t);
-                            #[cfg(feature = "timed")] {
+                            #[cfg(feature = "timed")]
+                            {
                                 crate::debug::PROFILER.ecs_find(|t| t.start());
                                 crate::debug::PROFILER.ecs_find(|t| t.pause());
                             }
@@ -406,7 +412,8 @@ impl Window {
                 Event::AboutToWait => {
                     let elapsed = self.time_u.elapsed().expect("SystemTime error").as_nanos();
                     if elapsed > self.update_time_nanos as u128 {
-                        #[cfg(feature = "timed")] {
+                        #[cfg(feature = "timed")]
+                        {
                             crate::debug::PROFILER.app_update(|t| t.start());
                         }
                         self.time_u = SystemTime::now();
@@ -415,7 +422,8 @@ impl Window {
 
                         let mut app_loop = callbacks.write();
                         app_loop.update(&mut self, delta_u);
-                        #[cfg(feature = "timed")] {
+                        #[cfg(feature = "timed")]
+                        {
                             crate::debug::PROFILER.app_update(|t| t.stop());
                         }
                         app_loop.post_update(&mut self, delta_u);
@@ -513,7 +521,8 @@ impl Window {
             // self.cached_pos = self.handle.inner_position().map(|p| (p.x, p.y)).unwrap_or((0, 0));
 
             let monitor = self.handle.current_monitor();
-            self.handle.set_fullscreen(Some(Fullscreen::Borderless(monitor)));
+            self.handle
+                .set_fullscreen(Some(Fullscreen::Borderless(monitor)));
         } else {
             // I don't think we need this cuz we are doing real not fake fullscreen
             // let (x, y) = self.cached_pos;

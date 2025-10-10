@@ -1,6 +1,6 @@
 use ui_parsing::xml::{Entity, XmlValue};
 
-pub fn parse_font(entity: &Entity) -> (String, String){
+pub fn parse_font(entity: &Entity) -> (String, String) {
     if entity.name().as_str() != "font" {
         panic!("Font resource must be named font, got {}!", entity.name());
     }

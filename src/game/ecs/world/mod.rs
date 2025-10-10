@@ -1,5 +1,5 @@
-pub mod sparse;
 pub mod arch;
+pub mod sparse;
 
 use crate::game::ecs::entity::EntityId;
 pub trait EcsWorld {

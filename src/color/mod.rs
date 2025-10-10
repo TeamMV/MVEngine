@@ -6,6 +6,7 @@ use crate::math::vec::Vec4;
 use mvutils::save::{Loader, Savable, Saver};
 use num_traits::ToPrimitive;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 pub type RgbColor = Color<RgbColorFormat>;
@@ -46,6 +47,15 @@ where
     fn load(loader: &mut impl Loader) -> Result<Self, String> {
         let cmps = <[T::ComponentType; 4]>::load(loader)?;
         Ok(Self { components: cmps })
+    }
+}
+
+impl<T: ColorFormat> Hash for Color<T>
+where
+    T::ComponentType: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.components.hash(state);
     }
 }
 

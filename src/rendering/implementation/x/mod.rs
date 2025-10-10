@@ -23,11 +23,15 @@ impl XRenderer {
     pub fn new(window: &Window, create_info: RendererCreateInfo) -> Option<Self> {
         let x2d = if create_info.flavor.contains(RendererFlavor::FLAVOR_2D) {
             Some(XRenderer2DAddon::new())
-        } else { None };
+        } else {
+            None
+        };
 
         let x3d = if create_info.flavor.contains(RendererFlavor::FLAVOR_3D) {
             Some(XRenderer3DAddon::new())
-        } else { None };
+        } else {
+            None
+        };
 
         Some(Self {
             core: XRendererCore::new(window, create_info)?,
@@ -38,25 +42,17 @@ impl XRenderer {
 
     pub fn draw(&mut self) {
         let image_index = match self.core.begin_draw() {
-            Ok(image_index) => {
-                image_index
-            }
-            Err((i, e)) if matches!(e, SwapchainError::Suboptimal) => {
-                i
-            }
+            Ok(image_index) => image_index,
+            Err((i, e)) if matches!(e, SwapchainError::Suboptimal) => i,
             Err((_, e)) => {
                 log::info!("Swapchain: {e:?}, waiting for recreation!");
                 return;
             }
         };
 
-        if let Some(x3d) = &mut self.x3d {
+        if let Some(x3d) = &mut self.x3d {}
 
-        }
-
-        if let Some(x2d) = &mut self.x2d {
-
-        }
+        if let Some(x2d) = &mut self.x2d {}
 
         if let Err(e) = self.core.end_draw() {
             if let SwapchainError::Suboptimal = e {
@@ -72,7 +68,12 @@ impl XRenderer {
         self.core.resize(width, height);
     }
 
-    pub fn compile_shader(&self, name: &str, flavor: ShaderFlavor, source: &str) -> Result<Shader, shaderc::Error> {
+    pub fn compile_shader(
+        &self,
+        name: &str,
+        flavor: ShaderFlavor,
+        source: &str,
+    ) -> Result<Shader, shaderc::Error> {
         self.core.load_shader(name, flavor, source)
     }
 }

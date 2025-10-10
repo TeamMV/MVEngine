@@ -3,12 +3,12 @@ use std::sync::Arc;
 use bitflags::bitflags;
 use image::ColorType;
 
-use mvengine_proc_macro::graphics_item;
+use crate::rendering::backend::Extent2D;
 use crate::rendering::backend::buffer::{Buffer, MemoryProperties};
 use crate::rendering::backend::command_buffer::CommandBuffer;
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::vulkan::image::VkImage;
-use crate::rendering::backend::Extent2D;
+use mvengine_proc_macro::graphics_item;
 
 pub enum ImageType {
     Image2D,

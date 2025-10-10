@@ -1,9 +1,7 @@
 use crate::math::vec::{Vec2, Vec3};
 use crate::rendering::implementation::model::material::Material;
 
-#[repr(C)]
-#[derive(Clone)]
-pub struct Vertex {
+pub struct MeshVertex {
     pub position: Vec3,
     pub normal: Vec3,
     pub uv: Vec2,
@@ -11,7 +9,7 @@ pub struct Vertex {
 }
 
 pub struct Mesh {
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<MeshVertex>,
     pub indices: Vec<u32>,
     pub materials: Vec<Material>,
 }

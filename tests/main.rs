@@ -1,13 +1,13 @@
-use std::io::stdout;
 use log::LevelFilter;
+use mvengine::rendering::api::Renderer;
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
-use parking_lot::RwLock;
-use std::sync::Arc;
 use mvutils::once::CreateOnce;
 use mvutils::utils::setup_private_panic;
 use mvutils::version::Version;
-use mvengine::rendering::api::Renderer;
+use parking_lot::RwLock;
+use std::io::stdout;
+use std::sync::Arc;
 
 pub fn main() -> Result<(), Error> {
     mvengine::panic::setup_logger(stdout(), LevelFilter::Trace, 1000);
@@ -25,12 +25,11 @@ pub fn main() -> Result<(), Error> {
 }
 
 struct Application {
-    renderer: CreateOnce<Renderer>
+    renderer: CreateOnce<Renderer>,
 }
 
 impl Application {
     fn new() -> Self {
-
         Self {
             renderer: CreateOnce::new(),
         }

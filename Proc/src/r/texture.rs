@@ -1,8 +1,11 @@
 use ui_parsing::xml::{Entity, XmlValue};
 
-pub fn parse_texture(entity: &Entity) -> (String, String){
+pub fn parse_texture(entity: &Entity) -> (String, String) {
     if entity.name().as_str() != "texture" {
-        panic!("Texture resource must be named texture, got {}!", entity.name());
+        panic!(
+            "Texture resource must be named texture, got {}!",
+            entity.name()
+        );
     }
     if let Some(val) = entity.get_attrib("src") {
         if let Some(name) = entity.get_attrib("name") {

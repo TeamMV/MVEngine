@@ -1,20 +1,23 @@
+use crate::game::fs::cfgdir;
+use crate::panic::alert::{AlertButtons, AlertFlavor};
+use ::log::LevelFilter;
+use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use ::log::LevelFilter;
-use itertools::Itertools;
-use crate::game::fs::cfgdir;
-use crate::panic::alert::{AlertButtons, AlertFlavor};
 
-mod log;
 pub mod alert;
+mod log;
 
 #[cfg(windows)]
 const LINE_ENDING: &'static str = "\r\n";
 #[cfg(not(windows))]
 const LINE_ENDING: &'static str = "\n";
 
-pub fn setup_panic(use_internal_logger: bool, log_dir: impl AsRef<Path> + Sync + Send + Clone + 'static) {
+pub fn setup_panic(
+    use_internal_logger: bool,
+    log_dir: impl AsRef<Path> + Sync + Send + Clone + 'static,
+) {
     if use_internal_logger {
         if !log::LOGGER.created() {
             panic!("To use internal logger for panic, please call `setup_logger` first");
@@ -38,7 +41,12 @@ fn process_panic(msg: &str, log_dir: impl AsRef<Path>) {
         //amazing logs available!
 
         let new_msg = format!("{msg}\nDo you want to open the log file?");
-        let pressed = alert::os_alert("Application crashed!", &new_msg, AlertFlavor::Error, AlertButtons::YES | AlertButtons::NO);
+        let pressed = alert::os_alert(
+            "Application crashed!",
+            &new_msg,
+            AlertFlavor::Error,
+            AlertButtons::YES | AlertButtons::NO,
+        );
         if let Some(pressed) = pressed {
             if pressed == AlertButtons::YES {
                 //save logs to file
@@ -46,9 +54,7 @@ fn process_panic(msg: &str, log_dir: impl AsRef<Path>) {
                 let cfg_dir = cfgdir::acquire_config_smart_dir();
                 let log_file = cfg_dir.join(log_dir);
 
-                let data = cached
-                    .iter()
-                    .join("");
+                let data = cached.iter().join("");
 
                 drop(cached);
 
@@ -69,7 +75,12 @@ fn process_panic(msg: &str, log_dir: impl AsRef<Path>) {
 
         std::panic::resume_unwind(Box::new(msg.to_string()));
     } else {
-        alert::os_alert("Application crashed!", msg, AlertFlavor::Error, AlertButtons::OK);
+        alert::os_alert(
+            "Application crashed!",
+            msg,
+            AlertFlavor::Error,
+            AlertButtons::OK,
+        );
 
         std::panic::resume_unwind(Box::new(msg.to_string()));
     }

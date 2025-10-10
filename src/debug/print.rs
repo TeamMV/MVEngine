@@ -1,9 +1,9 @@
-use std::process::Command;
+use crate::debug::PROFILER;
 use mvutils::lazy;
 use mvutils::print::{Col, Printer};
 use mvutils::utils::Time;
 use parking_lot::Mutex;
-use crate::debug::PROFILER;
+use std::process::Command;
 
 lazy! {
     static LAST_PRINT: Mutex<u64> = Mutex::new(0);
@@ -51,7 +51,12 @@ pub fn print_summary(print_interval_ms: u64) {
     let printer = print_entry(printer, "ui/compute", Col::Cyan, ui_compute_time);
     let printer = print_entry(printer, "ui/draw", Col::Cyan, ui_draw_time);
     let printer = print_entry(printer, "rendering", Col::BrightRed, render_time);
-    let printer = print_entry(printer, "rendering/batch", Col::BrightRed, render_batch_time);
+    let printer = print_entry(
+        printer,
+        "rendering/batch",
+        Col::BrightRed,
+        render_batch_time,
+    );
     let printer = print_entry(printer, "rendering/draw", Col::BrightRed, render_draw_time);
     let printer = print_entry(printer, "rendering/swap", Col::BrightRed, render_swap_time);
     let printer = print_entry(printer, "ecs", Col::BrightBlue, ecs_time);
@@ -89,12 +94,7 @@ fn print_table_header(mut printer: Printer) -> Printer {
         .ln()
 }
 
-fn print_entry(
-    mut printer: Printer,
-    label: &str,
-    label_col: Col,
-    time_ns: u64,
-) -> Printer {
+fn print_entry(mut printer: Printer, label: &str, label_col: Col, time_ns: u64) -> Printer {
     let ms = time_ns as f64 / 1_000_000.0;
     printer
         .col_for(label_col, &format!("{label:<12}"))

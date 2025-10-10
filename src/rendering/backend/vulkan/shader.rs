@@ -1,9 +1,9 @@
 use crate::rendering::backend::shader::{MVShaderCreateInfo, ShaderStage};
 use crate::rendering::backend::vulkan::device::VkDevice;
 use mvutils::lazy;
+use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
 use std::ffi::CString;
 use std::sync::Arc;
-use shaderc::{OptimizationLevel, ShaderKind, TargetEnv};
 
 lazy! {
     static ENTRY: CString = CString::new("main").unwrap();
@@ -23,7 +23,9 @@ impl From<MVShaderCreateInfo> for CreateInfo {
             stage: ash::vk::ShaderStageFlags::from_raw(value.stage.bits()),
             shader_code: value.code,
             #[cfg(debug_assertions)]
-            debug_name: crate::rendering::backend::to_ascii_cstring(value.label.unwrap_or_default()),
+            debug_name: crate::rendering::backend::to_ascii_cstring(
+                value.label.unwrap_or_default(),
+            ),
         }
     }
 }
@@ -73,7 +75,12 @@ impl VkShader {
         }
     }
 
-    pub fn compile_shader(device: Arc<VkDevice>, data: &str, kind: ShaderKind, name: Option<String>) -> Result<Self, shaderc::Error> {
+    pub fn compile_shader(
+        device: Arc<VkDevice>,
+        data: &str,
+        kind: ShaderKind,
+        name: Option<String>,
+    ) -> Result<Self, shaderc::Error> {
         let compiler = shaderc::Compiler::new().unwrap();
         let mut options = shaderc::CompileOptions::new().unwrap();
         options.set_optimization_level(OptimizationLevel::Performance);
@@ -90,11 +97,14 @@ impl VkShader {
             .as_binary()
             .to_vec();
 
-        Ok(Self::new(device, CreateInfo {
-            stage: ash::vk::ShaderStageFlags::from_raw(ShaderStage::from(kind).bits()),
-            shader_code: code,
-            debug_name: crate::rendering::backend::to_ascii_cstring(name.unwrap_or_default()),
-        }))
+        Ok(Self::new(
+            device,
+            CreateInfo {
+                stage: ash::vk::ShaderStageFlags::from_raw(ShaderStage::from(kind).bits()),
+                shader_code: code,
+                debug_name: crate::rendering::backend::to_ascii_cstring(name.unwrap_or_default()),
+            },
+        ))
     }
 }
 

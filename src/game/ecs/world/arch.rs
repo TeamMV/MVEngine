@@ -1,9 +1,7 @@
 use crate::game::ecs::entity::EntityId;
 use crate::game::ecs::world::EcsWorld;
 
-pub struct ArchetypeWorld {
-
-}
+pub struct ArchetypeWorld {}
 
 impl EcsWorld for ArchetypeWorld {
     fn create_entity(&mut self, id: EntityId) {

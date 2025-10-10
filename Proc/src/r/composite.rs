@@ -2,17 +2,20 @@ use ui_parsing::xml::{Entity, XmlValue};
 
 pub struct ParsedComposite {
     pub(crate) rig: String,
-    pub(crate) parts: Vec<CompositePart>
+    pub(crate) parts: Vec<CompositePart>,
 }
 
 pub struct CompositePart {
     pub(crate) name: String,
-    pub(crate) res: String
+    pub(crate) res: String,
 }
 
 pub fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
     if entity.name().as_str() != "composite" {
-        panic!("Composite resource must be named animation, got {}!", entity.name());
+        panic!(
+            "Composite resource must be named animation, got {}!",
+            entity.name()
+        );
     }
 
     let name = entity.get_attrib("name");
@@ -35,10 +38,13 @@ pub fn parse_composite(entity: &Entity) -> (String, ParsedComposite) {
                 }
             }
         }
-        (name.to_string(), ParsedComposite {
-            rig: rig.to_string(),
-            parts,
-        })
+        (
+            name.to_string(),
+            ParsedComposite {
+                rig: rig.to_string(),
+                parts,
+            },
+        )
     } else {
         panic!("Illegal Composite setup!");
     }

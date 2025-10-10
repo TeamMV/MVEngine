@@ -1,9 +1,9 @@
+use log::LevelFilter;
+use mvutils::create_once;
+use parking_lot::Mutex;
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::Arc;
-use log::{LevelFilter};
-use mvutils::{create_once};
-use parking_lot::Mutex;
 
 create_once! {
     pub(in crate::panic) static LOGGER: CachedLogger;
@@ -18,7 +18,7 @@ pub fn init(output: impl Write + 'static, level: LevelFilter, cache_size: usize)
 #[derive(Clone)]
 pub struct CachedLogger {
     output: Arc<Mutex<dyn Write + 'static>>,
-    pub(in super) cache: Arc<Mutex<Vec<String>>>,
+    pub(super) cache: Arc<Mutex<Vec<String>>>,
 }
 
 unsafe impl Send for CachedLogger {}
