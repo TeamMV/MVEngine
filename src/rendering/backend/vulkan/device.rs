@@ -853,6 +853,7 @@ impl VkDevice {
         let mut extensions = vec![
             ash::vk::ExtMemoryPriorityFn::name(),
             ash::vk::ExtImageRobustnessFn::name(),
+            #[cfg(target_os = "windows")]
             ash::vk::ExtPageableDeviceLocalMemoryFn::name(),
             ash::vk::KhrSwapchainFn::name(),
             ash::vk::KhrSwapchainMutableFormatFn::name(),

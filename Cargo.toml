@@ -19,7 +19,7 @@ harness = false
 [dependencies]
 # proc macros
 mvengine-proc-macro = { path = "./Proc", version = "1.0.0" }
-mvutils = { version = "1.6.1", features = ["save_str"] }
+mvutils = { version = "1.6.2", features = ["save_str"] }
 mvlogger = "0.4.0"
 
 # general dependencies
@@ -35,24 +35,25 @@ native-dialog = "0.9.0"
 bimap = "0.6.3"
 auto_enums = "0.8.7"
 ahash = "0.8.11"
+regex = "1.12.1"
 rand = "0.9.0"
 include_dir = "0.7.3"
 ropey = "1.6.1"
 ordered-float = "5.1.0"
 indexmap = "2.11.4"
-gltf = { version = "1.4.0", features = [
-    "KHR_lights_punctual",
-    "KHR_materials_emissive_strength",
-    "KHR_materials_ior",
-    "KHR_materials_pbrSpecularGlossiness",
-    "KHR_materials_specular",
-    "KHR_materials_transmission",
-    "KHR_materials_unlit",
-    "KHR_materials_variants",
-    "KHR_materials_volume",
-    "KHR_texture_transform",
-    "extensions",
-]}
+#gltf = { version = "1.4.0", features = [
+#    "KHR_lights_punctual",
+#    "KHR_materials_emissive_strength",
+#    "KHR_materials_ior",
+#    "KHR_materials_pbrSpecularGlossiness",
+#    "KHR_materials_specular",
+#    "KHR_materials_transmission",
+#    "KHR_materials_unlit",
+#    "KHR_materials_variants",
+#    "KHR_materials_volume",
+#    "KHR_texture_transform",
+#    "extensions",
+#]}
 
 #audio
 cpal = "0.15.3"

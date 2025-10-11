@@ -1,11 +1,11 @@
-use std::sync::Arc;
 use crate::rendering::implementation::model::material::Material;
-use crate::rendering::implementation::model::mesh::Mesh;
+use crate::rendering::implementation::model::model::{SceneModel, StandaloneModel};
 
 pub mod material;
 pub mod mesh;
+pub mod model;
 
-pub struct Model {
-    pub(crate) mesh: Arc<Mesh>,
-    pub(crate) materials: Vec<Material>,
+pub struct Scene {
+    models: Vec<SceneModel>,
+    materials: Vec<Material>
 }

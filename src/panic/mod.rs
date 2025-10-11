@@ -1,10 +1,13 @@
 use crate::game::fs::cfgdir;
 use crate::panic::alert::{AlertButtons, AlertFlavor};
-use ::log::LevelFilter;
+use ::log::{error, LevelFilter};
 use itertools::Itertools;
-use std::io::Write;
+use std::io::{LineWriter, PipeWriter, Write};
 use std::path::Path;
 use std::process::Command;
+use std::thread;
+use std::thread::Thread;
+use crate::game;
 
 pub mod alert;
 mod log;
@@ -24,6 +27,17 @@ pub fn setup_panic(
         }
     }
     std::panic::set_hook(Box::new(move |info| {
+        let current_thread = thread::current();
+        match current_thread.name() {
+            None => {}
+            Some(s) => {
+                error!("Thread {s} panicked!");
+            }
+        }
+
+        if let Some(loc) = info.location() {
+            error!("panic location is: {loc}");
+        }
         if let Some(message) = info.payload().downcast_ref::<&'static str>() {
             process_panic(message, log_dir.clone());
         } else if let Some(message) = info.payload().downcast_ref::<String>() {
@@ -37,6 +51,7 @@ pub fn setup_panic(
 }
 
 fn process_panic(msg: &str, log_dir: impl AsRef<Path>) {
+    error!("panic message  is: {msg}");
     if log::LOGGER.created() {
         //amazing logs available!
 
@@ -61,13 +76,10 @@ fn process_panic(msg: &str, log_dir: impl AsRef<Path>) {
                 let filename = "latest.log";
 
                 if let Some(_) = log_file.save_object(&data, filename) {
-                    //open notepad
+                    //open the file
                     let full_path = log_file.path().join(filename);
-                    let command = Command::new("notepad.exe")
-                        .arg(full_path.as_os_str())
-                        .spawn();
-                    if let Err(e) = command {
-                        eprintln!("Cannot open notepad: {e}");
+                    if let Err(e) = game::fs::os_file_view(&full_path) {
+                        panic!("Could not open {full_path:?}:\n{e}");
                     }
                 }
             }

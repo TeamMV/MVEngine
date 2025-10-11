@@ -1,5 +1,5 @@
 use log::LevelFilter;
-use mvengine::rendering::api::Renderer;
+use mvengine::rendering::api::{Renderer, RendererCreateInfo, RendererCreateInfoFlags, RendererFlavor};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvutils::once::CreateOnce;
@@ -38,7 +38,13 @@ impl Application {
 
 impl WindowCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
-        let renderer = Renderer::new_x(window, "HelloGPUApplication", Version::new(0, 1, 0, 0));
+        let renderer = Renderer::new(window, RendererCreateInfo {
+            app_name: "Hello Vulkan".to_string(),
+            version: Default::default(),
+            flags: RendererCreateInfoFlags::VSYNC,
+            flavor: RendererFlavor::FLAVOR_3D,
+            frames_in_flight: 2,
+        });
         self.renderer.create(|| renderer);
         panic!("Oh no!");
     }

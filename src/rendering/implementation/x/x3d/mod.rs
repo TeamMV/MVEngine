@@ -2,7 +2,7 @@ use crate::rendering::backend::buffer::Buffer;
 use crate::rendering::backend::descriptor_set::{DescriptorPool, DescriptorSet};
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::pipeline::{MVGraphicsPipelineCreateInfo, Pipeline};
-use crate::rendering::implementation::model::Model;
+use crate::rendering::implementation::model::model::StandaloneModel;
 use material::XMaterials;
 use crate::rendering::implementation::x::core::XRendererCore;
 use crate::rendering::implementation::x::x3d::model::XLoadedModel;
@@ -33,7 +33,7 @@ impl XRenderer3DAddon {
         todo!()
     }
 
-    pub fn upload_model(&mut self, model: &Model) {
+    pub fn upload_model(&mut self, model: &StandaloneModel) {
         let m = self.materials.on_model_load(model);
         self.models.push(m);
     }

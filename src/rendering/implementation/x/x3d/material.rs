@@ -12,7 +12,7 @@ use crate::rendering::backend::command_buffer::{CommandBuffer, CommandBufferLeve
 use crate::rendering::backend::device::{CommandPool, Device};
 use crate::rendering::backend::swapchain::Swapchain;
 use crate::rendering::implementation::model::material::Material;
-use crate::rendering::implementation::model::Model;
+use crate::rendering::implementation::model::model::StandaloneModel;
 use crate::rendering::implementation::x::x3d::model::XLoadedModel;
 
 pub struct XMaterials {
@@ -30,7 +30,7 @@ impl XMaterials {
         }
     }
 
-    pub fn on_model_load(&mut self, model: &Model) -> XLoadedModel {
+    pub fn on_model_load(&mut self, model: &StandaloneModel) -> XLoadedModel {
         let mut indices = vec![];
         let mut index = self.materials.len();
         for mat in &model.materials {

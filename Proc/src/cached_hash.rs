@@ -21,7 +21,7 @@ pub fn cached_hash(input: TokenStream) -> TokenStream {
 
         #(#attrs)*
         #[derive(std::hash::Hash)]
-        struct #inner_ident #fields
+        #vis struct #inner_ident #fields
 
         impl std::ops::Deref for #ident {
             type Target = #inner_ident;
