@@ -14,6 +14,7 @@ use crate::rendering::backend::swapchain::{MVSwapchainCreateInfo, Swapchain, Swa
 use crate::rendering::backend::{Backend, Extent2D};
 use crate::window::Window;
 use gpu_alloc::UsageFlags;
+use mvutils::remake::Remake;
 use mvutils::version::Version;
 use shaderc::ShaderKind;
 
@@ -22,7 +23,7 @@ pub struct XRendererCore {
     frames_in_flight: u32,
     frame_index: u32,
     image_index: u32,
-    swapchain: Swapchain,
+    swapchain: Remake<Swapchain>,
     command_buffers: Vec<CommandBuffer>,
     is_vsync: bool,
 }
@@ -71,7 +72,7 @@ impl XRendererCore {
 
         Some(Self {
             device,
-            swapchain,
+            swapchain: Remake::new(swapchain),
             command_buffers,
             is_vsync: vsync,
             frames_in_flight: create_info.frames_in_flight,
@@ -176,14 +177,16 @@ impl XRendererCore {
     pub fn recreate(&mut self, width: u32, height: u32, vsync: bool, frames_in_flight: u32) {
         self.device.wait_idle();
 
-        self.swapchain = Self::create_swapchain(
-            self.device.clone(),
-            Some(self.swapchain), //unlucky we need remake
-            width,
-            height,
-            vsync,
-            frames_in_flight,
-        );
+        self.swapchain.replace(|swapchain| {
+            Self::create_swapchain(
+                self.device.clone(),
+                Some(swapchain),
+                width,
+                height,
+                vsync,
+                frames_in_flight,
+            )
+        });
 
         self.command_buffers.clear();
         for i in 0..self.swapchain.get_image_count() {
@@ -227,13 +230,15 @@ impl XRendererCore {
     }
 
     pub fn end_draw(&mut self) -> Result<(), SwapchainError> {
-        let cmd = self.get_current_command_buffer();
+        let cmd = &self.command_buffers[self.frame_index as usize];
+        let image_idx = self.swapchain.get_current_image_index();
         cmd.end();
-        //TODO bro u did not cook with this api
-        let e = self.swapchain
-            .submit_command_buffer(cmd, self.swapchain.get_current_image_index());
         self.frame_index = (self.frame_index + 1) % self.frames_in_flight;
-        e
+        self.swapchain.submit_command_buffer(cmd, image_idx)
+    }
+
+    pub fn get_device(&self) -> Device {
+        self.device.clone()
     }
 
     pub fn get_swapchain(&self) -> &Swapchain {

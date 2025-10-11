@@ -20,17 +20,20 @@ macro_rules! no_l {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct RendererCreateInfoFlags: u8 {
         const GREEN_ECO_MODE = 1;
         const VSYNC = 1 << 1;
     }
 
+    #[derive(Clone, Copy)]
     pub struct RendererFlavor: u8 {
         const FLAVOR_2D = 1;
         const FLAVOR_3D = 1 << 1;
     }
 }
 
+#[derive(Clone)]
 pub struct RendererCreateInfo {
     pub app_name: String,
     pub version: Version,
@@ -81,7 +84,7 @@ impl Renderer {
     ) -> Result<MVShader, shaderc::Error> {
         match self {
             Renderer::L() => no_l!(),
-            Renderer::X(x) => x.load_shader(name, ty, source).map(|s| MVShader::X(s)),
+            Renderer::X(x) => x.compile_shader(name, ty, source).map(|s| MVShader::X(s)),
         }
     }
 

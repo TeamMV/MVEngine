@@ -1,4 +1,7 @@
+use gpu_alloc::UsageFlags;
 use crate::rendering::api::{RendererCreateInfo, RendererFlavor, ShaderFlavor};
+use crate::rendering::backend::buffer::MemoryProperties;
+use crate::rendering::backend::image::{Image, ImageUsage, MVImageCreateInfo};
 use crate::rendering::backend::pipeline::Pipeline;
 use crate::rendering::backend::shader::Shader;
 use crate::rendering::backend::swapchain::SwapchainError;
@@ -21,6 +24,8 @@ pub struct XRenderer {
 
 impl XRenderer {
     pub fn new(window: &Window, create_info: RendererCreateInfo) -> Option<Self> {
+        let core = XRendererCore::new(window, create_info.clone())?;
+
         let x2d = if create_info.flavor.contains(RendererFlavor::FLAVOR_2D) {
             Some(XRenderer2DAddon::new())
         } else {
@@ -28,13 +33,13 @@ impl XRenderer {
         };
 
         let x3d = if create_info.flavor.contains(RendererFlavor::FLAVOR_3D) {
-            Some(XRenderer3DAddon::new())
+            Some(XRenderer3DAddon::new(core.get_device()))
         } else {
             None
         };
 
         Some(Self {
-            core: XRendererCore::new(window, create_info)?,
+            core,
             x2d,
             x3d,
         })
@@ -75,5 +80,20 @@ impl XRenderer {
         source: &str,
     ) -> Result<Shader, shaderc::Error> {
         self.core.load_shader(name, flavor, source)
+    }
+
+    pub fn load_texture(
+        &self,
+        name: &str,
+        data: &[u8],
+        memory_properties: MemoryProperties,
+        usage: ImageUsage,
+        memory_usage_flags: UsageFlags,
+    ) -> Image {
+        self.core.load_texture(name, data, memory_properties, usage, memory_usage_flags)
+    }
+
+    pub fn create_texture_manually(&self, create_info: MVImageCreateInfo) -> Image {
+        self.core.create_texture_manually(create_info)
     }
 }

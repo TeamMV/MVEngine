@@ -30,7 +30,7 @@ pub struct XRenderer3DAddon {
 
 impl XRenderer3DAddon {
     pub fn new(device: Device) -> Self {
-        Self {}
+        todo!()
     }
 
     pub fn upload_model(&mut self, model: &Model) {
