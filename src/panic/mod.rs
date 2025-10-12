@@ -1,13 +1,13 @@
+use crate::game;
 use crate::game::fs::cfgdir;
 use crate::panic::alert::{AlertButtons, AlertFlavor};
-use ::log::{error, LevelFilter};
+use ::log::{LevelFilter, error};
 use itertools::Itertools;
 use std::io::{LineWriter, PipeWriter, Write};
 use std::path::Path;
 use std::process::Command;
 use std::thread;
 use std::thread::Thread;
-use crate::game;
 
 pub mod alert;
 mod log;

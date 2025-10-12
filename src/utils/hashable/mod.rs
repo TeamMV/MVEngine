@@ -5,14 +5,14 @@ pub type Float = OrderedFloat<f32>;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct HVec2 {
+pub struct Vec2 {
     pub x: Float,
     pub y: Float,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct HVec3 {
+pub struct Vec3 {
     pub x: Float,
     pub y: Float,
     pub z: Float,
@@ -27,7 +27,7 @@ pub struct Vec4 {
     pub w: Float,
 }
 
-impl HVec2 {
+impl Vec2 {
     #[inline]
     pub fn new(x: f32, y: f32) -> Self {
         Self {
@@ -37,7 +37,7 @@ impl HVec2 {
     }
 }
 
-impl HVec3 {
+impl Vec3 {
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self {

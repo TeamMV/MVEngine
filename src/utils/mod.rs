@@ -1,7 +1,7 @@
 pub mod args;
+pub mod hashable;
 pub mod mapto;
 pub mod savers;
-pub mod hashable;
 
 use ropey::Rope;
 use std::collections::Bound;

@@ -1,19 +1,23 @@
-use std::mem;
-use std::ops::Deref;
-use std::ptr::slice_from_raw_parts;
-use std::sync::Arc;
+use crate::rendering::backend::buffer::{
+    Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties,
+};
+use crate::rendering::backend::command_buffer::{
+    CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo,
+};
+use crate::rendering::backend::device::{CommandPool, Device};
+use crate::rendering::backend::swapchain::Swapchain;
+use crate::rendering::implementation::scene::material::Material;
+use crate::rendering::implementation::scene::model::StandaloneModel;
+use crate::rendering::implementation::x::x3d::model::XLoadedModel;
 use gpu_alloc::UsageFlags;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use mvutils::once::CreateOnce;
 use mvutils::utils::Time;
-use crate::rendering::backend::buffer::{Buffer, BufferUsage, MVBufferCreateInfo, MemoryProperties};
-use crate::rendering::backend::command_buffer::{CommandBuffer, CommandBufferLevel, MVCommandBufferCreateInfo};
-use crate::rendering::backend::device::{CommandPool, Device};
-use crate::rendering::backend::swapchain::Swapchain;
-use crate::rendering::implementation::model::material::Material;
-use crate::rendering::implementation::model::model::StandaloneModel;
-use crate::rendering::implementation::x::x3d::model::XLoadedModel;
+use std::mem;
+use std::ops::Deref;
+use std::ptr::slice_from_raw_parts;
+use std::sync::Arc;
 
 pub struct XMaterials {
     version: u64,
@@ -63,7 +67,8 @@ impl XMaterials {
             memory_usage: UsageFlags::FAST_DEVICE_ACCESS,
             label: Some(format!("XMaterials UBO {}", self.version)),
         };
-        self.buffer.create(|| Buffer::new(device.clone(), buffer_ci));
+        self.buffer
+            .create(|| Buffer::new(device.clone(), buffer_ci));
         //force creation now and not during render lol
         let _ = self.buffer.deref();
 
@@ -91,7 +96,10 @@ impl XMaterials {
             level: CommandBufferLevel::Primary,
             //idk prolly good enough
             pool: device.get_compute_command_pool(),
-            label: Some(format!("XMaterials Staging Command Buffer {}", self.version)),
+            label: Some(format!(
+                "XMaterials Staging Command Buffer {}",
+                self.version
+            )),
         };
 
         let cmd = CommandBuffer::new(device.clone(), cmd_ci);

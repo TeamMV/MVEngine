@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::rendering::backend::buffer::MemoryProperties;
 use crate::rendering::backend::image::{Image, ImageUsage, MVImageCreateInfo};
 use crate::rendering::backend::shader::Shader;
@@ -75,6 +76,11 @@ impl Renderer {
             Some(xr) => Renderer::X(xr),
         }
     }
+    
+    ///THIS IS JUST FOR ME TO TEST SHIT
+    pub fn new_unimplemented() -> Self {
+        Self::L()
+    }
 
     pub fn load_shader(
         &self,
@@ -130,4 +136,10 @@ pub enum ShaderFlavor {
 pub enum MVTexture {
     L(),
     X(Image),
+}
+
+impl Debug for MVTexture {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MVTexture")
+    }
 }

@@ -2,18 +2,18 @@ use crate::rendering::backend::buffer::Buffer;
 use crate::rendering::backend::descriptor_set::{DescriptorPool, DescriptorSet};
 use crate::rendering::backend::device::Device;
 use crate::rendering::backend::pipeline::{MVGraphicsPipelineCreateInfo, Pipeline};
-use crate::rendering::implementation::model::model::StandaloneModel;
-use material::XMaterials;
+use crate::rendering::implementation::scene::model::StandaloneModel;
 use crate::rendering::implementation::x::core::XRendererCore;
 use crate::rendering::implementation::x::x3d::model::XLoadedModel;
 use crate::rendering::implementation::x::x3d::types::{
     XRenderer3DBuffers, XRenderer3DPipelines, XRenderer3DSets,
 };
+use material::XMaterials;
 
 pub mod batch;
+pub mod material;
 pub mod model;
 pub mod types;
-pub mod material;
 
 pub struct XRenderer3DAddon {
     //vulkan
@@ -25,7 +25,7 @@ pub struct XRenderer3DAddon {
 
     //general 3d
     materials: XMaterials,
-    models: Vec<XLoadedModel>
+    models: Vec<XLoadedModel>,
 }
 
 impl XRenderer3DAddon {
@@ -37,9 +37,10 @@ impl XRenderer3DAddon {
         let m = self.materials.on_model_load(model);
         self.models.push(m);
     }
-    
+
     //yoski i just realized that we will need `this` to call these methods taking in a core. we have to come up with something better bro
     pub fn finish_scene(&mut self, core: &mut XRendererCore) {
-        self.materials.on_models_loaded(self.device.clone(), core.get_swapchain_mut());
+        self.materials
+            .on_models_loaded(self.device.clone(), core.get_swapchain_mut());
     }
 }

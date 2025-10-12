@@ -1,5 +1,7 @@
 use log::LevelFilter;
-use mvengine::rendering::api::{Renderer, RendererCreateInfo, RendererCreateInfoFlags, RendererFlavor};
+use mvengine::rendering::api::{
+    Renderer, RendererCreateInfo, RendererCreateInfoFlags, RendererFlavor,
+};
 use mvengine::window::app::WindowCallbacks;
 use mvengine::window::{Error, Window, WindowCreateInfo};
 use mvutils::once::CreateOnce;
@@ -8,6 +10,8 @@ use mvutils::version::Version;
 use parking_lot::RwLock;
 use std::io::stdout;
 use std::sync::Arc;
+use include_dir::include_dir;
+use mvengine::rendering::loading::obj::OBJModelLoader;
 
 pub fn main() -> Result<(), Error> {
     mvengine::panic::setup_logger(stdout(), LevelFilter::Trace, 1000);
@@ -38,13 +42,24 @@ impl Application {
 
 impl WindowCallbacks for Application {
     fn post_init(&mut self, window: &mut Window) {
-        let renderer = Renderer::new(window, RendererCreateInfo {
-            app_name: "Hello Vulkan".to_string(),
-            version: Default::default(),
-            flags: RendererCreateInfoFlags::VSYNC,
-            flavor: RendererFlavor::FLAVOR_3D,
-            frames_in_flight: 2,
-        });
+        // let mut renderer = Renderer::new(
+        //     window,
+        //     RendererCreateInfo {
+        //         app_name: "Hello Vulkan".to_string(),
+        //         version: Default::default(),
+        //         flags: RendererCreateInfoFlags::VSYNC,
+        //         flavor: RendererFlavor::FLAVOR_3D,
+        //         frames_in_flight: 2,
+        //     },
+        // );
+
+        let mut renderer = Renderer::new_unimplemented();
+
+        let mut obj_loader = OBJModelLoader::new(include_dir!("./tests/testmodel"));
+        let scene = obj_loader.load_scene("cubes", &mut renderer).unwrap();
+        println!("Loaded scene: {scene:?}");
+
+
         self.renderer.create(|| renderer);
         panic!("Oh no!");
     }

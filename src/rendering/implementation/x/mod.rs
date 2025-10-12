@@ -1,4 +1,3 @@
-use gpu_alloc::UsageFlags;
 use crate::rendering::api::{RendererCreateInfo, RendererFlavor, ShaderFlavor};
 use crate::rendering::backend::buffer::MemoryProperties;
 use crate::rendering::backend::image::{Image, ImageUsage, MVImageCreateInfo};
@@ -9,6 +8,7 @@ use crate::rendering::implementation::x::core::XRendererCore;
 use crate::rendering::implementation::x::x2d::XRenderer2DAddon;
 use crate::rendering::implementation::x::x3d::XRenderer3DAddon;
 use crate::window::Window;
+use gpu_alloc::UsageFlags;
 
 pub mod core;
 pub mod x2d;
@@ -38,11 +38,7 @@ impl XRenderer {
             None
         };
 
-        Some(Self {
-            core,
-            x2d,
-            x3d,
-        })
+        Some(Self { core, x2d, x3d })
     }
 
     pub fn draw(&mut self) {
@@ -90,7 +86,8 @@ impl XRenderer {
         usage: ImageUsage,
         memory_usage_flags: UsageFlags,
     ) -> Image {
-        self.core.load_texture(name, data, memory_properties, usage, memory_usage_flags)
+        self.core
+            .load_texture(name, data, memory_properties, usage, memory_usage_flags)
     }
 
     pub fn create_texture_manually(&self, create_info: MVImageCreateInfo) -> Image {

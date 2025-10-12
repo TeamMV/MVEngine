@@ -17,9 +17,7 @@ pub fn os_file_view(file: impl AsRef<Path>) -> io::Result<()> {
 
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
-            .arg(path)
-            .spawn()?;
+        Command::new("open").arg(path).spawn()?;
     }
 
     #[cfg(target_os = "linux")]
