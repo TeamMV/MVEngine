@@ -5,6 +5,7 @@ use crate::rendering::backend::buffer::MemoryProperties;
 use crate::rendering::backend::image::{ImageUsage, MVImageCreateInfo};
 use crate::rendering::implementation::scene::Scene;
 use crate::rendering::implementation::scene::material::Material;
+use crate::rendering::implementation::scene::mesh::{Mesh, MeshVertex};
 use crate::rendering::implementation::scene::model::{SceneModel, StandaloneModel};
 use crate::rendering::loading::ModelLoadingError;
 use crate::rendering::loading::obj::token::{Command, Token, Tokenizer};
@@ -12,11 +13,10 @@ use crate::utils::hashable::{Float, Vec2, Vec3, Vec4};
 use gpu_alloc::UsageFlags;
 use hashbrown::{HashMap, HashSet};
 use include_dir::{Dir, File};
+use log::info;
 use mvutils::into_peek::{IntoPeekable, NewIntoPeekable};
 use std::path::Path;
 use std::sync::Arc;
-use log::info;
-use crate::rendering::implementation::scene::mesh::{Mesh, MeshVertex};
 
 type Tokens<'a> = IntoPeekable<Tokenizer<'a>, Token>;
 
@@ -109,7 +109,12 @@ impl<'a> OBJModelLoader<'a> {
                             if let Token::Command(_) = peek {
                                 break;
                             }
-                            face_verts.push(Self::parse_face_part(&mut tokens, &positions, &texcoords, &normals)?);
+                            face_verts.push(Self::parse_face_part(
+                                &mut tokens,
+                                &positions,
+                                &texcoords,
+                                &normals,
+                            )?);
                         }
 
                         used_materials.insert(used_material);
@@ -124,9 +129,24 @@ impl<'a> OBJModelLoader<'a> {
                                 let (p3, t3, n3) = face_verts[i + 1];
 
                                 vertices.extend_from_slice(&[
-                                    MeshVertex { position: p1, uv: t1, normal: n1, material_id: used_material },
-                                    MeshVertex { position: p2, uv: t2, normal: n2, material_id: used_material },
-                                    MeshVertex { position: p3, uv: t3, normal: n3, material_id: used_material },
+                                    MeshVertex {
+                                        position: p1,
+                                        uv: t1,
+                                        normal: n1,
+                                        material_id: used_material,
+                                    },
+                                    MeshVertex {
+                                        position: p2,
+                                        uv: t2,
+                                        normal: n2,
+                                        material_id: used_material,
+                                    },
+                                    MeshVertex {
+                                        position: p3,
+                                        uv: t3,
+                                        normal: n3,
+                                        material_id: used_material,
+                                    },
                                 ]);
 
                                 indices.extend_from_slice(&[
@@ -165,10 +185,7 @@ impl<'a> OBJModelLoader<'a> {
             }
 
             if !vertices.is_empty() {
-                let mesh = Mesh {
-                    vertices,
-                    indices,
-                };
+                let mesh = Mesh { vertices, indices };
                 let model = SceneModel {
                     name: current_obj_name,
                     mesh: Arc::new(mesh),
@@ -182,10 +199,14 @@ impl<'a> OBJModelLoader<'a> {
             if let Some(scene) = self.current_scene.take() {
                 Ok(scene)
             } else {
-                Err(ModelLoadingError::IllegalContent("The OBJModelLoader was unable to build a scene from the files!".to_string()))
+                Err(ModelLoadingError::IllegalContent(
+                    "The OBJModelLoader was unable to build a scene from the files!".to_string(),
+                ))
             }
         } else {
-            Err(ModelLoadingError::IllegalContent("Non UTF8 obj file!".to_string()))
+            Err(ModelLoadingError::IllegalContent(
+                "Non UTF8 obj file!".to_string(),
+            ))
         }
     }
 
@@ -345,23 +366,26 @@ impl<'a> OBJModelLoader<'a> {
         Ok(Vec4::new(*x, *y, *z, *w))
     }
 
-    fn parse_face_part(tokens: &mut Tokens, positions: &[Vec3], texcoords: &[Vec2], normals: &[Vec3])
-                       -> Result<(Vec3, Vec2, Vec3), ModelLoadingError>
-    {
+    fn parse_face_part(
+        tokens: &mut Tokens,
+        positions: &[Vec3],
+        texcoords: &[Vec2],
+        normals: &[Vec3],
+    ) -> Result<(Vec3, Vec2, Vec3), ModelLoadingError> {
         let idx_str = Self::parse_next_string(tokens)?;
         let parts: Vec<_> = idx_str.split('/').collect();
 
-        let vi = parts.get(0)
+        let vi = parts
+            .get(0)
             .and_then(|s| s.parse::<i32>().ok())
             .ok_or_else(|| ModelLoadingError::IllegalContent("Missing vertex index".into()))?;
 
         let vti = parts.get(1).and_then(|s| s.parse::<i32>().ok());
         let vni = parts.get(2).and_then(|s| s.parse::<i32>().ok());
 
-        let pos = positions
-            .get((vi - 1) as usize)
-            .copied()
-            .ok_or_else(|| ModelLoadingError::IllegalContent(format!("Invalid vertex index {vi}")))?;
+        let pos = positions.get((vi - 1) as usize).copied().ok_or_else(|| {
+            ModelLoadingError::IllegalContent(format!("Invalid vertex index {vi}"))
+        })?;
 
         let tex = vti
             .and_then(|i| texcoords.get((i - 1) as usize).copied())

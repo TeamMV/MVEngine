@@ -1444,6 +1444,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "mvengine-proc-macro",
+ "mvengine-ui-parsing",
  "mvlogger",
  "mvutils",
  "native-dialog",

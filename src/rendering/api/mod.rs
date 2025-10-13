@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Formatter};
 use crate::rendering::backend::buffer::MemoryProperties;
 use crate::rendering::backend::image::{Image, ImageUsage, MVImageCreateInfo};
 use crate::rendering::backend::shader::Shader;
@@ -8,6 +7,7 @@ use crate::window::Window;
 use bitflags::bitflags;
 use gpu_alloc::UsageFlags;
 use mvutils::version::Version;
+use std::fmt::{Debug, Formatter};
 
 pub mod err;
 
@@ -76,7 +76,7 @@ impl Renderer {
             Some(xr) => Renderer::X(xr),
         }
     }
-    
+
     ///THIS IS JUST FOR ME TO TEST SHIT
     pub fn new_unimplemented() -> Self {
         Self::L()

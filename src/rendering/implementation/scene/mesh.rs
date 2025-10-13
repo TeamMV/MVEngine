@@ -1,5 +1,5 @@
-use crate::utils::hashable::{Vec2, Vec3};
 use crate::rendering::implementation::scene::material::Material;
+use crate::utils::hashable::{Vec2, Vec3};
 
 #[derive(Clone, Debug)]
 pub struct MeshVertex {

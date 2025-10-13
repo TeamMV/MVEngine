@@ -27,29 +27,57 @@ impl Token {
 #[derive(Debug, Clone, PartialEq, Eq, TryFromString)]
 pub(super) enum Command {
     // ---------- .obj ----------
-    #[casing(Lower)] O,       // o <object name>
-    #[casing(Lower)] G,       // g <group name>
-    #[casing(Lower)] V,       // v x y z
-    #[casing(Lower)] VT,      // vt u v [w]
-    #[casing(Lower)] VN,      // vn x y z
-    #[casing(Lower)] F,       // f v1[/vt1/vn1] ...
-    #[casing(Lower)] Usemtl,  // usemtl <name>
-    #[casing(Lower)] Mtllib,  // mtllib <file>
-    #[casing(Lower)] S,       // s <group smoothing>
+    #[casing(Lower)]
+    O, // o <object name>
+    #[casing(Lower)]
+    G, // g <group name>
+    #[casing(Lower)]
+    V, // v x y z
+    #[casing(Lower)]
+    VT, // vt u v [w]
+    #[casing(Lower)]
+    VN, // vn x y z
+    #[casing(Lower)]
+    F, // f v1[/vt1/vn1] ...
+    #[casing(Lower)]
+    Usemtl, // usemtl <name>
+    #[casing(Lower)]
+    Mtllib, // mtllib <file>
+    #[casing(Lower)]
+    S, // s <group smoothing>
 
     // ---------- .mtl ----------
-    #[pattern("(?i)^newmtl$")] Newmtl, // newmtl <name>
-    #[pattern("(?i)^ka$")] Ka, #[pattern("(?i)^kd$")] Kd, #[pattern("(?i)^ks$")] Ks,
-    #[pattern("(?i)^ke$")] Ke, #[pattern("(?i)^ns$")] Ns, #[pattern("(?i)^ni$")] Ni,
-    #[pattern("(?i)^d$")] D, #[pattern("(?i)^tr$")] Tr, #[pattern("(?i)^illum$")] Illum,
+    #[pattern("(?i)^newmtl$")]
+    Newmtl, // newmtl <name>
+    #[pattern("(?i)^ka$")]
+    Ka,
+    #[pattern("(?i)^kd$")]
+    Kd,
+    #[pattern("(?i)^ks$")]
+    Ks,
+    #[pattern("(?i)^ke$")]
+    Ke,
+    #[pattern("(?i)^ns$")]
+    Ns,
+    #[pattern("(?i)^ni$")]
+    Ni,
+    #[pattern("(?i)^d$")]
+    D,
+    #[pattern("(?i)^tr$")]
+    Tr,
+    #[pattern("(?i)^illum$")]
+    Illum,
 
     // ---------- texture maps ----------
-    #[pattern("(?i)^map_?ka$")] MapKa,
-    #[pattern("(?i)^map_?kd$")] MapKd,
-    #[pattern("(?i)^map_?ks$")] MapKs,
-    #[pattern("(?i)^(map_?bump|bump)$")] MapBump,
+    #[pattern("(?i)^map_?ka$")]
+    MapKa,
+    #[pattern("(?i)^map_?kd$")]
+    MapKd,
+    #[pattern("(?i)^map_?ks$")]
+    MapKs,
+    #[pattern("(?i)^(map_?bump|bump)$")]
+    MapBump,
 }
-
 
 pub(super) struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,

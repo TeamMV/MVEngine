@@ -3,6 +3,7 @@ use quote::quote;
 
 mod cached_hash;
 mod ecs;
+mod from_json;
 mod graphics_item;
 mod listener;
 mod msfx_function;
@@ -76,4 +77,9 @@ pub fn graphics_item(attrib: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn chash(_: TokenStream, input: TokenStream) -> TokenStream {
     cached_hash::cached_hash(input)
+}
+
+#[proc_macro_derive(FromJson)]
+pub fn from_json(input: TokenStream) -> TokenStream {
+    from_json::from_json(input)
 }
