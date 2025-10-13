@@ -103,21 +103,39 @@ impl<'a> OBJModelLoader<'a> {
                         normals.push(Self::parse_vec3(&mut tokens)?);
                     }
                     Command::F => {
-                        let (p1, t1, n1) = Self::parse_face_part(&mut tokens, &positions, &texcoords, &normals)?;
-                        let (p2, t2, n2) = Self::parse_face_part(&mut tokens, &positions, &texcoords, &normals)?;
-                        let (p3, t3, n3) = Self::parse_face_part(&mut tokens, &positions, &texcoords, &normals)?;
+                        let mut face_verts = Vec::new();
 
-                        let base = vertices.len() as u32;
+                        while let Some(peek) = tokens.peek() {
+                            if let Token::Command(_) = peek {
+                                break;
+                            }
+                            face_verts.push(Self::parse_face_part(&mut tokens, &positions, &texcoords, &normals)?);
+                        }
 
                         used_materials.insert(used_material);
 
-                        vertices.extend_from_slice(&[
-                            MeshVertex { position: p1, uv: t1, normal: n1, material_id: used_material },
-                            MeshVertex { position: p2, uv: t2, normal: n2, material_id: used_material },
-                            MeshVertex { position: p3, uv: t3, normal: n3, material_id: used_material },
-                        ]);
+                        // Triangulate (fan method)
+                        if face_verts.len() >= 3 {
+                            let base = vertices.len() as u32;
 
-                        indices.extend_from_slice(&[base, base + 1, base + 2]);
+                            for i in 1..face_verts.len() - 1 {
+                                let (p1, t1, n1) = face_verts[0];
+                                let (p2, t2, n2) = face_verts[i];
+                                let (p3, t3, n3) = face_verts[i + 1];
+
+                                vertices.extend_from_slice(&[
+                                    MeshVertex { position: p1, uv: t1, normal: n1, material_id: used_material },
+                                    MeshVertex { position: p2, uv: t2, normal: n2, material_id: used_material },
+                                    MeshVertex { position: p3, uv: t3, normal: n3, material_id: used_material },
+                                ]);
+
+                                indices.extend_from_slice(&[
+                                    base + (i as u32 * 3),
+                                    base + (i as u32 * 3 + 1),
+                                    base + (i as u32 * 3 + 2),
+                                ]);
+                            }
+                        }
                     }
                     Command::S => {
                         let group = Self::parse_next_string(&mut tokens)?;
@@ -127,6 +145,8 @@ impl<'a> OBJModelLoader<'a> {
                         let name = Self::parse_next_string(&mut tokens)?;
                         if let Some(idx) = self.material_map.get(&name) {
                             used_material = *idx as u8;
+                        } else {
+                            println!("mat map not found: {:?}, query: {name}", self.material_map);
                         }
                     }
                     Command::Mtllib => {
@@ -258,7 +278,9 @@ impl<'a> OBJModelLoader<'a> {
 
         // push the last material
         if let Some(mat) = current_mat.take() {
+            let id = mats.len();
             mats.push(mat);
+            self.material_map.insert(current_mat_name, id as u32);
         }
 
         Ok(mats)

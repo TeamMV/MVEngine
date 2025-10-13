@@ -171,7 +171,13 @@ impl<'a> Iterator for Tokenizer<'a> {
 
         // ---- Numbers ----
         if c.is_ascii_digit() || c == '-' || c == '+' {
-            let num_str = self.read_number(c);
+            let mut num_str = self.read_number(c);
+            while let Some('/') = self.source.peek() {
+                self.source.next();
+                let next = self.source.next()?;
+                let num = self.read_number(next);
+                num_str = format!("{num_str}/{num}");
+            }
             if let Ok(f) = num_str.parse::<f32>() {
                 return Some(Token::FloatLit(f));
             }
