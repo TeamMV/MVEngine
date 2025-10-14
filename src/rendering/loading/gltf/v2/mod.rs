@@ -6,6 +6,8 @@ use crate::rendering::loading::gltf::{ChunkType, GLTFChunk, GLTFHeader};
 use bytebuffer::ByteBuffer;
 use mvengine_ui_parsing::json::{JsonIdentFlavor, parse_json};
 use mvutils::save::Savable;
+use mvengine_ui_parsing::json::from_json::FromJsonTrait;
+use crate::rendering::loading::gltf::v2::bin::GLTFFile;
 
 pub fn load_scenes(
     header: GLTFHeader,
@@ -28,6 +30,10 @@ pub fn load_scenes(
         .map_err(|e| ModelLoadingError::IllegalContent(e.to_string()))?;
     let json = parse_json(raw_json, JsonIdentFlavor::Identifiers)
         .map_err(|e| ModelLoadingError::IllegalContent(e))?;
+
+    let gltf = GLTFFile::from_json(&json)
+        .map_err(ModelLoadingError::IllegalJson)?;
+
 }
 
 fn load_chunk(loader: &mut ByteBuffer) -> Result<GLTFChunk, ModelLoadingError> {

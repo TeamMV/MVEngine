@@ -1,3 +1,5 @@
+use mvengine_ui_parsing::json::from_json::FromJsonError;
+
 pub mod gltf;
 pub mod obj;
 
@@ -7,4 +9,5 @@ pub enum ModelLoadingError {
     IllegalContent(String),
     FailedToFetch(String),
     UnexpectedEndOfFile,
+    IllegalJson(FromJsonError)
 }

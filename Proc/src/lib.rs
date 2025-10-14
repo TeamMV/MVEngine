@@ -79,7 +79,7 @@ pub fn chash(_: TokenStream, input: TokenStream) -> TokenStream {
     cached_hash::cached_hash(input)
 }
 
-#[proc_macro_derive(FromJson)]
+#[proc_macro_derive(FromJson, attributes(default_value))]
 pub fn from_json(input: TokenStream) -> TokenStream {
     from_json::from_json(input)
 }

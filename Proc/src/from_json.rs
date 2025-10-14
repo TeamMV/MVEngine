@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, ItemStruct, Type};
+use syn::{parse_macro_input, ItemStruct, Meta, PathArguments, Type};
 
 pub fn from_json(input: TokenStream) -> TokenStream {
     let struct_item = parse_macro_input!(input as ItemStruct);
@@ -13,10 +13,25 @@ pub fn from_json(input: TokenStream) -> TokenStream {
         if let Some(field_ident) = field.ident {
             let field_name_str = field_ident.to_string();
             let ty = field.ty.clone();
+            let uses_default = field.attrs
+                .iter()
+                .filter_map(|attr| {
+                    if attr.path().is_ident("default_value") {
+                        match &attr.meta {
+                            Meta::List(meta_list) => {
+                                let tokens = meta_list.tokens.clone();
+                                Some(tokens)
+                            }
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .next();
 
 
             let is_option = match &field.ty {
-                //todo: check this chatgpt code to see if options work
                 Type::Path(type_path) => {
                     type_path
                         .path
@@ -51,18 +66,28 @@ pub fn from_json(input: TokenStream) -> TokenStream {
 
                 field_init_ts.extend(quote! {
                     let #field_ident = if let Some(value) = obj.get(#field_name_str) {
-                        Some(#inner_ty::from_json(value)?)
+                        Some(<#inner_ty as FromJsonTrait>::from_json(value)?)
                     } else {
                         None
                     };
                 });
             } else {
-                field_init_ts.extend(quote! {
+                if let Some(def) = uses_default {
+                    field_init_ts.extend(quote! {
+                        let #field_ident = if let Some(value) = obj.get(#field_name_str) {
+                            <#ty as FromJsonTrait>::from_json(value)?
+                        } else {
+                            #def
+                        };
+                    });
+                } else {
+                    field_init_ts.extend(quote! {
                     let #field_ident = obj
                         .get(#field_name_str)
                         .ok_or(FromJsonError::NoSuchField(#field_name_str.to_string()))?;
-                    let #field_ident = #ty::from_json(#field_ident)?;
+                    let #field_ident = <#ty as FromJsonTrait>::from_json(#field_ident)?;
                 });
+                }
             }
 
             self_init_ts.extend(quote! {
