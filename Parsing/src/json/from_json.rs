@@ -27,7 +27,7 @@ impl FromJsonTrait for String {
     where
         Self: Sized,
     {
-        eic(json.as_str().map(ToString::to_string))
+        eic(json.as_string())
     }
 }
 

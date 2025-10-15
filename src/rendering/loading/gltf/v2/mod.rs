@@ -1,3 +1,4 @@
+mod json;
 mod bin;
 
 use crate::rendering::implementation::scene::Scene;
@@ -7,7 +8,7 @@ use bytebuffer::ByteBuffer;
 use mvengine_ui_parsing::json::{JsonIdentFlavor, parse_json};
 use mvutils::save::Savable;
 use mvengine_ui_parsing::json::from_json::FromJsonTrait;
-use crate::rendering::loading::gltf::v2::bin::GLTFFile;
+use crate::rendering::loading::gltf::v2::json::GLTFFile;
 
 pub fn load_scenes(
     header: GLTFHeader,
@@ -33,6 +34,7 @@ pub fn load_scenes(
 
     let gltf = GLTFFile::from_json(&json)
         .map_err(ModelLoadingError::IllegalJson)?;
+
 
 }
 

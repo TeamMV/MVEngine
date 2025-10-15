@@ -1,17 +1,24 @@
 use proc_macro::TokenStream;
+use proc_macro2::Ident;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, ItemStruct, Meta, PathArguments, Type};
+use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Item, ItemStruct, Meta, PathArguments, Type};
 
 pub fn from_json(input: TokenStream) -> TokenStream {
-    let struct_item = parse_macro_input!(input as ItemStruct);
+    let item = parse_macro_input!(input as DeriveInput);
 
-    let ident = struct_item.ident;
+    match item.data {
+        Data::Struct(struct_item) => from_json_struct(struct_item, item.ident),
+        Data::Enum(enum_item) => from_json_enum(enum_item, item.ident),
+        _ => panic!("FromJson can only be derived for structs and enums")
+    }
+}
 
+fn from_json_struct(struct_item: DataStruct, ident: Ident) -> TokenStream {
     let mut field_init_ts = quote! {};
     let mut self_init_ts = quote! {};
     for field in struct_item.fields {
         if let Some(field_ident) = field.ident {
-            let field_name_str = field_ident.to_string();
+            let mut field_name_str = field_ident.to_string();
             let ty = field.ty.clone();
             let uses_default = field.attrs
                 .iter()
@@ -29,6 +36,20 @@ pub fn from_json(input: TokenStream) -> TokenStream {
                     }
                 })
                 .next();
+
+            for attr in &field.attrs {
+                if attr.path().is_ident("jsonkey") {
+                    match &attr.meta {
+                        Meta::List(meta_list) => {
+                            let tokens = meta_list.tokens.clone();
+                            let lit: syn::LitStr = syn::parse2(tokens)
+                                .expect("Invalid #[jsonkey(...)] syntax: expected string literal");
+                            field_name_str = lit.value();
+                        }
+                        _ => panic!("Invalid #[jsonkey] syntax — expected #[jsonkey(\"keyname\")]"),
+                    }
+                }
+            }
 
 
             let is_option = match &field.ty {
@@ -109,6 +130,50 @@ pub fn from_json(input: TokenStream) -> TokenStream {
             }
         }
     };
+
+    ts.into()
+}
+
+fn from_json_enum(enum_item: DataEnum, ident: Ident) -> TokenStream {
+    let mut arms = quote! {};
+
+    for var in enum_item.variants {
+        let var_ident = var.ident;
+        let mut field_name_str = var_ident.to_string();
+
+        for attr in &var.attrs {
+            if attr.path().is_ident("jsonkey") {
+                match &attr.meta {
+                    Meta::List(meta_list) => {
+                        let tokens = meta_list.tokens.clone();
+                        let lit: syn::LitStr = syn::parse2(tokens)
+                            .expect("Invalid #[jsonkey(...)] syntax: expected string literal");
+                        field_name_str = lit.value();
+                    }
+                    _ => panic!("Invalid #[jsonkey] syntax — expected #[jsonkey(\"keyname\")]"),
+                }
+            }
+        }
+
+        arms.extend(quote! {
+            #field_name_str => Ok(#ident::#var_ident),
+        });
+    }
+
+    let ts = quote! {
+            impl FromJsonTrait for #ident {
+                fn from_json(json: &JsonElement) -> Result<Self, FromJsonError>
+                where
+                    Self: Sized
+                {
+                    let s = Self::illegal_conversion(json.as_string())?;
+                    match s.as_str() {
+                        #arms
+                        _ => Err(FromJsonError::NoSuchField(s.to_string()))
+                    }
+                }
+            }
+        };
 
     ts.into()
 }

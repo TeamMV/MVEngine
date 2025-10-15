@@ -11,9 +11,12 @@ pub enum JsonElement {
 }
 
 impl JsonElement {
-    pub fn as_str(&self) -> Option<&str> {
+    pub fn as_string(&self) -> Option<String> {
         match self {
-            JsonElement::Str(s) => Some(s),
+            JsonElement::Str(s) => Some(s.to_string()),
+            JsonElement::Bool(b) => Some(b.to_string()),
+            JsonElement::Number(JsonNumber::Int(i)) => Some(i.to_string()),
+            JsonElement::Number(JsonNumber::Float(f)) => Some(f.to_string()),
             _ => None,
         }
     }
@@ -107,8 +110,8 @@ impl JsonObject {
         self.map.get(key)
     }
 
-    pub fn get_string(&self, key: &str) -> Option<&str> {
-        self.get(key)?.as_str()
+    pub fn get_string(&self, key: &str) -> Option<String> {
+        self.get(key)?.as_string()
     }
 
     pub fn get_int(&self, key: &str) -> Option<i32> {
@@ -170,8 +173,8 @@ impl JsonArray {
         self.vec.get(index)
     }
 
-    pub fn get_string(&self, index: usize) -> Option<&str> {
-        self.get(index)?.as_str()
+    pub fn get_string(&self, index: usize) -> Option<String> {
+        self.get(index)?.as_string()
     }
 
     pub fn get_int(&self, index: usize) -> Option<i32> {
