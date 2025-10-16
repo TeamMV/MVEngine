@@ -76,8 +76,7 @@ pub struct GLTFBufferView {
 
 #[derive(FromJson)]
 pub struct GLTFBuffer {
-    #[default_value(String::new())]
-    pub uri: String,
+    pub uri: Option<String>,
     pub byteLength: u32,
 }
 

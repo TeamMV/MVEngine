@@ -1,7 +1,7 @@
 use crate::rendering::loading::gltf::v2::json::{GLTFAccessor, GLTFAccessorType, GLTFComponentType};
 
 pub struct Buffer<'a> {
-    slice: &'a [u8]
+    pub(crate) slice: &'a [u8]
 }
 
 pub struct BufferView<'a> {

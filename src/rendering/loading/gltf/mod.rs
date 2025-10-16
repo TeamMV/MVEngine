@@ -66,8 +66,8 @@ impl Savable for ChunkType {
 }
 
 struct GLTFChunk {
-    chunk_type: ChunkType,
-    content: Vec<u8>,
+    pub(crate) chunk_type: ChunkType,
+    pub(crate) content: Vec<u8>,
 }
 
 impl Savable for GLTFChunk {
